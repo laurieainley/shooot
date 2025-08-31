@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react'
+import React, { useState } from 'react'
 import { useAppState } from '../state'
 import type { Goal } from '../types'
 

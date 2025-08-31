@@ -14,7 +14,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ['@ffmpeg/ffmpeg']
+    exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/core', '@ffmpeg/core-mt', '@ffmpeg/util']
   },
   build: {
     // Production optimizations
@@ -30,7 +30,8 @@ export default defineConfig({
           video: ['video.js', 'videojs-hotkeys'],
           state: ['zustand']
         }
-      }
+      },
+      external: ['@ffmpeg/core', '@ffmpeg/core-mt']
     }
   }
 })
