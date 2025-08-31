@@ -1,0 +1,97 @@
+#root {
+  max-width: 1920px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: left;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+/* Responsive layout styles */
+.layout-container {
+  margin-top: 12px;
+  display: flex;
+  gap: 16px;
+  min-height: 80vh;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.main-content {
+  /* Mobile - player takes natural height */
+  width: 100%;
+  min-height: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar {
+  /* Mobile - full width sidebar below */
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Desktop layout - side by side */
+@media (min-width: 768px) {
+  .layout-container {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .main-content {
+    /* Desktop - player takes 4/5 width and 80% height */
+    flex: 4;
+    width: auto;
+    min-height: 80vh;
+    max-height: 80vh;
+  }
+
+  .sidebar {
+    /* Desktop - sidebar takes 1/5 width */
+    flex: 1;
+    width: auto;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding-left: 8px;
+    min-width: 300px;
+  }
+}
