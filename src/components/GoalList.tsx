@@ -5,6 +5,7 @@ export function GoalList() {
     const goals = useAppState((s) => s.goals)
     const remove = useAppState((s) => s.removeGoal)
     const update = useAppState((s) => s.updateGoal)
+    const sortGoals = useAppState((s) => s.sortGoals)
 
     if (goals.length === 0) return <p>No goals yet.</p>
 
@@ -16,7 +17,11 @@ export function GoalList() {
                     <li key={g.id}>
                         <TimeInput
                             valueSec={g.matchTimeSec}
-                            onCommit={(t) => update(g.id, { matchTimeSec: t })}
+                            onCommit={(t) => {
+                                update(g.id, { matchTimeSec: t })
+                                // Sort goals after timestamp update
+                                setTimeout(() => sortGoals(), 0)
+                            }}
                         />
                         <span style={{ marginLeft: 6 }}>Video {((g.sourceFileIndex ?? 0) + 1)}</span>
                         <input placeholder="Team" value={g.team ?? ''} onChange={(e) => update(g.id, { team: e.target.value })} style={{ marginLeft: 6 }} />

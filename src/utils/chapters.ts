@@ -1,6 +1,6 @@
 import type { Goal } from '../types'
 
-export function generateYouTubeChapters(goals: Goal[], cumulativeOffsets: number[] = []): string {
+export function generateYouTubeChapters(goals: Goal[], cumulativeOffsets: number[] = [], matchStartTimeSec: number = 0): string {
     const sorted = [...goals].sort((a, b) => {
         const aAbs = (cumulativeOffsets[a.sourceFileIndex ?? 0] || 0) + a.matchTimeSec
         const bAbs = (cumulativeOffsets[b.sourceFileIndex ?? 0] || 0) + b.matchTimeSec
@@ -34,7 +34,7 @@ export function generateYouTubeChapters(goals: Goal[], cumulativeOffsets: number
             } else {
                 return `${finalScores[team]} ${team}`
             }
-        }).join(' - ')
+        }).join('-')
 
         lines.push(scoreDisplay)
         lines.push('') // Empty line
@@ -50,9 +50,10 @@ export function generateYouTubeChapters(goals: Goal[], cumulativeOffsets: number
         }
 
         const abs = (cumulativeOffsets[g.sourceFileIndex ?? 0] || 0) + g.matchTimeSec
-        const stamp = secondsToStamp(Math.max(0, Math.floor(abs - 10)))
+        const adjustedTime = abs - matchStartTimeSec
+        const stamp = secondsToStamp(Math.max(0, Math.floor(adjustedTime - 10)))
 
-        let label = 'GOAL'
+        let label = 'Goal'
 
         // Add score if we have teams 
         if (allTeams.length > 0) {
@@ -70,6 +71,79 @@ export function generateYouTubeChapters(goals: Goal[], cumulativeOffsets: number
 
         lines.push(`${stamp} ${label}`)
     }
+    return lines.join('\n')
+}
+
+export function generateHighlightChapters(goals: Goal[], cumulativeOffsets: number[] = []): string {
+    if (goals.length === 0) return '00:00 Start'
+
+    // Sort goals by time
+    const sorted = [...goals].sort((a, b) => {
+        const aAbs = (cumulativeOffsets[a.sourceFileIndex ?? 0] || 0) + a.matchTimeSec
+        const bAbs = (cumulativeOffsets[b.sourceFileIndex ?? 0] || 0) + b.matchTimeSec
+        return aAbs - bAbs
+    })
+
+    // Get all unique teams that appear in any goal (to ensure we show all teams in score)
+    const allTeams = Array.from(new Set(goals.filter(g => g.team).map(g => g.team!))).sort()
+
+    // Calculate team scores (same logic as full video chapters)
+    const teamScores: Record<string, number> = {}
+
+    const lines: string[] = []
+
+    // Add final score at the top if we have teams (same as full video chapters)
+    if (allTeams.length > 0) {
+        // Calculate final scores by counting all goals for each team
+        const finalScores: Record<string, number> = {}
+        allTeams.forEach(team => {
+            finalScores[team] = goals.filter(g => g.team === team).length
+        })
+
+        // Format as "Team 1 X - Y Team 2"
+        const scoreDisplay = allTeams.map((team, index) => {
+            if (index === 0) {
+                return `${team} ${finalScores[team]}`
+            } else {
+                return `${finalScores[team]} ${team}`
+            }
+        }).join('-')
+
+        lines.push(scoreDisplay)
+        lines.push('') // Empty line
+        lines.push('') // Second empty line
+    }
+
+    // Simple timing: each goal gets 14 seconds + 1 second buffer = 15 seconds per goal
+    for (let i = 0; i < sorted.length; i++) {
+        const goal = sorted[i]
+        const timestamp = i * 15 // 14 seconds per segment + 1 second buffer
+        const stamp = secondsToStamp(timestamp)
+
+        // Update the score for this goal's team
+        if (goal.team) {
+            teamScores[goal.team] = (teamScores[goal.team] || 0) + 1
+        }
+
+        let label = 'Goal'
+
+        // Add score if we have teams (same format as full video)
+        if (allTeams.length > 0) {
+            const scoreString = allTeams.map(team => teamScores[team as string] || 0).join('-')
+            label += ` ${scoreString}`
+        }
+
+        // Add team and scorer
+        if (goal.team) {
+            label += ` (${goal.team})`
+        }
+        if (goal.scorer) {
+            label += ` ${goal.scorer}`
+        }
+
+        lines.push(`${stamp} ${label}`)
+    }
+
     return lines.join('\n')
 }
 

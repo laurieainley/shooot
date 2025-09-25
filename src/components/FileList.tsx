@@ -3,6 +3,7 @@ import { useAppState } from '../state'
 export function FileList() {
     const files = useAppState((s) => s.files)
     const setFiles = useAppState((s) => s.setFiles)
+    const removeFile = useAppState((s) => s.removeFile)
 
     const move = (from: number, to: number) => {
         if (to < 0 || to >= files.length) return
@@ -23,6 +24,7 @@ export function FileList() {
                         {f.name} {f.durationSec ? `(${formatMSS(f.durationSec)})` : ''}
                         <button onClick={() => move(i, i - 1)} disabled={i === 0} style={{ marginLeft: 8 }}>↑</button>
                         <button onClick={() => move(i, i + 1)} disabled={i === files.length - 1} style={{ marginLeft: 4 }}>↓</button>
+                        <button onClick={() => removeFile(i)} style={{ marginLeft: 8, color: 'red' }}>×</button>
                     </li>
                 ))}
             </ol>
