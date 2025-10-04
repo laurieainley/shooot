@@ -6,15 +6,16 @@ export function GoalList() {
     const remove = useAppState((s) => s.removeGoal)
     const update = useAppState((s) => s.updateGoal)
     const sortGoals = useAppState((s) => s.sortGoals)
+    const seekToGoal = useAppState((s) => s.seekToGoal)
 
     if (goals.length === 0) return <p>No goals yet.</p>
 
     return (
         <div>
             <h3>Goals</h3>
-            <ul>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                 {goals.map((g) => (
-                    <li key={g.id}>
+                    <li key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 3, marginBottom: 3, fontSize: '0.9em' }}>
                         <TimeInput
                             valueSec={g.matchTimeSec}
                             onCommit={(t) => {
@@ -23,10 +24,33 @@ export function GoalList() {
                                 setTimeout(() => sortGoals(), 0)
                             }}
                         />
-                        <span style={{ marginLeft: 6 }}>Video {((g.sourceFileIndex ?? 0) + 1)}</span>
-                        <input placeholder="Team" value={g.team ?? ''} onChange={(e) => update(g.id, { team: e.target.value })} style={{ marginLeft: 6 }} />
-                        <input placeholder="Scorer" value={g.scorer ?? ''} onChange={(e) => update(g.id, { scorer: e.target.value })} style={{ marginLeft: 6 }} />
-                        <button onClick={() => remove(g.id)} style={{ marginLeft: 8 }}>Delete</button>
+                        <span style={{ minWidth: '45px', fontSize: '0.85em' }}>V{((g.sourceFileIndex ?? 0) + 1)}</span>
+                        <input
+                            placeholder="Team"
+                            value={g.team ?? ''}
+                            onChange={(e) => update(g.id, { team: e.target.value })}
+                            style={{ width: 60, fontSize: '0.8em', padding: '2px 4px' }}
+                        />
+                        <input
+                            placeholder="Player"
+                            value={g.scorer ?? ''}
+                            onChange={(e) => update(g.id, { scorer: e.target.value })}
+                            style={{ width: 70, fontSize: '0.8em', padding: '2px 4px' }}
+                        />
+                        <button
+                            onClick={() => seekToGoal(g.sourceFileIndex ?? 0, Math.max(0, g.matchTimeSec - 10))}
+                            style={{ padding: '2px 4px', minWidth: 'auto', fontSize: '0.8em' }}
+                            title="Watch goal (starts 10s before)"
+                        >
+                            ▶
+                        </button>
+                        <button
+                            onClick={() => remove(g.id)}
+                            style={{ padding: '2px 4px', minWidth: 'auto', color: 'red', fontSize: '0.8em' }}
+                            title="Delete goal"
+                        >
+                            ×
+                        </button>
                     </li>
                 ))}
             </ul>

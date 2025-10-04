@@ -10,6 +10,7 @@ import { FileList } from './components/FileList'
 import { BulkPaste } from './components/BulkPaste'
 import { ProjectIO } from './components/ProjectIO'
 import { RenderHighlights } from './components/RenderHighlights'
+import { PreviewControls } from './components/PreviewControls'
 
 function App() {
   return (
@@ -46,6 +47,8 @@ function App() {
           </div>
 
           <GoalList />
+
+          <PreviewControls />
 
           <ChaptersExport />
 

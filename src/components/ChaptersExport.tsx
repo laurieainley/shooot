@@ -47,10 +47,12 @@ export function ChaptersExport() {
     const onStampDownOffset = () => {
         if (matchStartTimeSec === 0) return // Nothing to stamp down
 
-        // Apply offset to all goal times and reset offset to 0
+        // Apply offset only to goals from video 1 (sourceFileIndex 0) and reset offset to 0
         const adjustedGoals = goals.map(goal => ({
             ...goal,
-            matchTimeSec: Math.max(0, goal.matchTimeSec - matchStartTimeSec)
+            matchTimeSec: (goal.sourceFileIndex ?? 0) === 0
+                ? Math.max(0, goal.matchTimeSec - matchStartTimeSec)
+                : goal.matchTimeSec
         }))
 
         setGoals(adjustedGoals)

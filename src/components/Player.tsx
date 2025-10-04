@@ -14,12 +14,17 @@ export function Player() {
     const addGoal = useAppState((s) => s.addGoal)
     const [currentTime, setCurrentTime] = useState(0)
     const setCurrentTimeInFile = useAppState((s) => s.setCurrentTimeInFile)
+    // Preview mode state
+    const isPreviewMode = useAppState((s) => s.isPreviewMode)
+    const previewSegments = useAppState((s) => s.previewSegments)
+    const currentPreviewSegment = useAppState((s) => s.currentPreviewSegment)
+    const nextPreviewSegment = useAppState((s) => s.nextPreviewSegment)
 
     useEffect(() => {
         if (!videoRef.current) return
         if (!playerRef.current) {
             playerRef.current = videojs(videoRef.current, {
-                controls: true,
+                controls: !isPreviewMode, // Disable controls during preview
                 autoplay: false,
                 preload: 'auto',
                 fluid: true,
@@ -162,11 +167,109 @@ export function Player() {
         }
     }, [files, currentFileIndex])
 
+    // Listen for seekToGoal events
+    useEffect(() => {
+        const handleSeekToGoal = (event: CustomEvent) => {
+            const { fileIndex, timeSec } = event.detail
+            if (playerRef.current && files.length > 0) {
+                // Switch to the correct video if needed
+                if (fileIndex !== currentFileIndex && fileIndex < files.length) {
+                    setCurrentFileIndex(fileIndex)
+                    // Wait for video to load, then seek
+                    setTimeout(() => {
+                        if (playerRef.current) {
+                            playerRef.current.currentTime(timeSec)
+                            playerRef.current.play()
+                        }
+                    }, 100)
+                } else if (fileIndex === currentFileIndex) {
+                    // Same video, just seek and play
+                    playerRef.current.currentTime(timeSec)
+                    playerRef.current.play()
+                }
+            }
+        }
+
+        window.addEventListener('seekToGoal', handleSeekToGoal as EventListener)
+        return () => {
+            window.removeEventListener('seekToGoal', handleSeekToGoal as EventListener)
+        }
+    }, [currentFileIndex, files, setCurrentFileIndex])
+
+    // Handle preview mode changes
+    useEffect(() => {
+        if (playerRef.current) {
+            if (isPreviewMode) {
+                // Disable controls during preview
+                playerRef.current.controls(false)
+                // Load and play current preview segment
+                if (previewSegments.length > 0 && currentPreviewSegment < previewSegments.length) {
+                    const segment = previewSegments[currentPreviewSegment]
+                    if (segment.sourceFileIndex !== currentFileIndex) {
+                        setCurrentFileIndex(segment.sourceFileIndex)
+                    }
+                    // Wait for video to load, then seek to segment start
+                    setTimeout(() => {
+                        if (playerRef.current) {
+                            playerRef.current.currentTime(segment.startTime)
+                            playerRef.current.play()
+                        }
+                    }, 100)
+                }
+            } else {
+                // Re-enable controls when exiting preview
+                playerRef.current.controls(true)
+            }
+        }
+    }, [isPreviewMode, currentPreviewSegment, previewSegments, currentFileIndex, setCurrentFileIndex])
+
+    // Handle segment end detection during preview
+    useEffect(() => {
+        if (!isPreviewMode || !playerRef.current || previewSegments.length === 0) return
+
+        const handleTimeUpdate = () => {
+            if (playerRef.current && currentPreviewSegment < previewSegments.length) {
+                const segment = previewSegments[currentPreviewSegment]
+                const currentTime = playerRef.current.currentTime()
+
+                // Check if we've reached the end of the current segment
+                if (currentTime >= segment.endTime) {
+                    // Move to next segment if available
+                    if (currentPreviewSegment < previewSegments.length - 1) {
+                        nextPreviewSegment()
+                    } else {
+                        // End of preview - pause
+                        playerRef.current.pause()
+                    }
+                }
+            }
+        }
+
+        const player = playerRef.current
+        if (player) {
+            player.on('timeupdate', handleTimeUpdate)
+            return () => {
+                player.off('timeupdate', handleTimeUpdate)
+            }
+        }
+    }, [isPreviewMode, currentPreviewSegment, previewSegments, nextPreviewSegment])
+
     return (
         <div>
             <video ref={videoRef} className="video-js vjs-default-skin" />
             <div style={{ marginTop: 4 }}>
-                File {files.length ? currentFileIndex + 1 : 0}/{files.length} — Current time: {formatHMS(currentTime)}
+                {isPreviewMode ? (
+                    <div>
+                        <strong>Preview Mode</strong> — Segment {currentPreviewSegment + 1}/{previewSegments.length}
+                        {previewSegments.length > 0 && currentPreviewSegment < previewSegments.length && (
+                            <span> — {previewSegments[currentPreviewSegment].goals.length} goal(s)</span>
+                        )}
+                    </div>
+                ) : (
+                    <div>
+                        File {files.length ? currentFileIndex + 1 : 0}/{files.length} — Current time: {formatHMS(currentTime)}
+                    </div>
+                )}
             </div>
         </div>
     )
