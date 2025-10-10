@@ -1,6 +1,6 @@
 import type { Goal } from '../types'
 
-export function generateYouTubeChapters(goals: Goal[], cumulativeOffsets: number[] = [], matchStartTimeSec: number = 0): string {
+export function generateYouTubeChapters(goals: Goal[], cumulativeOffsets: number[] = [], matchStartTimeSec: number = 0, lengthBeforeGoalSec: number = 10, _lengthAfterGoalSec: number = 4): string {
     const sorted = [...goals].sort((a, b) => {
         const aAbs = (cumulativeOffsets[a.sourceFileIndex ?? 0] || 0) + a.matchTimeSec
         const bAbs = (cumulativeOffsets[b.sourceFileIndex ?? 0] || 0) + b.matchTimeSec
@@ -51,7 +51,7 @@ export function generateYouTubeChapters(goals: Goal[], cumulativeOffsets: number
 
         const abs = (cumulativeOffsets[g.sourceFileIndex ?? 0] || 0) + g.matchTimeSec
         const adjustedTime = abs - matchStartTimeSec
-        const stamp = secondsToStamp(Math.max(0, Math.floor(adjustedTime - 10)))
+        const stamp = secondsToStamp(Math.max(0, Math.floor(adjustedTime - lengthBeforeGoalSec)))
 
         let label = 'Goal'
 
@@ -74,7 +74,7 @@ export function generateYouTubeChapters(goals: Goal[], cumulativeOffsets: number
     return lines.join('\n')
 }
 
-export function generateHighlightChapters(goals: Goal[], cumulativeOffsets: number[] = []): string {
+export function generateHighlightChapters(goals: Goal[], cumulativeOffsets: number[] = [], lengthBeforeGoalSec: number = 10, lengthAfterGoalSec: number = 4): string {
     if (goals.length === 0) return '00:00 Start'
 
     // Sort goals by time
@@ -114,10 +114,11 @@ export function generateHighlightChapters(goals: Goal[], cumulativeOffsets: numb
         lines.push('') // Second empty line
     }
 
-    // Simple timing: each goal gets 14 seconds + 1 second buffer = 15 seconds per goal
+    // Simple timing: each goal gets configurable length + 1 second buffer
+    const segmentLength = lengthBeforeGoalSec + lengthAfterGoalSec
     for (let i = 0; i < sorted.length; i++) {
         const goal = sorted[i]
-        const timestamp = i * 15 // 14 seconds per segment + 1 second buffer
+        const timestamp = i * (segmentLength + 1) // configurable segment + 1 second buffer
         const stamp = secondsToStamp(timestamp)
 
         // Update the score for this goal's team

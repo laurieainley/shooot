@@ -6,12 +6,14 @@ export function ChaptersExport() {
     const goals = useAppState((s) => s.goals)
     const cumulativeOffsets = useAppState((s) => s.cumulativeOffsets)
     const matchStartTimeSec = useAppState((s) => s.matchStartTimeSec)
+    const lengthBeforeGoalSec = useAppState((s) => s.lengthBeforeGoalSec)
+    const lengthAfterGoalSec = useAppState((s) => s.lengthAfterGoalSec)
     const setMatchStartTime = useAppState((s) => s.setMatchStartTime)
     const setGoals = useAppState((s) => s.setGoals)
     const [copied, setCopied] = useState(false)
     const [highlightCopied, setHighlightCopied] = useState(false)
-    const text = useMemo(() => generateYouTubeChapters(goals, cumulativeOffsets, matchStartTimeSec), [goals, cumulativeOffsets, matchStartTimeSec])
-    const highlightText = useMemo(() => generateHighlightChapters(goals, cumulativeOffsets), [goals, cumulativeOffsets])
+    const text = useMemo(() => generateYouTubeChapters(goals, cumulativeOffsets, matchStartTimeSec, lengthBeforeGoalSec, lengthAfterGoalSec), [goals, cumulativeOffsets, matchStartTimeSec, lengthBeforeGoalSec, lengthAfterGoalSec])
+    const highlightText = useMemo(() => generateHighlightChapters(goals, cumulativeOffsets, lengthBeforeGoalSec, lengthAfterGoalSec), [goals, cumulativeOffsets, lengthBeforeGoalSec, lengthAfterGoalSec])
 
     // Calculate score by counting goals per team
     const scoreCount = useMemo(() => {
@@ -146,7 +148,7 @@ export function ChaptersExport() {
                     <button onClick={onHighlightCopy}>{highlightCopied ? 'Copied!' : 'Copy'}</button>
                 </div>
                 <div style={{ fontSize: '0.9em', color: '#666', marginTop: 4 }}>
-                    Timestamps for the rendered highlight video. Each goal gets 15 seconds (14s segment + 1s buffer).
+                    Timestamps for the rendered highlight video. Each goal gets {lengthBeforeGoalSec + lengthAfterGoalSec + 1} seconds ({lengthBeforeGoalSec + lengthAfterGoalSec}s segment + 1s buffer).
                 </div>
             </div>
         </div>

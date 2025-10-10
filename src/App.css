@@ -95,3 +95,260 @@
     min-width: 300px;
   }
 }
+
+/* Fullscreen controls */
+.player-container {
+  position: relative;
+  width: 100%;
+}
+
+.fullscreen-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.tap-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tap-zone-left {
+  left: 0;
+}
+
+.tap-zone-right {
+  right: 0;
+}
+
+.tap-feedback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  animation: tapFeedbackAnimation 0.5s ease-out;
+  pointer-events: none;
+}
+
+.tap-feedback svg {
+  filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.5));
+}
+
+.tap-feedback-text {
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.7);
+}
+
+@keyframes tapFeedbackAnimation {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+.overlay-controls {
+  position: absolute;
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+  padding: 16px;
+  z-index: 10000;
+}
+
+.overlay-controls.top-left {
+  top: 0;
+  left: 0;
+}
+
+.overlay-controls.top-right {
+  top: 0;
+  right: 0;
+}
+
+.control-btn {
+  background-color: rgba(109, 40, 217, 0.9);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.control-btn:active {
+  transform: scale(0.95);
+  background-color: rgba(109, 40, 217, 1);
+}
+
+.control-btn svg {
+  flex-shrink: 0;
+}
+
+.add-goal-btn {
+  padding: 12px 20px;
+  font-size: 16px;
+}
+
+.speed-btn {
+  padding: 10px 12px;
+  min-width: 44px;
+  justify-content: center;
+}
+
+.speed-display {
+  min-width: 60px;
+  background-color: rgba(109, 40, 217, 0.95);
+  font-weight: 700;
+}
+
+/* Goal Modal */
+.goal-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  pointer-events: auto;
+}
+
+.goal-modal {
+  background-color: white;
+  border-radius: 12px;
+  padding: 24px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.goal-modal h3 {
+  margin: 0 0 20px 0;
+  color: #333;
+  font-size: 20px;
+}
+
+.goal-modal-field {
+  margin-bottom: 16px;
+}
+
+.goal-modal-field label {
+  display: block;
+  margin-bottom: 6px;
+  color: #555;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.goal-modal-field input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  font-size: 16px;
+  box-sizing: border-box;
+  color: #333;
+  background-color: white;
+}
+
+.goal-modal-field input:focus {
+  outline: none;
+  border-color: #6d28d9;
+}
+
+.goal-modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.modal-btn {
+  flex: 1;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modal-btn-cancel {
+  background-color: #e5e5e5;
+  color: #333;
+}
+
+.modal-btn-cancel:hover {
+  background-color: #d0d0d0;
+}
+
+.modal-btn-submit {
+  background-color: #6d28d9;
+  color: white;
+}
+
+.modal-btn-submit:hover {
+  background-color: #5a1fb8;
+}
+
+.modal-btn:active {
+  transform: scale(0.98);
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .control-btn {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  .add-goal-btn {
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+
+  .speed-btn {
+    padding: 8px 10px;
+    min-width: 40px;
+  }
+
+  .overlay-controls {
+    padding: 12px;
+  }
+}

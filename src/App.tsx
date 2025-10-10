@@ -11,6 +11,7 @@ import { BulkPaste } from './components/BulkPaste'
 import { ProjectIO } from './components/ProjectIO'
 import { RenderHighlights } from './components/RenderHighlights'
 import { PreviewControls } from './components/PreviewControls'
+import { HighlightLengthControls } from './components/HighlightLengthControls'
 
 function App() {
   return (
@@ -47,6 +48,8 @@ function App() {
           </div>
 
           <GoalList />
+
+          <HighlightLengthControls />
 
           <PreviewControls />
 

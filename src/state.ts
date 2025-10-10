@@ -2,76 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Goal, VideoSourceFile } from './types'
 import { computeCumulativeOffsets } from './utils/timeline'
-
-// Function to merge overlapping goal segments (reused from RenderHighlights)
-function mergeOverlappingGoalSegments(goals: Goal[], cumulativeOffsets: number[], matchStartTimeSec: number, adjustTimestampsByOffset: boolean): HighlightSegment[] {
-    if (goals.length === 0) return [];
-
-    // Apply offset to goal times if enabled
-    const adjustedGoals = goals.map(goal => ({
-        ...goal,
-        matchTimeSec: adjustTimestampsByOffset ? Math.max(0, goal.matchTimeSec - matchStartTimeSec) : goal.matchTimeSec
-    }));
-
-    // Sort goals by time
-    const sortedGoals = [...adjustedGoals].sort((a, b) => {
-        const aTime = (cumulativeOffsets[a.sourceFileIndex ?? 0] || 0) + a.matchTimeSec;
-        const bTime = (cumulativeOffsets[b.sourceFileIndex ?? 0] || 0) + b.matchTimeSec;
-        return aTime - bTime;
-    });
-
-    const merged: HighlightSegment[] = [];
-    let currentSegment = {
-        startTime: Math.max(0, sortedGoals[0].matchTimeSec - 10),
-        endTime: sortedGoals[0].matchTimeSec + 4,
-        sourceFileIndex: sortedGoals[0].sourceFileIndex ?? 0,
-        goals: [sortedGoals[0]]
-    };
-
-    for (let i = 1; i < sortedGoals.length; i++) {
-        const goal = sortedGoals[i];
-        const goalTime = goal.matchTimeSec;
-        const goalStart = Math.max(0, goalTime - 10);
-        const goalEnd = goalTime + 4;
-
-        // Check if this goal overlaps with the current segment
-        if (goalStart <= currentSegment.endTime &&
-            goal.sourceFileIndex === currentSegment.sourceFileIndex) {
-            // Merge segments
-            currentSegment.endTime = Math.max(currentSegment.endTime, goalEnd);
-            currentSegment.goals.push(goal);
-        } else {
-            // No overlap, finalize current segment and start new one
-            merged.push({
-                ...currentSegment,
-                duration: currentSegment.endTime - currentSegment.startTime
-            });
-
-            currentSegment = {
-                startTime: goalStart,
-                endTime: goalEnd,
-                sourceFileIndex: goal.sourceFileIndex ?? 0,
-                goals: [goal]
-            };
-        }
-    }
-
-    // Add the last segment
-    merged.push({
-        ...currentSegment,
-        duration: currentSegment.endTime - currentSegment.startTime
-    });
-
-    return merged;
-}
-
-export type HighlightSegment = {
-    startTime: number
-    endTime: number
-    sourceFileIndex: number
-    goals: Goal[]
-    duration: number
-}
+import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/highlights'
 
 type AppState = {
     files: VideoSourceFile[]
@@ -81,6 +12,9 @@ type AppState = {
     currentFileIndex: number
     matchStartTimeSec: number
     adjustTimestampsByOffset: boolean
+    // Highlight length configuration
+    lengthBeforeGoalSec: number
+    lengthAfterGoalSec: number
     // Preview mode state
     isPreviewMode: boolean
     previewSegments: HighlightSegment[]
@@ -91,6 +25,8 @@ type AppState = {
     setCurrentFileIndex: (idx: number) => void
     setMatchStartTime: (time: number) => void
     setAdjustTimestampsByOffset: (adjust: boolean) => void
+    setLengthBeforeGoal: (seconds: number) => void
+    setLengthAfterGoal: (seconds: number) => void
     seekToGoal: (fileIndex: number, timeSec: number) => void
     nextFile: () => void
     prevFile: () => void
@@ -117,6 +53,9 @@ export const useAppState = create<AppState>()(
             currentFileIndex: 0,
             matchStartTimeSec: 0,
             adjustTimestampsByOffset: false,
+            // Highlight length configuration
+            lengthBeforeGoalSec: 10,
+            lengthAfterGoalSec: 4,
             // Preview mode state
             isPreviewMode: false,
             previewSegments: [],
@@ -144,6 +83,8 @@ export const useAppState = create<AppState>()(
             setCurrentFileIndex: (idx) => set({ currentFileIndex: Math.max(0, Math.min(idx, get().files.length - 1)) }),
             setMatchStartTime: (time) => set({ matchStartTimeSec: time }),
             setAdjustTimestampsByOffset: (adjust) => set({ adjustTimestampsByOffset: adjust }),
+            setLengthBeforeGoal: (seconds) => set({ lengthBeforeGoalSec: Math.max(0, seconds) }),
+            setLengthAfterGoal: (seconds) => set({ lengthAfterGoalSec: Math.max(0, seconds) }),
             seekToGoal: (fileIndex, timeSec) => {
                 // This will be handled by the Player component via a custom event
                 const event = new CustomEvent('seekToGoal', {
@@ -175,7 +116,7 @@ export const useAppState = create<AppState>()(
                 })
                 set({ goals: sortedGoals })
             },
-            clear: () => set({ files: [], goals: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0, matchStartTimeSec: 0, adjustTimestampsByOffset: false, isPreviewMode: false, previewSegments: [], currentPreviewSegment: 0 }),
+            clear: () => set({ files: [], goals: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0, matchStartTimeSec: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, isPreviewMode: false, previewSegments: [], currentPreviewSegment: 0 }),
             // Preview mode actions
             startPreview: () => {
                 const state = get()
@@ -183,7 +124,9 @@ export const useAppState = create<AppState>()(
                     state.goals,
                     state.cumulativeOffsets,
                     state.matchStartTimeSec,
-                    state.adjustTimestampsByOffset
+                    state.adjustTimestampsByOffset,
+                    state.lengthBeforeGoalSec,
+                    state.lengthAfterGoalSec
                 )
                 if (segments.length > 0) {
                     set({
@@ -213,9 +156,11 @@ export const useAppState = create<AppState>()(
             partialize: (state) => ({
                 goals: state.goals,
                 matchStartTimeSec: state.matchStartTimeSec,
-                adjustTimestampsByOffset: state.adjustTimestampsByOffset
+                adjustTimestampsByOffset: state.adjustTimestampsByOffset,
+                lengthBeforeGoalSec: state.lengthBeforeGoalSec,
+                lengthAfterGoalSec: state.lengthAfterGoalSec
             }),
-            version: 6,
+            version: 7,
             migrate: (persistedState: any, version: number) => {
                 // Drop any previously persisted files to avoid stale object URLs
                 if (persistedState && 'files' in persistedState) {
@@ -237,6 +182,15 @@ export const useAppState = create<AppState>()(
                 // Add adjustTimestampsByOffset if it doesn't exist (for version 5 -> 6 migration)
                 if (version < 6 && persistedState && !('adjustTimestampsByOffset' in persistedState)) {
                     return { ...persistedState, adjustTimestampsByOffset: false }
+                }
+
+                // Add highlight length settings if they don't exist (for version 6 -> 7 migration)
+                if (version < 7 && persistedState) {
+                    return {
+                        ...persistedState,
+                        lengthBeforeGoalSec: 10,
+                        lengthAfterGoalSec: 4
+                    }
                 }
 
                 return persistedState

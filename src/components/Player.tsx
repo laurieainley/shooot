@@ -4,15 +4,18 @@ import 'video.js/dist/video-js.css'
 import 'videojs-hotkeys'
 import { useAppState } from '../state'
 import { formatHMS } from '../utils/timeline'
+import { FullscreenControls } from './FullscreenControls'
 
 export function Player() {
     const videoRef = useRef<HTMLVideoElement | null>(null)
     const playerRef = useRef<any>(null)
+    const containerRef = useRef<HTMLDivElement | null>(null)
     const files = useAppState((s) => s.files)
     const currentFileIndex = useAppState((s) => s.currentFileIndex)
     const setCurrentFileIndex = useAppState((s) => s.setCurrentFileIndex)
     const addGoal = useAppState((s) => s.addGoal)
     const [currentTime, setCurrentTime] = useState(0)
+    const [isFullscreen, setIsFullscreen] = useState(false)
     const setCurrentTimeInFile = useAppState((s) => s.setCurrentTimeInFile)
     // Preview mode state
     const isPreviewMode = useAppState((s) => s.isPreviewMode)
@@ -254,9 +257,35 @@ export function Player() {
         }
     }, [isPreviewMode, currentPreviewSegment, previewSegments, nextPreviewSegment])
 
+    // Track fullscreen state
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            const isFS = !!(
+                document.fullscreenElement ||
+                (document as any).webkitFullscreenElement ||
+                (document as any).mozFullScreenElement ||
+                (document as any).msFullscreenElement
+            )
+            setIsFullscreen(isFS)
+        }
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange)
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
+        document.addEventListener('mozfullscreenchange', handleFullscreenChange)
+        document.addEventListener('msfullscreenchange', handleFullscreenChange)
+
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange)
+            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
+            document.removeEventListener('mozfullscreenchange', handleFullscreenChange)
+            document.removeEventListener('msfullscreenchange', handleFullscreenChange)
+        }
+    }, [])
+
     return (
-        <div>
+        <div ref={containerRef} className="player-container">
             <video ref={videoRef} className="video-js vjs-default-skin" />
+            <FullscreenControls playerRef={playerRef} isFullscreen={isFullscreen} />
             <div style={{ marginTop: 4 }}>
                 {isPreviewMode ? (
                     <div>

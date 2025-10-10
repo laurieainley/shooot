@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAppState } from '../state'
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
+import { mergeOverlappingGoalSegments } from '../utils/highlights';
 
 export function RenderHighlights() {
     const files = useAppState((s) => s.files)
@@ -9,70 +10,11 @@ export function RenderHighlights() {
     const cumulativeOffsets = useAppState((s) => s.cumulativeOffsets)
     const matchStartTimeSec = useAppState((s) => s.matchStartTimeSec)
     const adjustTimestampsByOffset = useAppState((s) => s.adjustTimestampsByOffset)
+    const lengthBeforeGoalSec = useAppState((s) => s.lengthBeforeGoalSec)
+    const lengthAfterGoalSec = useAppState((s) => s.lengthAfterGoalSec)
     const [progress, setProgressState] = useState<string>('')
     const [downUrl, setDownUrl] = useState<string | null>(null)
 
-    // Function to merge overlapping goal segments
-    function mergeOverlappingGoalSegments(goals: any[]) {
-        if (goals.length === 0) return [];
-
-        // Apply offset to goal times if enabled
-        const adjustedGoals = goals.map(goal => ({
-            ...goal,
-            matchTimeSec: adjustTimestampsByOffset ? Math.max(0, goal.matchTimeSec - matchStartTimeSec) : goal.matchTimeSec
-        }));
-
-        // Sort goals by time
-        const sortedGoals = [...adjustedGoals].sort((a, b) => {
-            const aTime = (cumulativeOffsets[a.sourceFileIndex ?? 0] || 0) + a.matchTimeSec;
-            const bTime = (cumulativeOffsets[b.sourceFileIndex ?? 0] || 0) + b.matchTimeSec;
-            return aTime - bTime;
-        });
-
-        const merged: any[] = [];
-        let currentSegment = {
-            startTime: Math.max(0, sortedGoals[0].matchTimeSec - 10),
-            endTime: sortedGoals[0].matchTimeSec + 4,
-            sourceFileIndex: sortedGoals[0].sourceFileIndex ?? 0,
-            goals: [sortedGoals[0]]
-        };
-
-        for (let i = 1; i < sortedGoals.length; i++) {
-            const goal = sortedGoals[i];
-            const goalTime = goal.matchTimeSec;
-            const goalStart = Math.max(0, goalTime - 10);
-            const goalEnd = goalTime + 4;
-
-            // Check if this goal overlaps with the current segment
-            if (goalStart <= currentSegment.endTime &&
-                goal.sourceFileIndex === currentSegment.sourceFileIndex) {
-                // Merge segments
-                currentSegment.endTime = Math.max(currentSegment.endTime, goalEnd);
-                currentSegment.goals.push(goal);
-            } else {
-                // No overlap, finalize current segment and start new one
-                merged.push({
-                    ...currentSegment,
-                    duration: currentSegment.endTime - currentSegment.startTime
-                });
-
-                currentSegment = {
-                    startTime: goalStart,
-                    endTime: goalEnd,
-                    sourceFileIndex: goal.sourceFileIndex ?? 0,
-                    goals: [goal]
-                };
-            }
-        }
-
-        // Add the last segment
-        merged.push({
-            ...currentSegment,
-            duration: currentSegment.endTime - currentSegment.startTime
-        });
-
-        return merged;
-    }
 
     const setProgress = (message: string) => {
         console.log('[render]', message)
@@ -126,9 +68,16 @@ export function RenderHighlights() {
             await ffmpeg.writeFile(`input_${i}.mp4`, await fetchFile(file.file));
         }
 
-        // Create segments for each goal (10s before, 4s after)
+        // Create segments for each goal (configurable length before/after)
         // First, merge overlapping segments to avoid duplicate content
-        const mergedSegments = mergeOverlappingGoalSegments(goals);
+        const mergedSegments = mergeOverlappingGoalSegments(
+            goals,
+            cumulativeOffsets,
+            matchStartTimeSec,
+            adjustTimestampsByOffset,
+            lengthBeforeGoalSec,
+            lengthAfterGoalSec
+        );
 
         if (mergedSegments.length < goals.length) {
             setProgress(`Merged ${goals.length} goals into ${mergedSegments.length} segments to avoid overlap`);
@@ -147,8 +96,8 @@ export function RenderHighlights() {
             if (startTime < 0 && srcIdx > 0) {
                 // Cross-file scenario: need content from previous file
                 const timeNeededFromPrevFile = Math.abs(startTime); // How many seconds we need from prev file
-                const timeFromCurrentFile = 10 - timeNeededFromPrevFile; // Remaining seconds from current file
-                const timeAfterGoal = 4; // 4 seconds after goal
+                const timeFromCurrentFile = lengthBeforeGoalSec - timeNeededFromPrevFile; // Remaining seconds from current file
+                const timeAfterGoal = lengthAfterGoalSec; // configurable seconds after goal
 
                 // Create segment from previous file (final N seconds)
                 const prevSegName = `seg_${i}_prev.ts`;
@@ -167,7 +116,7 @@ export function RenderHighlights() {
                     prevSegName
                 ]);
 
-                // Create segment from current file (start to goal + 4s after)
+                // Create segment from current file (start to goal + configurable seconds after)
                 const currSegName = `seg_${i}_curr.ts`;
                 const currentFileDuration = timeFromCurrentFile + timeAfterGoal;
 

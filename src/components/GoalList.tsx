@@ -7,6 +7,7 @@ export function GoalList() {
     const update = useAppState((s) => s.updateGoal)
     const sortGoals = useAppState((s) => s.sortGoals)
     const seekToGoal = useAppState((s) => s.seekToGoal)
+    const lengthBeforeGoalSec = useAppState((s) => s.lengthBeforeGoalSec)
 
     if (goals.length === 0) return <p>No goals yet.</p>
 
@@ -38,9 +39,9 @@ export function GoalList() {
                             style={{ width: 70, fontSize: '0.8em', padding: '2px 4px' }}
                         />
                         <button
-                            onClick={() => seekToGoal(g.sourceFileIndex ?? 0, Math.max(0, g.matchTimeSec - 10))}
+                            onClick={() => seekToGoal(g.sourceFileIndex ?? 0, Math.max(0, g.matchTimeSec - lengthBeforeGoalSec))}
                             style={{ padding: '2px 4px', minWidth: 'auto', fontSize: '0.8em' }}
-                            title="Watch goal (starts 10s before)"
+                            title={`Watch goal (starts ${lengthBeforeGoalSec}s before)`}
                         >
                             ▶
                         </button>
