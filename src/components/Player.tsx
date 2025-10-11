@@ -266,6 +266,7 @@ export function Player() {
                 (document as any).mozFullScreenElement ||
                 (document as any).msFullscreenElement
             )
+            console.log('Fullscreen state changed:', isFS)
             setIsFullscreen(isFS)
         }
 
@@ -285,7 +286,6 @@ export function Player() {
     return (
         <div ref={containerRef} className="player-container">
             <video ref={videoRef} className="video-js vjs-default-skin" />
-            <FullscreenControls playerRef={playerRef} isFullscreen={isFullscreen} />
             <div style={{ marginTop: 4 }}>
                 {isPreviewMode ? (
                     <div>
@@ -300,6 +300,7 @@ export function Player() {
                     </div>
                 )}
             </div>
+            <FullscreenControls playerRef={playerRef} isFullscreen={isFullscreen} />
         </div>
     )
 }

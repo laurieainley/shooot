@@ -20,6 +20,7 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
     const lastTapRef = useRef<{ time: number; side: 'left' | 'right' } | null>(null)
     const overlayRef = useRef<HTMLDivElement>(null)
 
+
     useEffect(() => {
         if (playerRef.current) {
             const rate = playerRef.current.playbackRate()
@@ -29,17 +30,20 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
 
     // Handle double-tap for seeking
     const handleTap = (side: 'left' | 'right') => {
+        console.log('Tap detected:', side, 'isFullscreen:', isFullscreen)
         const now = Date.now()
         const lastTap = lastTapRef.current
 
         if (lastTap && lastTap.side === side && now - lastTap.time < 300) {
             // Double tap detected
+            console.log('Double tap detected:', side)
             if (playerRef.current) {
                 const seekAmount = 5 // seconds
                 const currentTime = playerRef.current.currentTime()
                 const newTime = side === 'left'
                     ? Math.max(0, currentTime - seekAmount)
                     : currentTime + seekAmount
+                console.log('Seeking from', currentTime, 'to', newTime)
                 playerRef.current.currentTime(newTime)
 
                 // Show feedback
@@ -106,12 +110,20 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
         setShowAddGoalModal(false)
     }
 
+    // Debug logging to understand what's happening
+    console.log('FullscreenControls render:', { isFullscreen, hasPlayer: !!playerRef.current })
+
+    // Temporarily show controls even when not fullscreen for debugging
     if (!isFullscreen) {
-        return null
+        console.log('Not in fullscreen, but showing controls for debugging')
+        // return null
     }
 
     return (
-        <div ref={overlayRef} className="fullscreen-overlay">
+        <div
+            ref={overlayRef}
+            className={`fullscreen-overlay ${isFullscreen ? 'fullscreen-overlay--fullscreen' : 'fullscreen-overlay--normal'}`}
+        >
             {/* Double-tap zones */}
             <div className="tap-zone tap-zone-left" onClick={() => handleTap('left')}>
                 {tapFeedback?.side === 'left' && (
