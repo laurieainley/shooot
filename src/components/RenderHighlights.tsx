@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAppState } from '../state'
-import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { FFmpeg, FFFSType } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { mergeOverlappingGoalSegments } from '../utils/highlights';
 
@@ -23,6 +23,8 @@ export function RenderHighlights() {
 
     const onRender = async () => {
         try {
+            // Clear previous download link when starting new render
+            setDownUrl(null)
             setProgress('Starting render...')
             const highlightBlob = await encodeToMP4()
             const url = URL.createObjectURL(highlightBlob)
@@ -61,12 +63,44 @@ export function RenderHighlights() {
             setProgress(`Encoding progress: ${(progress * 100).toFixed(1)}%`);
         });
 
-        // Write input files
+        // Track which files use WORKERFS
+        const workerFSFiles = new Set<number>();
+        const inputPaths = new Map<number, string>();
+
+        // Write input files using WORKERFS for large files (>2GB support)
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
             setProgress(`Loading file ${i + 1}/${files.length}: ${file.name}`);
-            await ffmpeg.writeFile(`input_${i}.mp4`, await fetchFile(file.file));
+
+            // Check file size to determine loading method
+            const fileSizeMB = file.file.size / (1024 * 1024);
+
+            if (fileSizeMB > 2000) { // Files larger than 2GB
+                setProgress(`Using WORKERFS for large file: ${file.name} (${fileSizeMB.toFixed(1)} MB)`);
+
+                // Create directory for this file
+                const inputDir = `/input_${i}`;
+                await ffmpeg.createDir(inputDir);
+
+                // Mount file using WORKERFS
+                await ffmpeg.mount(FFFSType.WORKERFS, {
+                    files: [file.file],
+                }, inputDir);
+
+                // Store the path for this file
+                inputPaths.set(i, `${inputDir}/${file.name}`);
+                workerFSFiles.add(i);
+            } else {
+                // For smaller files, use the traditional method
+                await ffmpeg.writeFile(`input_${i}.mp4`, await fetchFile(file.file));
+                inputPaths.set(i, `input_${i}.mp4`);
+            }
         }
+
+        // Helper function to get the correct input path for a file index
+        const getInputPath = (fileIndex: number): string => {
+            return inputPaths.get(fileIndex) || `input_${fileIndex}.mp4`;
+        };
 
         // Create segments for each goal (configurable length before/after)
         // First, merge overlapping segments to avoid duplicate content
@@ -108,9 +142,13 @@ export function RenderHighlights() {
 
                 await ffmpeg.exec([
                     '-ss', String(prevFileStart),
-                    '-i', `input_${srcIdx - 1}.mp4`,
+                    '-i', getInputPath(srcIdx - 1),
                     '-t', String(timeNeededFromPrevFile),
-                    '-c', 'copy',
+                    '-c:v', 'copy',
+                    '-c:a', 'copy',
+                    '-avoid_negative_ts', 'make_zero',
+                    '-fflags', '+genpts+igndts',
+                    '-max_muxing_queue_size', '1024',
                     '-bsf:v', 'h264_mp4toannexb',
                     '-f', 'mpegts',
                     prevSegName
@@ -124,9 +162,13 @@ export function RenderHighlights() {
 
                 await ffmpeg.exec([
                     '-ss', '0',
-                    '-i', `input_${srcIdx}.mp4`,
+                    '-i', getInputPath(srcIdx),
                     '-t', String(currentFileDuration),
-                    '-c', 'copy',
+                    '-c:v', 'copy',
+                    '-c:a', 'copy',
+                    '-avoid_negative_ts', 'make_zero',
+                    '-fflags', '+genpts+igndts',
+                    '-max_muxing_queue_size', '1024',
                     '-bsf:v', 'h264_mp4toannexb',
                     '-f', 'mpegts',
                     currSegName
@@ -139,7 +181,7 @@ export function RenderHighlights() {
 
                 setProgress(`Merging cross-file segment ${i + 1}/${mergedSegments.length} (YouTube-compatible)`);
 
-                // Re-encode audio for cross-file segments to ensure YouTube compatibility
+                // Re-encode audio for cross-file segments to ensure YouTube compatibility and sync
                 await ffmpeg.exec([
                     '-f', 'concat',
                     '-safe', '0',
@@ -151,6 +193,8 @@ export function RenderHighlights() {
                     '-b:a', '128k',
                     '-avoid_negative_ts', 'make_zero',
                     '-fflags', '+genpts',
+                    '-async', '1',
+                    '-vsync', '1',
                     '-bsf:v', 'h264_mp4toannexb',
                     '-f', 'mpegts',
                     finalSegName
@@ -162,13 +206,16 @@ export function RenderHighlights() {
                 const start = Math.max(0, startTime);
                 const segName = `seg_${i}.ts`;
 
-                // Use -ss before input for more accurate seeking (slower but more precise)
-                // This ensures we start closer to the requested time, though keyframe alignment may still cause slight variations
+                // Use keyframe-aware seeking for better segment boundaries
                 await ffmpeg.exec([
                     '-ss', String(start),
-                    '-i', `input_${srcIdx}.mp4`,
+                    '-i', getInputPath(srcIdx),
                     '-t', String(totalDuration),
-                    '-c', 'copy',
+                    '-c:v', 'copy',
+                    '-c:a', 'copy',
+                    '-avoid_negative_ts', 'make_zero',
+                    '-fflags', '+genpts+igndts',
+                    '-max_muxing_queue_size', '1024',
                     '-bsf:v', 'h264_mp4toannexb',
                     '-f', 'mpegts',
                     segName
@@ -190,7 +237,7 @@ export function RenderHighlights() {
         const concatListContent = await ffmpeg.readFile('concat_list.txt');
         console.log('Concat list content:', new TextDecoder().decode(concatListContent as Uint8Array));
 
-        // Final concatenation with audio normalization for YouTube
+        // Final concatenation with improved sync handling
         await ffmpeg.exec([
             '-f', 'concat',
             '-safe', '0',
@@ -202,6 +249,9 @@ export function RenderHighlights() {
             '-b:a', '128k',
             '-movflags', '+faststart',
             '-avoid_negative_ts', 'make_zero',
+            '-fflags', '+genpts',
+            '-async', '1',
+            '-vsync', '1',
             'highlights.mp4'
         ]);
 
@@ -209,6 +259,18 @@ export function RenderHighlights() {
 
         setProgress('Reading output...');
         const fileData = await ffmpeg.readFile('highlights.mp4');
+
+        // Cleanup: Unmount WORKERFS files to free up resources
+        setProgress('Cleaning up...');
+        for (const fileIndex of workerFSFiles) {
+            const inputDir = `/input_${fileIndex}`;
+            try {
+                await ffmpeg.unmount(inputDir);
+                await ffmpeg.deleteDir(inputDir);
+            } catch (error) {
+                console.warn(`Failed to cleanup WORKERFS for file ${fileIndex}:`, error);
+            }
+        }
 
         return new Blob([fileData as BlobPart], { type: 'video/mp4' });
     }
@@ -229,7 +291,7 @@ export function RenderHighlights() {
                 </div>
             </div>
 
-            <button onClick={onRender} disabled={files.length === 0 || goals.length === 0}>Render Highlights (Smart Merge)</button>
+            <button onClick={onRender} disabled={files.length === 0 || goals.length === 0}>Render Highlights</button>
             {progress && <div style={{ marginTop: 6 }}>{progress}</div>}
             {downUrl && (
                 <div style={{ marginTop: 6 }}>

@@ -21,7 +21,7 @@ function App() {
       margin: '0 auto',
       width: '100%'
     }}>
-      <h1>Video Highlight Maker (P0)</h1>
+      <h1>SHOOOT - Highlights creator</h1>
 
       {/* File picker and file list - always at top */}
       <FilePicker />
@@ -63,7 +63,7 @@ function App() {
           <RenderHighlights />
 
           <p style={{ fontSize: '0.9em', color: '#666', margin: 0 }}>
-            Select MP4 H.264 files only (P0 scope).
+            Select MP4 H.264 files only.
           </p>
         </div>
       </div>
