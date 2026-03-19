@@ -36,7 +36,6 @@ export function FilePicker() {
             <input
                 ref={inputRef}
                 type="file"
-                accept="video/mp4"
                 multiple
                 onChange={onPick}
             />

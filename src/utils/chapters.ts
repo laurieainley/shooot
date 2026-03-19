@@ -1,6 +1,16 @@
 import type { Goal } from '../types'
 
 export function generateYouTubeChapters(goals: Goal[], cumulativeOffsets: number[] = [], matchStartTimeSec: number = 0, lengthBeforeGoalSec: number = 10, _lengthAfterGoalSec: number = 4): string {
+    // Check if we have cumulative offsets (i.e., video files are loaded)
+    const hasVideoFiles = cumulativeOffsets.length > 0
+
+    // Check if all goals are from the first video (index 0)
+    const allFromFirstVideo = goals.every(g => (g.sourceFileIndex ?? 0) === 0)
+
+    if (!hasVideoFiles && !allFromFirstVideo) {
+        return "Load video files to see timestamps"
+    }
+
     const sorted = [...goals].sort((a, b) => {
         const aAbs = (cumulativeOffsets[a.sourceFileIndex ?? 0] || 0) + a.matchTimeSec
         const bAbs = (cumulativeOffsets[b.sourceFileIndex ?? 0] || 0) + b.matchTimeSec
@@ -149,9 +159,16 @@ export function generateHighlightChapters(goals: Goal[], cumulativeOffsets: numb
 }
 
 function secondsToStamp(s: number): string {
-    const mm = `${Math.floor(s / 60)}`.padStart(2, '0')
-    const ss = `${s % 60}`.padStart(2, '0')
-    return `${mm}:${ss}`
+    const totalSeconds = Math.floor(s)
+    const hh = Math.floor(totalSeconds / 3600)
+    const mm = Math.floor((totalSeconds % 3600) / 60)
+    const ss = totalSeconds % 60
+
+    if (hh > 0) {
+        return `${hh.toString().padStart(2, '0')}:${mm.toString().padStart(2, '0')}:${ss.toString().padStart(2, '0')}`
+    } else {
+        return `${mm.toString().padStart(2, '0')}:${ss.toString().padStart(2, '0')}`
+    }
 }
 
 
