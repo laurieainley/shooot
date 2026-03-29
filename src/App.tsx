@@ -72,7 +72,7 @@ function App() {
     }, [])
 
     const onExport = () => {
-        const blob = new Blob([JSON.stringify({ goals }, null, 2)], { type: 'application/json' })
+        const blob = new Blob([JSON.stringify({ events: goals, goals }, null, 2)], { type: 'application/json' })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
@@ -87,8 +87,9 @@ function App() {
         const text = await file.text()
         try {
             const data = JSON.parse(text)
-            if (Array.isArray(data.goals)) {
-                setGoals(data.goals)
+            const imported = Array.isArray(data.events) ? data.events : Array.isArray(data.goals) ? data.goals : null
+            if (imported) {
+                setGoals(imported.map((e: any) => ({ ...e, type: e.type ?? 'goal' })))
             }
         } catch {
             alert('Failed to import JSON file.')
