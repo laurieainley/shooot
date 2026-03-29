@@ -33,18 +33,23 @@ export function GoalList() {
             <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-light">Goals</span>
                 <div className="flex items-center gap-2">
-                    <button
-                        onClick={undo}
-                        disabled={undoStack.length === 0}
-                        className="text-[10px] text-muted hover:text-light bg-transparent border-none p-0 cursor-pointer disabled:opacity-30"
-                        title="Undo (Ctrl+Z)"
-                    >&#8617;</button>
-                    <button
-                        onClick={redo}
-                        disabled={redoStack.length === 0}
-                        className="text-[10px] text-muted hover:text-light bg-transparent border-none p-0 cursor-pointer disabled:opacity-30"
-                        title="Redo (Ctrl+Shift+Z)"
-                    >&#8618;</button>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={undo}
+                            disabled={undoStack.length === 0}
+                            className="text-[10px] text-muted hover:text-light bg-transparent border-none p-0 cursor-pointer disabled:opacity-30"
+                            title="Undo (Ctrl+Z)"
+                        >&#8617;</button>
+                        <button
+                            onClick={redo}
+                            disabled={redoStack.length === 0}
+                            className="text-[10px] text-muted hover:text-light bg-transparent border-none p-0 cursor-pointer disabled:opacity-30"
+                            title="Redo (Ctrl+Shift+Z)"
+                        >&#8618;</button>
+                        <span className="text-[9px] text-muted/50 hidden md:inline">
+                            <kbd className="rounded bg-deep px-1 py-0.5 text-[9px] text-yellow/60 font-bold">⌘Z</kbd>
+                        </span>
+                    </div>
                     <span className="text-xs text-muted">{goals.length} marked</span>
                 </div>
             </div>
