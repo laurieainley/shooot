@@ -1,111 +1,36 @@
-#root {
-  max-width: 1920px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: left;
-}
-
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
-}
-
-/* Responsive layout styles */
-.layout-container {
-  margin-top: 12px;
-  display: flex;
-  gap: 16px;
-  min-height: 80vh;
-  flex-direction: column;
-  align-items: stretch;
-}
-
-.main-content {
-  /* Mobile - player takes natural height */
-  width: 100%;
-  min-height: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.sidebar {
-  /* Mobile - full width sidebar below */
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-/* Desktop layout - side by side */
-@media (min-width: 768px) {
-  .layout-container {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-
-  .main-content {
-    /* Desktop - player takes 4/5 width and 80% height */
-    flex: 4;
-    width: auto;
-    min-height: 80vh;
-    max-height: 80vh;
-  }
-
-  .sidebar {
-    /* Desktop - sidebar takes 1/5 width */
-    flex: 1;
-    width: auto;
-    max-height: 80vh;
-    overflow-y: auto;
-    padding-left: 8px;
-    min-width: 300px;
-  }
-}
-
-/* Fullscreen controls */
+/* === Video.js overrides === */
 .player-container {
   position: relative;
   width: 100%;
 }
 
+/* === Speed indicator overlay === */
+.speed-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(13, 27, 42, 0.85);
+  color: #f1faee;
+  font-size: 28px;
+  font-weight: 700;
+  padding: 10px 20px;
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 100;
+  animation: speedIndicatorFade 1s ease-out forwards;
+}
+
+@keyframes speedIndicatorFade {
+  0% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* === Fullscreen overlay === */
 .fullscreen-overlay {
   pointer-events: none;
   z-index: 2147483647;
-  /* Maximum z-index for fullscreen compatibility */
 }
 
 .fullscreen-overlay--normal {
@@ -124,11 +49,11 @@
   height: 100vh;
 }
 
+/* === Tap zones === */
 .tap-zone {
   position: absolute;
   top: 0;
   bottom: 60px;
-  /* Leave space for video controls */
   width: 40%;
   pointer-events: auto;
   display: flex;
@@ -139,13 +64,8 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.tap-zone-left {
-  left: 0;
-}
-
-.tap-zone-right {
-  right: 0;
-}
+.tap-zone-left { left: 0; }
+.tap-zone-right { right: 0; }
 
 .tap-feedback {
   display: flex;
@@ -168,22 +88,12 @@
 }
 
 @keyframes tapFeedbackAnimation {
-  0% {
-    opacity: 0;
-    transform: scale(0.8);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1.1);
-  }
-
-  100% {
-    opacity: 0;
-    transform: scale(0.9);
-  }
+  0% { opacity: 0; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.1); }
+  100% { opacity: 0; transform: scale(0.9); }
 }
 
+/* === Overlay controls === */
 .overlay-controls {
   position: absolute;
   display: flex;
@@ -193,18 +103,16 @@
   z-index: 10000;
 }
 
-.overlay-controls.top-left {
-  top: 0;
-  left: 0;
-}
-
-.overlay-controls.top-right {
-  top: 0;
-  right: 0;
+.overlay-controls.top-left { top: 0; left: 0; }
+.overlay-controls.top-right { top: 0; right: 0; }
+.overlay-controls.center-top {
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .control-btn {
-  background-color: rgba(109, 40, 217, 0.6);
+  background-color: rgba(247, 37, 133, 0.6);
   color: white;
   border: none;
   border-radius: 4px;
@@ -223,12 +131,10 @@
 
 .control-btn:active {
   transform: scale(0.95);
-  background-color: rgba(109, 40, 217, 0.8);
+  background-color: rgba(247, 37, 133, 0.8);
 }
 
-.control-btn svg {
-  flex-shrink: 0;
-}
+.control-btn svg { flex-shrink: 0; }
 
 .add-goal-btn {
   padding: 6px 10px;
@@ -243,11 +149,11 @@
 
 .speed-display {
   min-width: 30px;
-  background-color: rgba(109, 40, 217, 0.6);
+  background-color: rgba(247, 37, 133, 0.6);
   font-weight: 700;
 }
 
-/* Goal Modal */
+/* === Goal Modal === */
 .goal-modal-overlay {
   position: fixed;
   top: 0;
@@ -263,7 +169,7 @@
 }
 
 .goal-modal {
-  background-color: white;
+  background-color: #1b263b;
   border-radius: 12px;
   padding: 24px;
   width: 90%;
@@ -273,7 +179,7 @@
 
 .goal-modal h3 {
   margin: 0 0 20px 0;
-  color: #333;
+  color: #f1faee;
   font-size: 20px;
 }
 
@@ -284,7 +190,7 @@
 .goal-modal-field label {
   display: block;
   margin-bottom: 6px;
-  color: #555;
+  color: #6b7f96;
   font-weight: 600;
   font-size: 14px;
 }
@@ -292,17 +198,17 @@
 .goal-modal-field input {
   width: 100%;
   padding: 12px;
-  border: 2px solid #ddd;
+  border: 2px solid #2b365b;
   border-radius: 8px;
   font-size: 16px;
   box-sizing: border-box;
-  color: #333;
-  background-color: white;
+  color: #f1faee;
+  background-color: #0d1b2a;
 }
 
 .goal-modal-field input:focus {
   outline: none;
-  border-color: #6d28d9;
+  border-color: #f72585;
 }
 
 .goal-modal-actions {
@@ -323,45 +229,31 @@
 }
 
 .modal-btn-cancel {
-  background-color: #e5e5e5;
-  color: #333;
+  background-color: #2b365b;
+  color: #f1faee;
 }
 
 .modal-btn-cancel:hover {
-  background-color: #d0d0d0;
+  background-color: #3b466b;
 }
 
 .modal-btn-submit {
-  background-color: #6d28d9;
+  background-color: #f72585;
   color: white;
 }
 
 .modal-btn-submit:hover {
-  background-color: #5a1fb8;
+  background-color: #d91e73;
 }
 
 .modal-btn:active {
   transform: scale(0.98);
 }
 
-/* Mobile optimizations */
+/* === Mobile overlay optimizations === */
 @media (max-width: 768px) {
-  .control-btn {
-    padding: 5px 7px;
-    font-size: 9px;
-  }
-
-  .add-goal-btn {
-    padding: 5px 8px;
-    font-size: 10px;
-  }
-
-  .speed-btn {
-    padding: 4px 5px;
-    min-width: 20px;
-  }
-
-  .overlay-controls {
-    padding: 8px;
-  }
+  .control-btn { padding: 5px 7px; font-size: 9px; }
+  .add-goal-btn { padding: 5px 8px; font-size: 10px; }
+  .speed-btn { padding: 4px 5px; min-width: 20px; }
+  .overlay-controls { padding: 8px; }
 }
