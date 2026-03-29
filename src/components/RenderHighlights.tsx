@@ -277,25 +277,19 @@ export function RenderHighlights() {
 
     return (
         <div>
-            <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <input
-                        type="checkbox"
-                        checked={adjustTimestampsByOffset}
-                        onChange={(e) => useAppState.getState().setAdjustTimestampsByOffset(e.target.checked)}
-                    />
-                    Adjust timestamps by start offset
-                </label>
-                <div style={{ fontSize: '0.9em', color: '#666', marginTop: 4, marginLeft: 24 }}>
-                    When enabled, subtracts the match start offset from goal timestamps when rendering highlights.
-                </div>
-            </div>
-
-            <button onClick={onRender} disabled={files.length === 0 || goals.length === 0}>Render Highlights</button>
-            {progress && <div style={{ marginTop: 6 }}>{progress}</div>}
+            <button
+                onClick={onRender}
+                disabled={files.length === 0 || goals.length === 0}
+                className="w-full rounded-md bg-yellow px-3 py-2.5 text-sm font-bold text-deep border-none cursor-pointer hover:bg-yellow/80 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+                Render MP4
+            </button>
+            {progress && <div className="mt-2 text-xs text-muted">{progress}</div>}
             {downUrl && (
-                <div style={{ marginTop: 6 }}>
-                    <a href={downUrl} download="highlights.mp4">Download highlights.mp4</a>
+                <div className="mt-2">
+                    <a href={downUrl} download="highlights.mp4" className="text-sm font-semibold text-yellow hover:text-yellow/80">
+                        Download highlights.mp4
+                    </a>
                 </div>
             )}
         </div>

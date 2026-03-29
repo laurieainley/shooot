@@ -7,6 +7,19 @@ interface FullscreenControlsProps {
     isFullscreen: boolean
 }
 
+function useIsMobile(): boolean {
+    const [isMobile, setIsMobile] = useState(
+        () => window.matchMedia('(max-width: 768px)').matches
+    )
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 768px)')
+        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+        mq.addEventListener('change', handler)
+        return () => mq.removeEventListener('change', handler)
+    }, [])
+    return isMobile
+}
+
 export function FullscreenControls({ playerRef, isFullscreen }: FullscreenControlsProps) {
     const [showAddGoalModal, setShowAddGoalModal] = useState(false)
     const [teamName, setTeamName] = useState('')
@@ -19,7 +32,7 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
 
     const lastTapRef = useRef<{ time: number; side: 'left' | 'right' } | null>(null)
     const overlayRef = useRef<HTMLDivElement>(null)
-
+    const isMobile = useIsMobile()
 
     useEffect(() => {
         if (playerRef.current) {
@@ -30,20 +43,17 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
 
     // Handle double-tap for seeking
     const handleTap = (side: 'left' | 'right') => {
-        console.log('Tap detected:', side, 'isFullscreen:', isFullscreen)
         const now = Date.now()
         const lastTap = lastTapRef.current
 
         if (lastTap && lastTap.side === side && now - lastTap.time < 300) {
             // Double tap detected
-            console.log('Double tap detected:', side)
             if (playerRef.current) {
                 const seekAmount = 5 // seconds
                 const currentTime = playerRef.current.currentTime()
                 const newTime = side === 'left'
                     ? Math.max(0, currentTime - seekAmount)
                     : currentTime + seekAmount
-                console.log('Seeking from', currentTime, 'to', newTime)
                 playerRef.current.currentTime(newTime)
 
                 // Show feedback
@@ -110,14 +120,14 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
         setShowAddGoalModal(false)
     }
 
-    // Debug logging to understand what's happening
-    console.log('FullscreenControls render:', { isFullscreen, hasPlayer: !!playerRef.current })
-
-    // Temporarily show controls even when not fullscreen for debugging
-    if (!isFullscreen) {
-        console.log('Not in fullscreen, but showing controls for debugging')
-        // return null
+    // Desktop non-fullscreen: hide overlay entirely
+    if (!isFullscreen && !isMobile) {
+        return null
     }
+
+    // Mobile non-fullscreen: show tap zones + centered goal button only
+    // Fullscreen: show everything (tap zones, goal button, speed controls)
+    const showSpeedControls = isFullscreen
 
     return (
         <div
@@ -147,8 +157,8 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
                 )}
             </div>
 
-            {/* Add Goal button (top left) */}
-            <div className="overlay-controls top-left">
+            {/* Goal button — centered between tap zones on mobile, top-left in fullscreen */}
+            <div className={isFullscreen ? 'overlay-controls top-left' : 'overlay-controls center-top'}>
                 <button className="control-btn add-goal-btn" onClick={handleAddGoal}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <circle cx="12" cy="12" r="10" />
@@ -158,22 +168,24 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
                 </button>
             </div>
 
-            {/* Speed controls (top right) */}
-            <div className="overlay-controls top-right">
-                <button className="control-btn speed-btn" onClick={handleSpeedDecrease}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M11 19l-7-7 7-7" />
-                    </svg>
-                </button>
-                <button className="control-btn speed-btn speed-display" onClick={handleSpeedReset}>
-                    {playbackSpeed.toFixed(2)}x
-                </button>
-                <button className="control-btn speed-btn" onClick={handleSpeedIncrease}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M13 5l7 7-7 7" />
-                    </svg>
-                </button>
-            </div>
+            {/* Speed controls (fullscreen only) */}
+            {showSpeedControls && (
+                <div className="overlay-controls top-right">
+                    <button className="control-btn speed-btn" onClick={handleSpeedDecrease}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M11 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <button className="control-btn speed-btn speed-display" onClick={handleSpeedReset}>
+                        {playbackSpeed.toFixed(2)}x
+                    </button>
+                    <button className="control-btn speed-btn" onClick={handleSpeedIncrease}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M13 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                </div>
+            )}
 
             {/* Add Goal Modal */}
             {showAddGoalModal && (
@@ -220,4 +232,3 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
         </div>
     )
 }
-

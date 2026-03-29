@@ -16,6 +16,8 @@ export function Player() {
     const addGoal = useAppState((s) => s.addGoal)
     const [currentTime, setCurrentTime] = useState(0)
     const [isFullscreen, setIsFullscreen] = useState(false)
+    const [speedIndicator, setSpeedIndicator] = useState<number | null>(null)
+    const speedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const setCurrentTimeInFile = useAppState((s) => s.setCurrentTimeInFile)
     // Preview mode state
     const isPreviewMode = useAppState((s) => s.isPreviewMode)
@@ -49,7 +51,7 @@ export function Player() {
                             // Speed controls
                             decreaseSpeed: {
                                 key: function (event: KeyboardEvent) {
-                                    return event.which === 188 && event.shiftKey; // Shift + comma (<)
+                                    return event.which === 188 && !event.shiftKey; // comma (,)
                                 },
                                 handler: function (player: any) {
                                     const currentRate = player.playbackRate();
@@ -60,7 +62,7 @@ export function Player() {
                             },
                             increaseSpeed: {
                                 key: function (event: KeyboardEvent) {
-                                    return event.which === 190 && event.shiftKey; // Shift + period (>)
+                                    return event.which === 190 && !event.shiftKey; // period (.)
                                 },
                                 handler: function (player: any) {
                                     const currentRate = player.playbackRate();
@@ -90,20 +92,20 @@ export function Player() {
                                     }
                                 }
                             },
-                            // ? key - reset speed to normal
+                            // / key - reset speed to normal
                             resetSpeed: {
                                 key: function (event: KeyboardEvent) {
-                                    return event.which === 191 && event.shiftKey; // Shift + / (?)
+                                    return event.which === 191 && !event.shiftKey; // forward slash (/)
                                 },
                                 handler: function (player: any) {
                                     player.playbackRate(1);
                                     console.log('Playback speed: 1x (normal)');
                                 }
                             },
-                            // G key - add goal at current time
+                            // G or M key - add goal at current time
                             addGoal: {
                                 key: function (event: KeyboardEvent) {
-                                    return event.which === 71; // G key
+                                    return event.which === 71 || event.which === 77; // G or M key
                                 },
                                 handler: function (player: any) {
                                     const currentTimeSeconds = Math.floor(player.currentTime() || 0);
@@ -158,6 +160,12 @@ export function Player() {
             const t = p.currentTime() || 0
             setCurrentTime(t)
             setCurrentTimeInFile(t)
+        })
+        p.on('ratechange', () => {
+            const rate = p.playbackRate()
+            setSpeedIndicator(rate)
+            if (speedTimerRef.current) clearTimeout(speedTimerRef.current)
+            speedTimerRef.current = setTimeout(() => setSpeedIndicator(null), 1000)
         })
         p.on('ended', () => {
             if (currentFileIndex < files.length - 1) {
@@ -286,17 +294,22 @@ export function Player() {
     return (
         <div ref={containerRef} className="player-container">
             <video ref={videoRef} className="video-js vjs-default-skin" />
-            <div style={{ marginTop: 4 }}>
+            {speedIndicator !== null && (
+                <div className="speed-indicator" key={speedIndicator + '-' + Date.now()}>
+                    {speedIndicator.toFixed(2)}x
+                </div>
+            )}
+            <div className="mt-1 px-1 text-xs">
                 {isPreviewMode ? (
-                    <div>
-                        <strong>Preview Mode</strong> — Segment {currentPreviewSegment + 1}/{previewSegments.length}
+                    <div className="text-muted">
+                        <strong className="text-pink">Preview</strong> — Segment {currentPreviewSegment + 1}/{previewSegments.length}
                         {previewSegments.length > 0 && currentPreviewSegment < previewSegments.length && (
                             <span> — {previewSegments[currentPreviewSegment].goals.length} goal(s)</span>
                         )}
                     </div>
                 ) : (
-                    <div>
-                        File {files.length ? currentFileIndex + 1 : 0}/{files.length} — Current time: {formatHMS(currentTime)}
+                    <div className="text-muted">
+                        File {files.length ? currentFileIndex + 1 : 0}/{files.length} — <span className="text-pink font-semibold tabular-nums">{formatHMS(currentTime)}</span>
                     </div>
                 )}
             </div>

@@ -1,74 +1,100 @@
 import './App.css'
-import { FilePicker } from './components/FilePicker'
+import { useRef } from 'react'
+import { FilePills } from './components/FilePills'
 import { Player } from './components/Player'
-import { AddGoalControls } from './components/AddGoalControls'
+import { AddGoalBar } from './components/AddGoalBar'
 import { GoalList } from './components/GoalList'
-import { ChaptersExport } from './components/ChaptersExport'
-import { AddGoalAtCurrentButton } from './components/AddGoalAtCurrentButton'
-import { FileList } from './components/FileList'
-
-import { BulkPaste } from './components/BulkPaste'
-import { ProjectIO } from './components/ProjectIO'
-import { RenderHighlights } from './components/RenderHighlights'
-import { PreviewControls } from './components/PreviewControls'
-import { HighlightLengthControls } from './components/HighlightLengthControls'
+import { ClipSettings } from './components/ClipSettings'
+import { OutputPanel } from './components/OutputPanel'
+import { useAppState } from './state'
 
 function App() {
-  return (
-    <div style={{
-      padding: 16,
-      maxWidth: 1920,
-      margin: '0 auto',
-      width: '100%'
-    }}>
-      <h1>SHOOOT - Highlights creator</h1>
+    const goals = useAppState((s) => s.goals)
+    const setGoals = useAppState((s) => s.setGoals)
+    const importRef = useRef<HTMLInputElement | null>(null)
 
-      {/* File picker and file list - always at top */}
-      <FilePicker />
-      <div style={{ marginTop: 12 }}>
-        <FileList />
-      </div>
+    const onExport = () => {
+        const blob = new Blob([JSON.stringify({ goals }, null, 2)], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'project.json'
+        a.click()
+        URL.revokeObjectURL(url)
+    }
 
-      {/* Responsive layout container */}
-      <div className="layout-container">
+    const onImport = async (evt: React.ChangeEvent<HTMLInputElement>) => {
+        const file = evt.target.files?.[0]
+        if (!file) return
+        const text = await file.text()
+        try {
+            const data = JSON.parse(text)
+            if (Array.isArray(data.goals)) {
+                setGoals(data.goals)
+            }
+        } catch {
+            alert('Failed to import JSON file.')
+        }
+        evt.target.value = ''
+    }
 
-        {/* Main content area - player on desktop left, full width on mobile */}
-        <div className="main-content">
-          <Player />
-        </div>
-
-        {/* Sidebar - right on desktop, below player on mobile */}
-        <div className="sidebar">
-
-          <div>
-            <AddGoalControls />
-            <div style={{ marginTop: 8 }}>
-              <AddGoalAtCurrentButton />
+    return (
+        <div className="max-w-[1920px] mx-auto px-4 py-4">
+            {/* Top Bar */}
+            <div className="flex items-center justify-between mb-4">
+                <span className="text-yellow font-black text-xl tracking-[4px]">SHOOOT</span>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={onExport}
+                        disabled={goals.length === 0}
+                        className="rounded bg-surface px-2.5 py-1.5 text-xs font-semibold text-muted border-none cursor-pointer hover:text-light transition-colors disabled:opacity-30"
+                    >
+                        Export
+                    </button>
+                    <button
+                        onClick={() => importRef.current?.click()}
+                        className="rounded bg-surface px-2.5 py-1.5 text-xs font-semibold text-muted border-none cursor-pointer hover:text-light transition-colors"
+                    >
+                        Import
+                    </button>
+                    <input
+                        ref={importRef}
+                        type="file"
+                        accept=".json,application/json"
+                        onChange={onImport}
+                        className="hidden"
+                    />
+                </div>
             </div>
-          </div>
 
-          <GoalList />
+            {/* File Pills */}
+            <div className="mb-3">
+                <FilePills />
+            </div>
 
-          <HighlightLengthControls />
+            {/* Player */}
+            <Player />
 
-          <PreviewControls />
+            {/* Add Goal Bar */}
+            <div className="mt-1.5 mb-4">
+                <AddGoalBar />
+            </div>
 
-          <ChaptersExport />
+            {/* Panel Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-3">
+                {/* Goals Panel — spans 2 rows on desktop */}
+                <div className="md:row-span-2">
+                    <GoalList />
+                </div>
 
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-            <BulkPaste />
-            <ProjectIO />
-          </div>
+                {/* Clip Settings */}
+                <ClipSettings />
 
-          <RenderHighlights />
-
-          <p style={{ fontSize: '0.9em', color: '#666', margin: 0 }}>
-            Select MP4 H.264 files only.
-          </p>
+                {/* Output */}
+                <OutputPanel />
+            </div>
         </div>
-      </div>
-    </div>
-  )
+    )
 }
 
 export default App

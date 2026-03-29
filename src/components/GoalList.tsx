@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAppState } from '../state'
+import type { Goal } from '../types'
 
 export function GoalList() {
     const goals = useAppState((s) => s.goals)
@@ -7,59 +8,106 @@ export function GoalList() {
     const update = useAppState((s) => s.updateGoal)
     const sortGoals = useAppState((s) => s.sortGoals)
     const seekToGoal = useAppState((s) => s.seekToGoal)
+    const addGoal = useAppState((s) => s.addGoal)
+    const currentFileIndex = useAppState((s) => s.currentFileIndex)
     const lengthBeforeGoalSec = useAppState((s) => s.lengthBeforeGoalSec)
+    const [showBulkPaste, setShowBulkPaste] = useState(false)
+    const [bulkText, setBulkText] = useState('')
 
-    if (goals.length === 0) return <p>No goals yet.</p>
+    const onBulkParse = () => {
+        const lines = bulkText.split(/\r?\n/)
+        for (const line of lines) {
+            const g = parseLine(line, currentFileIndex)
+            if (g) addGoal(g)
+        }
+        setBulkText('')
+        setShowBulkPaste(false)
+    }
 
     return (
-        <div>
-            <h3>Goals</h3>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                {goals.map((g) => (
-                    <li key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 3, marginBottom: 3, fontSize: '0.9em' }}>
-                        <TimeInput
-                            valueSec={g.matchTimeSec}
-                            onCommit={(t) => {
-                                update(g.id, { matchTimeSec: t })
-                                // Sort goals after timestamp update
-                                setTimeout(() => sortGoals(), 0)
-                            }}
+        <div className="rounded-md bg-surface p-3">
+            <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-light">Goals</span>
+                <span className="text-xs text-muted">{goals.length} marked</span>
+            </div>
+
+            {goals.length === 0 ? (
+                <p className="text-sm text-muted">No goals yet.</p>
+            ) : (
+                <div className="flex flex-col gap-1.5">
+                    {goals.map((g) => (
+                        <div key={g.id} className="flex items-center gap-2 rounded bg-deep border-l-[3px] border-l-pink px-2.5 py-2">
+                            <TimeInput
+                                valueSec={g.matchTimeSec}
+                                onCommit={(t) => {
+                                    update(g.id, { matchTimeSec: t })
+                                    setTimeout(() => sortGoals(), 0)
+                                }}
+                            />
+                            <span className="rounded bg-surface px-1.5 py-0.5 text-[10px] text-muted">
+                                V{(g.sourceFileIndex ?? 0) + 1}
+                            </span>
+                            <input
+                                placeholder="Team"
+                                value={g.team ?? ''}
+                                onChange={(e) => update(g.id, { team: e.target.value })}
+                                className="w-[60px] rounded bg-transparent border-none text-xs text-light placeholder:text-muted/50 focus:outline-none p-0"
+                            />
+                            <input
+                                placeholder="Scorer"
+                                value={g.scorer ?? ''}
+                                onChange={(e) => update(g.id, { scorer: e.target.value })}
+                                className="w-[70px] rounded bg-transparent border-none text-xs text-muted placeholder:text-muted/50 focus:outline-none p-0"
+                            />
+                            <div className="ml-auto flex gap-1.5">
+                                <button
+                                    onClick={() => seekToGoal(g.sourceFileIndex ?? 0, Math.max(0, g.matchTimeSec - lengthBeforeGoalSec))}
+                                    className="text-xs text-muted hover:text-light bg-transparent border-none p-0 cursor-pointer"
+                                    title={`Watch goal (starts ${lengthBeforeGoalSec}s before)`}
+                                >&#9654;</button>
+                                <button
+                                    onClick={() => remove(g.id)}
+                                    className="text-xs text-pink/40 hover:text-pink bg-transparent border-none p-0 cursor-pointer"
+                                    title="Delete goal"
+                                >×</button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            <div className="mt-2.5 pt-2 border-t border-deep">
+                {showBulkPaste ? (
+                    <div>
+                        <textarea
+                            value={bulkText}
+                            onChange={(e) => setBulkText(e.target.value)}
+                            placeholder="MM:SS Team - Scorer"
+                            className="w-full h-[80px] rounded bg-deep border border-border px-2 py-1.5 text-sm text-light placeholder:text-muted resize-y focus:border-pink focus:outline-none"
                         />
-                        <span style={{ minWidth: '45px', fontSize: '0.85em' }}>V{((g.sourceFileIndex ?? 0) + 1)}</span>
-                        <input
-                            placeholder="Team"
-                            value={g.team ?? ''}
-                            onChange={(e) => update(g.id, { team: e.target.value })}
-                            style={{ width: 60, fontSize: '0.8em', padding: '2px 4px' }}
-                        />
-                        <input
-                            placeholder="Player"
-                            value={g.scorer ?? ''}
-                            onChange={(e) => update(g.id, { scorer: e.target.value })}
-                            style={{ width: 70, fontSize: '0.8em', padding: '2px 4px' }}
-                        />
-                        <button
-                            onClick={() => seekToGoal(g.sourceFileIndex ?? 0, Math.max(0, g.matchTimeSec - lengthBeforeGoalSec))}
-                            style={{ padding: '2px 4px', minWidth: 'auto', fontSize: '0.8em' }}
-                            title={`Watch goal (starts ${lengthBeforeGoalSec}s before)`}
-                        >
-                            ▶
-                        </button>
-                        <button
-                            onClick={() => remove(g.id)}
-                            style={{ padding: '2px 4px', minWidth: 'auto', color: 'red', fontSize: '0.8em' }}
-                            title="Delete goal"
-                        >
-                            ×
-                        </button>
-                    </li>
-                ))}
-            </ul>
+                        <div className="flex gap-2 mt-1.5">
+                            <button
+                                onClick={onBulkParse}
+                                className="rounded bg-pink px-2 py-1 text-xs font-bold text-white border-none cursor-pointer"
+                            >Add Goals</button>
+                            <button
+                                onClick={() => setShowBulkPaste(false)}
+                                className="rounded bg-transparent px-2 py-1 text-xs text-muted border-none cursor-pointer hover:text-light"
+                            >Cancel</button>
+                        </div>
+                    </div>
+                ) : (
+                    <button
+                        onClick={() => setShowBulkPaste(true)}
+                        className="text-xs text-muted hover:text-light bg-transparent border-none p-0 cursor-pointer"
+                    >+ Bulk paste goals...</button>
+                )}
+            </div>
         </div>
     )
 }
 
-function formatHMS(totalSeconds: number) {
+function formatHMS(totalSeconds: number): string {
     const s = Math.max(0, Math.floor(totalSeconds))
     const mm = `${Math.floor(s / 60)}`.padStart(2, '0')
     const ss = `${s % 60}`.padStart(2, '0')
@@ -102,20 +150,39 @@ function TimeInput({ valueSec, onCommit }: { valueSec: number; onCommit: (second
 
     return (
         <input
-            style={{ width: 70 }}
             value={text}
             onChange={(e) => setText(e.target.value)}
             onBlur={tryCommit}
             onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                    e.currentTarget.blur()
-                } else if (e.key === 'Escape') {
-                    setText(lastValid)
-                    e.currentTarget.blur()
-                }
+                if (e.key === 'Enter') e.currentTarget.blur()
+                else if (e.key === 'Escape') { setText(lastValid); e.currentTarget.blur() }
             }}
+            className="w-[50px] rounded bg-transparent border-none text-xs font-bold text-pink tabular-nums focus:outline-none p-0"
         />
     )
 }
 
-
+function parseLine(line: string, sourceIdx: number): Goal | null {
+    const t = line.trim()
+    if (!t) return null
+    const ts = t.match(/^(\d+):(\d{1,2})/) || t.match(/^(\d+)/)
+    if (!ts) return null
+    let seconds = 0
+    if (ts.length === 3) {
+        const mm = parseInt(ts[1], 10)
+        const ss = parseInt(ts[2], 10)
+        if (isNaN(mm) || isNaN(ss)) return null
+        seconds = mm * 60 + ss
+    } else if (ts.length === 2) {
+        seconds = parseInt(ts[1], 10)
+    }
+    const rest = t.slice(ts[0].length).trim()
+    let team: string | undefined
+    let scorer: string | undefined
+    if (rest) {
+        const parts = rest.split(/[-–]|\s{2,}/)
+        team = parts[0]?.trim() || undefined
+        scorer = parts[1]?.trim() || undefined
+    }
+    return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, matchTimeSec: seconds, team, scorer, sourceFileIndex: sourceIdx }
+}

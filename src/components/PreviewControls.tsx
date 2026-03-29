@@ -12,104 +12,49 @@ export function PreviewControls() {
 
     if (isPreviewMode) {
         return (
-            <div style={{
-                padding: 12,
-                backgroundColor: '#f0f8ff',
-                border: '1px solid #4a90e2',
-                borderRadius: 6,
-                marginBottom: 12
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <strong style={{ color: '#4a90e2' }}>Preview Mode Active</strong>
+            <div className="rounded-md border border-pink bg-pink/10 p-3">
+                <div className="flex items-center gap-2 mb-2">
+                    <strong className="text-sm text-pink">Preview Mode</strong>
                     <button
                         onClick={exitPreview}
-                        style={{
-                            padding: '4px 8px',
-                            backgroundColor: '#ff6b6b',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: 4,
-                            cursor: 'pointer',
-                            fontSize: '0.9em'
-                        }}
+                        className="rounded bg-pink/20 px-2 py-0.5 text-xs font-semibold text-pink border border-pink/30 cursor-pointer hover:bg-pink/30 transition-colors"
                     >
-                        Exit Preview
+                        Exit
                     </button>
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <div className="flex items-center gap-2 flex-wrap">
                     <button
                         onClick={prevPreviewSegment}
                         disabled={currentPreviewSegment === 0}
-                        style={{
-                            padding: '4px 8px',
-                            backgroundColor: currentPreviewSegment === 0 ? '#ccc' : '#4a90e2',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: 4,
-                            cursor: currentPreviewSegment === 0 ? 'not-allowed' : 'pointer',
-                            fontSize: '0.9em'
-                        }}
+                        className="rounded bg-surface px-2 py-1 text-xs text-light border-none cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed hover:bg-border transition-colors"
                     >
-                        ← Previous
+                        ←
                     </button>
-
-                    <span style={{ fontSize: '0.9em', color: '#666' }}>
-                        Segment {currentPreviewSegment + 1} of {previewSegments.length}
+                    <span className="text-xs text-muted">
+                        {currentPreviewSegment + 1} / {previewSegments.length}
                     </span>
-
                     <button
                         onClick={nextPreviewSegment}
                         disabled={currentPreviewSegment >= previewSegments.length - 1}
-                        style={{
-                            padding: '4px 8px',
-                            backgroundColor: currentPreviewSegment >= previewSegments.length - 1 ? '#ccc' : '#4a90e2',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: 4,
-                            cursor: currentPreviewSegment >= previewSegments.length - 1 ? 'not-allowed' : 'pointer',
-                            fontSize: '0.9em'
-                        }}
+                        className="rounded bg-surface px-2 py-1 text-xs text-light border-none cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed hover:bg-border transition-colors"
                     >
-                        Next →
+                        →
                     </button>
                 </div>
-
-                {previewSegments.length > 0 && currentPreviewSegment < previewSegments.length && (
-                    <div style={{ marginTop: 8, fontSize: '0.85em', color: '#666' }}>
-                        Current segment contains {previewSegments[currentPreviewSegment].goals.length} goal(s)
-                    </div>
-                )}
             </div>
         )
     }
 
-    // Show start preview button when not in preview mode and goals exist
     if (goals.length > 0) {
         return (
-            <div style={{ marginBottom: 12 }}>
-                <button
-                    onClick={startPreview}
-                    style={{
-                        padding: '8px 16px',
-                        backgroundColor: '#4a90e2',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: 6,
-                        cursor: 'pointer',
-                        fontSize: '1em',
-                        fontWeight: 'bold'
-                    }}
-                >
-                    🎬 Start Highlights Preview
-                </button>
-                <div style={{ fontSize: '0.85em', color: '#666', marginTop: 4 }}>
-                    Preview {goals.length} goal(s) in sequence without generating video
-                </div>
-            </div>
+            <button
+                onClick={startPreview}
+                className="w-full rounded-md border border-pink bg-pink/10 px-3 py-2 text-sm font-bold text-pink cursor-pointer hover:bg-pink/20 transition-colors"
+            >
+                Preview Highlights
+            </button>
         )
     }
 
     return null
 }
-
