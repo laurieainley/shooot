@@ -27,7 +27,7 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
     const [playbackSpeed, setPlaybackSpeed] = useState(1)
     const [tapFeedback, setTapFeedback] = useState<{ side: 'left' | 'right'; timestamp: number } | null>(null)
 
-    const addGoal = useAppState((s) => s.addGoal)
+    const addGoal = useAppState((s) => s.addEvent)
     const currentFileIndex = useAppState((s) => s.currentFileIndex)
 
     const lastTapRef = useRef<{ time: number; side: 'left' | 'right' } | null>(null)

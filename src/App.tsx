@@ -1,17 +1,75 @@
 import './App.css'
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { FilePills } from './components/FilePills'
 import { Player } from './components/Player'
+import { EmptyPlayer } from './components/EmptyPlayer'
 import { AddGoalBar } from './components/AddGoalBar'
 import { GoalList } from './components/GoalList'
 import { ClipSettings } from './components/ClipSettings'
 import { OutputPanel } from './components/OutputPanel'
+import { Logo } from './components/Logo'
 import { useAppState } from './state'
 
+const DEFAULT_VIDEO_URL = '/default-video.mp4'
+const DEFAULT_VIDEO_NAME = 'TNF full match 19-03-26.mp4'
+
 function App() {
-    const goals = useAppState((s) => s.goals)
-    const setGoals = useAppState((s) => s.setGoals)
+    const goals = useAppState((s) => s.events)
+    const setGoals = useAppState((s) => s.setEvents)
+    const files = useAppState((s) => s.files)
+    const setFiles = useAppState((s) => s.setFiles)
     const importRef = useRef<HTMLInputElement | null>(null)
+
+    // Global undo/redo keyboard shortcuts
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            const isMod = e.metaKey || e.ctrlKey
+            if (isMod && e.key === 'z' && !e.shiftKey) {
+                e.preventDefault()
+                useAppState.getState().undo()
+            } else if (isMod && e.key === 'z' && e.shiftKey) {
+                e.preventDefault()
+                useAppState.getState().redo()
+            }
+        }
+        window.addEventListener('keydown', handleKeyDown)
+        return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [])
+
+    // Auto-load default video on startup if no files are loaded
+    useEffect(() => {
+        if (files.length > 0) return
+        let cancelled = false
+        ;(async () => {
+            try {
+                const resp = await fetch(DEFAULT_VIDEO_URL)
+                if (!resp.ok || cancelled) return
+                const blob = await resp.blob()
+                if (cancelled) return
+                const file = new File([blob], DEFAULT_VIDEO_NAME, { type: 'video/mp4' })
+                const url = URL.createObjectURL(file)
+                // Probe duration via a temp video element
+                const video = document.createElement('video')
+                video.preload = 'metadata'
+                video.src = url
+                video.addEventListener('loadedmetadata', () => {
+                    if (cancelled) return
+                    setFiles([{
+                        id: `${Date.now()}-0`,
+                        file,
+                        url,
+                        name: DEFAULT_VIDEO_NAME,
+                        durationSec: isFinite(video.duration) ? video.duration : undefined,
+                        width: video.videoWidth || undefined,
+                        height: video.videoHeight || undefined,
+                    }])
+                })
+            } catch {
+                // Silently fail — user can still load files manually
+            }
+        })()
+        return () => { cancelled = true }
+    }, [])
 
     const onExport = () => {
         const blob = new Blob([JSON.stringify({ goals }, null, 2)], { type: 'application/json' })
@@ -42,7 +100,7 @@ function App() {
         <div className="max-w-[1920px] mx-auto px-4 py-4">
             {/* Top Bar */}
             <div className="flex items-center justify-between mb-4">
-                <span className="text-yellow font-black text-xl tracking-[4px]">SHOOOT</span>
+                <Logo height={28} className="text-yellow" />
                 <div className="flex items-center gap-2">
                     <button
                         onClick={onExport}
@@ -73,7 +131,7 @@ function App() {
             </div>
 
             {/* Player */}
-            <Player />
+            {files.length > 0 ? <Player /> : <EmptyPlayer />}
 
             {/* Add Goal Bar */}
             <div className="mt-1.5 mb-4">

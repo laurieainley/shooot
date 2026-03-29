@@ -4,7 +4,7 @@ import { PreviewControls } from './PreviewControls'
 import { RenderHighlights } from './RenderHighlights'
 
 export function OutputPanel() {
-    const goals = useAppState((s) => s.goals)
+    const goals = useAppState((s) => s.events)
 
     const scoreCount = useMemo(() => {
         const teamCounts: Record<string, number> = {}

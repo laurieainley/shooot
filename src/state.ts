@@ -1,12 +1,12 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Goal, VideoSourceFile } from './types'
+import type { MatchEvent, VideoSourceFile } from './types'
 import { computeCumulativeOffsets } from './utils/timeline'
 import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/highlights'
 
 type AppState = {
     files: VideoSourceFile[]
-    goals: Goal[]
+    events: MatchEvent[]
     cumulativeOffsets: number[]
     currentTimeInFileSec: number
     currentFileIndex: number
@@ -30,12 +30,17 @@ type AppState = {
     seekToGoal: (fileIndex: number, timeSec: number) => void
     nextFile: () => void
     prevFile: () => void
-    addGoal: (goal: Goal) => void
-    setGoals: (goals: Goal[]) => void
-    removeGoal: (id: string) => void
-    updateGoal: (id: string, partial: Partial<Goal>) => void
-    sortGoals: () => void
+    addEvent: (event: MatchEvent) => void
+    setEvents: (events: MatchEvent[]) => void
+    removeEvent: (id: string) => void
+    updateEvent: (id: string, partial: Partial<MatchEvent>) => void
+    sortEvents: () => void
     clear: () => void
+    // Undo/redo
+    undoStack: MatchEvent[][]
+    redoStack: MatchEvent[][]
+    undo: () => void
+    redo: () => void
     // Preview mode actions
     startPreview: () => void
     exitPreview: () => void
@@ -45,9 +50,11 @@ type AppState = {
 
 export const useAppState = create<AppState>()(
     persist(
-        (set, get) => ({
+        (set, get) => {
+            const MAX_UNDO_DEPTH = 50
+            return {
             files: [],
-            goals: [],
+            events: [],
             cumulativeOffsets: [],
             currentTimeInFileSec: 0,
             currentFileIndex: 0,
@@ -56,6 +63,9 @@ export const useAppState = create<AppState>()(
             // Highlight length configuration
             lengthBeforeGoalSec: 10,
             lengthAfterGoalSec: 4,
+            // Undo/redo stacks
+            undoStack: [],
+            redoStack: [],
             // Preview mode state
             isPreviewMode: false,
             previewSegments: [],
@@ -66,17 +76,17 @@ export const useAppState = create<AppState>()(
                 const newFiles = currentFiles.filter((_, i) => i !== index)
                 const currentFileIndex = get().currentFileIndex
                 const newFileIndex = Math.min(currentFileIndex, newFiles.length - 1)
-                const newGoals = get().goals.filter(goal => (goal.sourceFileIndex ?? 0) !== index)
-                // Adjust sourceFileIndex for goals that were after the removed file
-                const adjustedGoals = newGoals.map(goal => ({
-                    ...goal,
-                    sourceFileIndex: goal.sourceFileIndex && goal.sourceFileIndex > index ? goal.sourceFileIndex - 1 : goal.sourceFileIndex
+                const newEvents = get().events.filter(event => (event.sourceFileIndex ?? 0) !== index)
+                // Adjust sourceFileIndex for events that were after the removed file
+                const adjustedEvents = newEvents.map(event => ({
+                    ...event,
+                    sourceFileIndex: event.sourceFileIndex && event.sourceFileIndex > index ? event.sourceFileIndex - 1 : event.sourceFileIndex
                 }))
                 set({
                     files: newFiles,
                     cumulativeOffsets: computeCumulativeOffsets(newFiles),
                     currentFileIndex: Math.max(0, newFileIndex),
-                    goals: adjustedGoals
+                    events: adjustedEvents
                 })
             },
             setCurrentTimeInFile: (t) => set({ currentTimeInFileSec: t }),
@@ -94,34 +104,84 @@ export const useAppState = create<AppState>()(
             },
             nextFile: () => set({ currentFileIndex: Math.min(get().currentFileIndex + 1, get().files.length - 1) }),
             prevFile: () => set({ currentFileIndex: Math.max(get().currentFileIndex - 1, 0) }),
-            addGoal: (goal) => {
-                const newGoals = [...get().goals, goal]
-                // Sort goals by timestamp after adding
-                const sortedGoals = newGoals.sort((a, b) => {
-                    const aTime = (get().cumulativeOffsets[a.sourceFileIndex ?? 0] || 0) + a.matchTimeSec
-                    const bTime = (get().cumulativeOffsets[b.sourceFileIndex ?? 0] || 0) + b.matchTimeSec
+            addEvent: (event) => {
+                const state = get()
+                const prevEvents = state.events
+                const newEvents = [...prevEvents, event]
+                const sortedEvents = newEvents.sort((a, b) => {
+                    const aTime = (state.cumulativeOffsets[a.sourceFileIndex ?? 0] || 0) + a.matchTimeSec
+                    const bTime = (state.cumulativeOffsets[b.sourceFileIndex ?? 0] || 0) + b.matchTimeSec
                     return aTime - bTime
                 })
-                set({ goals: sortedGoals })
+                set({
+                    events: sortedEvents,
+                    undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), prevEvents],
+                    redoStack: [],
+                })
             },
-            setGoals: (goals) => set({ goals }),
-            removeGoal: (id) => set({ goals: get().goals.filter((g) => g.id !== id) }),
-            updateGoal: (id, partial) =>
-                set({ goals: get().goals.map((g) => (g.id === id ? { ...g, ...partial } : g)) }),
-            sortGoals: () => {
-                const sortedGoals = get().goals.sort((a, b) => {
-                    const aTime = (get().cumulativeOffsets[a.sourceFileIndex ?? 0] || 0) + a.matchTimeSec
-                    const bTime = (get().cumulativeOffsets[b.sourceFileIndex ?? 0] || 0) + b.matchTimeSec
+            setEvents: (events) => {
+                const state = get()
+                set({
+                    events,
+                    undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), state.events],
+                    redoStack: [],
+                })
+            },
+            removeEvent: (id) => {
+                const state = get()
+                set({
+                    events: state.events.filter((e) => e.id !== id),
+                    undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), state.events],
+                    redoStack: [],
+                })
+            },
+            updateEvent: (id, partial) => {
+                const state = get()
+                set({
+                    events: state.events.map((e) => (e.id === id ? { ...e, ...partial } : e)),
+                    undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), state.events],
+                    redoStack: [],
+                })
+            },
+            sortEvents: () => {
+                const state = get()
+                const sortedEvents = [...state.events].sort((a, b) => {
+                    const aTime = (state.cumulativeOffsets[a.sourceFileIndex ?? 0] || 0) + a.matchTimeSec
+                    const bTime = (state.cumulativeOffsets[b.sourceFileIndex ?? 0] || 0) + b.matchTimeSec
                     return aTime - bTime
                 })
-                set({ goals: sortedGoals })
+                set({
+                    events: sortedEvents,
+                    undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), state.events],
+                    redoStack: [],
+                })
             },
-            clear: () => set({ files: [], goals: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0, matchStartTimeSec: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, isPreviewMode: false, previewSegments: [], currentPreviewSegment: 0 }),
+            undo: () => {
+                const state = get()
+                if (state.undoStack.length === 0) return
+                const previous = state.undoStack[state.undoStack.length - 1]
+                set({
+                    events: previous,
+                    undoStack: state.undoStack.slice(0, -1),
+                    redoStack: [...state.redoStack, state.events],
+                })
+            },
+            redo: () => {
+                const state = get()
+                if (state.redoStack.length === 0) return
+                const next = state.redoStack[state.redoStack.length - 1]
+                set({
+                    events: next,
+                    redoStack: state.redoStack.slice(0, -1),
+                    undoStack: [...state.undoStack, state.events],
+                })
+            },
+            clear: () => set({ files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0, matchStartTimeSec: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, isPreviewMode: false, previewSegments: [], currentPreviewSegment: 0, undoStack: [], redoStack: [] }),
             // Preview mode actions
             startPreview: () => {
                 const state = get()
                 const segments = mergeOverlappingGoalSegments(
-                    state.goals,
+                    state.events,
                     state.cumulativeOffsets,
                     state.matchStartTimeSec,
                     state.adjustTimestampsByOffset,
@@ -149,54 +209,64 @@ export const useAppState = create<AppState>()(
                     set({ currentPreviewSegment: state.currentPreviewSegment - 1 })
                 }
             },
-        }),
+        }},
         {
             name: 'vhm-state',
-            // Persist goals, match start time, and offset adjustment setting; files are ephemeral and cannot be restored across refresh
+            // Persist events, match start time, and offset adjustment setting; files are ephemeral and cannot be restored across refresh
             partialize: (state) => ({
-                goals: state.goals,
+                events: state.events,
                 matchStartTimeSec: state.matchStartTimeSec,
                 adjustTimestampsByOffset: state.adjustTimestampsByOffset,
                 lengthBeforeGoalSec: state.lengthBeforeGoalSec,
                 lengthAfterGoalSec: state.lengthAfterGoalSec
             }),
-            version: 7,
+            version: 8,
             migrate: (persistedState: any, version: number) => {
-                // Drop any previously persisted files to avoid stale object URLs
-                if (persistedState && 'files' in persistedState) {
-                    const { files, cumulativeOffsets, currentTimeInFileSec, ...rest } = persistedState
-                    return rest
+                let state = persistedState ?? {}
+
+                // Drop any previously persisted files
+                if (state && 'files' in state) {
+                    const { files, cumulativeOffsets, currentTimeInFileSec, ...rest } = state
+                    state = rest
                 }
 
-                // Add matchStartTimeSec if it doesn't exist (for version 2 -> 3 migration)
-                if (version < 3 && persistedState && !('matchStartTimeSec' in persistedState)) {
-                    return { ...persistedState, matchStartTimeSec: 0 }
-                }
-
-                // Remove slow motion settings (for version 4 -> 5 migration)
-                if (version < 5 && persistedState) {
-                    const { slowMotionEnabled, slowMotionSpeed, ...rest } = persistedState
-                    return rest
-                }
-
-                // Add adjustTimestampsByOffset if it doesn't exist (for version 5 -> 6 migration)
-                if (version < 6 && persistedState && !('adjustTimestampsByOffset' in persistedState)) {
-                    return { ...persistedState, adjustTimestampsByOffset: false }
-                }
-
-                // Add highlight length settings if they don't exist (for version 6 -> 7 migration)
-                if (version < 7 && persistedState) {
-                    return {
-                        ...persistedState,
-                        lengthBeforeGoalSec: 10,
-                        lengthAfterGoalSec: 4
+                // Migrate goals → events (v7 → v8)
+                if ('goals' in state) {
+                    state = {
+                        ...state,
+                        events: (state.goals as any[]).map((g: any) => ({
+                            ...g,
+                            type: g.type ?? 'goal',
+                        })),
                     }
+                    delete state.goals
                 }
 
-                return persistedState
+                // Ensure all events have a type field
+                if (state.events) {
+                    state.events = (state.events as any[]).map((e: any) => ({
+                        ...e,
+                        type: e.type ?? 'goal',
+                    }))
+                }
+
+                if (version < 3 && !('matchStartTimeSec' in state)) {
+                    state.matchStartTimeSec = 0
+                }
+                if (version < 5) {
+                    delete state.slowMotionEnabled
+                    delete state.slowMotionSpeed
+                }
+                if (version < 6 && !('adjustTimestampsByOffset' in state)) {
+                    state.adjustTimestampsByOffset = false
+                }
+                if (version < 7) {
+                    state.lengthBeforeGoalSec = state.lengthBeforeGoalSec ?? 10
+                    state.lengthAfterGoalSec = state.lengthAfterGoalSec ?? 4
+                }
+
+                return state
             },
         }
     )
 )
-
-

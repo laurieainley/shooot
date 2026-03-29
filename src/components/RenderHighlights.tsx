@@ -6,7 +6,7 @@ import { mergeOverlappingGoalSegments } from '../utils/highlights';
 
 export function RenderHighlights() {
     const files = useAppState((s) => s.files)
-    const goals = useAppState((s) => s.goals)
+    const goals = useAppState((s) => s.events)
     const cumulativeOffsets = useAppState((s) => s.cumulativeOffsets)
     const matchStartTimeSec = useAppState((s) => s.matchStartTimeSec)
     const adjustTimestampsByOffset = useAppState((s) => s.adjustTimestampsByOffset)

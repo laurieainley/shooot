@@ -8,7 +8,7 @@ export function PreviewControls() {
     const exitPreview = useAppState((s) => s.exitPreview)
     const nextPreviewSegment = useAppState((s) => s.nextPreviewSegment)
     const prevPreviewSegment = useAppState((s) => s.prevPreviewSegment)
-    const goals = useAppState((s) => s.goals)
+    const goals = useAppState((s) => s.events)
 
     if (isPreviewMode) {
         return (

@@ -3,12 +3,16 @@ import { useAppState } from '../state'
 import type { Goal } from '../types'
 
 export function GoalList() {
-    const goals = useAppState((s) => s.goals)
-    const remove = useAppState((s) => s.removeGoal)
-    const update = useAppState((s) => s.updateGoal)
-    const sortGoals = useAppState((s) => s.sortGoals)
+    const goals = useAppState((s) => s.events)
+    const remove = useAppState((s) => s.removeEvent)
+    const update = useAppState((s) => s.updateEvent)
+    const sortGoals = useAppState((s) => s.sortEvents)
     const seekToGoal = useAppState((s) => s.seekToGoal)
-    const addGoal = useAppState((s) => s.addGoal)
+    const addGoal = useAppState((s) => s.addEvent)
+    const undo = useAppState((s) => s.undo)
+    const redo = useAppState((s) => s.redo)
+    const undoStack = useAppState((s) => s.undoStack)
+    const redoStack = useAppState((s) => s.redoStack)
     const currentFileIndex = useAppState((s) => s.currentFileIndex)
     const lengthBeforeGoalSec = useAppState((s) => s.lengthBeforeGoalSec)
     const [showBulkPaste, setShowBulkPaste] = useState(false)
@@ -28,11 +32,25 @@ export function GoalList() {
         <div className="rounded-md bg-surface p-3">
             <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-light">Goals</span>
-                <span className="text-xs text-muted">{goals.length} marked</span>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={undo}
+                        disabled={undoStack.length === 0}
+                        className="text-[10px] text-muted hover:text-light bg-transparent border-none p-0 cursor-pointer disabled:opacity-30"
+                        title="Undo (Ctrl+Z)"
+                    >&#8617;</button>
+                    <button
+                        onClick={redo}
+                        disabled={redoStack.length === 0}
+                        className="text-[10px] text-muted hover:text-light bg-transparent border-none p-0 cursor-pointer disabled:opacity-30"
+                        title="Redo (Ctrl+Shift+Z)"
+                    >&#8618;</button>
+                    <span className="text-xs text-muted">{goals.length} marked</span>
+                </div>
             </div>
 
             {goals.length === 0 ? (
-                <p className="text-sm text-muted">No goals yet.</p>
+                <p className="text-sm text-muted">No goals marked yet. Press <kbd className="text-light font-bold">G</kbd> or <kbd className="text-light font-bold">M</kbd> during playback to mark a goal.</p>
             ) : (
                 <div className="flex flex-col gap-1.5">
                     {goals.map((g) => (

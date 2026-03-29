@@ -13,7 +13,7 @@ export function Player() {
     const files = useAppState((s) => s.files)
     const currentFileIndex = useAppState((s) => s.currentFileIndex)
     const setCurrentFileIndex = useAppState((s) => s.setCurrentFileIndex)
-    const addGoal = useAppState((s) => s.addGoal)
+    const addGoal = useAppState((s) => s.addEvent)
     const [currentTime, setCurrentTime] = useState(0)
     const [isFullscreen, setIsFullscreen] = useState(false)
     const [speedIndicator, setSpeedIndicator] = useState<number | null>(null)
@@ -32,7 +32,8 @@ export function Player() {
                 controls: !isPreviewMode, // Disable controls during preview
                 autoplay: false,
                 preload: 'auto',
-                fluid: true,
+                fluid: false,
+                fill: true,
             })
 
             // Enable hotkeys once the player is ready
@@ -292,7 +293,7 @@ export function Player() {
     }, [])
 
     return (
-        <div ref={containerRef} className="player-container">
+        <div ref={containerRef} className="player-container max-h-[50vh] aspect-video mx-auto overflow-hidden rounded-md">
             <video ref={videoRef} className="video-js vjs-default-skin" />
             {speedIndicator !== null && (
                 <div className="speed-indicator" key={speedIndicator + '-' + Date.now()}>
