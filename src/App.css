@@ -1,7 +1,6 @@
 /* === Video.js overrides === */
 .player-container {
   position: relative;
-  width: 100%;
 }
 
 /* === Speed indicator overlay === */

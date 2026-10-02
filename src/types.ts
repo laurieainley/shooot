@@ -12,14 +12,17 @@ export type TimelineFile = VideoSourceFile & {
     cumulativeOffsetSec: number
 }
 
-export type Goal = {
+export type EventType = 'goal' | 'save' | 'foul' | 'card' | 'moment'
+
+export type MatchEvent = {
     id: string
     matchTimeSec: number
-    // 0-based index of the source video in the ordered files list
     sourceFileIndex?: number
+    type: EventType
     team?: string
     scorer?: string
     notes?: string
 }
 
-
+// Keep backward-compat alias for migration
+export type Goal = MatchEvent

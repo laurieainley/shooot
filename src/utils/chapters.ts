@@ -1,6 +1,6 @@
-import type { Goal } from '../types'
+import type { MatchEvent } from '../types'
 
-export function generateYouTubeChapters(goals: Goal[], cumulativeOffsets: number[] = [], matchStartTimeSec: number = 0, lengthBeforeGoalSec: number = 10, _lengthAfterGoalSec: number = 4): string {
+export function generateYouTubeChapters(goals: MatchEvent[], cumulativeOffsets: number[] = [], matchStartTimeSec: number = 0, lengthBeforeGoalSec: number = 10, _lengthAfterGoalSec: number = 4): string {
     // Check if we have cumulative offsets (i.e., video files are loaded)
     const hasVideoFiles = cumulativeOffsets.length > 0
 
@@ -84,7 +84,7 @@ export function generateYouTubeChapters(goals: Goal[], cumulativeOffsets: number
     return lines.join('\n')
 }
 
-export function generateHighlightChapters(goals: Goal[], cumulativeOffsets: number[] = [], lengthBeforeGoalSec: number = 10, lengthAfterGoalSec: number = 4): string {
+export function generateHighlightChapters(goals: MatchEvent[], cumulativeOffsets: number[] = [], lengthBeforeGoalSec: number = 10, lengthAfterGoalSec: number = 4): string {
     if (goals.length === 0) return '00:00 Start'
 
     // Sort goals by time

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAppState } from '../state'
-import type { Goal } from '../types'
+import type { MatchEvent } from '../types'
 import { formatHMS } from '../utils/timeline'
 
 function parseTimeToSeconds(input: string): number | null {
@@ -18,7 +18,7 @@ function parseTimeToSeconds(input: string): number | null {
 export function AddGoalBar() {
     const currentTime = useAppState((s) => s.currentTimeInFileSec)
     const currentFileIndex = useAppState((s) => s.currentFileIndex)
-    const addGoal = useAppState((s) => s.addGoal)
+    const addEvent = useAppState((s) => s.addEvent)
     const files = useAppState((s) => s.files)
 
     const [time, setTime] = useState('')
@@ -28,14 +28,15 @@ export function AddGoalBar() {
     const onAdd = () => {
         const matchTimeSec = time ? parseTimeToSeconds(time) : Math.floor(currentTime)
         if (matchTimeSec == null) return
-        const goal: Goal = {
+        const event: MatchEvent = {
             id: `${Date.now()}`,
             matchTimeSec,
             sourceFileIndex: currentFileIndex,
+            type: 'goal',
             team: team || undefined,
             scorer: scorer || undefined,
         }
-        addGoal(goal)
+        addEvent(event)
         setTime('')
     }
 

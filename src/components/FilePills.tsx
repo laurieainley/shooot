@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
 import { useAppState } from '../state'
-import type { VideoSourceFile } from '../types'
-import { probeVideoFile } from '../utils/probe'
+import { processVideoFiles } from '../utils/processFiles'
 
 function formatMSS(s: number): string {
     const mm = `${Math.floor(s / 60)}`.padStart(2, '0')
@@ -21,24 +20,9 @@ export function FilePills() {
     const onPick = async (evt: React.ChangeEvent<HTMLInputElement>) => {
         const list = evt.target.files
         if (!list || list.length === 0) return
-        const picked: VideoSourceFile[] = []
-        for (const [idx, f] of Array.from(list).entries()) {
-            const meta = await probeVideoFile(f)
-            if (!meta.playable) {
-                setMessage(meta.error || 'Unsupported file')
-                continue
-            }
-            picked.push({
-                id: `${Date.now()}-${idx}`,
-                file: f,
-                url: URL.createObjectURL(f),
-                name: f.name,
-                durationSec: meta.durationSec,
-                width: meta.width,
-                height: meta.height,
-            })
-        }
-        setFiles(picked)
+        const result = await processVideoFiles(list)
+        if (result.error) setMessage(result.error)
+        if (result.files.length > 0) setFiles(result.files)
     }
 
     const move = (from: number, to: number) => {

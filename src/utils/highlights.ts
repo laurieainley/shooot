@@ -1,16 +1,16 @@
-import type { Goal } from '../types'
+import type { MatchEvent } from '../types'
 
 export type HighlightSegment = {
     startTime: number
     endTime: number
     sourceFileIndex: number
-    goals: Goal[]
+    goals: MatchEvent[]
     duration: number
 }
 
 // Function to merge overlapping goal segments
 export function mergeOverlappingGoalSegments(
-    goals: Goal[],
+    goals: MatchEvent[],
     cumulativeOffsets: number[],
     matchStartTimeSec: number,
     adjustTimestampsByOffset: boolean,
