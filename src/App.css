@@ -301,3 +301,13 @@
   .event-picker__item { padding: 12px 14px; border: 1px solid rgba(255, 255, 255, 0.2); }
   .event-picker__item kbd { display: none; }
 }
+
+/* Container fullscreen (see components/fullscreen.ts) */
+.player-container:fullscreen {
+  max-height: none;
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+  background: #000;
+}
+.player-container:fullscreen .video-js { width: 100%; height: 100%; }
