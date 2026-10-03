@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeCumulativeOffsets, formatHMS, parseTimeToSeconds } from './timeline'
+import { computeCumulativeOffsets, formatEventClock, formatHMS, parseTimeToSeconds } from './timeline'
 import type { VideoSourceFile } from '../types'
 
 function makeFile(durationSec?: number): VideoSourceFile {
@@ -64,5 +64,19 @@ describe('parseTimeToSeconds', () => {
         expect(parseTimeToSeconds('')).toBeNull()
         expect(parseTimeToSeconds('1:75')).toBeNull()
         expect(parseTimeToSeconds('abc')).toBeNull()
+    })
+})
+
+describe('formatEventClock', () => {
+    it('should show file time when no match start is set', () => {
+        expect(formatEventClock(1421, 75, 0)).toBe('01:15')
+    })
+
+    it('should show match clock relative to kick-off when a start is set', () => {
+        expect(formatEventClock(1521, 1521, 100)).toBe('23:41')
+    })
+
+    it('should prefix events before kick-off with a minus sign', () => {
+        expect(formatEventClock(70, 70, 100)).toBe('−00:30')
     })
 })
