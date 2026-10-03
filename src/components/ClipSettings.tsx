@@ -1,13 +1,10 @@
 import { useAppState } from '../state'
-import { TimeInput } from './TimeInput'
 
 export function ClipSettings() {
     const lengthBeforeGoalSec = useAppState((s) => s.lengthBeforeGoalSec)
     const lengthAfterGoalSec = useAppState((s) => s.lengthAfterGoalSec)
     const setLengthBeforeGoal = useAppState((s) => s.setLengthBeforeGoal)
     const setLengthAfterGoal = useAppState((s) => s.setLengthAfterGoal)
-    const matchStartTimeSec = useAppState((s) => s.matchStartTimeSec)
-    const setMatchStartTime = useAppState((s) => s.setMatchStartTime)
     const adjustTimestampsByOffset = useAppState((s) => s.adjustTimestampsByOffset)
     const setAdjustTimestampsByOffset = useAppState((s) => s.setAdjustTimestampsByOffset)
 
@@ -38,11 +35,6 @@ export function ClipSettings() {
                         className="w-[50px] rounded bg-deep border border-border px-2 py-1 text-sm text-light text-center focus:border-pink focus:outline-none"
                     />
                 </div>
-            </div>
-
-            <div className="mt-3">
-                <span className="text-[10px] text-muted block mb-1">Match start offset</span>
-                <TimeInput valueSec={matchStartTimeSec} onCommit={setMatchStartTime} />
             </div>
 
             <label className="flex items-center gap-2 mt-3 cursor-pointer">

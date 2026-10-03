@@ -1,5 +1,5 @@
 import './App.css'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { FilePills } from './components/FilePills'
 import { Player } from './components/Player'
 import { EmptyPlayer } from './components/EmptyPlayer'
@@ -8,6 +8,8 @@ import { GoalList } from './components/GoalList'
 import { ClipSettings } from './components/ClipSettings'
 import { OutputPanel } from './components/OutputPanel'
 import { Logo } from './components/Logo'
+import { MatchSetup } from './components/MatchSetup'
+import { migrateEvent } from './utils/eventTypes'
 import { useAppState } from './state'
 
 const DEFAULT_VIDEO_URL = '/default-video.mp4'
@@ -19,6 +21,7 @@ function App() {
     const files = useAppState((s) => s.files)
     const setFiles = useAppState((s) => s.setFiles)
     const importRef = useRef<HTMLInputElement | null>(null)
+    const [showMatch, setShowMatch] = useState(false)
 
     // Global undo/redo keyboard shortcuts
     useEffect(() => {
@@ -72,7 +75,8 @@ function App() {
     }, [])
 
     const onExport = () => {
-        const blob = new Blob([JSON.stringify({ events: goals, goals }, null, 2)], { type: 'application/json' })
+        const { teams, matchStartTimeSec } = useAppState.getState()
+        const blob = new Blob([JSON.stringify({ events: goals, goals, teams, matchStartTimeSec }, null, 2)], { type: 'application/json' })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
@@ -89,8 +93,10 @@ function App() {
             const data = JSON.parse(text)
             const imported = Array.isArray(data.events) ? data.events : Array.isArray(data.goals) ? data.goals : null
             if (imported) {
-                setGoals(imported.map((e: any) => ({ ...e, type: e.type ?? 'goal' })))
+                setGoals(imported.map((e: unknown) => migrateEvent(e as Parameters<typeof migrateEvent>[0])))
             }
+            if (Array.isArray(data.teams) && data.teams.length === 2) useAppState.getState().setTeams(data.teams)
+            if (typeof data.matchStartTimeSec === 'number') useAppState.getState().setMatchStartTime(data.matchStartTimeSec)
         } catch {
             alert('Failed to import JSON file.')
         }
@@ -103,6 +109,12 @@ function App() {
             <div className="flex items-center justify-between mb-4">
                 <Logo height={28} className="text-yellow" />
                 <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setShowMatch(true)}
+                        className="rounded bg-surface px-2.5 py-1.5 text-xs font-semibold text-muted border-none cursor-pointer hover:text-light transition-colors"
+                    >
+                        Match
+                    </button>
                     <button
                         onClick={onExport}
                         disabled={goals.length === 0}
@@ -152,6 +164,8 @@ function App() {
                 {/* Output */}
                 <OutputPanel />
             </div>
+
+            {showMatch && <MatchSetup onClose={() => setShowMatch(false)} />}
         </div>
     )
 }
