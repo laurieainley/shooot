@@ -15,7 +15,7 @@ const byId = (id: string): MatchEvent | undefined => useAppState.getState().even
 const rows = (): HTMLElement[] => screen.getAllByRole('option')
 const log = (): HTMLElement => screen.getByRole('region', { name: 'Events' })
 
-let seekToGoal: ReturnType<typeof vi.fn>
+let seekToGoal: ReturnType<typeof vi.fn<(fileIndex: number, timeSec: number) => void>>
 
 function setup(events: MatchEvent[], extra: Partial<ReturnType<typeof useAppState.getState>> = {}): void {
     seekToGoal = vi.fn()
