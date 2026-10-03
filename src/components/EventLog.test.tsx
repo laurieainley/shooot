@@ -292,5 +292,7 @@ describe('EventLog header', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Add events' }))
         expect(useAppState.getState().events.map((e) => [e.matchTimeSec, e.team, e.scorer])).toEqual([[432, 'Whites', 'Sam'], [1421, 'Colours', 'Jo']])
         expect(screen.queryByRole('textbox', { name: 'Paste list' })).not.toBeInTheDocument()
+        await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
+        expect(useAppState.getState().events).toHaveLength(0)
     })
 })

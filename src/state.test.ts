@@ -149,3 +149,28 @@ describe('replay settings', () => {
         expect(s().replaySpeed).toBe(0.25)
     })
 })
+
+describe('addEvents', () => {
+    beforeEach(() => {
+        useAppState.setState({ files: [], events: [], cumulativeOffsets: [], undoStack: [], redoStack: [], currentFileIndex: 0 })
+        s().setFiles([vf('a.mp4'), vf('b.mp4')])
+        s().addEvent({ id: 'x', matchTimeSec: 50, sourceFileIndex: 0, type: 'goal' })
+    })
+
+    it('should add several events sorted on the timeline, linked to their files, as one undo step', () => {
+        s().addEvents([
+            { id: 'late', matchTimeSec: 5, sourceFileIndex: 1, type: 'goal' },
+            { id: 'early', matchTimeSec: 10, sourceFileIndex: 0, type: 'goal' },
+        ])
+        expect(s().events.map((e) => e.id)).toEqual(['early', 'x', 'late'])
+        expect(s().events.find((e) => e.id === 'late')?.sourceFileKey).toBe('b.mp4')
+        s().undo()
+        expect(s().events.map((e) => e.id)).toEqual(['x'])
+    })
+
+    it('should do nothing for an empty list', () => {
+        const undoDepth = s().undoStack.length
+        s().addEvents([])
+        expect(s().undoStack.length).toBe(undoDepth)
+    })
+})

@@ -98,7 +98,7 @@ export function EventLog() {
 
     const addPasted = (): void => {
         const idx = useAppState.getState().currentFileIndex
-        for (const e of parseBulkPaste(pasteText, idx)) useAppState.getState().addEvent(e)
+        useAppState.getState().addEvents(parseBulkPaste(pasteText, idx))
         setPasteText('')
         setPasting(false)
     }
