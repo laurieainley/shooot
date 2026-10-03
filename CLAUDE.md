@@ -43,35 +43,48 @@ npm run test:ui   # Vitest UI
 src/
   types.ts          # Shared types: Goal, VideoSourceFile, TimelineFile
   state.ts          # Zustand store — single source of truth
-  App.tsx           # Root layout
+  App.tsx           # Undo/redo keys, default-video loader, renders <AppShell/>
+  index.css         # Theme tokens (light + dark via prefers-color-scheme) mapped into Tailwind @theme; fonts
+  App.css           # Edit-bay component styles on the tokens (no hard-coded colours except video overlays)
   components/       # One component per file, named exports
-    Player.tsx      # Video.js player with hotkeys (G = mark event, <> = speed, etc.)
+    AppShell.tsx    # Edit-bay grid: ≥900px one screen (player + strip | event rail, key hints); <900px stacked + FAB
+    TopBar.tsx      # Wordmark, FilePills, ScoreBadge, Match, Export (phone: files + Match in ⋯ sheet)
+    ScoreBadge.tsx  # Team dots + names + scoreboard digits
+    MatchStrip.tsx  # Whole-match overview: files end to end, clip spans, event dots, kick-off flag, playhead; click/drag seeks
+    EventLog.tsx    # Dense keyboard event list (L focus, ↑↓, ⏎, ⌫, R replay, E scorer, T team, Esc), inline edit, paste list
+    ClipSummary.tsx # Rail footer (clip / replay / reel length); opens ClipSettings
+    ClipSettings.tsx          # Clip padding + replay before/after/speed
+    ExportPanel.tsx # Export popover/sheet: preview in player, RenderHighlights, ChaptersCopy, ProjectIO
+    FloatingPanel.tsx         # Anchored popover on desktop, bottom sheet on phone (portalled to body)
+    ProjectIO.tsx   # Export / import project JSON
+    KeyHints.tsx    # One-line shortcut hints (desktop)
+    Fab.tsx         # Phone ＋ mark-event button
+    Player.tsx      # Video.js player with hotkeys (G mark, Z zoom, 0 reset zoom, <> speed, etc.)
+    useZoomPan.ts   # Zoom 1/1.5/2×, clamped pan, pinch (used by Player); ZoomChip.tsx shows the level
+    useMediaQuery.ts          # matchMedia hook; DESKTOP_QUERY = (min-width: 900px)
+    addFiles.ts     # addPickedFiles(): attach full MP4s to loaded proxies, probe + append the rest
+    FilePills.tsx   # File pills (reorder, remove, badges) + AddFilesButton
+    EmptyPlayer.tsx # Drop zone shown in the player cell before any file is loaded
     EventPicker.tsx           # G → type → team → scorer picker (popover / mobile sheet)
     MatchSetup.tsx            # Teams, colours, rosters, match start
     TimelineMarkers.tsx       # Event / match-start markers portalled into the scrubber
     ChaptersCopy.tsx          # Copy YouTube / highlight chapters
     TimeInput.tsx             # Shared mm:ss time field
     fullscreen.ts             # Redirects video.js fullscreen to the player container
-    GoalList.tsx    # Editable list of marked events (↻ = per-event replay toggle)
-    ClipSettings.tsx          # Clip padding + replay before/after/speed
-    AddGoalControls.tsx       # Manual goal entry (time, team, scorer)
-    AddGoalAtCurrentButton.tsx # One-click goal at current playback position
     RenderHighlights.tsx      # Preview/full render buttons, missing-file prompt, progress, download/share
-    ChaptersExport.tsx        # YouTube chapter text generation
-    HighlightLengthControls.tsx # Before/after padding config
-    PreviewControls.tsx       # Step through highlight segments in-player
-    FilePicker.tsx            # MP4 file loading
-    FileList.tsx              # Loaded file list with metadata
-    FullscreenControls.tsx    # Overlay controls for fullscreen playback
-    BulkPaste.tsx             # Paste multiple goals at once
-    ProjectIO.tsx             # Import/export project state as JSON
+    PreviewControls.tsx       # Start in-player preview; prev/next/exit bar while previewing
+    FullscreenControls.tsx    # Tap zones (touch) + overlay controls in fullscreen
   utils/            # Pure functions only — no React, no side effects
     highlights.ts   # mergeOverlappingGoalSegments()
-    timeline.ts     # computeCumulativeOffsets(), formatHMS()
+    timeline.ts     # computeCumulativeOffsets(), formatHMS(), formatEventClock()
+    matchStrip.ts   # buildMatchStrip(), globalToFileTime()
+    zoom.ts         # ZOOM_LEVELS, nextZoom(), snapZoom(), clampPan()
+    reel.ts         # reelSummary() (reel length + clip count from the render plan), formatReelLength()
+    bulkPaste.ts    # parseBulkLine(), parseBulkPaste()
     chapters.ts     # generateYouTubeChapters(), generateHighlightChapters()
     eventTypes.ts   # Event type metadata, picker options, isScoring(), migrateEvent()
     eventPicker.ts  # Pure picker reducer (type → team → scorer)
-    roster.ts       # parseRoster(), filterRoster(), teamShortcuts()
+    roster.ts       # parseRoster(), filterRoster(), teamShortcuts(), rosterTeamFor()
     markers.ts      # markersForFile(), startInFile(), homeTarget()
     probe.ts        # codec/duration via Mediabunny + browser playability
     gopro.ts        # parseGoProName(), pairFiles() — LRV proxy ↔ GX/GH MP4
@@ -103,6 +116,10 @@ src/
 | **Up / Down** | Step one frame forward / back (pauses) |
 | **[ / ]** | Previous / next file |
 | **F** | Toggle fullscreen (the whole player container, so overlays and the picker stay visible) |
+| **Z** | Cycle zoom 1× → 1.5× → 2× (picture only; Shift+drag or two-finger drag pans, pinch zooms) |
+| **0** | Reset zoom |
+
+Global: **L** focuses the event log (then ↑/↓ select, ⏎ watch, ⌫ delete, R replay, E scorer, T team, G mark, Esc back to the video); **⌘Z / ⇧⌘Z** undo / redo.
 
 ## Coding Practices
 
