@@ -52,4 +52,13 @@ describe('FullscreenControls', () => {
         expect(useAppState.getState().events[0]).toMatchObject({ matchTimeSec: 20, type: 'goal' })
         expect(useAppState.getState().picker).not.toBeNull()
     })
+
+    it('should keep the tap zones but leave marking to the ＋ button on a phone outside fullscreen', () => {
+        const original = window.matchMedia
+        window.matchMedia = ((query: string) => ({ matches: true, media: query, addEventListener: () => undefined, removeEventListener: () => undefined })) as unknown as typeof window.matchMedia
+        const { container, queryByRole } = render(<FullscreenControls playerRef={{ current: fakePlayer() }} isFullscreen={false} />)
+        expect(container.querySelector('.tap-zone-left')).not.toBeNull()
+        expect(queryByRole('button', { name: /event/i })).toBeNull()
+        window.matchMedia = original
+    })
 })

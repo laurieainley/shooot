@@ -191,7 +191,7 @@
   box-shadow: 0 0 0 1.5px var(--panel), 0 0 0 2.5px color-mix(in srgb, var(--ink) 25%, transparent);
 }
 .strip-dot:hover { transform: translate(-50%, -50%) scale(1.3); }
-.strip-flag { position: absolute; top: 0; bottom: 0; border-left: 2px solid var(--start); pointer-events: none; z-index: 1; }
+.strip-flag { position: absolute; top: 17px; bottom: 0; border-left: 2px solid var(--start); pointer-events: none; z-index: 1; }
 .strip-flag::after {
   content: ""; position: absolute; top: 2px; left: 0; width: 9px; height: 7px;
   background: var(--start); clip-path: polygon(0 0, 100% 50%, 0 100%);
@@ -297,17 +297,17 @@
 
 /* ---------- player: video.js skin, overlays ---------- */
 .player-container .video-js { width: 100%; height: 100%; background: var(--video); font-family: var(--font-sans); }
-.video-js .vjs-control-bar { background: linear-gradient(transparent, rgb(5 7 6 / 0.85)); }
-.video-js .vjs-play-progress, .video-js .vjs-volume-level { background-color: var(--accent); }
-.video-js .vjs-play-progress::before { color: var(--accent); }
-.video-js .vjs-load-progress { background: rgb(255 255 255 / 0.18); }
-.video-js .vjs-load-progress div { background: rgb(255 255 255 / 0.12); }
-.video-js .vjs-time-control { font-family: var(--font-mono); font-size: 12px; }
-.video-js .vjs-big-play-button {
+.player-container .video-js .vjs-control-bar { background: linear-gradient(transparent, rgb(5 7 6 / 0.85)); }
+.player-container .video-js .vjs-play-progress, .player-container .video-js .vjs-volume-level { background-color: var(--accent); }
+.player-container .video-js .vjs-play-progress::before { color: var(--accent); }
+.player-container .video-js .vjs-load-progress { background: rgb(255 255 255 / 0.18); }
+.player-container .video-js .vjs-load-progress div { background: rgb(255 255 255 / 0.12); }
+.player-container .video-js .vjs-time-control { font-family: var(--font-mono); font-size: 12px; }
+.player-container .video-js .vjs-big-play-button {
   border: 2px solid rgb(255 255 255 / 0.85); background: rgb(5 7 6 / 0.55); border-radius: 50%;
   width: 2em; height: 2em; line-height: 1.9em; margin-left: -1em; margin-top: -1em;
 }
-.video-js:hover .vjs-big-play-button, .video-js .vjs-big-play-button:focus { background: var(--accent); border-color: var(--accent); }
+.player-container .video-js:hover .vjs-big-play-button, .player-container .video-js .vjs-big-play-button:focus { background: var(--accent); border-color: var(--accent); }
 
 /* Zoom (Z / pinch): only the picture is transformed, the controls stay put. */
 .player-container .vjs-tech { transform-origin: center; }

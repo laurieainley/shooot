@@ -111,7 +111,7 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
         return null
     }
 
-    // Mobile non-fullscreen: show tap zones + centered goal button only
+    // Mobile non-fullscreen: tap zones only
     // Fullscreen: show everything (tap zones, goal button, speed controls)
     const showSpeedControls = isFullscreen
 
@@ -143,8 +143,8 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
                 )}
             </div>
 
-            {/* Goal button — centered between tap zones on mobile, top-left in fullscreen */}
-            <div className={isFullscreen ? 'overlay-controls top-left' : 'overlay-controls center-top'}>
+            {/* Event button — fullscreen only; outside fullscreen the phone layout's ＋ button marks events */}
+            {isFullscreen && <div className="overlay-controls top-left">
                 <button className="control-btn add-goal-btn" aria-label="Event" onClick={handleAddGoal}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <circle cx="12" cy="12" r="10" />
@@ -152,7 +152,7 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
                     </svg>
                     <span>Event</span>
                 </button>
-            </div>
+            </div>}
 
             {/* Speed controls (fullscreen only) */}
             {showSpeedControls && (
