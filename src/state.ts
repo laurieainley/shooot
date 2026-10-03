@@ -18,6 +18,10 @@ type AppState = {
     // Highlight length configuration
     lengthBeforeGoalSec: number
     lengthAfterGoalSec: number
+    // Slow-mo replay configuration
+    replayBeforeSec: number
+    replayAfterSec: number
+    replaySpeed: number
     // Preview mode state
     isPreviewMode: boolean
     previewSegments: HighlightSegment[]
@@ -33,6 +37,8 @@ type AppState = {
     setAdjustTimestampsByOffset: (adjust: boolean) => void
     setLengthBeforeGoal: (seconds: number) => void
     setLengthAfterGoal: (seconds: number) => void
+    setReplayWindow: (before: number, after: number) => void
+    setReplaySpeed: (speed: number) => void
     seekToGoal: (fileIndex: number, timeSec: number) => void
     nextFile: () => void
     prevFile: () => void
@@ -83,6 +89,10 @@ export const useAppState = create<AppState>()(
             // Highlight length configuration
             lengthBeforeGoalSec: 10,
             lengthAfterGoalSec: 4,
+            // Slow-mo replay configuration
+            replayBeforeSec: 3,
+            replayAfterSec: 1,
+            replaySpeed: 0.5,
             // Undo/redo stacks
             undoStack: [],
             redoStack: [],
@@ -134,6 +144,11 @@ export const useAppState = create<AppState>()(
             setAdjustTimestampsByOffset: (adjust) => set({ adjustTimestampsByOffset: adjust }),
             setLengthBeforeGoal: (seconds) => set({ lengthBeforeGoalSec: Math.max(0, seconds) }),
             setLengthAfterGoal: (seconds) => set({ lengthAfterGoalSec: Math.max(0, seconds) }),
+            setReplayWindow: (before, after) => set({
+                replayBeforeSec: Math.min(15, Math.max(0, before)),
+                replayAfterSec: Math.min(15, Math.max(0, after)),
+            }),
+            setReplaySpeed: (speed) => set({ replaySpeed: speed <= 0.375 ? 0.25 : 0.5 }),
             seekToGoal: (fileIndex, timeSec) => {
                 // This will be handled by the Player component via a custom event
                 const event = new CustomEvent('seekToGoal', {
@@ -280,6 +295,9 @@ export const useAppState = create<AppState>()(
                 adjustTimestampsByOffset: state.adjustTimestampsByOffset,
                 lengthBeforeGoalSec: state.lengthBeforeGoalSec,
                 lengthAfterGoalSec: state.lengthAfterGoalSec,
+                replayBeforeSec: state.replayBeforeSec,
+                replayAfterSec: state.replayAfterSec,
+                replaySpeed: state.replaySpeed,
                 teams: state.teams,
             }),
             version: 9,
