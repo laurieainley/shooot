@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 
 interface FloatingPanelProps {
     label: string
@@ -49,13 +50,15 @@ export function FloatingPanel({ label, anchorRef, placement, onClose, children, 
         }
     }, [anchorRef])
 
-    return (
+    // Portalled to <body> so no ancestor stacking context (sticky top bar, rail) can put it under other layers.
+    return createPortal(
         <div ref={panelRef} role="dialog" aria-label={label} tabIndex={-1} className={`floating ${className}`} style={pos}>
             <div className="floating__head">
                 <h2 className="floating__title">{label}</h2>
                 <button type="button" aria-label="Close" className="btn-icon" onClick={onClose}>×</button>
             </div>
             <div className="floating__body">{children}</div>
-        </div>
+        </div>,
+        document.body,
     )
 }
