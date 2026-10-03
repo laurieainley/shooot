@@ -10,6 +10,9 @@ export function ChaptersCopy() {
     const before = useAppState((s) => s.lengthBeforeGoalSec)
     const after = useAppState((s) => s.lengthAfterGoalSec)
     const teams = useAppState((s) => s.teams)
+    const replayBeforeSec = useAppState((s) => s.replayBeforeSec)
+    const replayAfterSec = useAppState((s) => s.replayAfterSec)
+    const replaySpeed = useAppState((s) => s.replaySpeed)
     const [copied, setCopied] = useState<string | null>(null)
 
     const linked = linkedEvents(events)
@@ -31,7 +34,8 @@ export function ChaptersCopy() {
             </button>
             <button
                 disabled={linked.length === 0}
-                onClick={() => copy('Highlight', generateHighlightChapters(linked, offsets, before, after, order))}
+                onClick={() => copy('Highlight', generateHighlightChapters(linked, offsets, before, after, order,
+                    { beforeSec: replayBeforeSec, afterSec: replayAfterSec, speed: replaySpeed }))}
                 className="rounded bg-deep px-2 py-1 text-xs text-light border border-border cursor-pointer hover:border-pink disabled:opacity-30"
             >
                 Copy highlight chapters

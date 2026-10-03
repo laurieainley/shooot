@@ -131,3 +131,21 @@ describe('attachFullFiles', () => {
         expect(unmatched).toEqual(['GX019999.MP4'])
     })
 })
+
+describe('replay settings', () => {
+    it('should default to 3 s before, 1 s after, 0.5× and persist them', () => {
+        const init = useAppState.getInitialState()
+        expect([init.replayBeforeSec, init.replayAfterSec, init.replaySpeed]).toEqual([3, 1, 0.5])
+        s().setReplayWindow(2, 2)
+        s().setReplaySpeed(0.25)
+        expect([s().replayBeforeSec, s().replayAfterSec, s().replaySpeed]).toEqual([2, 2, 0.25])
+        const persisted = JSON.parse(localStorage.getItem('vhm-state') ?? '{}').state
+        expect(persisted).toMatchObject({ replayBeforeSec: 2, replayAfterSec: 2, replaySpeed: 0.25 })
+    })
+    it('should clamp the window to 0..15 s and speed to 0.25 or 0.5', () => {
+        s().setReplayWindow(-1, 99)
+        expect([s().replayBeforeSec, s().replayAfterSec]).toEqual([0, 15])
+        s().setReplaySpeed(0.3)
+        expect(s().replaySpeed).toBe(0.25)
+    })
+})

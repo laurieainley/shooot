@@ -18,6 +18,9 @@ export function RenderHighlights() {
     const before = useAppState((s) => s.lengthBeforeGoalSec)
     const after = useAppState((s) => s.lengthAfterGoalSec)
     const attachFullFiles = useAppState((s) => s.attachFullFiles)
+    const replayBeforeSec = useAppState((s) => s.replayBeforeSec)
+    const replayAfterSec = useAppState((s) => s.replayAfterSec)
+    const replaySpeed = useAppState((s) => s.replaySpeed)
     const [status, setStatus] = useState('')
     const [busy, setBusy] = useState(false)
     const [missing, setMissing] = useState<string[]>([])
@@ -41,7 +44,8 @@ export function RenderHighlights() {
         setStatus('Preparing…')
         try {
             const segments = mergeOverlappingGoalSegments(linked, cumulativeOffsets, matchStartTimeSec, adjustTimestampsByOffset, before, after)
-            const cuts = buildRenderPlan(segments, files.map((f) => f.durationSec ?? Infinity))
+            const cuts = buildRenderPlan(segments, files.map((f) => f.durationSec ?? Infinity),
+                { beforeSec: replayBeforeSec, afterSec: replayAfterSec, speed: replaySpeed })
             const out = await renderReel(cuts, sources, { onProgress: (p) => setStatus(formatRenderProgress(p)) })
             const name = quality === 'preview' ? 'highlights-preview.mp4' : 'highlights.mp4'
             const file = new File([out], name, { type: 'video/mp4' })

@@ -44,7 +44,7 @@ describe('RenderHighlights', () => {
         render(<RenderHighlights />)
         await userEvent.click(screen.getByRole('button', { name: /preview reel/i }))
         expect(renderReel).toHaveBeenCalledWith(
-            [{ sourceIndex: 0, startSec: 90, endSec: 104 }],
+            [{ sourceIndex: 0, startSec: 90, endSec: 104 }, { sourceIndex: 0, startSec: 97, endSec: 101, speed: 0.5, silent: true }],
             [{ name: 'GL010226.LRV', file: proxy.file }],
             expect.objectContaining({ onProgress: expect.any(Function) }),
         )
@@ -61,6 +61,20 @@ describe('RenderHighlights', () => {
         renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
         render(<RenderHighlights />)
         await userEvent.click(screen.getByRole('button', { name: /preview reel/i }))
-        expect(renderReel.mock.calls[0][0]).toEqual([{ sourceIndex: 0, startSec: 90, endSec: 104 }])
+        expect(renderReel.mock.calls[0][0]).toEqual([
+            { sourceIndex: 0, startSec: 90, endSec: 104 },
+            { sourceIndex: 0, startSec: 97, endSec: 101, speed: 0.5, silent: true },
+        ])
+    })
+
+    it('should append a slow-mo replay after a goal\'s clip', async () => {
+        useAppState.setState({ replayBeforeSec: 3, replayAfterSec: 1, replaySpeed: 0.5 })
+        renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
+        render(<RenderHighlights />)
+        await userEvent.click(screen.getByRole('button', { name: /preview reel/i }))
+        expect(renderReel.mock.calls[0][0]).toEqual([
+            { sourceIndex: 0, startSec: 90, endSec: 104 },
+            { sourceIndex: 0, startSec: 97, endSec: 101, speed: 0.5, silent: true },
+        ])
     })
 })

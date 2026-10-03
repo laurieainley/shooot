@@ -10,7 +10,7 @@ The tool is designed around football/soccer match footage (the primary use case 
 
 1. **Load MP4s** — drag/drop or file picker; multiple files form a single ordered timeline.
 2. **Mark events** — press **G** while playing to add a goal at the current playback position, or enter timestamps manually. Each event records the time, source file, and optional team/scorer metadata.
-3. **Configure clip padding** — set how many seconds before and after each event to include (defaults: 10s before, 4s after). Overlapping segments are automatically merged.
+3. **Configure clip padding** — set how many seconds before and after each event to include (defaults: 10s before, 4s after). Overlapping segments are automatically merged. Scoring events also get a silent **slow-mo replay** (default 3 s before → 1 s after the moment at 0.5×, configurable in Clip settings; per-event ↻ toggle overrides the default) placed straight after their clip.
 4. **Preview** — step through the generated segments in-player before committing to a render.
 5. **Render** — `renderReel()` copies each segment's video and audio packets (snapped to keyframes) into a single MP4 streamed to OPFS, then offers a download / share. With LRV proxies there is a quick **Preview reel** (from the proxies) and a **Full quality render** (from the paired MP4s).
 6. **Export chapters** — generate YouTube-format chapter markers from the goal list.
@@ -52,7 +52,8 @@ src/
     ChaptersCopy.tsx          # Copy YouTube / highlight chapters
     TimeInput.tsx             # Shared mm:ss time field
     fullscreen.ts             # Redirects video.js fullscreen to the player container
-    GoalList.tsx    # Editable list of marked events
+    GoalList.tsx    # Editable list of marked events (↻ = per-event replay toggle)
+    ClipSettings.tsx          # Clip padding + replay before/after/speed
     AddGoalControls.tsx       # Manual goal entry (time, team, scorer)
     AddGoalAtCurrentButton.tsx # One-click goal at current playback position
     RenderHighlights.tsx      # Preview/full render buttons, missing-file prompt, progress, download/share
@@ -75,11 +76,13 @@ src/
     probe.ts        # codec/duration via Mediabunny + browser playability
     gopro.ts        # parseGoProName(), pairFiles() — LRV proxy ↔ GX/GH MP4
     fileAccept.ts   # isAcceptedVideo(), FILE_INPUT_ACCEPT (extension-only for Android)
-    renderPlan.ts   # buildRenderPlan(): segments → cuts (cross-file split, clamping)
+    renderPlan.ts   # buildRenderPlan(): segments → cuts (cross-file split, clamping, replay cuts)
+    replays.ts      # wantsReplay(): explicit override or isScoring()
     renderSources.ts # resolveRenderSources() (preview vs full), formatRenderProgress()
     fileBadges.ts   # pill badges (proxy, HEVC, can't play here)
   render/           # Rendering engine behind renderReel()
-    mediabunnyEngine.ts # Packet remux → OPFS
+    mediabunnyEngine.ts # Packet remux → OPFS; slow-mo cuts stretch timestamps by 1/speed
+    silentAudio.ts  # makeSilentAudio(): silent AAC frames via WebCodecs AudioEncoder (null if unavailable)
     fileSource.ts   # 8 MB aligned block reader for File input
 ```
 
@@ -123,7 +126,7 @@ src/
 - Keep components presentation-focused; push business logic into utils or the store.
 
 ### Rendering (Mediabunny)
-- Rendering lives behind `renderReel()` in `src/render/`. It remuxes encoded packets (no decode, no re-encode) from each cut into one MP4, streamed to OPFS so memory stays flat.
+- Rendering lives behind `renderReel()` in `src/render/`. It remuxes encoded packets (no decode, no re-encode) from each cut into one MP4, streamed to OPFS so memory stays flat. Replay cuts (`speed < 1`, `silent`) re-emit the same video packets with timestamps/durations scaled by `1/speed` and fill their audio with silent AAC frames (or leave a gap when the browser has no AAC encoder).
 - Cuts snap to keyframes (GoPro: 1.001 s GOP) and are clamped to the real end of each file. Audio is copied, so all clips in one render must share codec and audio parameters; mixed inputs are rejected with a message.
 - GoPro `.LRV` proxies are paired with `GX`/`GH` MP4s by `src/utils/gopro.ts`; edit on proxies, render from `fullFile`.
 - Read `File`s through `fileSource()` (`src/render/fileSource.ts`), never `BlobSource`: on Android every read from USB storage costs ~0.25 s, so it reads few, large (8 MB) aligned blocks.

@@ -32,6 +32,7 @@ export type MatchEvent = {
     team?: string            // scoring events: the team credited with the goal
     scorer?: string          // own goal: player from the other team
     notes?: string
+    replay?: boolean         // explicit replay override; undefined = default for the type
 }
 
 export type Team = {

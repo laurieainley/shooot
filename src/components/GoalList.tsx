@@ -3,6 +3,7 @@ import { useAppState } from '../state'
 import type { Goal } from '../types'
 import { TimeInput } from './TimeInput'
 import { EVENT_META, eventIcon, eventLabel } from '../utils/eventTypes'
+import { wantsReplay } from '../utils/replays'
 
 export function GoalList() {
     const goals = useAppState((s) => s.events)
@@ -90,6 +91,13 @@ export function GoalList() {
                                 className="w-[70px] rounded bg-transparent border-none text-xs text-muted placeholder:text-muted/50 focus:outline-none p-0"
                             />
                             <div className="ml-auto flex gap-1.5">
+                                <button
+                                    aria-label="Replay"
+                                    aria-pressed={wantsReplay(g)}
+                                    onClick={() => update(g.id, { replay: !wantsReplay(g) })}
+                                    className={`text-xs bg-transparent border-none p-0 cursor-pointer hover:text-light ${wantsReplay(g) ? 'text-yellow' : 'text-muted/40'}`}
+                                    title="Slow-mo replay"
+                                >↻</button>
                                 <button
                                     onClick={() => seekToGoal(g.sourceFileIndex ?? 0, Math.max(0, g.matchTimeSec - lengthBeforeGoalSec))}
                                     disabled={g.unlinked}

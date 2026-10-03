@@ -4,6 +4,7 @@ import {
     type InputAudioTrack, type InputVideoTrack, type StreamTargetChunk, type Target,
 } from 'mediabunny'
 import { fileSource } from './fileSource'
+import { makeSilentAudio, type SilentAudio } from './silentAudio'
 import type { Cut, RenderFn, RenderSource } from './types'
 
 const OUTPUT_NAME = 'highlights.mp4'
@@ -87,6 +88,14 @@ export const renderReel: RenderFn = async (cuts: Cut[], sources: RenderSource[],
 
         const vMeta = { decoderConfig: (await first.video.getDecoderConfig())! }
         const aMeta = first.audio ? { decoderConfig: (await first.audio.getDecoderConfig())! } : undefined
+        // Replays are silent: fill their (stretched) span with silent AAC frames so the
+        // audio track stays continuous. Without an AAC encoder, leave a gap.
+        let silence: SilentAudio | null = null
+        if (aOut && first.audio && cuts.some((c) => c.silent || (c.speed ?? 1) !== 1)) {
+            silence = await makeSilentAudio({ sampleRate: first.audio.sampleRate, numberOfChannels: first.audio.numberOfChannels })
+                .catch(() => null)
+            if (!silence) console.warn('Replay audio: no AAC encoder, leaving a gap')
+        }
         const span = (c: Cut): number => Math.max(0, Math.min(c.endSec, opened[c.sourceIndex].endSec) - c.startSec)
         const total = cuts.reduce((acc, c) => acc + span(c), 0) || 1
         let cursor = 0
@@ -98,6 +107,9 @@ export const renderReel: RenderFn = async (cuts: Cut[], sources: RenderSource[],
             for (const [ci, cut] of cuts.entries()) {
                 if (signal?.aborted) throw new DOMException('Render cancelled', 'AbortError')
                 const src = opened[cut.sourceIndex]
+                const speed = cut.speed ?? 1
+                // Slowed audio would need re-encoding, so any slowed cut is silent.
+                const silent = cut.silent || speed !== 1
                 // Never trust the requested range: a cut past the end of the file would
                 // otherwise inflate the timeline (there is no next key packet to stop at).
                 const endSec = Math.min(cut.endSec, src.endSec)
@@ -110,7 +122,7 @@ export const renderReel: RenderFn = async (cuts: Cut[], sources: RenderSource[],
                 const kEnd = await vSink.getKeyPacket(endSec)
                 const kStop = kEnd && kEnd.timestamp > k0.timestamp ? await vSink.getNextKeyPacket(kEnd) : await vSink.getNextKeyPacket(k0)
                 const cutStart = k0.timestamp
-                const offset = cursor - cutStart
+                const offset = cursor - cutStart // only used for speed 1 (source audio)
                 let videoEnd = cutStart
 
                 for await (const p of vSink.packets(k0, kStop ?? undefined)) {
@@ -118,7 +130,9 @@ export const renderReel: RenderFn = async (cuts: Cut[], sources: RenderSource[],
                     // packet in decode order but display before it and reference the previous
                     // GOP, which is not copied. Drop them; trailing pictures never reference them.
                     if (p.timestamp < cutStart) continue
-                    await vOut.add(p.clone({ timestamp: p.timestamp + offset }), vFirst ? vMeta : undefined)
+                    // Slow motion: same encoded frames, timestamps and durations stretched by 1/speed.
+                    const rel = (p.timestamp - cutStart) / speed
+                    await vOut.add(p.clone({ timestamp: cursor + rel, duration: p.duration / speed }), vFirst ? vMeta : undefined)
                     vFirst = false
                     videoEnd = Math.max(videoEnd, p.timestamp + p.duration)
                     const within = Math.min(span(cut), Math.max(0, p.timestamp - cut.startSec))
@@ -129,7 +143,15 @@ export const renderReel: RenderFn = async (cuts: Cut[], sources: RenderSource[],
                 // the next key packet's leading pictures, so don't leave a hole for them).
                 const cutEnd = videoEnd > cutStart ? videoEnd : (kStop ? kStop.timestamp : src.endSec)
 
-                if (aOut && src.audio) {
+                const outSpan = (cutEnd - cutStart) / speed
+                if (silent) {
+                    if (aOut && silence) {
+                        for (const p of silence.packets(outSpan)) {
+                            await aOut.add(p.clone({ timestamp: cursor + p.timestamp }), aFirst ? aMeta : undefined)
+                            aFirst = false
+                        }
+                    }
+                } else if (aOut && src.audio) {
                     const aSink = new EncodedPacketSink(src.audio)
                     const a0 = await aSink.getPacket(cutStart)
                     if (a0) {
@@ -142,7 +164,7 @@ export const renderReel: RenderFn = async (cuts: Cut[], sources: RenderSource[],
                         }
                     }
                 }
-                cursor += cutEnd - cutStart
+                cursor += outSpan
                 done += span(cut)
                 onProgress({ cutIndex: ci, cutCount: cuts.length, fraction: Math.min(1, done / total) })
             }

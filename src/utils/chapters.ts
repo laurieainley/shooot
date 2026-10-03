@@ -1,5 +1,7 @@
 import type { MatchEvent } from '../types'
 import { eventLabel, isScoring } from './eventTypes'
+import { wantsReplay } from './replays'
+import type { ReplayOptions } from './renderPlan'
 
 function absTime(e: MatchEvent, offsets: number[]): number {
     return (offsets[e.sourceFileIndex ?? 0] || 0) + e.matchTimeSec
@@ -49,7 +51,7 @@ export function generateYouTubeChapters(
 
 export function generateHighlightChapters(
     goals: MatchEvent[], cumulativeOffsets: number[] = [], lengthBeforeGoalSec: number = 10,
-    lengthAfterGoalSec: number = 4, teamOrder?: string[],
+    lengthAfterGoalSec: number = 4, teamOrder?: string[], replay?: ReplayOptions,
 ): string {
     if (goals.length === 0) return '00:00 Start'
     const sorted = [...goals].sort((a, b) => absTime(a, cumulativeOffsets) - absTime(b, cumulativeOffsets))
@@ -57,8 +59,10 @@ export function generateHighlightChapters(
     const running: Record<string, number> = {}
     const lines = finalScoreLine(goals, teams)
     const segmentLength = lengthBeforeGoalSec + lengthAfterGoalSec
+    let extra = 0 // seconds added by earlier replays
     sorted.forEach((g, i) => {
-        lines.push(`${secondsToStamp(i * (segmentLength + 1))} ${chapterLabel(g, teams, running)}`)
+        lines.push(`${secondsToStamp(i * (segmentLength + 1) + extra)} ${chapterLabel(g, teams, running)}`)
+        if (replay && wantsReplay(g)) extra += Math.round((replay.beforeSec + replay.afterSec) / replay.speed)
     })
     return lines.join('\n')
 }
