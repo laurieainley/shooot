@@ -3,7 +3,7 @@ import { computeCumulativeOffsets, formatHMS } from './timeline'
 import type { VideoSourceFile } from '../types'
 
 function makeFile(durationSec?: number): VideoSourceFile {
-  return { id: '1', file: {} as File, url: '', name: 'test.mp4', durationSec }
+  return { id: '1', file: {} as File, url: '', name: 'test.mp4', durationSec, kind: 'full' }
 }
 
 describe('computeCumulativeOffsets', () => {

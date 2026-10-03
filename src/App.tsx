@@ -62,6 +62,7 @@ function App() {
                         durationSec: isFinite(video.duration) ? video.duration : undefined,
                         width: video.videoWidth || undefined,
                         height: video.videoHeight || undefined,
+                        kind: 'full',
                     }])
                 })
             } catch {

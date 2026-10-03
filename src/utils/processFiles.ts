@@ -1,28 +1,45 @@
 import type { VideoSourceFile } from '../types'
-import { probeVideoFile } from './probe'
+import { probeVideoFile, type ProbedMetadata } from './probe'
+import { pairFiles } from './gopro'
 
 export type ProcessResult = {
     files: VideoSourceFile[]
     error: string | null
 }
 
-export async function processVideoFiles(fileList: FileList): Promise<ProcessResult> {
-    const files: VideoSourceFile[] = []
+type Probed = { name: string; file: File; meta: ProbedMetadata }
+
+export async function processVideoFiles(
+    fileList: FileList | File[],
+    probe: (f: File) => Promise<ProbedMetadata> = probeVideoFile,
+): Promise<ProcessResult> {
+    const probed: Probed[] = []
     let error: string | null = null
-    for (const [idx, f] of Array.from(fileList).entries()) {
-        const meta = await probeVideoFile(f)
-        if (!meta.playable) {
-            error = meta.error || 'Unsupported file'
+    for (const f of Array.from(fileList)) {
+        const meta = await probe(f)
+        if (!meta.accepted) {
+            error = meta.error ?? 'Unsupported file'
             continue
         }
+        probed.push({ name: f.name, file: f, meta })
+    }
+
+    const files: VideoSourceFile[] = []
+    for (const [idx, entry] of pairFiles(probed).entries()) {
+        const useProxy = entry.proxy && (entry.proxy.meta.playable || !entry.full?.meta.playable)
+        const play = (useProxy ? entry.proxy : entry.full)!
         files.push({
             id: `${Date.now()}-${idx}`,
-            file: f,
-            url: URL.createObjectURL(f),
-            name: f.name,
-            durationSec: meta.durationSec,
-            width: meta.width,
-            height: meta.height,
+            file: play.file,
+            url: URL.createObjectURL(play.file),
+            name: play.name,
+            durationSec: play.meta.durationSec,
+            width: play.meta.width,
+            height: play.meta.height,
+            kind: useProxy ? 'proxy' : 'full',
+            codec: play.meta.codec,
+            fullFile: useProxy ? entry.full?.file : undefined,
+            playbackIssue: play.meta.playable ? undefined : play.meta.error,
         })
     }
     return { files, error }
