@@ -116,3 +116,18 @@ describe('teams and picker', () => {
         expect(opts.partialize!(s())).toHaveProperty('teams')
     })
 })
+
+describe('attachFullFiles', () => {
+    const proxy = (name: string): VideoSourceFile =>
+        ({ id: name, file: new File([''], name), url: '', name, kind: 'proxy', durationSec: 100 })
+
+    beforeEach(() => useAppState.setState({ files: [proxy('GL010226.LRV'), proxy('GL010227.LRV')] }))
+
+    it('should attach matching full files and report unmatched names', () => {
+        const unmatched = s().attachFullFiles([new File([''], 'GX010226.MP4'), new File([''], 'GX019999.MP4')])
+        const files = s().files
+        expect(files[0].fullFile?.name).toBe('GX010226.MP4')
+        expect(files[1].fullFile).toBeUndefined()
+        expect(unmatched).toEqual(['GX019999.MP4'])
+    })
+})

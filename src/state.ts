@@ -5,6 +5,7 @@ import { migrateEvent } from './utils/eventTypes'
 import { computeCumulativeOffsets } from './utils/timeline'
 import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/highlights'
 import { relinkEvents, linkedEvents } from './utils/relink'
+import { parseGoProName } from './utils/gopro'
 
 type AppState = {
     files: VideoSourceFile[]
@@ -25,6 +26,7 @@ type AppState = {
     addFiles: (files: VideoSourceFile[]) => void
     moveFile: (from: number, to: number) => void
     removeFile: (index: number) => void
+    attachFullFiles: (files: File[]) => string[]
     setCurrentTimeInFile: (t: number) => void
     setCurrentFileIndex: (idx: number) => void
     setMatchStartTime: (time: number) => void
@@ -103,6 +105,18 @@ export const useAppState = create<AppState>()(
                 const cur = get().currentFileIndex
                 get().setFiles(next)
                 if (cur === from) set({ currentFileIndex: to })
+            },
+            attachFullFiles: (picked) => {
+                const unmatched: string[] = []
+                const files = get().files.slice()
+                for (const f of picked) {
+                    const key = parseGoProName(f.name)?.key
+                    const idx = key ? files.findIndex((e) => e.kind === 'proxy' && parseGoProName(e.name)?.key === key) : -1
+                    if (idx === -1) unmatched.push(f.name)
+                    else files[idx] = { ...files[idx], fullFile: f }
+                }
+                set({ files })
+                return unmatched
             },
             removeFile: (index) => {
                 const newFiles = get().files.filter((_, i) => i !== index)
