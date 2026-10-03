@@ -1,6 +1,6 @@
 import type { MatchEvent, Team } from '../types'
 import { PICKER_OPTIONS, optionForKey, type PickerOption } from './eventTypes'
-import { filterRoster, teamShortcuts } from './roster'
+import { filterRoster, rosterTeamFor, teamShortcuts } from './roster'
 
 export type PickerStep = 'type' | 'team' | 'scorer'
 
@@ -36,9 +36,7 @@ function hasTeams(ctx: PickerContext): boolean {
 }
 
 function rosterTeam(state: PickerState, ctx: PickerContext): Team | undefined {
-    const idx = ctx.teams.findIndex((t) => t.name === state.team)
-    if (idx === -1) return undefined
-    return state.option.type === 'own_goal' ? ctx.teams[1 - idx] : ctx.teams[idx]
+    return rosterTeamFor(ctx.teams, state.team, state.option.type)
 }
 
 export function scorerCandidates(state: PickerState, ctx: PickerContext): string[] {
