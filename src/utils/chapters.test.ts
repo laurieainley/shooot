@@ -108,3 +108,18 @@ describe('generateHighlightChapters — event types', () => {
         expect(out).toContain('00:15 Goal 1-0 (Whites)')
     })
 })
+
+describe('generateHighlightChapters — replays', () => {
+  it('should push later chapters back by each earlier replay', () => {
+    const events: MatchEvent[] = [
+      { id: 'a', matchTimeSec: 60, sourceFileIndex: 0, type: 'goal', team: 'Whites' },
+      { id: 'b', matchTimeSec: 120, sourceFileIndex: 0, type: 'highlight' },
+      { id: 'c', matchTimeSec: 180, sourceFileIndex: 0, type: 'goal', team: 'Whites' },
+    ]
+    const out = generateHighlightChapters(events, [0], 10, 4, ['Whites', 'Colours'], { beforeSec: 3, afterSec: 1, speed: 0.5 })
+    // segment = 14 s + 1 s buffer; goal a adds a 8 s replay
+    expect(out).toContain('00:00 Goal 1-0 (Whites)')
+    expect(out).toContain('00:23 Highlight')
+    expect(out).toContain('00:38 Goal 2-0 (Whites)')
+  })
+})
