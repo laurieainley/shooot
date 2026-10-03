@@ -76,7 +76,7 @@ export function RenderHighlights() {
                 <button
                     onClick={() => run('preview')}
                     disabled={disabled}
-                    className="w-full rounded-md border border-yellow/50 bg-transparent px-3 py-2 text-sm font-bold text-yellow cursor-pointer hover:bg-yellow/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="btn-quiet w-full justify-center"
                 >
                     Preview reel (LRV)
                 </button>
@@ -84,20 +84,20 @@ export function RenderHighlights() {
             <button
                 onClick={() => run('full')}
                 disabled={disabled}
-                className="w-full rounded-md bg-yellow px-3 py-2.5 text-sm font-bold text-deep border-none cursor-pointer hover:bg-yellow/80 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                className="btn-primary w-full justify-center"
             >
                 {hasProxies ? 'Full quality render' : 'Render MP4'}
             </button>
 
             {missing.length > 0 && (
-                <div className="rounded border border-pink/40 p-2 text-xs text-muted">
+                <div className="rounded border border-danger/50 p-2 text-[13px] text-muted">
                     <p className="mb-1">Full-quality files needed for:</p>
                     <ul className="mb-2 list-disc pl-4">{missing.map((m) => <li key={m}>{m}</li>)}</ul>
                     <div className="flex gap-2">
-                        <button onClick={() => pickRef.current?.click()} className="rounded bg-yellow px-2 py-1 font-bold text-deep border-none cursor-pointer">
+                        <button onClick={() => pickRef.current?.click()} className="btn-primary">
                             Pick full files
                         </button>
-                        <button onClick={() => run('preview')} className="rounded border border-border bg-transparent px-2 py-1 text-light cursor-pointer">
+                        <button onClick={() => run('preview')} className="btn-quiet">
                             Render preview instead
                         </button>
                     </div>
@@ -105,16 +105,16 @@ export function RenderHighlights() {
                 </div>
             )}
 
-            {status && <div className="text-xs text-muted">{status}</div>}
+            {status && <div role="status" className="tc text-[12px] text-muted">{status}</div>}
             {result && (
-                <div className="flex gap-3">
-                    <a href={result.url} download={result.file.name} className="text-sm font-semibold text-yellow hover:text-yellow/80">
+                <div className="flex items-center gap-3">
+                    <a href={result.url} download={result.file.name} className="btn-primary no-underline">
                         Download {result.file.name}
                     </a>
                     {canShare && (
                         <button
                             onClick={() => navigator.share({ files: [result.file] }).catch(() => undefined)}
-                            className="bg-transparent border-none p-0 text-sm font-semibold text-yellow cursor-pointer"
+                            className="btn-quiet"
                         >
                             Share
                         </button>
