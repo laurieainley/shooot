@@ -45,7 +45,13 @@ src/
   state.ts          # Zustand store — single source of truth
   App.tsx           # Root layout
   components/       # One component per file, named exports
-    Player.tsx      # Video.js player with hotkeys (G = add goal, <> = speed, etc.)
+    Player.tsx      # Video.js player with hotkeys (G = mark event, <> = speed, etc.)
+    EventPicker.tsx           # G → type → team → scorer picker (popover / mobile sheet)
+    MatchSetup.tsx            # Teams, colours, rosters, match start
+    TimelineMarkers.tsx       # Event / match-start markers portalled into the scrubber
+    ChaptersCopy.tsx          # Copy YouTube / highlight chapters
+    TimeInput.tsx             # Shared mm:ss time field
+    fullscreen.ts             # Redirects video.js fullscreen to the player container
     GoalList.tsx    # Editable list of marked events
     AddGoalControls.tsx       # Manual goal entry (time, team, scorer)
     AddGoalAtCurrentButton.tsx # One-click goal at current playback position
@@ -61,7 +67,11 @@ src/
   utils/            # Pure functions only — no React, no side effects
     highlights.ts   # mergeOverlappingGoalSegments()
     timeline.ts     # computeCumulativeOffsets(), formatHMS()
-    chapters.ts     # generateYouTubeChapters()
+    chapters.ts     # generateYouTubeChapters(), generateHighlightChapters()
+    eventTypes.ts   # Event type metadata, picker options, isScoring(), migrateEvent()
+    eventPicker.ts  # Pure picker reducer (type → team → scorer)
+    roster.ts       # parseRoster(), filterRoster(), teamShortcuts()
+    markers.ts      # markersForFile(), startInFile(), homeTarget()
     probe.ts        # video metadata extraction
 ```
 
@@ -71,16 +81,17 @@ src/
 
 | Key | Action |
 |-----|--------|
-| **G** | Add goal at current playback time |
+| **G** | Mark event (opens picker: ⏎/G goal, P pen, O own goal, A pen awarded, X pen missed, H highlight, F foul, S save) |
 | **M** | Mute / unmute |
 | **, / .** | Decrease / increase playback speed (0.25x steps) |
 | **/** | Reset playback speed to 1x |
-| **Home / End** | Jump to start / end of current file |
+| **Home** | Jump to match start (press again for 0:00) |
+| **End** | Jump to end of current file |
 | **Left / Right** | Seek ±5 seconds |
 | **Shift + Left / Right** | Seek ±1 second |
 | **Up / Down** | Step one frame forward / back (pauses) |
 | **[ / ]** | Previous / next file |
-| **F** | Toggle fullscreen |
+| **F** | Toggle fullscreen (the whole player container, so overlays and the picker stay visible) |
 
 ## Coding Practices
 
