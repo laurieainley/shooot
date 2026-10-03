@@ -32,6 +32,10 @@ export function EventLog() {
 
     const selectedIndex = events.findIndex((e) => e.id === selectedId)
 
+    // A freshly marked event (picker open on it) becomes the selection, so the log shows where it landed.
+    const pickerEventId = useAppState((s) => s.picker?.eventId)
+    useEffect(() => { if (pickerEventId) setSelectedId(pickerEventId) }, [pickerEventId])
+
     // Global L focuses the log (never while typing or while the event picker is open).
     useEffect(() => {
         const onKey = (e: KeyboardEvent): void => {

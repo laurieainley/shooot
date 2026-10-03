@@ -268,6 +268,12 @@ describe('EventLog header', () => {
         expect(screen.queryByPlaceholderText('00:42')).not.toBeInTheDocument()
     })
 
+    it('should select a newly marked event', async () => {
+        render(<EventLog />)
+        await userEvent.click(screen.getByRole('button', { name: /\+ event/i }))
+        expect(rows()[0]).toHaveAttribute('aria-selected', 'true')
+    })
+
     it('should undo and redo from the header buttons', async () => {
         render(<EventLog />)
         await userEvent.click(screen.getByRole('button', { name: /\+ event/i }))
