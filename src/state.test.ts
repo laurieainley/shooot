@@ -66,3 +66,53 @@ describe('file changes keep events', () => {
         expect(s().previewSegments.flatMap((seg) => seg.goals.map((g) => g.id))).toEqual(['gb'])
     })
 })
+
+describe('teams and picker', () => {
+    beforeEach(() => {
+        useAppState.setState({ files: [vf('a.mp4')], events: [], cumulativeOffsets: [0], currentFileIndex: 0, undoStack: [], redoStack: [], picker: null })
+    })
+
+    it('should default to two named teams with empty rosters', () => {
+        const t = useAppState.getInitialState().teams
+        expect(t.map((x) => x.name)).toEqual(['Whites', 'Colours'])
+        expect(t.every((x) => x.roster.length === 0)).toBe(true)
+    })
+
+    it('should mark a goal at the given time and open the picker on it', () => {
+        s().markEvent(42.9)
+        const [e] = s().events
+        expect(e).toMatchObject({ matchTimeSec: 42, sourceFileIndex: 0, type: 'goal' })
+        expect(s().picker).toEqual({ eventId: e.id })
+        s().closePicker()
+        expect(s().picker).toBeNull()
+    })
+
+    it('should rename a team and update its events', () => {
+        s().setTeams([{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }])
+        s().addEvent({ id: 'e', matchTimeSec: 1, sourceFileIndex: 0, type: 'goal', team: 'Whites' })
+        s().renameTeam(0, 'Lights')
+        expect(s().teams[0].name).toBe('Lights')
+        expect(s().events[0].team).toBe('Lights')
+    })
+
+    it('should add to a roster without duplicates', () => {
+        s().setTeams([{ name: 'Whites', color: '#fff', roster: ['Sam'] }, { name: 'Colours', color: '#f00', roster: [] }])
+        s().addToRoster('Whites', 'Jo')
+        s().addToRoster('Whites', 'sam')
+        expect(s().teams[0].roster).toEqual(['Sam', 'Jo'])
+    })
+
+    it('should keep teams on clear()', () => {
+        s().setTeams([{ name: 'A', color: '#fff', roster: ['x'] }, { name: 'B', color: '#f00', roster: [] }])
+        s().clear()
+        expect(s().teams[0]).toMatchObject({ name: 'A', roster: ['x'] })
+    })
+
+    it('should migrate v8 legacy event types and persist teams (v9)', () => {
+        const opts = useAppState.persist.getOptions()
+        expect(opts.version).toBe(9)
+        const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
+        expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
+        expect(opts.partialize!(s())).toHaveProperty('teams')
+    })
+})

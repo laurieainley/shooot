@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { MatchEvent, VideoSourceFile } from './types'
+import type { MatchEvent, Team, VideoSourceFile } from './types'
+import { migrateEvent } from './utils/eventTypes'
 import { computeCumulativeOffsets } from './utils/timeline'
 import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/highlights'
 import { relinkEvents, linkedEvents } from './utils/relink'
@@ -49,6 +50,15 @@ type AppState = {
     exitPreview: () => void
     nextPreviewSegment: () => void
     prevPreviewSegment: () => void
+    // Teams, rosters and the event picker
+    teams: Team[]
+    picker: { eventId: string } | null
+    setTeams: (teams: Team[]) => void
+    renameTeam: (index: number, name: string) => void
+    addToRoster: (team: string, name: string) => void
+    markEvent: (timeInFileSec: number) => void
+    openPicker: (eventId: string) => void
+    closePicker: () => void
 }
 
 export const useAppState = create<AppState>()(
@@ -58,6 +68,11 @@ export const useAppState = create<AppState>()(
             return {
             files: [],
             events: [],
+            teams: [
+                { name: 'Whites', color: '#f5f5f5', roster: [] },
+                { name: 'Colours', color: '#f72585', roster: [] },
+            ],
+            picker: null,
             cumulativeOffsets: [],
             currentTimeInFileSec: 0,
             currentFileIndex: 0,
@@ -186,7 +201,29 @@ export const useAppState = create<AppState>()(
                     undoStack: [...state.undoStack, state.events],
                 })
             },
-            clear: () => set({ files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0, matchStartTimeSec: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, isPreviewMode: false, previewSegments: [], currentPreviewSegment: 0, undoStack: [], redoStack: [] }),
+            clear: () => set({ files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0, matchStartTimeSec: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, isPreviewMode: false, previewSegments: [], currentPreviewSegment: 0, undoStack: [], redoStack: [], picker: null }),
+            setTeams: (teams) => set({ teams }),
+            renameTeam: (index, name) => {
+                const old = get().teams[index]?.name
+                if (old === undefined) return
+                set({
+                    teams: get().teams.map((t, i) => (i === index ? { ...t, name } : t)),
+                    events: get().events.map((e) => (e.team === old ? { ...e, team: name } : e)),
+                })
+            },
+            addToRoster: (team, name) => set({
+                teams: get().teams.map((t) =>
+                    t.name === team && !t.roster.some((r) => r.toLowerCase() === name.toLowerCase())
+                        ? { ...t, roster: [...t.roster, name] }
+                        : t),
+            }),
+            markEvent: (timeInFileSec) => {
+                const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+                get().addEvent({ id, matchTimeSec: Math.floor(timeInFileSec), sourceFileIndex: get().currentFileIndex, type: 'goal' })
+                set({ picker: { eventId: id } })
+            },
+            openPicker: (eventId) => set({ picker: { eventId } }),
+            closePicker: () => set({ picker: null }),
             // Preview mode actions
             startPreview: () => {
                 const state = get()
@@ -228,9 +265,10 @@ export const useAppState = create<AppState>()(
                 matchStartTimeSec: state.matchStartTimeSec,
                 adjustTimestampsByOffset: state.adjustTimestampsByOffset,
                 lengthBeforeGoalSec: state.lengthBeforeGoalSec,
-                lengthAfterGoalSec: state.lengthAfterGoalSec
+                lengthAfterGoalSec: state.lengthAfterGoalSec,
+                teams: state.teams,
             }),
-            version: 8,
+            version: 9,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -252,12 +290,9 @@ export const useAppState = create<AppState>()(
                     delete state.goals
                 }
 
-                // Ensure all events have a type field
+                // Ensure every event has a current type (legacy moment/card → highlight/foul) (v9)
                 if (state.events) {
-                    state.events = (state.events as any[]).map((e: any) => ({
-                        ...e,
-                        type: e.type ?? 'goal',
-                    }))
+                    state.events = (state.events as any[]).map((e: any) => migrateEvent(e))
                 }
 
                 if (version < 3 && !('matchStartTimeSec' in state)) {
