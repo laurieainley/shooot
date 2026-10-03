@@ -65,4 +65,19 @@ describe('EventPicker', () => {
         document.removeEventListener('keydown', spy)
         expect(leaked).toBe(0)
     })
+
+    it('should give keyboard focus back to the player after the scorer step', () => {
+        const playerEl = document.createElement('div')
+        playerEl.tabIndex = -1
+        document.body.appendChild(playerEl)
+        playerEl.focus()
+        render(<EventPicker />)
+        press('Enter')
+        press('w')
+        expect(document.activeElement).toBe(screen.getByRole('textbox', { name: /scorer/i }))
+        press('Enter')
+        expect(s().picker).toBeNull()
+        expect(document.activeElement).toBe(playerEl)
+        playerEl.remove()
+    })
 })

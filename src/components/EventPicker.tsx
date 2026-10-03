@@ -32,6 +32,18 @@ export function EventPicker() {
         }
     }
 
+    // The scorer field takes focus and then unmounts; give focus back (normally the
+    // video.js element, where its hotkeys listen) so G keeps working afterwards.
+    const isOpen = picker !== null
+    useEffect(() => {
+        if (!isOpen) return
+        const previous = document.activeElement
+        return () => {
+            const lost = !document.activeElement || document.activeElement === document.body
+            if (lost && previous instanceof HTMLElement && previous.isConnected) previous.focus()
+        }
+    }, [isOpen])
+
     useEffect(() => {
         if (!picker) return
         const onKey = (e: KeyboardEvent): void => {
