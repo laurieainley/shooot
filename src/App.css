@@ -97,10 +97,13 @@
   position: absolute;
   display: flex;
   gap: 8px;
-  pointer-events: auto;
+  /* The padded wrapper must not swallow clicks meant for the video; only its buttons are interactive */
+  pointer-events: none;
   padding: 16px;
   z-index: 10000;
 }
+
+.overlay-controls > * { pointer-events: auto; }
 
 .overlay-controls.top-left { top: 0; left: 0; }
 .overlay-controls.top-right { top: 0; right: 0; }

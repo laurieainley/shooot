@@ -31,6 +31,7 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
     const currentFileIndex = useAppState((s) => s.currentFileIndex)
 
     const lastTapRef = useRef<{ time: number; side: 'left' | 'right' } | null>(null)
+    const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const overlayRef = useRef<HTMLDivElement>(null)
     const isMobile = useIsMobile()
 
@@ -41,10 +42,19 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
         }
     }, [playerRef])
 
-    // Handle double-tap for seeking
+    useEffect(() => () => {
+        if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current)
+    }, [])
+
+    // Single tap toggles play/pause (once the double-tap window has passed); double tap seeks
     const handleTap = (side: 'left' | 'right') => {
         const now = Date.now()
         const lastTap = lastTapRef.current
+
+        if (singleTapTimerRef.current) {
+            clearTimeout(singleTapTimerRef.current)
+            singleTapTimerRef.current = null
+        }
 
         if (lastTap && lastTap.side === side && now - lastTap.time < 300) {
             // Double tap detected
@@ -63,6 +73,13 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
             lastTapRef.current = null
         } else {
             lastTapRef.current = { time: now, side }
+            singleTapTimerRef.current = setTimeout(() => {
+                singleTapTimerRef.current = null
+                const player = playerRef.current
+                if (!player) return
+                if (player.paused()) player.play()
+                else player.pause()
+            }, 300)
         }
     }
 
