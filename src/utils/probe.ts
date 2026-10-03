@@ -1,4 +1,5 @@
-import { ALL_FORMATS, BlobSource, Input } from 'mediabunny'
+import { ALL_FORMATS, Input } from 'mediabunny'
+import { fileSource } from '../render/fileSource'
 import { isAcceptedVideo } from './fileAccept'
 
 export type ProbedMetadata = {
@@ -12,7 +13,7 @@ export type ProbedMetadata = {
 }
 
 async function readTrackInfo(file: File): Promise<Pick<ProbedMetadata, 'codec' | 'durationSec' | 'width' | 'height'> & { codecString?: string }> {
-    const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS })
+    const input = new Input({ source: fileSource(file), formats: ALL_FORMATS })
     try {
         const v = await input.getPrimaryVideoTrack()
         if (!v) return {}
