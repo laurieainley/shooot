@@ -18,6 +18,8 @@ export type MatchEvent = {
     id: string
     matchTimeSec: number
     sourceFileIndex?: number
+    sourceFileKey?: string   // durable link to the source file (see utils/fileKey.ts)
+    unlinked?: boolean       // true when the source file is not currently loaded
     type: EventType
     team?: string
     scorer?: string
