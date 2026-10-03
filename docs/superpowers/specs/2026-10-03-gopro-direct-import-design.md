@@ -102,3 +102,32 @@ Pass ⇒ Mediabunny engine; delete ffmpeg.wasm, `public/ffmpeg/`, and COOP/COEP 
 - Native app (Capacitor + `MediaMuxer`) — revisit only if the spike fails and phone full-renders are required.
 - Re-encoding of any kind for full-quality output.
 - Other camera brands' proxy formats.
+
+## Spike result
+
+Run 2026-10-03 on the author's Mac (desktop Chromium 154 driven by Playwright, file read from the SD card at `/Volumes/GoPro`, USB). Spike: `spikes/mediabunny.html` — 10 × 14 s cuts starting at 60 s, spaced 120 s apart, snapped to keyframes (each cut became 15.015 s = 15 GOPs). Heap measured with a 100 ms `performance.memory.usedJSHeapSize` sampler (Chrome's non-precise value, so bucketed/approximate). Output pulled out of OPFS via a download and checked with native `ffprobe`/`ffmpeg` and an AVFoundation `AVAssetReader` script (same decode stack as QuickTime).
+
+| | GX010226.MP4 (11.9 GB HEVC) | GL010226.LRV (227 MB H.264, phone stand-in) |
+|---|---|---|
+| Source codec string | `hev1.1.6.L153`, AAC | `avc1.64002a`, AAC |
+| Total time | 10.2 s | 2.3 s |
+| Peak JS heap | 159 MB | 64 MB |
+| Output size / duration | 751.3 MB / 150.15 s | 13.3 MB / 150.15 s |
+| ffprobe video | `hevc` / `hvc1`, 39.84 Mbps (source 39.82 Mbps) | `h264` / `avc1`, 0.52 Mbps (source 0.51 Mbps) |
+| ffprobe audio | `aac` / `mp4a`, 189 kbps (stream copy) | same |
+| Data tracks | `tmcd`/`gpmd` dropped (only video+audio written) | same |
+| Video packets | 4500, constant 33.37 ms, 0 PTS gaps, 0 duplicate PTS, 0 non-monotonic DTS; keyframe at every cut start | same |
+| Audio at cut joins | 9 joins: 8 × 4.4 ms gap, 1 × 17 ms overlap; no cumulative drift (realigned every cut); audio end 150.152 s vs video end 150.150 s | same |
+| `ffmpeg -v error -f null` | 0 errors | 0 errors |
+| AVFoundation decode | `isPlayable=true`, 4500/4500 frames, status completed, no error | same |
+| Chrome `<video>` across each join | plays through all 9 joins, no media error, 0 dropped frames | plays through all 9 joins, no media error (1 dropped frame at one join in headless; not reproducible as a stream defect — packet checks clean) |
+
+Criteria:
+
+1. Plays in Chrome + QuickTime, no boundary glitches / drift > ~1 frame — **PASS** (automated: Chrome playback across joins + AVFoundation full decode + packet-timing checks; audio join error ≤ 17 ms < 1 frame). Not eyeballed/listened to by a human; a quick manual scrub in QuickTime is still worthwhile.
+2. `hevc`/`hvc1`, bitrate ≈ source — **PASS** (39.84 vs 39.82 Mbps). Note Mediabunny writes `hvc1` even though the source track's codec string is `hev1`.
+3. Peak JS heap < ~500 MB — **PASS** (159 MB; LRV 64 MB).
+4. Total time < 60 s on the Mac from the SD card — **PASS** (10.2 s; LRV 2.3 s).
+5. LRV preview works on the user's Android phone — **PENDING (user)**. Desktop LRV run passes 1–4 as a stand-in.
+
+Decision: desktop criteria pass ⇒ Mediabunny engine (Task 7A), subject to criterion 5.

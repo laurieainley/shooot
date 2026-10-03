@@ -1,0 +1,11 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Mediabunny spike</title>
+<body style="font: 14px system-ui; padding: 16px">
+  <p>Pick a GoPro MP4 (or LRV). Renders 10 × 14 s cuts spaced 120 s apart.</p>
+  <input id="file" type="file" />
+  <button id="go">Render</button>
+  <pre id="log"></pre>
+  <video id="out" controls style="max-width: 100%"></video>
+  <script type="module" src="./mediabunny.ts"></script>
+</body>
