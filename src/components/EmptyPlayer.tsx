@@ -40,8 +40,8 @@ export function EmptyPlayer() {
             <Logo height={48} className="text-yellow mb-6" />
             <p className="text-muted text-sm mb-6">
                 {dragging
-                    ? 'Drop MP4 files to load them'
-                    : <>Drop MP4 files here or click <strong className="text-light">+ Add file</strong> to get started</>
+                    ? 'Drop MP4 / LRV files to load them'
+                    : <>Drop GoPro MP4s (or their .LRV previews) here, or click <strong className="text-light">+ Add file</strong></>
                 }
             </p>
             {error && <p className="text-pink text-xs mb-4">{error}</p>}
