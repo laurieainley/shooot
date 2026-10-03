@@ -6,7 +6,7 @@ import { useAppState } from '../state'
 import { AddGoalBar } from './AddGoalBar'
 import type { VideoSourceFile } from '../types'
 
-const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec: 100 })
+const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec: 100, kind: 'full' })
 
 describe('AddGoalBar', () => {
     beforeEach(() => {

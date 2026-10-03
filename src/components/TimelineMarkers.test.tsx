@@ -5,7 +5,7 @@ import { useAppState } from '../state'
 import { TimelineMarkers } from './TimelineMarkers'
 import type { VideoSourceFile } from '../types'
 
-const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec: 200 })
+const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec: 200, kind: 'full' })
 
 describe('TimelineMarkers', () => {
     beforeEach(() => {

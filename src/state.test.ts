@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { useAppState } from './state'
 import type { MatchEvent, VideoSourceFile } from './types'
 
-const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec: 100 })
+const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec: 100, kind: 'full' })
 const goalIn = (fileIndex: number, id = `g${fileIndex}`): MatchEvent => ({ id, matchTimeSec: 10, sourceFileIndex: fileIndex, type: 'goal' })
 const s = () => useAppState.getState()
 
@@ -114,5 +114,20 @@ describe('teams and picker', () => {
         const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
         expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
         expect(opts.partialize!(s())).toHaveProperty('teams')
+    })
+})
+
+describe('attachFullFiles', () => {
+    const proxy = (name: string): VideoSourceFile =>
+        ({ id: name, file: new File([''], name), url: '', name, kind: 'proxy', durationSec: 100 })
+
+    beforeEach(() => useAppState.setState({ files: [proxy('GL010226.LRV'), proxy('GL010227.LRV')] }))
+
+    it('should attach matching full files and report unmatched names', () => {
+        const unmatched = s().attachFullFiles([new File([''], 'GX010226.MP4'), new File([''], 'GX019999.MP4')])
+        const files = s().files
+        expect(files[0].fullFile?.name).toBe('GX010226.MP4')
+        expect(files[1].fullFile).toBeUndefined()
+        expect(unmatched).toEqual(['GX019999.MP4'])
     })
 })

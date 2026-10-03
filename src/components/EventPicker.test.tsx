@@ -5,7 +5,7 @@ import { useAppState } from '../state'
 import { EventPicker } from './EventPicker'
 import type { VideoSourceFile } from '../types'
 
-const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec: 600 })
+const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec: 600, kind: 'full' })
 const press = (key: string) => act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true })) })
 const s = () => useAppState.getState()
 

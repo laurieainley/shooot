@@ -102,3 +102,52 @@ Pass ⇒ Mediabunny engine; delete ffmpeg.wasm, `public/ffmpeg/`, and COOP/COEP 
 - Native app (Capacitor + `MediaMuxer`) — revisit only if the spike fails and phone full-renders are required.
 - Re-encoding of any kind for full-quality output.
 - Other camera brands' proxy formats.
+
+## Spike result
+
+Run 2026-10-03 on the author's Mac (desktop Chromium 154 driven by Playwright, file read from the SD card at `/Volumes/GoPro`, USB). Spike: `spikes/mediabunny.html` — 10 × 14 s cuts starting at 60 s, spaced 120 s apart, snapped to keyframes (each cut became 15.015 s = 15 GOPs). Heap measured with a 100 ms `performance.memory.usedJSHeapSize` sampler (Chrome's non-precise value, so bucketed/approximate). Output pulled out of OPFS via a download and checked with native `ffprobe`/`ffmpeg` and an AVFoundation `AVAssetReader` script (same decode stack as QuickTime).
+
+| | GX010226.MP4 (11.9 GB HEVC) | GL010226.LRV (227 MB H.264, phone stand-in) |
+|---|---|---|
+| Source codec string | `hev1.1.6.L153`, AAC | `avc1.64002a`, AAC |
+| Total time | 10.2 s | 2.3 s |
+| Peak JS heap | 159 MB | 64 MB |
+| Output size / duration | 751.3 MB / 150.15 s | 13.3 MB / 150.15 s |
+| ffprobe video | `hevc` / `hvc1`, 39.84 Mbps (source 39.82 Mbps) | `h264` / `avc1`, 0.52 Mbps (source 0.51 Mbps) |
+| ffprobe audio | `aac` / `mp4a`, 189 kbps (stream copy) | same |
+| Data tracks | `tmcd`/`gpmd` dropped (only video+audio written) | same |
+| Video packets | 4500, constant 33.37 ms, 0 PTS gaps, 0 duplicate PTS, 0 non-monotonic DTS; keyframe at every cut start | same |
+| Audio at cut joins | 9 joins: 8 × 4.4 ms gap, 1 × 17 ms overlap; no cumulative drift (realigned every cut); audio end 150.152 s vs video end 150.150 s | same |
+| `ffmpeg -v error -f null` | 0 errors | 0 errors |
+| AVFoundation decode | `isPlayable=true`, 4500/4500 frames, status completed, no error | same |
+| Chrome `<video>` across each join | plays through all 9 joins, no media error, 0 dropped frames | plays through all 9 joins, no media error (1 dropped frame at one join in headless; not reproducible as a stream defect — packet checks clean) |
+
+Criteria:
+
+1. Plays in Chrome + QuickTime, no boundary glitches / drift > ~1 frame — **PASS** (automated: Chrome playback across joins + AVFoundation full decode + packet-timing checks; audio join error ≤ 17 ms < 1 frame). Not eyeballed/listened to by a human; a quick manual scrub in QuickTime is still worthwhile.
+2. `hevc`/`hvc1`, bitrate ≈ source — **PASS** (39.84 vs 39.82 Mbps). Note Mediabunny writes `hvc1` even though the source track's codec string is `hev1`.
+3. Peak JS heap < ~500 MB — **PASS** (159 MB; LRV 64 MB).
+4. Total time < 60 s on the Mac from the SD card — **PASS** (10.2 s; LRV 2.3 s).
+5. LRV preview works on the user's Android phone — **PENDING (user)**. Desktop LRV run passes 1–4 as a stand-in.
+
+Decision: desktop criteria pass ⇒ Mediabunny engine (Task 7A), subject to criterion 5.
+
+## Verification
+
+Run 2026-10-03 on desktop (headless Chrome via a Playwright script, app on `https://localhost:5177`). The SD card was no longer mounted, so inputs were generated with native ffmpeg in GoPro naming: `GX010001.MP4`/`GX020001.MP4` (HEVC `hvc1` 1280×720 29.97 fps, 1.001 s GOP, AAC 48 kHz stereo, 60 s each), matching `GL010001.LRV`/`GL020001.LRV` (H.264 432×240, same timing), and `plain.mp4` (H.264, 90 s). Events were seeded in persisted state with GoPro file keys: one mid-file, one 3 s into chapter 2 (padding window crosses into chapter 1), one 2 s before the end of chapter 2, and one unlinked event. Outputs were checked with ffprobe (codec/tag, packet timing), `ffmpeg -v error -f null` and an AVFoundation full decode.
+
+| Flow | Result |
+|---|---|
+| Load the two LRVs only | Pills show `PROXY · PREVIEW ONLY`; buttons "Preview reel (LRV)" and "Full quality render" |
+| Preview reel | 4 cuts (cross-file split into 2; unlinked event excluded), `Clip n of 4 · x%` then Done; H.264 432×240, 42.9 s, 1286 frames, no PTS gaps, 0 decode errors, AVFoundation 1286/1286 |
+| Full quality with no MP4s | Missing prompt lists `GL010001.LRV`, `GL020001.LRV`; nothing rendered |
+| Pick full files (`GX010001.MP4`, `GX020001.MP4`) | Prompt closes; pills show `FULL ATTACHED` |
+| Full quality render | HEVC `hvc1` 1280×720, ≈4 Mbps (source bitrate), 42.9 s, 1286 frames, same cut timing as the preview, 0 decode errors, AVFoundation 1286/1286 |
+| MP4 + LRV picked together | One pill: `GL010001.LRV · PROXY · FULL ATTACHED` |
+| `plain.mp4` only | Single "Render MP4" button; H.264 15.0 s, 375 frames, 0 decode errors |
+| `plain.mp4` (H.264) + `GX010001.MP4` (HEVC) | "Render failed: Clips use different video codecs…" |
+| Engine guard: `renderReel` called directly with cuts 50–200 s, 300–314 s, 5–9 s on a 60 s file | 15.9 s output (10 s tail + 5 s); the out-of-range cut is skipped and the past-the-end cut stops at the real file end |
+
+Found and fixed during verification: x265's default **open GOP** made joins undecodable (leading pictures after a CRA reference the previous GOP). The engine now drops packets that display before the cut's key packet and ends each cut at its last copied frame. Open-GOP output then decodes fully in AVFoundation and ffmpeg (ffmpeg's null muxer still prints 2 "non monotonically increasing dts" warnings at one join; no decode errors). Closed-GOP HEVC (like GoPro) was clean before and after.
+
+User-pending (Android device): file picker shows USB storage with `accept=".mp4,.MP4,.lrv,.LRV"` and `.LRV`/`.MP4` are selectable; Share to WhatsApp from the result; a real GoPro full render from the phone.

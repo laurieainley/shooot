@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react'
 import { useAppState } from '../state'
 import { processVideoFiles } from '../utils/processFiles'
+import { FILE_INPUT_ACCEPT } from '../utils/fileAccept'
+import { fileBadges } from '../utils/fileBadges'
 
 function formatMSS(s: number): string {
     const mm = `${Math.floor(s / 60)}`.padStart(2, '0')
@@ -45,6 +47,12 @@ export function FilePills() {
                     {f.durationSec != null && (
                         <span className="text-xs text-muted">{formatMSS(f.durationSec)}</span>
                     )}
+                    {fileBadges(f).map((b) => (
+                        <span key={b} title={b === "can't play here" ? `${f.playbackIssue} — add the matching GL….LRV` : undefined}
+                            className={`rounded px-1 text-[10px] uppercase tracking-wide ${b === "can't play here" ? 'bg-pink/20 text-pink' : 'bg-yellow/10 text-yellow/70'}`}>
+                            {b}
+                        </span>
+                    ))}
                     {files.length > 1 && (
                         <>
                             <button
@@ -75,6 +83,7 @@ export function FilePills() {
                 ref={inputRef}
                 type="file"
                 multiple
+                accept={FILE_INPUT_ACCEPT}
                 onChange={onPick}
                 className="hidden"
             />
