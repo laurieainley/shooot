@@ -131,3 +131,23 @@ Criteria:
 5. LRV preview works on the user's Android phone — **PENDING (user)**. Desktop LRV run passes 1–4 as a stand-in.
 
 Decision: desktop criteria pass ⇒ Mediabunny engine (Task 7A), subject to criterion 5.
+
+## Verification
+
+Run 2026-10-03 on desktop (headless Chrome via a Playwright script, app on `https://localhost:5177`). The SD card was no longer mounted, so inputs were generated with native ffmpeg in GoPro naming: `GX010001.MP4`/`GX020001.MP4` (HEVC `hvc1` 1280×720 29.97 fps, 1.001 s GOP, AAC 48 kHz stereo, 60 s each), matching `GL010001.LRV`/`GL020001.LRV` (H.264 432×240, same timing), and `plain.mp4` (H.264, 90 s). Events were seeded in persisted state with GoPro file keys: one mid-file, one 3 s into chapter 2 (padding window crosses into chapter 1), one 2 s before the end of chapter 2, and one unlinked event. Outputs were checked with ffprobe (codec/tag, packet timing), `ffmpeg -v error -f null` and an AVFoundation full decode.
+
+| Flow | Result |
+|---|---|
+| Load the two LRVs only | Pills show `PROXY · PREVIEW ONLY`; buttons "Preview reel (LRV)" and "Full quality render" |
+| Preview reel | 4 cuts (cross-file split into 2; unlinked event excluded), `Clip n of 4 · x%` then Done; H.264 432×240, 42.9 s, 1286 frames, no PTS gaps, 0 decode errors, AVFoundation 1286/1286 |
+| Full quality with no MP4s | Missing prompt lists `GL010001.LRV`, `GL020001.LRV`; nothing rendered |
+| Pick full files (`GX010001.MP4`, `GX020001.MP4`) | Prompt closes; pills show `FULL ATTACHED` |
+| Full quality render | HEVC `hvc1` 1280×720, ≈4 Mbps (source bitrate), 42.9 s, 1286 frames, same cut timing as the preview, 0 decode errors, AVFoundation 1286/1286 |
+| MP4 + LRV picked together | One pill: `GL010001.LRV · PROXY · FULL ATTACHED` |
+| `plain.mp4` only | Single "Render MP4" button; H.264 15.0 s, 375 frames, 0 decode errors |
+| `plain.mp4` (H.264) + `GX010001.MP4` (HEVC) | "Render failed: Clips use different video codecs…" |
+| Engine guard: `renderReel` called directly with cuts 50–200 s, 300–314 s, 5–9 s on a 60 s file | 15.9 s output (10 s tail + 5 s); the out-of-range cut is skipped and the past-the-end cut stops at the real file end |
+
+Found and fixed during verification: x265's default **open GOP** made joins undecodable (leading pictures after a CRA reference the previous GOP). The engine now drops packets that display before the cut's key packet and ends each cut at its last copied frame. Open-GOP output then decodes fully in AVFoundation and ffmpeg (ffmpeg's null muxer still prints 2 "non monotonically increasing dts" warnings at one join; no decode errors). Closed-GOP HEVC (like GoPro) was clean before and after.
+
+User-pending (Android device): file picker shows USB storage with `accept=".mp4,.MP4,.lrv,.LRV"` and `.LRV`/`.MP4` are selectable; Share to WhatsApp from the result; a real GoPro full render from the phone.
