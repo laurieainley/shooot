@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useAppState } from '../state'
 import type { Goal } from '../types'
+import { TimeInput } from './TimeInput'
 
 export function GoalList() {
     const goals = useAppState((s) => s.events)
@@ -61,6 +62,7 @@ export function GoalList() {
                     {goals.map((g) => (
                         <div key={g.id} className={`flex items-center gap-2 rounded bg-deep border-l-[3px] px-2.5 py-2 ${g.unlinked ? 'border-l-muted opacity-50' : 'border-l-pink'}`}>
                             <TimeInput
+                                className="w-[50px] rounded bg-transparent border-none text-xs font-bold text-pink tabular-nums focus:outline-none p-0"
                                 valueSec={g.matchTimeSec}
                                 onCommit={(t) => {
                                     update(g.id, { matchTimeSec: t })
@@ -128,61 +130,6 @@ export function GoalList() {
                 )}
             </div>
         </div>
-    )
-}
-
-function formatHMS(totalSeconds: number): string {
-    const s = Math.max(0, Math.floor(totalSeconds))
-    const mm = `${Math.floor(s / 60)}`.padStart(2, '0')
-    const ss = `${s % 60}`.padStart(2, '0')
-    return `${mm}:${ss}`
-}
-
-function parseTimeToSeconds(input: string): number | null {
-    const t = input.trim()
-    if (!t) return null
-    if (/^\d+$/.test(t)) return parseInt(t, 10)
-    const m = t.match(/^(\d+):(\d{1,2})$/)
-    if (!m) return null
-    const mm = parseInt(m[1], 10)
-    const ss = parseInt(m[2], 10)
-    if (ss >= 60) return null
-    return mm * 60 + ss
-}
-
-function TimeInput({ valueSec, onCommit }: { valueSec: number; onCommit: (seconds: number) => void }) {
-    const [text, setText] = useState(formatHMS(valueSec))
-    const [lastValid, setLastValid] = useState(formatHMS(valueSec))
-
-    useEffect(() => {
-        const next = formatHMS(valueSec)
-        setText(next)
-        setLastValid(next)
-    }, [valueSec])
-
-    const tryCommit = () => {
-        const parsed = parseTimeToSeconds(text)
-        if (parsed != null) {
-            onCommit(parsed)
-            const norm = formatHMS(parsed)
-            setText(norm)
-            setLastValid(norm)
-        } else {
-            setText(lastValid)
-        }
-    }
-
-    return (
-        <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onBlur={tryCommit}
-            onKeyDown={(e) => {
-                if (e.key === 'Enter') e.currentTarget.blur()
-                else if (e.key === 'Escape') { setText(lastValid); e.currentTarget.blur() }
-            }}
-            className="w-[50px] rounded bg-transparent border-none text-xs font-bold text-pink tabular-nums focus:outline-none p-0"
-        />
     )
 }
 

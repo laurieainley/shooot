@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeCumulativeOffsets, formatHMS } from './timeline'
+import { computeCumulativeOffsets, formatHMS, parseTimeToSeconds } from './timeline'
 import type { VideoSourceFile } from '../types'
 
 function makeFile(durationSec?: number): VideoSourceFile {
@@ -52,4 +52,17 @@ describe('formatHMS', () => {
   it('should floor fractional seconds', () => {
     expect(formatHMS(90.9)).toBe('01:30')
   })
+})
+
+describe('parseTimeToSeconds', () => {
+    it('should parse seconds, mm:ss and hh:mm:ss', () => {
+        expect(parseTimeToSeconds('90')).toBe(90)
+        expect(parseTimeToSeconds('1:30')).toBe(90)
+        expect(parseTimeToSeconds('01:02:03')).toBe(3723)
+    })
+    it('should reject invalid input', () => {
+        expect(parseTimeToSeconds('')).toBeNull()
+        expect(parseTimeToSeconds('1:75')).toBeNull()
+        expect(parseTimeToSeconds('abc')).toBeNull()
+    })
 })
