@@ -115,7 +115,8 @@ export function Player() {
                                     addGoal({
                                         id: `${Date.now()}`,
                                         matchTimeSec: currentTimeSeconds,
-                                        sourceFileIndex: currentIdx
+                                        sourceFileIndex: currentIdx,
+                                        type: 'goal',
                                     });
                                     console.log(`Goal added at ${currentTimeSeconds}s for Video ${currentIdx + 1}`);
                                 }

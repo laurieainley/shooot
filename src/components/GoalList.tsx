@@ -207,5 +207,5 @@ function parseLine(line: string, sourceIdx: number): Goal | null {
         team = parts[0]?.trim() || undefined
         scorer = parts[1]?.trim() || undefined
     }
-    return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, matchTimeSec: seconds, team, scorer, sourceFileIndex: sourceIdx }
+    return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, matchTimeSec: seconds, team, scorer, sourceFileIndex: sourceIdx, type: 'goal' }
 }

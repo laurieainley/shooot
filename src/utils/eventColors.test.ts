@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getEventColor, EVENT_COLORS, EVENT_LABELS } from './eventColors'
+import { getEventColor, EVENT_LABELS } from './eventColors'
 
 describe('getEventColor', () => {
     it('should return pink for goal type', () => {

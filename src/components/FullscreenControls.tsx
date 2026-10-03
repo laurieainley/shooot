@@ -102,6 +102,7 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
                 id: `${Date.now()}`,
                 matchTimeSec: currentTimeSeconds,
                 sourceFileIndex: currentFileIndex,
+                type: 'goal',
                 team: teamName || undefined,
                 scorer: playerName || undefined
             }
