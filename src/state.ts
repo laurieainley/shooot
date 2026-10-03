@@ -78,7 +78,7 @@ export const useAppState = create<AppState>()(
             events: [],
             teams: [
                 { name: 'Whites', color: '#f5f5f5', roster: [] },
-                { name: 'Colours', color: '#f72585', roster: [] },
+                { name: 'Colours', color: '#c2364a', roster: [] },
             ],
             picker: null,
             cumulativeOffsets: [],

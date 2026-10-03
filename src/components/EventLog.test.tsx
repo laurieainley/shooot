@@ -265,6 +265,7 @@ describe('EventLog header', () => {
         const [e] = useAppState.getState().events
         expect(e).toMatchObject({ matchTimeSec: 42, sourceFileIndex: 0, type: 'goal' })
         expect(useAppState.getState().picker).toEqual({ eventId: e.id })
+        expect(screen.queryByPlaceholderText('00:42')).not.toBeInTheDocument()
     })
 
     it('should undo and redo from the header buttons', async () => {

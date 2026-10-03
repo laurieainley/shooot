@@ -1,63 +1,38 @@
 import { useState } from 'react'
-import { Logo } from './Logo'
-import { useAppState } from '../state'
-import { processVideoFiles } from '../utils/processFiles'
+import { addPickedFiles } from './addFiles'
+import { AddFilesButton } from './FilePills'
 
+const HINTS: [string, string][] = [
+    ['G', 'mark an event'], ['⇧← ⇧→', '1 s back / on'], ['↑ ↓', 'frame step'], [', .', 'speed down / up'],
+    ['/', 'normal speed'], ['[ ]', 'previous / next file'], ['Home', 'kick-off'], ['Z', 'zoom'], ['L', 'event log'],
+]
+
+/** The player cell before any file is loaded: a drop zone with the shortcuts. */
 export function EmptyPlayer() {
-    const addFiles = useAppState((s) => s.addFiles)
     const [dragging, setDragging] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    const handleDrop = async (e: React.DragEvent) => {
-        e.preventDefault()
-        setDragging(false)
-        const files = e.dataTransfer.files
-        if (!files || files.length === 0) return
-        const result = await processVideoFiles(files)
-        if (result.error) setError(result.error)
-        if (result.files.length > 0) addFiles(result.files)
-    }
-
-    const handleDragOver = (e: React.DragEvent) => {
-        e.preventDefault()
-        setDragging(true)
-    }
-
-    const handleDragLeave = (e: React.DragEvent) => {
-        e.preventDefault()
-        setDragging(false)
-    }
-
     return (
         <div
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed bg-surface py-16 px-8 transition-colors ${
-                dragging ? 'border-yellow bg-yellow/5' : 'border-border'
-            }`}
+            onDrop={async (e) => {
+                e.preventDefault()
+                setDragging(false)
+                setError(await addPickedFiles(Array.from(e.dataTransfer.files ?? [])))
+            }}
+            onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+            onDragLeave={(e) => { e.preventDefault(); setDragging(false) }}
+            className={`empty-player${dragging ? ' empty-player--over' : ''}`}
         >
-            <Logo height={48} className="text-yellow mb-6" />
-            <p className="text-muted text-sm mb-6">
-                {dragging
-                    ? 'Drop MP4 / LRV files to load them'
-                    : <>Drop GoPro MP4s (or their .LRV previews) here, or click <strong className="text-light">+ Add file</strong></>
-                }
-            </p>
-            {error && <p className="text-pink text-xs mb-4">{error}</p>}
-            <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-xs text-muted">
-                <span><kbd className="text-light font-bold">G</kbd></span>
-                <span>Mark goal</span>
-                <span><kbd className="text-light font-bold">,</kbd> / <kbd className="text-light font-bold">.</kbd></span>
-                <span>Speed down / up</span>
-                <span><kbd className="text-light font-bold">/</kbd></span>
-                <span>Reset speed</span>
-                <span><kbd className="text-light font-bold">[</kbd> / <kbd className="text-light font-bold">]</kbd></span>
-                <span>Prev / next file</span>
-                <span><kbd className="text-light font-bold">⇧←</kbd> / <kbd className="text-light font-bold">⇧→</kbd></span>
-                <span>Back / forward 1 s</span>
-                <span><kbd className="text-light font-bold">↑</kbd> / <kbd className="text-light font-bold">↓</kbd></span>
-                <span>Next / previous frame</span>
+            <div className="empty-player__inner">
+                <p className="empty-player__title">{dragging ? 'Drop to load' : 'Load the match'}</p>
+                <p className="m-0 text-[13px] text-muted">Drop GoPro MP4s (or their .LRV previews) here, in any order.</p>
+                <AddFilesButton label="Choose files" className="btn-primary" onError={setError} />
+                {error && <p className="m-0 text-[12px] text-danger">{error}</p>}
+                <dl className="empty-player__keys">
+                    {HINTS.map(([k, v]) => (
+                        <div key={k}><dt><kbd>{k}</kbd></dt><dd>{v}</dd></div>
+                    ))}
+                </dl>
             </div>
         </div>
     )

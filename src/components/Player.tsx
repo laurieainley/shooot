@@ -3,7 +3,6 @@ import videojs from 'video.js'
 import 'video.js/dist/video-js.css'
 import 'videojs-hotkeys'
 import { useAppState } from '../state'
-import { formatHMS } from '../utils/timeline'
 import { seekStepFor, frameStepTime, DEFAULT_FPS } from '../utils/hotkeys'
 import { FullscreenControls } from './FullscreenControls'
 import { EventPicker } from './EventPicker'
@@ -20,7 +19,6 @@ export function Player() {
     const files = useAppState((s) => s.files)
     const currentFileIndex = useAppState((s) => s.currentFileIndex)
     const setCurrentFileIndex = useAppState((s) => s.setCurrentFileIndex)
-    const [currentTime, setCurrentTime] = useState(0)
     const [isFullscreen, setIsFullscreen] = useState(false)
     const [durationSec, setDurationSec] = useState(0)
     const [progressHost, setProgressHost] = useState<HTMLElement | null>(null)
@@ -179,7 +177,6 @@ export function Player() {
         }
         p.on('timeupdate', () => {
             const t = p.currentTime() || 0
-            setCurrentTime(t)
             setCurrentTimeInFile(t)
         })
         p.on('durationchange', () => setDurationSec(p.duration() || 0))
@@ -314,27 +311,13 @@ export function Player() {
     }, [])
 
     return (
-        <div ref={containerRef} className="player-container max-h-[50vh] aspect-video mx-auto overflow-hidden rounded-md">
+        <div ref={containerRef} className="player-container">
             <video ref={videoRef} className="video-js vjs-default-skin" />
             {speedIndicator !== null && (
                 <div className="speed-indicator" key={speedIndicator + '-' + Date.now()}>
                     {speedIndicator.toFixed(2)}x
                 </div>
             )}
-            <div className="mt-1 px-1 text-xs">
-                {isPreviewMode ? (
-                    <div className="text-muted">
-                        <strong className="text-pink">Preview</strong> — Segment {currentPreviewSegment + 1}/{previewSegments.length}
-                        {previewSegments.length > 0 && currentPreviewSegment < previewSegments.length && (
-                            <span> — {previewSegments[currentPreviewSegment].goals.length} goal(s)</span>
-                        )}
-                    </div>
-                ) : (
-                    <div className="text-muted">
-                        File {files.length ? currentFileIndex + 1 : 0}/{files.length} — <span className="text-pink font-semibold tabular-nums">{formatHMS(currentTime)}</span>
-                    </div>
-                )}
-            </div>
             <FullscreenControls playerRef={playerRef} isFullscreen={isFullscreen} />
             <EventPicker />
             <TimelineMarkers host={progressHost} durationSec={durationSec} />
