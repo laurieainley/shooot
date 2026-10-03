@@ -3,6 +3,7 @@ import { useAppState } from '../state'
 import { processVideoFiles } from '../utils/processFiles'
 import { FILE_INPUT_ACCEPT } from '../utils/fileAccept'
 import { fileBadges } from '../utils/fileBadges'
+import { parseGoProName } from '../utils/gopro'
 
 function formatMSS(s: number): string {
     const mm = `${Math.floor(s / 60)}`.padStart(2, '0')
@@ -23,7 +24,12 @@ export function FilePills() {
     const onPick = async (evt: React.ChangeEvent<HTMLInputElement>) => {
         const list = evt.target.files
         if (!list || list.length === 0) return
-        const result = await processVideoFiles(list)
+        const picked = Array.from(list)
+        const fulls = picked.filter((f) => parseGoProName(f.name)?.kind === 'full')
+        const unmatched = new Set(useAppState.getState().attachFullFiles(fulls))
+        const rest = picked.filter((f) => !fulls.includes(f) || unmatched.has(f.name))
+        if (rest.length === 0) { evt.target.value = ''; return }
+        const result = await processVideoFiles(rest)
         if (result.error) setMessage(result.error)
         if (result.files.length > 0) addFiles(result.files)
         evt.target.value = ''
