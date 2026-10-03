@@ -6,6 +6,10 @@ import { useAppState } from '../state'
 import { formatHMS } from '../utils/timeline'
 import { seekStepFor, frameStepTime, DEFAULT_FPS } from '../utils/hotkeys'
 import { FullscreenControls } from './FullscreenControls'
+import { EventPicker } from './EventPicker'
+import { TimelineMarkers } from './TimelineMarkers'
+import { patchPlayerFullscreen, type FullscreenPlayer } from './fullscreen'
+import { homeTarget, startInFile } from '../utils/markers'
 
 type FrameStepPlayer = { pause: () => void; currentTime: (t?: number) => number; duration: () => number }
 
@@ -16,9 +20,10 @@ export function Player() {
     const files = useAppState((s) => s.files)
     const currentFileIndex = useAppState((s) => s.currentFileIndex)
     const setCurrentFileIndex = useAppState((s) => s.setCurrentFileIndex)
-    const addGoal = useAppState((s) => s.addEvent)
     const [currentTime, setCurrentTime] = useState(0)
     const [isFullscreen, setIsFullscreen] = useState(false)
+    const [durationSec, setDurationSec] = useState(0)
+    const [progressHost, setProgressHost] = useState<HTMLElement | null>(null)
     const [speedIndicator, setSpeedIndicator] = useState<number | null>(null)
     const speedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const setCurrentTimeInFile = useAppState((s) => s.setCurrentTimeInFile)
@@ -38,11 +43,13 @@ export function Player() {
                 fluid: false,
                 fill: true,
             })
+            patchPlayerFullscreen(playerRef.current as unknown as FullscreenPlayer, () => containerRef.current)
 
             // Enable hotkeys once the player is ready
             playerRef.current.ready(() => {
                 if (playerRef.current) {
-                    (playerRef.current as any).hotkeys({
+                    setProgressHost(playerRef.current.el().querySelector('.vjs-progress-holder'))
+                    ;(playerRef.current as any).hotkeys({
                         volumeStep: 0.1,
                         seekStep: seekStepFor,             // ←/→ 5 s, Shift+←/→ 1 s
                         volumeUpKey: () => false,          // ↑/↓ are frame steps (custom keys below)
@@ -97,7 +104,9 @@ export function Player() {
                                     return event.which === 36; // Home key
                                 },
                                 handler: function (player: any) {
-                                    player.currentTime(0);
+                                    const st = useAppState.getState()
+                                    const start = startInFile(st.matchStartTimeSec, st.cumulativeOffsets, st.currentFileIndex, player.duration() || 0)
+                                    player.currentTime(homeTarget(player.currentTime() || 0, start))
                                 }
                             },
                             // End key - jump to end
@@ -122,22 +131,13 @@ export function Player() {
                                     console.log('Playback speed: 1x (normal)');
                                 }
                             },
-                            // G key - add goal at current time (M is video.js mute)
+                            // G key - mark an event at the current time and open the picker (M is video.js mute)
                             addGoal: {
                                 key: function (event: KeyboardEvent) {
                                     return event.which === 71; // G
                                 },
                                 handler: function (player: any) {
-                                    const currentTimeSeconds = Math.floor(player.currentTime() || 0);
-                                    // Get the current file index from the store to avoid stale closure
-                                    const currentIdx = useAppState.getState().currentFileIndex;
-                                    addGoal({
-                                        id: `${Date.now()}`,
-                                        matchTimeSec: currentTimeSeconds,
-                                        sourceFileIndex: currentIdx,
-                                        type: 'goal',
-                                    });
-                                    console.log(`Goal added at ${currentTimeSeconds}s for Video ${currentIdx + 1}`);
+                                    useAppState.getState().markEvent(player.currentTime() || 0)
                                 }
                             },
                             // [ key - switch to previous video
@@ -182,6 +182,7 @@ export function Player() {
             setCurrentTime(t)
             setCurrentTimeInFile(t)
         })
+        p.on('durationchange', () => setDurationSec(p.duration() || 0))
         p.on('ratechange', () => {
             const rate = p.playbackRate()
             setSpeedIndicator(rate)
@@ -335,6 +336,8 @@ export function Player() {
                 )}
             </div>
             <FullscreenControls playerRef={playerRef} isFullscreen={isFullscreen} />
+            <EventPicker />
+            <TimelineMarkers host={progressHost} durationSec={durationSec} />
         </div>
     )
 }
