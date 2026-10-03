@@ -32,9 +32,9 @@
 | ← / → | ±5 s (unchanged) |
 | Shift + ← / → | ±1 s |
 | ↑ / ↓ | next / previous frame (pause first; fps defaults to 30000/1001) |
-| M | add goal only (videojs-hotkeys' built-in mute on M is disabled — it currently mutes *and* adds a goal) |
+| G | add goal (M no longer adds a goal; it stays as video.js mute — today M does both) |
 
-Implementation via videojs-hotkeys options: `seekStep: (e) => e.shiftKey ? 1 : 5`; `volumeUpKey`/`volumeDownKey`/`muteKey` return `false`; two custom keys for frame stepping. Pure helpers in `src/utils/hotkeys.ts`: `seekStepFor(e)`, `frameStepTime(current, direction, fps, duration)`. CLAUDE.md shortcut table and `EmptyPlayer` hint updated.
+Implementation via videojs-hotkeys options: `seekStep: (e) => e.shiftKey ? 1 : 5`; `volumeUpKey`/`volumeDownKey` return `false`; `addGoal` custom key matches G only; two custom keys for frame stepping. Pure helpers in `src/utils/hotkeys.ts`: `seekStepFor(e)`, `frameStepTime(current, direction, fps, duration)`. CLAUDE.md shortcut table and `EmptyPlayer` hint updated.
 
 ## #2 Click dead zones
 

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Events survive adding/removing/reordering files, faster keyboard navigation (1 s and frame steps), no click dead zones on the player, and no manual time-entry field.
+**Goal:** Events survive adding/removing/reordering files, faster keyboard navigation (1 s and frame steps), G-only goal key (M = mute), no click dead zones on the player, and no manual time-entry field.
 
 **Architecture:** Events gain a durable `sourceFileKey`; a pure `relinkEvents()` recomputes `sourceFileIndex` after every file or event change in the Zustand store, marking events whose file is gone as `unlinked` rather than deleting them. Keyboard changes are videojs-hotkeys options backed by pure helpers. Spec: `docs/superpowers/specs/2026-10-03-fixes-keyboard-design.md`.
 
@@ -733,7 +733,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - [ ] **Step 1: Confirm the option names exist**
 
 Run: `grep -nE "muteKey: muteKey|volumeUpKey: volumeUpKey|volumeDownKey: volumeDownKey|typeof seekStep === \"function\"" node_modules/videojs-hotkeys/videojs.hotkeys.js`
-Expected: 4 matches. (`muteKey` defaults to the M key, which is why M currently mutes as well as adding a goal.)
+Expected: 4 matches. (`muteKey` defaults to M. M currently mutes *and* adds a goal because the custom `addGoal` key also matches M; we keep M = mute and make `addGoal` G-only.)
 
 - [ ] **Step 2: Write the failing test**
 
@@ -812,13 +812,20 @@ Replace the option block at the top of `.hotkeys({ … })`:
                         seekStep: seekStepFor,             // ←/→ 5 s, Shift+←/→ 1 s
                         volumeUpKey: () => false,          // ↑/↓ are frame steps (custom keys below)
                         volumeDownKey: () => false,
-                        muteKey: () => false,              // M adds a goal; don't also mute
                         enableModifiersForNumbers: false,
                         enableVolumeScroll: false,
                         enableHoverScroll: false,
                         enableFullscreen: true,
                         alwaysCaptureHotkeys: true,
                         enableNumbers: true,
+```
+
+Make the `addGoal` custom key G-only (M stays as video.js mute):
+
+```ts
+                                key: function (event: KeyboardEvent) {
+                                    return event.which === 71; // G
+                                },
 ```
 
 Add two entries to `customKeys`:
@@ -840,7 +847,14 @@ Add two entries to `customKeys`:
                             },
 ```
 
-- [ ] **Step 7: Update `EmptyPlayer.tsx` hint grid** — append after the `[ / ]` row:
+- [ ] **Step 7: Update `EmptyPlayer.tsx` hint grid** — change the first row to G only:
+
+```tsx
+                <span><kbd className="text-light font-bold">G</kbd></span>
+                <span>Mark goal</span>
+```
+
+and append after the `[ / ]` row:
 
 ```tsx
                 <span><kbd className="text-light font-bold">⇧←</kbd> / <kbd className="text-light font-bold">⇧→</kbd></span>
@@ -852,17 +866,21 @@ Add two entries to `customKeys`:
 - [ ] **Step 8: Update `CLAUDE.md`** shortcut table rows:
 
 ```markdown
+| **G** | Add goal at current playback time |
+| **M** | Mute / unmute |
 | **Left / Right** | Seek ±5 seconds |
 | **Shift + Left / Right** | Seek ±1 second |
 | **Up / Down** | Step one frame forward / back (pauses) |
 | **[ / ]** | Previous / next file |
 ```
 
-(remove nothing else; M no longer mutes — no table change needed.)
+(replace the existing `| **G / M** | Add goal … |` row with the G and M rows above.)
+
+Also in `src/components/GoalList.tsx`, the empty-state text: `Press <kbd …>G</kbd> or <kbd …>M</kbd> during playback` → `Press <kbd className="text-light font-bold">G</kbd> during playback`.
 
 - [ ] **Step 9: Manual check**
 
-`npm run dev`, load any MP4: Shift+→ advances 1 s; → advances 5 s; ↑ pauses and advances one frame (time display changes by ~0.033 s per press — check via the scrubber tooltip or `document.querySelector('video').currentTime` in the console); M adds a goal and does **not** mute.
+`npm run dev`, load any MP4: Shift+→ advances 1 s; → advances 5 s; ↑ pauses and advances one frame (time display changes by ~0.033 s per press — check via the scrubber tooltip or `document.querySelector('video').currentTime` in the console); G adds a goal; M mutes and does **not** add a goal.
 
 - [ ] **Step 10: Run tests and lint; commit**
 
@@ -870,8 +888,8 @@ Run: `npm run test:run && npm run lint`
 Expected: PASS
 
 ```bash
-git add src/utils/hotkeys.ts src/utils/hotkeys.test.ts src/components/Player.tsx src/components/EmptyPlayer.tsx CLAUDE.md
-git commit -m "feat: Shift+arrows seek 1s, Up/Down step frames, M no longer mutes
+git add src/utils/hotkeys.ts src/utils/hotkeys.test.ts src/components/Player.tsx src/components/EmptyPlayer.tsx src/components/GoalList.tsx CLAUDE.md
+git commit -m "feat: Shift+arrows seek 1s, Up/Down step frames, G-only goal key (M = mute)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
