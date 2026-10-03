@@ -4,7 +4,7 @@ import { useAppState } from '../state'
 import { processVideoFiles } from '../utils/processFiles'
 
 export function EmptyPlayer() {
-    const setFiles = useAppState((s) => s.setFiles)
+    const addFiles = useAppState((s) => s.addFiles)
     const [dragging, setDragging] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
@@ -15,7 +15,7 @@ export function EmptyPlayer() {
         if (!files || files.length === 0) return
         const result = await processVideoFiles(files)
         if (result.error) setError(result.error)
-        if (result.files.length > 0) setFiles(result.files)
+        if (result.files.length > 0) addFiles(result.files)
     }
 
     const handleDragOver = (e: React.DragEvent) => {

@@ -2,13 +2,14 @@ import { useMemo } from 'react'
 import { useAppState } from '../state'
 import { PreviewControls } from './PreviewControls'
 import { RenderHighlights } from './RenderHighlights'
+import { linkedEvents } from '../utils/relink'
 
 export function OutputPanel() {
     const goals = useAppState((s) => s.events)
 
     const scoreCount = useMemo(() => {
         const teamCounts: Record<string, number> = {}
-        goals.forEach(goal => {
+        linkedEvents(goals).forEach(goal => {
             if (goal.team) {
                 teamCounts[goal.team] = (teamCounts[goal.team] || 0) + 1
             }

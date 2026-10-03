@@ -59,7 +59,7 @@ export function GoalList() {
             ) : (
                 <div className="flex flex-col gap-1.5">
                     {goals.map((g) => (
-                        <div key={g.id} className="flex items-center gap-2 rounded bg-deep border-l-[3px] border-l-pink px-2.5 py-2">
+                        <div key={g.id} className={`flex items-center gap-2 rounded bg-deep border-l-[3px] px-2.5 py-2 ${g.unlinked ? 'border-l-muted opacity-50' : 'border-l-pink'}`}>
                             <TimeInput
                                 valueSec={g.matchTimeSec}
                                 onCommit={(t) => {
@@ -67,8 +67,8 @@ export function GoalList() {
                                     setTimeout(() => sortGoals(), 0)
                                 }}
                             />
-                            <span className="rounded bg-surface px-1.5 py-0.5 text-[10px] text-muted">
-                                V{(g.sourceFileIndex ?? 0) + 1}
+                            <span className="rounded bg-surface px-1.5 py-0.5 text-[10px] text-muted" title={g.unlinked ? g.sourceFileKey : undefined}>
+                                {g.unlinked ? 'file missing' : `V${(g.sourceFileIndex ?? 0) + 1}`}
                             </span>
                             <input
                                 placeholder="Team"
@@ -85,8 +85,9 @@ export function GoalList() {
                             <div className="ml-auto flex gap-1.5">
                                 <button
                                     onClick={() => seekToGoal(g.sourceFileIndex ?? 0, Math.max(0, g.matchTimeSec - lengthBeforeGoalSec))}
-                                    className="text-xs text-muted hover:text-light bg-transparent border-none p-0 cursor-pointer"
-                                    title={`Watch goal (starts ${lengthBeforeGoalSec}s before)`}
+                                    disabled={g.unlinked}
+                                    className="text-xs text-muted hover:text-light bg-transparent border-none p-0 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                                    title={g.unlinked ? `File not loaded: ${g.sourceFileKey}` : `Watch goal (starts ${lengthBeforeGoalSec}s before)`}
                                 >&#9654;</button>
                                 <button
                                     onClick={() => remove(g.id)}
