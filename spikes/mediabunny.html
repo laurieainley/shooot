@@ -2,9 +2,17 @@
 <meta charset="utf-8" />
 <title>Mediabunny spike</title>
 <body style="font: 14px system-ui; padding: 16px">
-  <p>Pick a GoPro MP4 (or LRV). Renders 10 × 14 s cuts spaced 120 s apart.</p>
+  <p>Pick a GoPro MP4 (or LRV). Renders 10 cuts spread evenly across the file.</p>
   <input id="file" type="file" />
+  <label><input id="memory" type="checkbox" /> write to memory instead of OPFS</label>
+  <select id="source">
+    <option value="blob">read: default (BlobSource)</option>
+    <option value="network" selected>read: network mode</option>
+    <option value="blocks">read: 8 MB blocks</option>
+  </select>
   <button id="go">Render</button>
+  <button id="speed">Read speed</button>
+  <button id="share" hidden>Share / download output</button>
   <pre id="log"></pre>
   <video id="out" controls style="max-width: 100%"></video>
   <script type="module" src="./mediabunny.ts"></script>
