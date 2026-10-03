@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAppState } from '../state'
-import type { Goal } from '../types'
 
 interface FullscreenControlsProps {
     playerRef: React.MutableRefObject<any>
@@ -21,14 +20,8 @@ function useIsMobile(): boolean {
 }
 
 export function FullscreenControls({ playerRef, isFullscreen }: FullscreenControlsProps) {
-    const [showAddGoalModal, setShowAddGoalModal] = useState(false)
-    const [teamName, setTeamName] = useState('')
-    const [playerName, setPlayerName] = useState('')
     const [playbackSpeed, setPlaybackSpeed] = useState(1)
     const [tapFeedback, setTapFeedback] = useState<{ side: 'left' | 'right'; timestamp: number } | null>(null)
-
-    const addGoal = useAppState((s) => s.addEvent)
-    const currentFileIndex = useAppState((s) => s.currentFileIndex)
 
     const lastTapRef = useRef<{ time: number; side: 'left' | 'right' } | null>(null)
     const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -109,33 +102,8 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
     }
 
     const handleAddGoal = () => {
-        setShowAddGoalModal(true)
-    }
-
-    const handleSubmitGoal = () => {
-        if (playerRef.current) {
-            const currentTimeSeconds = Math.floor(playerRef.current.currentTime() || 0)
-            const goal: Goal = {
-                id: `${Date.now()}`,
-                matchTimeSec: currentTimeSeconds,
-                sourceFileIndex: currentFileIndex,
-                type: 'goal',
-                team: teamName || undefined,
-                scorer: playerName || undefined
-            }
-            addGoal(goal)
-
-            // Clear form and close modal
-            setTeamName('')
-            setPlayerName('')
-            setShowAddGoalModal(false)
-        }
-    }
-
-    const handleCancelGoal = () => {
-        setTeamName('')
-        setPlayerName('')
-        setShowAddGoalModal(false)
+        const player = playerRef.current
+        if (player) useAppState.getState().markEvent(player.currentTime() || 0)
     }
 
     // Desktop non-fullscreen: hide overlay entirely
@@ -177,12 +145,12 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
 
             {/* Goal button — centered between tap zones on mobile, top-left in fullscreen */}
             <div className={isFullscreen ? 'overlay-controls top-left' : 'overlay-controls center-top'}>
-                <button className="control-btn add-goal-btn" onClick={handleAddGoal}>
+                <button className="control-btn add-goal-btn" aria-label="Event" onClick={handleAddGoal}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <circle cx="12" cy="12" r="10" />
                         <path d="M12 8v8M8 12h8" />
                     </svg>
-                    <span>Goal</span>
+                    <span>Event</span>
                 </button>
             </div>
 
@@ -202,49 +170,6 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
                             <path d="M13 5l7 7-7 7" />
                         </svg>
                     </button>
-                </div>
-            )}
-
-            {/* Add Goal Modal */}
-            {showAddGoalModal && (
-                <div className="goal-modal-overlay" onClick={handleCancelGoal}>
-                    <div className="goal-modal" onClick={(e) => e.stopPropagation()}>
-                        <h3>Add Goal</h3>
-                        <div className="goal-modal-field">
-                            <label htmlFor="team-name">Team</label>
-                            <input
-                                id="team-name"
-                                type="text"
-                                value={teamName}
-                                onChange={(e) => setTeamName(e.target.value)}
-                                placeholder="Team name"
-                                autoFocus
-                            />
-                        </div>
-                        <div className="goal-modal-field">
-                            <label htmlFor="player-name">Scorer</label>
-                            <input
-                                id="player-name"
-                                type="text"
-                                value={playerName}
-                                onChange={(e) => setPlayerName(e.target.value)}
-                                placeholder="Player name"
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        handleSubmitGoal()
-                                    }
-                                }}
-                            />
-                        </div>
-                        <div className="goal-modal-actions">
-                            <button className="modal-btn modal-btn-cancel" onClick={handleCancelGoal}>
-                                Cancel
-                            </button>
-                            <button className="modal-btn modal-btn-submit" onClick={handleSubmitGoal}>
-                                Add Goal
-                            </button>
-                        </div>
-                    </div>
                 </div>
             )}
         </div>

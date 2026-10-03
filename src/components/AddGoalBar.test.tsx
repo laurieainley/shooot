@@ -18,9 +18,16 @@ describe('AddGoalBar', () => {
         expect(screen.queryByPlaceholderText('00:42')).not.toBeInTheDocument()
     })
 
-    it('should add a goal at the current playback time', async () => {
+    it('should mark an event at the current time and open the picker', async () => {
         render(<AddGoalBar />)
-        await userEvent.click(screen.getByRole('button', { name: /\+ goal/i }))
-        expect(useAppState.getState().events[0]).toMatchObject({ matchTimeSec: 42, sourceFileIndex: 0, type: 'goal' })
+        await userEvent.click(screen.getByRole('button', { name: /\+ event/i }))
+        const [e] = useAppState.getState().events
+        expect(e).toMatchObject({ matchTimeSec: 42, sourceFileIndex: 0, type: 'goal' })
+        expect(useAppState.getState().picker).toEqual({ eventId: e.id })
+    })
+
+    it('should not show team or scorer inputs', () => {
+        render(<AddGoalBar />)
+        expect(screen.queryByPlaceholderText('Team')).not.toBeInTheDocument()
     })
 })

@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, fireEvent, act } from '@testing-library/react'
 import { FullscreenControls } from './FullscreenControls'
+import { useAppState } from '../state'
 
 function fakePlayer() {
     let paused = true
@@ -41,5 +42,14 @@ describe('FullscreenControls', () => {
         expect(player.currentTime).toHaveBeenLastCalledWith(25)
         expect(player.play).not.toHaveBeenCalled()
         expect(player.pause).not.toHaveBeenCalled()
+    })
+
+    it('should mark an event from the overlay button', () => {
+        const player = fakePlayer()
+        useAppState.setState({ events: [], picker: null, currentFileIndex: 0, files: [] })
+        const { getByRole } = render(<FullscreenControls playerRef={{ current: player }} isFullscreen />)
+        fireEvent.click(getByRole('button', { name: /event/i }))
+        expect(useAppState.getState().events[0]).toMatchObject({ matchTimeSec: 20, type: 'goal' })
+        expect(useAppState.getState().picker).not.toBeNull()
     })
 })

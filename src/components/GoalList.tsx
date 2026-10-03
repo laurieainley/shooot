@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAppState } from '../state'
 import type { Goal } from '../types'
 import { TimeInput } from './TimeInput'
+import { EVENT_META, eventIcon, eventLabel } from '../utils/eventTypes'
 
 export function GoalList() {
     const goals = useAppState((s) => s.events)
@@ -32,7 +33,7 @@ export function GoalList() {
     return (
         <div className="rounded-md bg-surface p-3">
             <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-light">Goals</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-light">Events</span>
                 <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1">
                         <button
@@ -56,11 +57,14 @@ export function GoalList() {
             </div>
 
             {goals.length === 0 ? (
-                <p className="text-sm text-muted">No goals marked yet. Press <kbd className="text-light font-bold">G</kbd> during playback to mark a goal.</p>
+                <p className="text-sm text-muted">No events yet. Press <kbd className="text-light font-bold">G</kbd> during playback to mark one.</p>
             ) : (
                 <div className="flex flex-col gap-1.5">
                     {goals.map((g) => (
                         <div key={g.id} className={`flex items-center gap-2 rounded bg-deep border-l-[3px] px-2.5 py-2 ${g.unlinked ? 'border-l-muted opacity-50' : 'border-l-pink'}`}>
+                            <span className="text-xs" title={eventLabel(g)} style={{ color: EVENT_META[g.type].color }}>
+                                {eventIcon(g)}
+                            </span>
                             <TimeInput
                                 className="w-[50px] rounded bg-transparent border-none text-xs font-bold text-pink tabular-nums focus:outline-none p-0"
                                 valueSec={g.matchTimeSec}
@@ -72,6 +76,7 @@ export function GoalList() {
                             <span className="rounded bg-surface px-1.5 py-0.5 text-[10px] text-muted" title={g.unlinked ? g.sourceFileKey : undefined}>
                                 {g.unlinked ? 'file missing' : `V${(g.sourceFileIndex ?? 0) + 1}`}
                             </span>
+                            <span className="text-[10px] text-muted">{eventLabel(g)}</span>
                             <input
                                 placeholder="Team"
                                 value={g.team ?? ''}
