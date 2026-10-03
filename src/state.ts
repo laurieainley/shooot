@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { MatchEvent, VideoSourceFile } from './types'
 import { computeCumulativeOffsets } from './utils/timeline'
 import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/highlights'
+import { relinkEvents, linkedEvents } from './utils/relink'
 
 type AppState = {
     files: VideoSourceFile[]
@@ -20,6 +21,8 @@ type AppState = {
     previewSegments: HighlightSegment[]
     currentPreviewSegment: number
     setFiles: (files: VideoSourceFile[]) => void
+    addFiles: (files: VideoSourceFile[]) => void
+    moveFile: (from: number, to: number) => void
     removeFile: (index: number) => void
     setCurrentTimeInFile: (t: number) => void
     setCurrentFileIndex: (idx: number) => void
@@ -70,23 +73,30 @@ export const useAppState = create<AppState>()(
             isPreviewMode: false,
             previewSegments: [],
             currentPreviewSegment: 0,
-            setFiles: (files) => set({ files, cumulativeOffsets: computeCumulativeOffsets(files) }),
+            setFiles: (files) => set({
+                files,
+                cumulativeOffsets: computeCumulativeOffsets(files),
+                events: relinkEvents(get().events, files),
+            }),
+            addFiles: (added) => get().setFiles([...get().files, ...added]),
+            moveFile: (from, to) => {
+                const files = get().files
+                if (to < 0 || to >= files.length || from === to) return
+                const next = files.slice()
+                const [moved] = next.splice(from, 1)
+                next.splice(to, 0, moved)
+                const cur = get().currentFileIndex
+                get().setFiles(next)
+                if (cur === from) set({ currentFileIndex: to })
+            },
             removeFile: (index) => {
-                const currentFiles = get().files
-                const newFiles = currentFiles.filter((_, i) => i !== index)
-                const currentFileIndex = get().currentFileIndex
-                const newFileIndex = Math.min(currentFileIndex, newFiles.length - 1)
-                const newEvents = get().events.filter(event => (event.sourceFileIndex ?? 0) !== index)
-                // Adjust sourceFileIndex for events that were after the removed file
-                const adjustedEvents = newEvents.map(event => ({
-                    ...event,
-                    sourceFileIndex: event.sourceFileIndex && event.sourceFileIndex > index ? event.sourceFileIndex - 1 : event.sourceFileIndex
-                }))
+                const newFiles = get().files.filter((_, i) => i !== index)
+                const newFileIndex = Math.min(get().currentFileIndex, newFiles.length - 1)
                 set({
                     files: newFiles,
                     cumulativeOffsets: computeCumulativeOffsets(newFiles),
                     currentFileIndex: Math.max(0, newFileIndex),
-                    events: adjustedEvents
+                    events: relinkEvents(get().events, newFiles),
                 })
             },
             setCurrentTimeInFile: (t) => set({ currentTimeInFileSec: t }),
@@ -107,7 +117,7 @@ export const useAppState = create<AppState>()(
             addEvent: (event) => {
                 const state = get()
                 const prevEvents = state.events
-                const newEvents = [...prevEvents, event]
+                const newEvents = relinkEvents([...prevEvents, event], state.files)
                 const sortedEvents = newEvents.sort((a, b) => {
                     const aTime = (state.cumulativeOffsets[a.sourceFileIndex ?? 0] || 0) + a.matchTimeSec
                     const bTime = (state.cumulativeOffsets[b.sourceFileIndex ?? 0] || 0) + b.matchTimeSec
@@ -122,7 +132,7 @@ export const useAppState = create<AppState>()(
             setEvents: (events) => {
                 const state = get()
                 set({
-                    events,
+                    events: relinkEvents(events, state.files),
                     undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), state.events],
                     redoStack: [],
                 })
@@ -161,7 +171,7 @@ export const useAppState = create<AppState>()(
                 if (state.undoStack.length === 0) return
                 const previous = state.undoStack[state.undoStack.length - 1]
                 set({
-                    events: previous,
+                    events: relinkEvents(previous, state.files),
                     undoStack: state.undoStack.slice(0, -1),
                     redoStack: [...state.redoStack, state.events],
                 })
@@ -171,7 +181,7 @@ export const useAppState = create<AppState>()(
                 if (state.redoStack.length === 0) return
                 const next = state.redoStack[state.redoStack.length - 1]
                 set({
-                    events: next,
+                    events: relinkEvents(next, state.files),
                     redoStack: state.redoStack.slice(0, -1),
                     undoStack: [...state.undoStack, state.events],
                 })
@@ -181,7 +191,7 @@ export const useAppState = create<AppState>()(
             startPreview: () => {
                 const state = get()
                 const segments = mergeOverlappingGoalSegments(
-                    state.events,
+                    linkedEvents(state.events),
                     state.cumulativeOffsets,
                     state.matchStartTimeSec,
                     state.adjustTimestampsByOffset,
