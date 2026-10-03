@@ -11,7 +11,8 @@ function formatMSS(s: number): string {
 export function FilePills() {
     const inputRef = useRef<HTMLInputElement | null>(null)
     const files = useAppState((s) => s.files)
-    const setFiles = useAppState((s) => s.setFiles)
+    const addFiles = useAppState((s) => s.addFiles)
+    const moveFile = useAppState((s) => s.moveFile)
     const removeFile = useAppState((s) => s.removeFile)
     const currentFileIndex = useAppState((s) => s.currentFileIndex)
     const setCurrentFileIndex = useAppState((s) => s.setCurrentFileIndex)
@@ -22,15 +23,8 @@ export function FilePills() {
         if (!list || list.length === 0) return
         const result = await processVideoFiles(list)
         if (result.error) setMessage(result.error)
-        if (result.files.length > 0) setFiles(result.files)
-    }
-
-    const move = (from: number, to: number) => {
-        if (to < 0 || to >= files.length) return
-        const next = files.slice()
-        const [it] = next.splice(from, 1)
-        next.splice(to, 0, it)
-        setFiles(next)
+        if (result.files.length > 0) addFiles(result.files)
+        evt.target.value = ''
     }
 
     return (
@@ -54,12 +48,12 @@ export function FilePills() {
                     {files.length > 1 && (
                         <>
                             <button
-                                onClick={(e) => { e.stopPropagation(); move(i, i - 1) }}
+                                onClick={(e) => { e.stopPropagation(); moveFile(i, i - 1) }}
                                 disabled={i === 0}
                                 className="text-xs text-muted hover:text-light disabled:opacity-30 bg-transparent border-none p-0 cursor-pointer"
                             >↑</button>
                             <button
-                                onClick={(e) => { e.stopPropagation(); move(i, i + 1) }}
+                                onClick={(e) => { e.stopPropagation(); moveFile(i, i + 1) }}
                                 disabled={i === files.length - 1}
                                 className="text-xs text-muted hover:text-light disabled:opacity-30 bg-transparent border-none p-0 cursor-pointer"
                             >↓</button>

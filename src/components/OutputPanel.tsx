@@ -2,21 +2,19 @@ import { useMemo } from 'react'
 import { useAppState } from '../state'
 import { PreviewControls } from './PreviewControls'
 import { RenderHighlights } from './RenderHighlights'
+import { ChaptersCopy } from './ChaptersCopy'
+import { linkedEvents } from '../utils/relink'
+import { isScoring } from '../utils/eventTypes'
 
 export function OutputPanel() {
-    const goals = useAppState((s) => s.events)
+    const events = useAppState((s) => s.events)
+    const teams = useAppState((s) => s.teams)
 
-    const scoreCount = useMemo(() => {
-        const teamCounts: Record<string, number> = {}
-        goals.forEach(goal => {
-            if (goal.team) {
-                teamCounts[goal.team] = (teamCounts[goal.team] || 0) + 1
-            }
-        })
-        return teamCounts
-    }, [goals])
-
-    const teams = Object.entries(scoreCount).sort(([, a], [, b]) => b - a)
+    const score = useMemo(() => {
+        const scoring = linkedEvents(events).filter(isScoring)
+        return teams.map((t) => ({ name: t.name, goals: scoring.filter((e) => e.team === t.name).length }))
+    }, [events, teams])
+    const anyScored = score.some((t) => t.goals > 0)
 
     return (
         <div className="rounded-md bg-surface p-3">
@@ -25,15 +23,16 @@ export function OutputPanel() {
             <div className="flex flex-col gap-2">
                 <PreviewControls />
                 <RenderHighlights />
+                <ChaptersCopy />
             </div>
 
-            {teams.length >= 2 && (
+            {anyScored && score.length >= 2 && (
                 <div className="mt-3 pt-2.5 border-t border-deep flex items-center justify-center gap-2">
-                    <span className="text-sm font-bold text-light">{teams[0][0]}</span>
+                    <span className="text-sm font-bold text-light">{score[0].name}</span>
                     <span className="text-base font-black text-yellow">
-                        {teams[0][1]} - {teams[1][1]}
+                        {score[0].goals} - {score[1].goals}
                     </span>
-                    <span className="text-sm font-bold text-light">{teams[1][0]}</span>
+                    <span className="text-sm font-bold text-light">{score[1].name}</span>
                 </div>
             )}
         </div>

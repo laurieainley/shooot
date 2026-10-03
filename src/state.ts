@@ -1,8 +1,10 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { MatchEvent, VideoSourceFile } from './types'
+import type { MatchEvent, Team, VideoSourceFile } from './types'
+import { migrateEvent } from './utils/eventTypes'
 import { computeCumulativeOffsets } from './utils/timeline'
 import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/highlights'
+import { relinkEvents, linkedEvents } from './utils/relink'
 
 type AppState = {
     files: VideoSourceFile[]
@@ -20,6 +22,8 @@ type AppState = {
     previewSegments: HighlightSegment[]
     currentPreviewSegment: number
     setFiles: (files: VideoSourceFile[]) => void
+    addFiles: (files: VideoSourceFile[]) => void
+    moveFile: (from: number, to: number) => void
     removeFile: (index: number) => void
     setCurrentTimeInFile: (t: number) => void
     setCurrentFileIndex: (idx: number) => void
@@ -46,6 +50,15 @@ type AppState = {
     exitPreview: () => void
     nextPreviewSegment: () => void
     prevPreviewSegment: () => void
+    // Teams, rosters and the event picker
+    teams: Team[]
+    picker: { eventId: string } | null
+    setTeams: (teams: Team[]) => void
+    renameTeam: (index: number, name: string) => void
+    addToRoster: (team: string, name: string) => void
+    markEvent: (timeInFileSec: number) => void
+    openPicker: (eventId: string) => void
+    closePicker: () => void
 }
 
 export const useAppState = create<AppState>()(
@@ -55,6 +68,11 @@ export const useAppState = create<AppState>()(
             return {
             files: [],
             events: [],
+            teams: [
+                { name: 'Whites', color: '#f5f5f5', roster: [] },
+                { name: 'Colours', color: '#f72585', roster: [] },
+            ],
+            picker: null,
             cumulativeOffsets: [],
             currentTimeInFileSec: 0,
             currentFileIndex: 0,
@@ -70,23 +88,30 @@ export const useAppState = create<AppState>()(
             isPreviewMode: false,
             previewSegments: [],
             currentPreviewSegment: 0,
-            setFiles: (files) => set({ files, cumulativeOffsets: computeCumulativeOffsets(files) }),
+            setFiles: (files) => set({
+                files,
+                cumulativeOffsets: computeCumulativeOffsets(files),
+                events: relinkEvents(get().events, files),
+            }),
+            addFiles: (added) => get().setFiles([...get().files, ...added]),
+            moveFile: (from, to) => {
+                const files = get().files
+                if (to < 0 || to >= files.length || from === to) return
+                const next = files.slice()
+                const [moved] = next.splice(from, 1)
+                next.splice(to, 0, moved)
+                const cur = get().currentFileIndex
+                get().setFiles(next)
+                if (cur === from) set({ currentFileIndex: to })
+            },
             removeFile: (index) => {
-                const currentFiles = get().files
-                const newFiles = currentFiles.filter((_, i) => i !== index)
-                const currentFileIndex = get().currentFileIndex
-                const newFileIndex = Math.min(currentFileIndex, newFiles.length - 1)
-                const newEvents = get().events.filter(event => (event.sourceFileIndex ?? 0) !== index)
-                // Adjust sourceFileIndex for events that were after the removed file
-                const adjustedEvents = newEvents.map(event => ({
-                    ...event,
-                    sourceFileIndex: event.sourceFileIndex && event.sourceFileIndex > index ? event.sourceFileIndex - 1 : event.sourceFileIndex
-                }))
+                const newFiles = get().files.filter((_, i) => i !== index)
+                const newFileIndex = Math.min(get().currentFileIndex, newFiles.length - 1)
                 set({
                     files: newFiles,
                     cumulativeOffsets: computeCumulativeOffsets(newFiles),
                     currentFileIndex: Math.max(0, newFileIndex),
-                    events: adjustedEvents
+                    events: relinkEvents(get().events, newFiles),
                 })
             },
             setCurrentTimeInFile: (t) => set({ currentTimeInFileSec: t }),
@@ -107,7 +132,7 @@ export const useAppState = create<AppState>()(
             addEvent: (event) => {
                 const state = get()
                 const prevEvents = state.events
-                const newEvents = [...prevEvents, event]
+                const newEvents = relinkEvents([...prevEvents, event], state.files)
                 const sortedEvents = newEvents.sort((a, b) => {
                     const aTime = (state.cumulativeOffsets[a.sourceFileIndex ?? 0] || 0) + a.matchTimeSec
                     const bTime = (state.cumulativeOffsets[b.sourceFileIndex ?? 0] || 0) + b.matchTimeSec
@@ -122,7 +147,7 @@ export const useAppState = create<AppState>()(
             setEvents: (events) => {
                 const state = get()
                 set({
-                    events,
+                    events: relinkEvents(events, state.files),
                     undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), state.events],
                     redoStack: [],
                 })
@@ -161,7 +186,7 @@ export const useAppState = create<AppState>()(
                 if (state.undoStack.length === 0) return
                 const previous = state.undoStack[state.undoStack.length - 1]
                 set({
-                    events: previous,
+                    events: relinkEvents(previous, state.files),
                     undoStack: state.undoStack.slice(0, -1),
                     redoStack: [...state.redoStack, state.events],
                 })
@@ -171,17 +196,39 @@ export const useAppState = create<AppState>()(
                 if (state.redoStack.length === 0) return
                 const next = state.redoStack[state.redoStack.length - 1]
                 set({
-                    events: next,
+                    events: relinkEvents(next, state.files),
                     redoStack: state.redoStack.slice(0, -1),
                     undoStack: [...state.undoStack, state.events],
                 })
             },
-            clear: () => set({ files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0, matchStartTimeSec: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, isPreviewMode: false, previewSegments: [], currentPreviewSegment: 0, undoStack: [], redoStack: [] }),
+            clear: () => set({ files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0, matchStartTimeSec: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, isPreviewMode: false, previewSegments: [], currentPreviewSegment: 0, undoStack: [], redoStack: [], picker: null }),
+            setTeams: (teams) => set({ teams }),
+            renameTeam: (index, name) => {
+                const old = get().teams[index]?.name
+                if (old === undefined) return
+                set({
+                    teams: get().teams.map((t, i) => (i === index ? { ...t, name } : t)),
+                    events: get().events.map((e) => (e.team === old ? { ...e, team: name } : e)),
+                })
+            },
+            addToRoster: (team, name) => set({
+                teams: get().teams.map((t) =>
+                    t.name === team && !t.roster.some((r) => r.toLowerCase() === name.toLowerCase())
+                        ? { ...t, roster: [...t.roster, name] }
+                        : t),
+            }),
+            markEvent: (timeInFileSec) => {
+                const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+                get().addEvent({ id, matchTimeSec: Math.floor(timeInFileSec), sourceFileIndex: get().currentFileIndex, type: 'goal' })
+                set({ picker: { eventId: id } })
+            },
+            openPicker: (eventId) => set({ picker: { eventId } }),
+            closePicker: () => set({ picker: null }),
             // Preview mode actions
             startPreview: () => {
                 const state = get()
                 const segments = mergeOverlappingGoalSegments(
-                    state.events,
+                    linkedEvents(state.events),
                     state.cumulativeOffsets,
                     state.matchStartTimeSec,
                     state.adjustTimestampsByOffset,
@@ -218,9 +265,10 @@ export const useAppState = create<AppState>()(
                 matchStartTimeSec: state.matchStartTimeSec,
                 adjustTimestampsByOffset: state.adjustTimestampsByOffset,
                 lengthBeforeGoalSec: state.lengthBeforeGoalSec,
-                lengthAfterGoalSec: state.lengthAfterGoalSec
+                lengthAfterGoalSec: state.lengthAfterGoalSec,
+                teams: state.teams,
             }),
-            version: 8,
+            version: 9,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -242,12 +290,9 @@ export const useAppState = create<AppState>()(
                     delete state.goals
                 }
 
-                // Ensure all events have a type field
+                // Ensure every event has a current type (legacy moment/card → highlight/foul) (v9)
                 if (state.events) {
-                    state.events = (state.events as any[]).map((e: any) => ({
-                        ...e,
-                        type: e.type ?? 'goal',
-                    }))
+                    state.events = (state.events as any[]).map((e: any) => migrateEvent(e))
                 }
 
                 if (version < 3 && !('matchStartTimeSec' in state)) {

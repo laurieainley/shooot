@@ -97,10 +97,13 @@
   position: absolute;
   display: flex;
   gap: 8px;
-  pointer-events: auto;
+  /* The padded wrapper must not swallow clicks meant for the video; only its buttons are interactive */
+  pointer-events: none;
   padding: 16px;
   z-index: 10000;
 }
+
+.overlay-controls > * { pointer-events: auto; }
 
 .overlay-controls.top-left { top: 0; left: 0; }
 .overlay-controls.top-right { top: 0; right: 0; }
@@ -152,103 +155,6 @@
   font-weight: 700;
 }
 
-/* === Goal Modal === */
-.goal-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10001;
-  pointer-events: auto;
-}
-
-.goal-modal {
-  background-color: #1b263b;
-  border-radius: 12px;
-  padding: 24px;
-  width: 90%;
-  max-width: 400px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-}
-
-.goal-modal h3 {
-  margin: 0 0 20px 0;
-  color: #f1faee;
-  font-size: 20px;
-}
-
-.goal-modal-field {
-  margin-bottom: 16px;
-}
-
-.goal-modal-field label {
-  display: block;
-  margin-bottom: 6px;
-  color: #6b7f96;
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.goal-modal-field input {
-  width: 100%;
-  padding: 12px;
-  border: 2px solid #2b365b;
-  border-radius: 8px;
-  font-size: 16px;
-  box-sizing: border-box;
-  color: #f1faee;
-  background-color: #0d1b2a;
-}
-
-.goal-modal-field input:focus {
-  outline: none;
-  border-color: #f72585;
-}
-
-.goal-modal-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 24px;
-}
-
-.modal-btn {
-  flex: 1;
-  padding: 12px 24px;
-  border: none;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.modal-btn-cancel {
-  background-color: #2b365b;
-  color: #f1faee;
-}
-
-.modal-btn-cancel:hover {
-  background-color: #3b466b;
-}
-
-.modal-btn-submit {
-  background-color: #f72585;
-  color: white;
-}
-
-.modal-btn-submit:hover {
-  background-color: #d91e73;
-}
-
-.modal-btn:active {
-  transform: scale(0.98);
-}
-
 /* === Mobile overlay optimizations === */
 @media (max-width: 768px) {
   .control-btn { padding: 5px 7px; font-size: 9px; }
@@ -256,3 +162,73 @@
   .speed-btn { padding: 4px 5px; min-width: 20px; }
   .overlay-controls { padding: 8px; }
 }
+
+/* Event picker: popover on desktop, bottom sheet on mobile */
+.event-picker {
+  position: absolute;
+  left: 12px;
+  bottom: 48px;
+  z-index: 2147483647; /* above .fullscreen-overlay tap zones (same z, later in DOM) */
+  width: 240px;
+  max-height: 70%;
+  overflow-y: auto;
+  border-radius: 8px;
+  background: rgba(10, 10, 20, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 13px;
+  padding: 8px;
+  pointer-events: auto;
+}
+.event-picker__title { font-weight: 700; margin-bottom: 6px; color: #f72585; }
+.event-picker__list { list-style: none; margin: 0; padding: 0; }
+.event-picker__item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 8px; border-radius: 6px; cursor: pointer;
+}
+.event-picker__item[aria-selected="true"] { background: rgba(247, 37, 133, 0.35); }
+.event-picker__item kbd { font-size: 11px; opacity: 0.7; }
+.event-picker__input {
+  width: 100%; box-sizing: border-box; margin-bottom: 6px; padding: 6px 8px;
+  border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.2); background: #111; color: #fff;
+}
+.event-picker__hint { margin-top: 6px; font-size: 11px; opacity: 0.6; }
+
+@media (max-width: 768px) {
+  .event-picker {
+    position: fixed; left: 0; right: 0; bottom: 0; width: auto; max-height: 60vh;
+    border-radius: 14px 14px 0 0; padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+    font-size: 16px;
+  }
+  .event-picker__list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .event-picker__item { padding: 12px 14px; border: 1px solid rgba(255, 255, 255, 0.2); }
+  .event-picker__item kbd { display: none; }
+}
+
+/* Container fullscreen (see components/fullscreen.ts) */
+.player-container:fullscreen {
+  max-height: none;
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+  background: #000;
+}
+.player-container:fullscreen .video-js { width: 100%; height: 100%; }
+
+/* Scrubber markers */
+.video-js .vjs-progress-holder { overflow: visible; }
+.timeline-marker {
+  position: absolute;
+  bottom: 100%;
+  transform: translateX(-50%);
+  margin-bottom: 2px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 2;
+  text-shadow: 0 0 2px #000;
+}
+.timeline-marker--start { font-size: 13px; }

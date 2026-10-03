@@ -817,7 +817,7 @@ Replace the option block at the top of `.hotkeys({ … })`:
                         enableHoverScroll: false,
                         enableFullscreen: true,
                         alwaysCaptureHotkeys: true,
-                        enableNumbers: true,
+                        enableNumbers: false,              // 0–9 seek disabled (too easy to hit by accident)
 ```
 
 Make the `addGoal` custom key G-only (M stays as video.js mute):
@@ -874,13 +874,13 @@ and append after the `[ / ]` row:
 | **[ / ]** | Previous / next file |
 ```
 
-(replace the existing `| **G / M** | Add goal … |` row with the G and M rows above.)
+(replace the existing `| **G / M** | Add goal … |` row with the G and M rows above, and delete the `| **0–9** | Seek to 0%–90% of video |` row — number-key seek is disabled.)
 
 Also in `src/components/GoalList.tsx`, the empty-state text: `Press <kbd …>G</kbd> or <kbd …>M</kbd> during playback` → `Press <kbd className="text-light font-bold">G</kbd> during playback`.
 
 - [ ] **Step 9: Manual check**
 
-`npm run dev`, load any MP4: Shift+→ advances 1 s; → advances 5 s; ↑ pauses and advances one frame (time display changes by ~0.033 s per press — check via the scrubber tooltip or `document.querySelector('video').currentTime` in the console); G adds a goal; M mutes and does **not** add a goal.
+`npm run dev`, load any MP4: Shift+→ advances 1 s; → advances 5 s; ↑ pauses and advances one frame (time display changes by ~0.033 s per press — check via the scrubber tooltip or `document.querySelector('video').currentTime` in the console); G adds a goal; M mutes and does **not** add a goal; 0 and 5 do **not** change `currentTime`.
 
 - [ ] **Step 10: Run tests and lint; commit**
 
@@ -890,6 +890,8 @@ Expected: PASS
 ```bash
 git add src/utils/hotkeys.ts src/utils/hotkeys.test.ts src/components/Player.tsx src/components/EmptyPlayer.tsx src/components/GoalList.tsx CLAUDE.md
 git commit -m "feat: Shift+arrows seek 1s, Up/Down step frames, G-only goal key (M = mute)
+
+Also disables the 0-9 number-key seek shortcuts (enableNumbers: false).
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```

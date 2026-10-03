@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useAppState } from '../state'
 import type { Goal } from '../types'
+import { TimeInput } from './TimeInput'
+import { EVENT_META, eventIcon, eventLabel } from '../utils/eventTypes'
 
 export function GoalList() {
     const goals = useAppState((s) => s.events)
@@ -31,7 +33,7 @@ export function GoalList() {
     return (
         <div className="rounded-md bg-surface p-3">
             <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-light">Goals</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-light">Events</span>
                 <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1">
                         <button
@@ -55,21 +57,26 @@ export function GoalList() {
             </div>
 
             {goals.length === 0 ? (
-                <p className="text-sm text-muted">No goals marked yet. Press <kbd className="text-light font-bold">G</kbd> or <kbd className="text-light font-bold">M</kbd> during playback to mark a goal.</p>
+                <p className="text-sm text-muted">No events yet. Press <kbd className="text-light font-bold">G</kbd> during playback to mark one.</p>
             ) : (
                 <div className="flex flex-col gap-1.5">
                     {goals.map((g) => (
-                        <div key={g.id} className="flex items-center gap-2 rounded bg-deep border-l-[3px] border-l-pink px-2.5 py-2">
+                        <div key={g.id} className={`flex items-center gap-2 rounded bg-deep border-l-[3px] px-2.5 py-2 ${g.unlinked ? 'border-l-muted opacity-50' : 'border-l-pink'}`}>
+                            <span className="text-xs" title={eventLabel(g)} style={{ color: EVENT_META[g.type].color }}>
+                                {eventIcon(g)}
+                            </span>
                             <TimeInput
+                                className="w-[50px] rounded bg-transparent border-none text-xs font-bold text-pink tabular-nums focus:outline-none p-0"
                                 valueSec={g.matchTimeSec}
                                 onCommit={(t) => {
                                     update(g.id, { matchTimeSec: t })
                                     setTimeout(() => sortGoals(), 0)
                                 }}
                             />
-                            <span className="rounded bg-surface px-1.5 py-0.5 text-[10px] text-muted">
-                                V{(g.sourceFileIndex ?? 0) + 1}
+                            <span className="rounded bg-surface px-1.5 py-0.5 text-[10px] text-muted" title={g.unlinked ? g.sourceFileKey : undefined}>
+                                {g.unlinked ? 'file missing' : `V${(g.sourceFileIndex ?? 0) + 1}`}
                             </span>
+                            <span className="text-[10px] text-muted">{eventLabel(g)}</span>
                             <input
                                 placeholder="Team"
                                 value={g.team ?? ''}
@@ -85,8 +92,9 @@ export function GoalList() {
                             <div className="ml-auto flex gap-1.5">
                                 <button
                                     onClick={() => seekToGoal(g.sourceFileIndex ?? 0, Math.max(0, g.matchTimeSec - lengthBeforeGoalSec))}
-                                    className="text-xs text-muted hover:text-light bg-transparent border-none p-0 cursor-pointer"
-                                    title={`Watch goal (starts ${lengthBeforeGoalSec}s before)`}
+                                    disabled={g.unlinked}
+                                    className="text-xs text-muted hover:text-light bg-transparent border-none p-0 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                                    title={g.unlinked ? `File not loaded: ${g.sourceFileKey}` : `Watch goal (starts ${lengthBeforeGoalSec}s before)`}
                                 >&#9654;</button>
                                 <button
                                     onClick={() => remove(g.id)}
@@ -130,61 +138,6 @@ export function GoalList() {
     )
 }
 
-function formatHMS(totalSeconds: number): string {
-    const s = Math.max(0, Math.floor(totalSeconds))
-    const mm = `${Math.floor(s / 60)}`.padStart(2, '0')
-    const ss = `${s % 60}`.padStart(2, '0')
-    return `${mm}:${ss}`
-}
-
-function parseTimeToSeconds(input: string): number | null {
-    const t = input.trim()
-    if (!t) return null
-    if (/^\d+$/.test(t)) return parseInt(t, 10)
-    const m = t.match(/^(\d+):(\d{1,2})$/)
-    if (!m) return null
-    const mm = parseInt(m[1], 10)
-    const ss = parseInt(m[2], 10)
-    if (ss >= 60) return null
-    return mm * 60 + ss
-}
-
-function TimeInput({ valueSec, onCommit }: { valueSec: number; onCommit: (seconds: number) => void }) {
-    const [text, setText] = useState(formatHMS(valueSec))
-    const [lastValid, setLastValid] = useState(formatHMS(valueSec))
-
-    useEffect(() => {
-        const next = formatHMS(valueSec)
-        setText(next)
-        setLastValid(next)
-    }, [valueSec])
-
-    const tryCommit = () => {
-        const parsed = parseTimeToSeconds(text)
-        if (parsed != null) {
-            onCommit(parsed)
-            const norm = formatHMS(parsed)
-            setText(norm)
-            setLastValid(norm)
-        } else {
-            setText(lastValid)
-        }
-    }
-
-    return (
-        <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onBlur={tryCommit}
-            onKeyDown={(e) => {
-                if (e.key === 'Enter') e.currentTarget.blur()
-                else if (e.key === 'Escape') { setText(lastValid); e.currentTarget.blur() }
-            }}
-            className="w-[50px] rounded bg-transparent border-none text-xs font-bold text-pink tabular-nums focus:outline-none p-0"
-        />
-    )
-}
-
 function parseLine(line: string, sourceIdx: number): Goal | null {
     const t = line.trim()
     if (!t) return null
@@ -207,5 +160,5 @@ function parseLine(line: string, sourceIdx: number): Goal | null {
         team = parts[0]?.trim() || undefined
         scorer = parts[1]?.trim() || undefined
     }
-    return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, matchTimeSec: seconds, team, scorer, sourceFileIndex: sourceIdx }
+    return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, matchTimeSec: seconds, team, scorer, sourceFileIndex: sourceIdx, type: 'goal' }
 }

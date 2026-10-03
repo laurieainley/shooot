@@ -77,3 +77,34 @@ describe('generateHighlightChapters', () => {
     expect(output).toContain('Goal 1-1 (Away)')
   })
 })
+
+describe('generateYouTubeChapters — event types', () => {
+    const e = (id: string, t: number, extra: Partial<MatchEvent>): MatchEvent => ({ id, matchTimeSec: t, sourceFileIndex: 0, type: 'goal', ...extra })
+
+    it('should label penalties, own goals and non-scoring events', () => {
+        const events = [
+            e('a', 60, { pen: true, team: 'Whites', scorer: 'Sam' }),
+            e('b', 120, { type: 'highlight' }),
+            e('c', 180, { type: 'own_goal', team: 'Colours', scorer: 'Alex' }),
+            e('d', 240, { type: 'penalty_missed', team: 'Whites', scorer: 'Jo' }),
+        ]
+        const out = generateYouTubeChapters(events, [0], 0, 10, 4, ['Whites', 'Colours'])
+        expect(out.split('\n')[0]).toBe('Whites 1-1 Colours')
+        expect(out).toContain('00:50 Goal (pen) 1-0 (Whites) Sam')
+        expect(out).toContain('01:50 Highlight')
+        expect(out).toContain('02:50 Own goal 1-1 (Colours) Alex')
+        expect(out).toContain('03:50 Penalty missed (Whites) Jo')
+    })
+})
+
+describe('generateHighlightChapters — event types', () => {
+    it('should not advance the score for non-scoring events', () => {
+        const events: MatchEvent[] = [
+            { id: 'a', matchTimeSec: 60, sourceFileIndex: 0, type: 'save', team: 'Colours', scorer: 'Jo' },
+            { id: 'b', matchTimeSec: 120, sourceFileIndex: 0, type: 'goal', team: 'Whites' },
+        ]
+        const out = generateHighlightChapters(events, [0], 10, 4, ['Whites', 'Colours'])
+        expect(out).toContain('00:00 Save (Colours) Jo')
+        expect(out).toContain('00:15 Goal 1-0 (Whites)')
+    })
+})

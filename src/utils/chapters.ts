@@ -1,160 +1,65 @@
 import type { MatchEvent } from '../types'
+import { eventLabel, isScoring } from './eventTypes'
 
-export function generateYouTubeChapters(goals: MatchEvent[], cumulativeOffsets: number[] = [], matchStartTimeSec: number = 0, lengthBeforeGoalSec: number = 10, _lengthAfterGoalSec: number = 4): string {
-    // Check if we have cumulative offsets (i.e., video files are loaded)
+function absTime(e: MatchEvent, offsets: number[]): number {
+    return (offsets[e.sourceFileIndex ?? 0] || 0) + e.matchTimeSec
+}
+
+function scoreTeams(events: MatchEvent[], teamOrder?: string[]): string[] {
+    if (teamOrder && teamOrder.length > 0) return teamOrder
+    return Array.from(new Set(events.filter((e) => e.team && isScoring(e)).map((e) => e.team!))).sort()
+}
+
+function finalScoreLine(events: MatchEvent[], teams: string[]): string[] {
+    if (teams.length === 0) return []
+    const totals = teams.map((t) => events.filter((e) => isScoring(e) && e.team === t).length)
+    const line = teams.map((t, i) => (i === 0 ? `${t} ${totals[i]}` : `${totals[i]} ${t}`)).join('-')
+    return [line, '', '']
+}
+
+function chapterLabel(e: MatchEvent, teams: string[], running: Record<string, number>): string {
+    let label = eventLabel(e)
+    if (isScoring(e)) {
+        if (e.team) running[e.team] = (running[e.team] ?? 0) + 1
+        if (teams.length > 0) label += ` ${teams.map((t) => running[t] ?? 0).join('-')}`
+    }
+    if (e.team) label += ` (${e.team})`
+    if (e.scorer) label += ` ${e.scorer}`
+    return label
+}
+
+export function generateYouTubeChapters(
+    goals: MatchEvent[], cumulativeOffsets: number[] = [], matchStartTimeSec: number = 0,
+    lengthBeforeGoalSec: number = 10, _lengthAfterGoalSec: number = 4, teamOrder?: string[],
+): string {
     const hasVideoFiles = cumulativeOffsets.length > 0
+    const allFromFirstVideo = goals.every((g) => (g.sourceFileIndex ?? 0) === 0)
+    if (!hasVideoFiles && !allFromFirstVideo) return 'Load video files to see timestamps'
 
-    // Check if all goals are from the first video (index 0)
-    const allFromFirstVideo = goals.every(g => (g.sourceFileIndex ?? 0) === 0)
-
-    if (!hasVideoFiles && !allFromFirstVideo) {
-        return "Load video files to see timestamps"
-    }
-
-    const sorted = [...goals].sort((a, b) => {
-        const aAbs = (cumulativeOffsets[a.sourceFileIndex ?? 0] || 0) + a.matchTimeSec
-        const bAbs = (cumulativeOffsets[b.sourceFileIndex ?? 0] || 0) + b.matchTimeSec
-        return aAbs - bAbs
-    })
-
-    // Get all unique teams that appear in any goal (to ensure we show all teams in score)
-    const allTeams = Array.from(new Set(goals.filter(g => g.team).map(g => g.team!))).sort()
-
-    // Track cumulative scores for all teams
-    const teamScores: Record<string, number> = {}
-    // Initialize all teams with 0 score
-    allTeams.forEach(team => {
-        teamScores[team] = 0
-    })
-
-    const lines: string[] = []
-
-    // Add final score at the top if we have teams
-    if (allTeams.length > 0) {
-        // Calculate final scores by counting all goals for each team
-        const finalScores: Record<string, number> = {}
-        allTeams.forEach(team => {
-            finalScores[team] = goals.filter(g => g.team === team).length
-        })
-
-        // Format as "Team 1 X - Y Team 2"
-        const scoreDisplay = allTeams.map((team, index) => {
-            if (index === 0) {
-                return `${team} ${finalScores[team]}`
-            } else {
-                return `${finalScores[team]} ${team}`
-            }
-        }).join('-')
-
-        lines.push(scoreDisplay)
-        lines.push('') // Empty line
-        lines.push('') // Second empty line
-    }
-
-    lines.push(`00:00 Start`)
-
+    const sorted = [...goals].sort((a, b) => absTime(a, cumulativeOffsets) - absTime(b, cumulativeOffsets))
+    const teams = scoreTeams(goals, teamOrder)
+    const running: Record<string, number> = {}
+    const lines = [...finalScoreLine(goals, teams), '00:00 Start']
     for (const g of sorted) {
-        // Update the score for this goal's team
-        if (g.team) {
-            teamScores[g.team] = (teamScores[g.team] || 0) + 1
-        }
-
-        const abs = (cumulativeOffsets[g.sourceFileIndex ?? 0] || 0) + g.matchTimeSec
-        const adjustedTime = abs - matchStartTimeSec
-        const stamp = secondsToStamp(Math.max(0, Math.floor(adjustedTime - lengthBeforeGoalSec)))
-
-        let label = 'Goal'
-
-        // Add score if we have teams 
-        if (allTeams.length > 0) {
-            const scoreString = allTeams.map(team => teamScores[team]).join('-')
-            label += ` ${scoreString}`
-        }
-
-        // Add team and scorer
-        if (g.team) {
-            label += ` (${g.team})`
-        }
-        if (g.scorer) {
-            label += ` ${g.scorer}`
-        }
-
-        lines.push(`${stamp} ${label}`)
+        const stamp = secondsToStamp(Math.max(0, Math.floor(absTime(g, cumulativeOffsets) - matchStartTimeSec - lengthBeforeGoalSec)))
+        lines.push(`${stamp} ${chapterLabel(g, teams, running)}`)
     }
     return lines.join('\n')
 }
 
-export function generateHighlightChapters(goals: MatchEvent[], cumulativeOffsets: number[] = [], lengthBeforeGoalSec: number = 10, lengthAfterGoalSec: number = 4): string {
+export function generateHighlightChapters(
+    goals: MatchEvent[], cumulativeOffsets: number[] = [], lengthBeforeGoalSec: number = 10,
+    lengthAfterGoalSec: number = 4, teamOrder?: string[],
+): string {
     if (goals.length === 0) return '00:00 Start'
-
-    // Sort goals by time
-    const sorted = [...goals].sort((a, b) => {
-        const aAbs = (cumulativeOffsets[a.sourceFileIndex ?? 0] || 0) + a.matchTimeSec
-        const bAbs = (cumulativeOffsets[b.sourceFileIndex ?? 0] || 0) + b.matchTimeSec
-        return aAbs - bAbs
-    })
-
-    // Get all unique teams that appear in any goal (to ensure we show all teams in score)
-    const allTeams = Array.from(new Set(goals.filter(g => g.team).map(g => g.team!))).sort()
-
-    // Calculate team scores (same logic as full video chapters)
-    const teamScores: Record<string, number> = {}
-
-    const lines: string[] = []
-
-    // Add final score at the top if we have teams (same as full video chapters)
-    if (allTeams.length > 0) {
-        // Calculate final scores by counting all goals for each team
-        const finalScores: Record<string, number> = {}
-        allTeams.forEach(team => {
-            finalScores[team] = goals.filter(g => g.team === team).length
-        })
-
-        // Format as "Team 1 X - Y Team 2"
-        const scoreDisplay = allTeams.map((team, index) => {
-            if (index === 0) {
-                return `${team} ${finalScores[team]}`
-            } else {
-                return `${finalScores[team]} ${team}`
-            }
-        }).join('-')
-
-        lines.push(scoreDisplay)
-        lines.push('') // Empty line
-        lines.push('') // Second empty line
-    }
-
-    // Simple timing: each goal gets configurable length + 1 second buffer
+    const sorted = [...goals].sort((a, b) => absTime(a, cumulativeOffsets) - absTime(b, cumulativeOffsets))
+    const teams = scoreTeams(goals, teamOrder)
+    const running: Record<string, number> = {}
+    const lines = finalScoreLine(goals, teams)
     const segmentLength = lengthBeforeGoalSec + lengthAfterGoalSec
-    for (let i = 0; i < sorted.length; i++) {
-        const goal = sorted[i]
-        const timestamp = i * (segmentLength + 1) // configurable segment + 1 second buffer
-        const stamp = secondsToStamp(timestamp)
-
-        // Update the score for this goal's team
-        if (goal.team) {
-            teamScores[goal.team] = (teamScores[goal.team] || 0) + 1
-        }
-
-        let label = 'Goal'
-
-        // Add score if we have teams (same format as full video)
-        if (allTeams.length > 0) {
-            const scoreString = allTeams.map(team => teamScores[team as string] || 0).join('-')
-            label += ` ${scoreString}`
-        }
-
-        // Add team and scorer
-        if (goal.team) {
-            label += ` (${goal.team})`
-        }
-        if (goal.scorer) {
-            label += ` ${goal.scorer}`
-        }
-
-        lines.push(`${stamp} ${label}`)
-    }
-
+    sorted.forEach((g, i) => {
+        lines.push(`${secondsToStamp(i * (segmentLength + 1))} ${chapterLabel(g, teams, running)}`)
+    })
     return lines.join('\n')
 }
 

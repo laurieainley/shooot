@@ -3,6 +3,7 @@ import { useAppState } from '../state'
 import { FFmpeg, FFFSType } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { mergeOverlappingGoalSegments } from '../utils/highlights';
+import { linkedEvents } from '../utils/relink';
 
 export function RenderHighlights() {
     const files = useAppState((s) => s.files)
@@ -104,8 +105,9 @@ export function RenderHighlights() {
 
         // Create segments for each goal (configurable length before/after)
         // First, merge overlapping segments to avoid duplicate content
+        const linkedGoals = linkedEvents(goals);
         const mergedSegments = mergeOverlappingGoalSegments(
-            goals,
+            linkedGoals,
             cumulativeOffsets,
             matchStartTimeSec,
             adjustTimestampsByOffset,
@@ -113,8 +115,8 @@ export function RenderHighlights() {
             lengthAfterGoalSec
         );
 
-        if (mergedSegments.length < goals.length) {
-            setProgress(`Merged ${goals.length} goals into ${mergedSegments.length} segments to avoid overlap`);
+        if (mergedSegments.length < linkedGoals.length) {
+            setProgress(`Merged ${linkedGoals.length} goals into ${mergedSegments.length} segments to avoid overlap`);
         }
 
         const segments: string[] = [];

@@ -22,3 +22,14 @@ export function formatHMS(totalSeconds: number): string {
 }
 
 
+
+export function parseTimeToSeconds(input: string): number | null {
+    const t = input.trim()
+    if (!t) return null
+    if (/^\d+$/.test(t)) return parseInt(t, 10)
+    const parts = t.split(':')
+    if (parts.length < 2 || parts.length > 3 || parts.some((p) => !/^\d+$/.test(p))) return null
+    const nums = parts.map((p) => parseInt(p, 10))
+    if (nums.slice(1).some((n) => n >= 60)) return null
+    return nums.reduce((acc, n) => acc * 60 + n, 0)
+}
