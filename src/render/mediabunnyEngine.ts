@@ -110,15 +110,24 @@ export const renderReel: RenderFn = async (cuts: Cut[], sources: RenderSource[],
                 const kEnd = await vSink.getKeyPacket(endSec)
                 const kStop = kEnd && kEnd.timestamp > k0.timestamp ? await vSink.getNextKeyPacket(kEnd) : await vSink.getNextKeyPacket(k0)
                 const cutStart = k0.timestamp
-                const cutEnd = kStop ? kStop.timestamp : src.endSec
                 const offset = cursor - cutStart
+                let videoEnd = cutStart
 
                 for await (const p of vSink.packets(k0, kStop ?? undefined)) {
+                    // Open-GOP streams (e.g. x265 defaults): leading pictures follow the key
+                    // packet in decode order but display before it and reference the previous
+                    // GOP, which is not copied. Drop them; trailing pictures never reference them.
+                    if (p.timestamp < cutStart) continue
                     await vOut.add(p.clone({ timestamp: p.timestamp + offset }), vFirst ? vMeta : undefined)
                     vFirst = false
+                    videoEnd = Math.max(videoEnd, p.timestamp + p.duration)
                     const within = Math.min(span(cut), Math.max(0, p.timestamp - cut.startSec))
                     onProgress({ cutIndex: ci, cutCount: cuts.length, fraction: Math.min(1, (done + within) / total) })
                 }
+
+                // End at the last copied frame (equals kStop for closed GOPs; open GOPs lose
+                // the next key packet's leading pictures, so don't leave a hole for them).
+                const cutEnd = videoEnd > cutStart ? videoEnd : (kStop ? kStop.timestamp : src.endSec)
 
                 if (aOut && src.audio) {
                     const aSink = new EncodedPacketSink(src.audio)
