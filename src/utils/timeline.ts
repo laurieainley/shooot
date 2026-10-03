@@ -33,3 +33,10 @@ export function parseTimeToSeconds(input: string): number | null {
     if (nums.slice(1).some((n) => n >= 60)) return null
     return nums.reduce((acc, n) => acc * 60 + n, 0)
 }
+
+/** Event timecode: match clock from kick-off when a match start is set (− before it), else time in the file. */
+export function formatEventClock(absSec: number, fileSec: number, matchStartSec: number): string {
+    if (matchStartSec <= 0) return formatHMS(fileSec)
+    const rel = absSec - matchStartSec
+    return rel < 0 ? `−${formatHMS(-rel)}` : formatHMS(rel)
+}

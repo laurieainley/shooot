@@ -1,3 +1,5 @@
+import type { EventType, Team } from '../types'
+
 const LIST_MARKER = /^\s*(?:\d+[.)]|[-•*])\s*/
 
 export function parseRoster(text: string): string[] {
@@ -32,4 +34,11 @@ export function teamShortcuts(names: string[]): string[] {
         if (new Set(chars).size === chars.length) return chars
     }
     return names.map((_, i) => String(i + 1))
+}
+
+/** The roster a scorer is picked from: the credited team, or the other team for an own goal. */
+export function rosterTeamFor(teams: Team[], team: string | undefined, type: EventType): Team | undefined {
+    const idx = teams.findIndex((t) => t.name === team)
+    if (idx === -1) return undefined
+    return type === 'own_goal' ? teams[1 - idx] : teams[idx]
 }

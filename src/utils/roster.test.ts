@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseRoster, filterRoster, teamShortcuts } from './roster'
+import { parseRoster, filterRoster, teamShortcuts, rosterTeamFor } from './roster'
 
 describe('parseRoster', () => {
     it('should split on newlines and commas, strip list markers, trim and de-dupe', () => {
@@ -29,5 +29,22 @@ describe('teamShortcuts', () => {
     })
     it('should fall back to 1/2 for identical names', () => {
         expect(teamShortcuts(['Team', 'team'])).toEqual(['1', '2'])
+    })
+})
+
+describe('rosterTeamFor', () => {
+    const teams = [{ name: 'Whites', color: '#fff', roster: ['Sam'] }, { name: 'Colours', color: '#f00', roster: ['Jo'] }]
+
+    it('should return the credited team for normal scoring events', () => {
+        expect(rosterTeamFor(teams, 'Whites', 'goal')?.name).toBe('Whites')
+    })
+
+    it('should return the other team for an own goal', () => {
+        expect(rosterTeamFor(teams, 'Whites', 'own_goal')?.name).toBe('Colours')
+    })
+
+    it('should return undefined for an unknown or missing team', () => {
+        expect(rosterTeamFor(teams, undefined, 'goal')).toBeUndefined()
+        expect(rosterTeamFor(teams, 'Reds', 'goal')).toBeUndefined()
     })
 })

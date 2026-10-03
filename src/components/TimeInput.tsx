@@ -40,7 +40,7 @@ export function TimeInput({ valueSec, onCommit, className, ariaLabel }: TimeInpu
                 if (e.key === 'Enter') e.currentTarget.blur()
                 else if (e.key === 'Escape') { setText(lastValid); e.currentTarget.blur() }
             }}
-            className={className ?? 'w-[65px] rounded bg-deep border border-border px-2 py-1 text-sm text-light focus:border-pink focus:outline-none'}
+            className={className ?? 'field tc w-[72px]'}
         />
     )
 }

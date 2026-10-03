@@ -1,99 +1,77 @@
 import { useRef, useState } from 'react'
 import { useAppState } from '../state'
-import { processVideoFiles } from '../utils/processFiles'
 import { FILE_INPUT_ACCEPT } from '../utils/fileAccept'
 import { fileBadges } from '../utils/fileBadges'
-import { parseGoProName } from '../utils/gopro'
+import { formatHMS } from '../utils/timeline'
+import { addPickedFiles } from './addFiles'
 
-function formatMSS(s: number): string {
-    const mm = `${Math.floor(s / 60)}`.padStart(2, '0')
-    const ss = `${Math.floor(s % 60)}`.padStart(2, '0')
-    return `${mm}:${ss}`
+interface AddFilesButtonProps {
+    label?: string
+    className?: string
+    onError?: (message: string | null) => void
 }
 
-export function FilePills() {
+export function AddFilesButton({ label = '+ files', className = 'file-add', onError }: AddFilesButtonProps) {
     const inputRef = useRef<HTMLInputElement | null>(null)
+    return (
+        <>
+            <button type="button" onClick={() => inputRef.current?.click()} className={className}>{label}</button>
+            <input
+                ref={inputRef}
+                type="file"
+                multiple
+                accept={FILE_INPUT_ACCEPT}
+                onChange={async (evt) => {
+                    const picked = Array.from(evt.target.files ?? [])
+                    evt.target.value = ''
+                    onError?.(await addPickedFiles(picked))
+                }}
+                className="hidden"
+            />
+        </>
+    )
+}
+
+/** The loaded files in timeline order: click to play, ↑↓ to reorder, × to remove. */
+export function FilePills() {
     const files = useAppState((s) => s.files)
-    const addFiles = useAppState((s) => s.addFiles)
     const moveFile = useAppState((s) => s.moveFile)
     const removeFile = useAppState((s) => s.removeFile)
     const currentFileIndex = useAppState((s) => s.currentFileIndex)
     const setCurrentFileIndex = useAppState((s) => s.setCurrentFileIndex)
     const [message, setMessage] = useState<string | null>(null)
 
-    const onPick = async (evt: React.ChangeEvent<HTMLInputElement>) => {
-        const list = evt.target.files
-        if (!list || list.length === 0) return
-        const picked = Array.from(list)
-        const fulls = picked.filter((f) => parseGoProName(f.name)?.kind === 'full')
-        const unmatched = new Set(useAppState.getState().attachFullFiles(fulls))
-        const rest = picked.filter((f) => !fulls.includes(f) || unmatched.has(f.name))
-        if (rest.length === 0) { evt.target.value = ''; return }
-        const result = await processVideoFiles(rest)
-        if (result.error) setMessage(result.error)
-        if (result.files.length > 0) addFiles(result.files)
-        evt.target.value = ''
-    }
-
     return (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="file-pills">
             {files.map((f, i) => (
                 <div
                     key={f.id}
                     onClick={() => setCurrentFileIndex(i)}
-                    className={`flex items-center gap-2 rounded px-3 py-1.5 text-sm font-semibold cursor-pointer border transition-colors ${
-                        i === currentFileIndex
-                            ? 'bg-surface border-pink text-light'
-                            : 'bg-surface border-border text-muted hover:border-pink/50'
-                    }`}
+                    aria-current={i === currentFileIndex ? 'true' : undefined}
+                    className="file-pill"
+                    title={f.name}
                 >
-                    <span className={i === currentFileIndex ? 'text-light' : 'text-muted'}>
-                        {f.name}
-                    </span>
-                    {f.durationSec != null && (
-                        <span className="text-xs text-muted">{formatMSS(f.durationSec)}</span>
-                    )}
+                    <span className="file-pill__name">{f.name}</span>
+                    {f.durationSec != null && <span className="file-pill__dur tc">{formatHMS(f.durationSec)}</span>}
                     {fileBadges(f).map((b) => (
                         <span key={b} title={b === "can't play here" ? `${f.playbackIssue} — add the matching GL….LRV` : undefined}
-                            className={`rounded px-1 text-[10px] uppercase tracking-wide ${b === "can't play here" ? 'bg-pink/20 text-pink' : 'bg-yellow/10 text-yellow/70'}`}>
+                            className={`tag ${b === "can't play here" ? 'tag-warn' : ''}`}>
                             {b}
                         </span>
                     ))}
-                    {files.length > 1 && (
-                        <>
-                            <button
-                                onClick={(e) => { e.stopPropagation(); moveFile(i, i - 1) }}
-                                disabled={i === 0}
-                                className="text-xs text-muted hover:text-light disabled:opacity-30 bg-transparent border-none p-0 cursor-pointer"
-                            >↑</button>
-                            <button
-                                onClick={(e) => { e.stopPropagation(); moveFile(i, i + 1) }}
-                                disabled={i === files.length - 1}
-                                className="text-xs text-muted hover:text-light disabled:opacity-30 bg-transparent border-none p-0 cursor-pointer"
-                            >↓</button>
-                        </>
-                    )}
-                    <button
-                        onClick={(e) => { e.stopPropagation(); removeFile(i) }}
-                        className="text-xs text-pink/50 hover:text-pink bg-transparent border-none p-0 cursor-pointer"
-                    >×</button>
+                    <span className="file-pill__tools">
+                        {files.length > 1 && (
+                            <>
+                                <button type="button" aria-label={`Move ${f.name} earlier`} onClick={(e) => { e.stopPropagation(); moveFile(i, i - 1) }} disabled={i === 0} className="row-btn">↑</button>
+                                <button type="button" aria-label={`Move ${f.name} later`} onClick={(e) => { e.stopPropagation(); moveFile(i, i + 1) }} disabled={i === files.length - 1} className="row-btn">↓</button>
+                            </>
+                        )}
+                        <button type="button" aria-label={`Remove ${f.name}`} onClick={(e) => { e.stopPropagation(); removeFile(i) }} className="row-btn delete-btn">×</button>
+                    </span>
                 </div>
             ))}
-            <button
-                onClick={() => inputRef.current?.click()}
-                className="flex items-center gap-1 rounded px-3 py-1.5 text-sm border border-dashed border-yellow/30 bg-yellow/5 text-yellow/60 hover:border-yellow/60 hover:text-yellow cursor-pointer transition-colors"
-            >
-                + Add file
-            </button>
-            <input
-                ref={inputRef}
-                type="file"
-                multiple
-                accept={FILE_INPUT_ACCEPT}
-                onChange={onPick}
-                className="hidden"
-            />
-            {message && <p className="text-sm text-pink">{message}</p>}
+            <AddFilesButton onError={setMessage} />
+            {message && <span className="text-[12px] text-danger">{message}</span>}
         </div>
     )
 }

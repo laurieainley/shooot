@@ -1,15 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import videojs from 'video.js'
 import 'video.js/dist/video-js.css'
 import 'videojs-hotkeys'
 import { useAppState } from '../state'
-import { formatHMS } from '../utils/timeline'
 import { seekStepFor, frameStepTime, DEFAULT_FPS } from '../utils/hotkeys'
 import { FullscreenControls } from './FullscreenControls'
 import { EventPicker } from './EventPicker'
 import { TimelineMarkers } from './TimelineMarkers'
 import { patchPlayerFullscreen, type FullscreenPlayer } from './fullscreen'
 import { homeTarget, startInFile } from '../utils/markers'
+import { useZoomPan, type ZoomPan } from './useZoomPan'
+import { ZoomChip } from './ZoomChip'
 
 type FrameStepPlayer = { pause: () => void; currentTime: (t?: number) => number; duration: () => number }
 
@@ -20,7 +21,6 @@ export function Player() {
     const files = useAppState((s) => s.files)
     const currentFileIndex = useAppState((s) => s.currentFileIndex)
     const setCurrentFileIndex = useAppState((s) => s.setCurrentFileIndex)
-    const [currentTime, setCurrentTime] = useState(0)
     const [isFullscreen, setIsFullscreen] = useState(false)
     const [durationSec, setDurationSec] = useState(0)
     const [progressHost, setProgressHost] = useState<HTMLElement | null>(null)
@@ -32,6 +32,14 @@ export function Player() {
     const previewSegments = useAppState((s) => s.previewSegments)
     const currentPreviewSegment = useAppState((s) => s.currentPreviewSegment)
     const nextPreviewSegment = useAppState((s) => s.nextPreviewSegment)
+    // Zoom / pan of the picture only (Z, 0, Shift-drag, pinch)
+    const getViewport = useCallback(() => {
+        const el = containerRef.current
+        return { width: el?.clientWidth ?? 0, height: el?.clientHeight ?? 0 }
+    }, [])
+    const zoomPan = useZoomPan(getViewport)
+    const zoomRef = useRef<ZoomPan>(zoomPan)
+    zoomRef.current = zoomPan
 
     useEffect(() => {
         if (!videoRef.current) return
@@ -61,6 +69,14 @@ export function Player() {
                         alwaysCaptureHotkeys: true,
                         enableNumbers: false,              // 0–9 seek disabled (too easy to hit by accident)
                         customKeys: {
+                            zoomCycle: {
+                                key: (event: KeyboardEvent) => event.which === 90 && !event.metaKey && !event.ctrlKey && !event.altKey, // Z
+                                handler: () => zoomRef.current.cycle(),
+                            },
+                            zoomReset: {
+                                key: (event: KeyboardEvent) => (event.which === 48 || event.which === 96) && !event.metaKey && !event.ctrlKey, // 0
+                                handler: () => zoomRef.current.reset(),
+                            },
                             frameForward: {
                                 key: (event: KeyboardEvent) => event.which === 38, // ↑
                                 handler: (player: FrameStepPlayer) => {
@@ -179,7 +195,6 @@ export function Player() {
         }
         p.on('timeupdate', () => {
             const t = p.currentTime() || 0
-            setCurrentTime(t)
             setCurrentTimeInFile(t)
         })
         p.on('durationchange', () => setDurationSec(p.duration() || 0))
@@ -287,6 +302,74 @@ export function Player() {
         }
     }, [isPreviewMode, currentPreviewSegment, previewSegments, nextPreviewSegment])
 
+    // Apply the zoom to the video picture (the tech element), not to the controls.
+    useEffect(() => {
+        const tech = containerRef.current?.querySelector<HTMLElement>('.vjs-tech')
+        if (!tech) return
+        tech.style.transform = zoomPan.zoom > 1 ? `translate(${zoomPan.pan.x}px, ${zoomPan.pan.y}px) scale(${zoomPan.zoom})` : ''
+    }, [zoomPan.zoom, zoomPan.pan, currentFileIndex, files])
+
+    // Shift+drag (mouse) or two-finger drag pans while zoomed; a two-finger pinch zooms between 1× and 2×.
+    useEffect(() => {
+        const el = containerRef.current
+        if (!el) return
+        const pointers = new Map<number, { x: number; y: number }>()
+        let pinch: { dist: number; zoom: number; mid: { x: number; y: number } } | null = null
+        let dragged = false
+        const spread = (): { dist: number; mid: { x: number; y: number } } => {
+            const [a, b] = Array.from(pointers.values())
+            return { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } }
+        }
+        const onDown = (e: PointerEvent): void => {
+            const touch = e.pointerType === 'touch'
+            if (!touch && !(e.shiftKey && zoomRef.current.zoom > 1)) return
+            if ((e.target as HTMLElement).closest('.vjs-control-bar, button, .event-picker')) return
+            pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+            dragged = false
+            if (pointers.size === 2) {
+                const s = spread()
+                pinch = { dist: s.dist, zoom: zoomRef.current.zoom, mid: s.mid }
+            }
+        }
+        const onMove = (e: PointerEvent): void => {
+            const prev = pointers.get(e.pointerId)
+            if (!prev) return
+            pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+            if (pinch && pointers.size === 2) {
+                const s = spread()
+                if (pinch.dist > 0) zoomRef.current.pinchTo(pinch.zoom * (s.dist / pinch.dist))
+                zoomRef.current.panBy(s.mid.x - pinch.mid.x, s.mid.y - pinch.mid.y)
+                pinch.mid = s.mid
+                dragged = true
+                e.preventDefault()
+            } else if (e.pointerType !== 'touch' && e.shiftKey) {
+                zoomRef.current.panBy(e.clientX - prev.x, e.clientY - prev.y)
+                dragged = true
+                e.preventDefault()
+            }
+        }
+        const onUp = (e: PointerEvent): void => {
+            if (!pointers.delete(e.pointerId)) return
+            if (pinch && pointers.size < 2) { pinch = null; zoomRef.current.pinchEnd() }
+        }
+        // A pan or pinch must not also toggle play / count as a tap.
+        const onClick = (e: MouseEvent): void => {
+            if (dragged) { e.stopPropagation(); e.preventDefault(); dragged = false }
+        }
+        el.addEventListener('pointerdown', onDown, true)
+        window.addEventListener('pointermove', onMove, { capture: true, passive: false })
+        window.addEventListener('pointerup', onUp, true)
+        window.addEventListener('pointercancel', onUp, true)
+        el.addEventListener('click', onClick, true)
+        return () => {
+            el.removeEventListener('pointerdown', onDown, true)
+            window.removeEventListener('pointermove', onMove, true)
+            window.removeEventListener('pointerup', onUp, true)
+            window.removeEventListener('pointercancel', onUp, true)
+            el.removeEventListener('click', onClick, true)
+        }
+    }, [])
+
     // Track fullscreen state
     useEffect(() => {
         const handleFullscreenChange = () => {
@@ -314,27 +397,14 @@ export function Player() {
     }, [])
 
     return (
-        <div ref={containerRef} className="player-container max-h-[50vh] aspect-video mx-auto overflow-hidden rounded-md">
+        <div ref={containerRef} className={`player-container${zoomPan.zoom > 1 ? ' player-container--zoomed' : ''}`}>
             <video ref={videoRef} className="video-js vjs-default-skin" />
             {speedIndicator !== null && (
                 <div className="speed-indicator" key={speedIndicator + '-' + Date.now()}>
                     {speedIndicator.toFixed(2)}x
                 </div>
             )}
-            <div className="mt-1 px-1 text-xs">
-                {isPreviewMode ? (
-                    <div className="text-muted">
-                        <strong className="text-pink">Preview</strong> — Segment {currentPreviewSegment + 1}/{previewSegments.length}
-                        {previewSegments.length > 0 && currentPreviewSegment < previewSegments.length && (
-                            <span> — {previewSegments[currentPreviewSegment].goals.length} goal(s)</span>
-                        )}
-                    </div>
-                ) : (
-                    <div className="text-muted">
-                        File {files.length ? currentFileIndex + 1 : 0}/{files.length} — <span className="text-pink font-semibold tabular-nums">{formatHMS(currentTime)}</span>
-                    </div>
-                )}
-            </div>
+            <ZoomChip zoom={zoomPan.zoom} onReset={zoomPan.reset} />
             <FullscreenControls playerRef={playerRef} isFullscreen={isFullscreen} />
             <EventPicker />
             <TimelineMarkers host={progressHost} durationSec={durationSec} />

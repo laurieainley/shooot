@@ -1,27 +1,14 @@
 import './App.css'
-import { useEffect, useRef, useState } from 'react'
-import { FilePills } from './components/FilePills'
-import { Player } from './components/Player'
-import { EmptyPlayer } from './components/EmptyPlayer'
-import { AddGoalBar } from './components/AddGoalBar'
-import { GoalList } from './components/GoalList'
-import { ClipSettings } from './components/ClipSettings'
-import { OutputPanel } from './components/OutputPanel'
-import { Logo } from './components/Logo'
-import { MatchSetup } from './components/MatchSetup'
-import { migrateEvent } from './utils/eventTypes'
+import { useEffect } from 'react'
+import { AppShell } from './components/AppShell'
 import { useAppState } from './state'
 
 const DEFAULT_VIDEO_URL = '/default-video.mp4'
 const DEFAULT_VIDEO_NAME = 'TNF full match 19-03-26.mp4'
 
 function App() {
-    const goals = useAppState((s) => s.events)
-    const setGoals = useAppState((s) => s.setEvents)
     const files = useAppState((s) => s.files)
     const setFiles = useAppState((s) => s.setFiles)
-    const importRef = useRef<HTMLInputElement | null>(null)
-    const [showMatch, setShowMatch] = useState(false)
 
     // Global undo/redo keyboard shortcuts
     useEffect(() => {
@@ -75,100 +62,7 @@ function App() {
         return () => { cancelled = true }
     }, [])
 
-    const onExport = () => {
-        const { teams, matchStartTimeSec } = useAppState.getState()
-        const blob = new Blob([JSON.stringify({ events: goals, goals, teams, matchStartTimeSec }, null, 2)], { type: 'application/json' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = 'project.json'
-        a.click()
-        URL.revokeObjectURL(url)
-    }
-
-    const onImport = async (evt: React.ChangeEvent<HTMLInputElement>) => {
-        const file = evt.target.files?.[0]
-        if (!file) return
-        const text = await file.text()
-        try {
-            const data = JSON.parse(text)
-            const imported = Array.isArray(data.events) ? data.events : Array.isArray(data.goals) ? data.goals : null
-            if (imported) {
-                setGoals(imported.map((e: unknown) => migrateEvent(e as Parameters<typeof migrateEvent>[0])))
-            }
-            if (Array.isArray(data.teams) && data.teams.length === 2) useAppState.getState().setTeams(data.teams)
-            if (typeof data.matchStartTimeSec === 'number') useAppState.getState().setMatchStartTime(data.matchStartTimeSec)
-        } catch {
-            alert('Failed to import JSON file.')
-        }
-        evt.target.value = ''
-    }
-
-    return (
-        <div className="max-w-[1920px] mx-auto px-4 py-4">
-            {/* Top Bar */}
-            <div className="flex items-center justify-between mb-4">
-                <Logo height={28} className="text-yellow" />
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => setShowMatch(true)}
-                        className="rounded bg-surface px-2.5 py-1.5 text-xs font-semibold text-muted border-none cursor-pointer hover:text-light transition-colors"
-                    >
-                        Match
-                    </button>
-                    <button
-                        onClick={onExport}
-                        disabled={goals.length === 0}
-                        className="rounded bg-surface px-2.5 py-1.5 text-xs font-semibold text-muted border-none cursor-pointer hover:text-light transition-colors disabled:opacity-30"
-                    >
-                        Export
-                    </button>
-                    <button
-                        onClick={() => importRef.current?.click()}
-                        className="rounded bg-surface px-2.5 py-1.5 text-xs font-semibold text-muted border-none cursor-pointer hover:text-light transition-colors"
-                    >
-                        Import
-                    </button>
-                    <input
-                        ref={importRef}
-                        type="file"
-                        accept=".json,application/json"
-                        onChange={onImport}
-                        className="hidden"
-                    />
-                </div>
-            </div>
-
-            {/* File Pills */}
-            <div className="mb-3">
-                <FilePills />
-            </div>
-
-            {/* Player */}
-            {files.length > 0 ? <Player /> : <EmptyPlayer />}
-
-            {/* Add Goal Bar */}
-            <div className="mt-1.5 mb-4">
-                <AddGoalBar />
-            </div>
-
-            {/* Panel Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-3">
-                {/* Goals Panel — spans 2 rows on desktop */}
-                <div className="md:row-span-2">
-                    <GoalList />
-                </div>
-
-                {/* Clip Settings */}
-                <ClipSettings />
-
-                {/* Output */}
-                <OutputPanel />
-            </div>
-
-            {showMatch && <MatchSetup onClose={() => setShowMatch(false)} />}
-        </div>
-    )
+    return <AppShell />
 }
 
 export default App

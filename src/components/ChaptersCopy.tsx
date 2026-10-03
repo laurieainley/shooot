@@ -28,7 +28,7 @@ export function ChaptersCopy() {
             <button
                 disabled={linked.length === 0}
                 onClick={() => copy('YouTube', generateYouTubeChapters(linked, offsets, start, before, after, order))}
-                className="rounded bg-deep px-2 py-1 text-xs text-light border border-border cursor-pointer hover:border-pink disabled:opacity-30"
+                className="btn-quiet"
             >
                 Copy YouTube chapters
             </button>
@@ -36,11 +36,11 @@ export function ChaptersCopy() {
                 disabled={linked.length === 0}
                 onClick={() => copy('Highlight', generateHighlightChapters(linked, offsets, before, after, order,
                     { beforeSec: replayBeforeSec, afterSec: replayAfterSec, speed: replaySpeed }))}
-                className="rounded bg-deep px-2 py-1 text-xs text-light border border-border cursor-pointer hover:border-pink disabled:opacity-30"
+                className="btn-quiet"
             >
                 Copy highlight chapters
             </button>
-            {copied && <span className="text-xs text-yellow">{copied} chapters copied</span>}
+            {copied && <span role="status" className="text-[12px] text-accent">{copied} chapters copied</span>}
         </div>
     )
 }

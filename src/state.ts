@@ -43,6 +43,7 @@ type AppState = {
     nextFile: () => void
     prevFile: () => void
     addEvent: (event: MatchEvent) => void
+    addEvents: (events: MatchEvent[]) => void
     setEvents: (events: MatchEvent[]) => void
     removeEvent: (id: string) => void
     updateEvent: (id: string, partial: Partial<MatchEvent>) => void
@@ -78,7 +79,7 @@ export const useAppState = create<AppState>()(
             events: [],
             teams: [
                 { name: 'Whites', color: '#f5f5f5', roster: [] },
-                { name: 'Colours', color: '#f72585', roster: [] },
+                { name: 'Colours', color: '#c2364a', roster: [] },
             ],
             picker: null,
             cumulativeOffsets: [],
@@ -158,10 +159,12 @@ export const useAppState = create<AppState>()(
             },
             nextFile: () => set({ currentFileIndex: Math.min(get().currentFileIndex + 1, get().files.length - 1) }),
             prevFile: () => set({ currentFileIndex: Math.max(get().currentFileIndex - 1, 0) }),
-            addEvent: (event) => {
+            addEvent: (event) => get().addEvents([event]),
+            addEvents: (added) => {
+                if (added.length === 0) return
                 const state = get()
                 const prevEvents = state.events
-                const newEvents = relinkEvents([...prevEvents, event], state.files)
+                const newEvents = relinkEvents([...prevEvents, ...added], state.files)
                 const sortedEvents = newEvents.sort((a, b) => {
                     const aTime = (state.cumulativeOffsets[a.sourceFileIndex ?? 0] || 0) + a.matchTimeSec
                     const bTime = (state.cumulativeOffsets[b.sourceFileIndex ?? 0] || 0) + b.matchTimeSec
