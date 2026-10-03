@@ -4,6 +4,13 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import fs from 'fs'
 
+// Local HTTPS dev certs (mkcert, gitignored). Absent in CI/Vercel, where only `vite build` runs.
+const CERT_KEY = './localhost+2-key.pem'
+const CERT = './localhost+2.pem'
+const devHttps = fs.existsSync(CERT_KEY) && fs.existsSync(CERT)
+    ? { key: fs.readFileSync(CERT_KEY), cert: fs.readFileSync(CERT) }
+    : undefined
+
 // https://vite.dev/config/
 export default defineConfig({
   test: {
@@ -17,10 +24,7 @@ export default defineConfig({
   plugins: [tailwindcss(), react()],
   server: {
     port: 5174,
-    https: {
-      key: fs.readFileSync('./localhost+2-key.pem'),
-      cert: fs.readFileSync('./localhost+2.pem'),
-    },
+    https: devHttps,
   },
   build: {
     // Production optimizations
