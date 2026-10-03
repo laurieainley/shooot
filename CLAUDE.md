@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Shot Stopper (branded "SHOOOT") is a browser-based video highlight editor. Users load one or more MP4 files, scrub through the footage, mark events (goals, key moments) at specific timestamps — either manually or via keyboard shortcuts — and render a concatenated highlight reel. The render uses FFmpeg WASM to extract and join segments without fully re-encoding the video (`-c:v copy`), keeping output fast and lossless relative to the source.
+Shot Stopper (branded "SHOOOT") is a browser-based video highlight editor. Users load one or more MP4 files, scrub through the footage, mark events (goals, key moments) at specific timestamps — either manually or via keyboard shortcuts — and render a concatenated highlight reel. The render uses Mediabunny to remux the encoded packets of each segment into one MP4 (no decode, no re-encode), keeping output fast and lossless relative to the source. GoPro HEVC MP4s and their `.LRV` proxies load directly.
 
 The tool is designed around football/soccer match footage (the primary use case is marking goals), but the workflow is deliberately generic — any MP4 content with discrete moments worth clipping works the same way.
 
@@ -12,15 +12,15 @@ The tool is designed around football/soccer match footage (the primary use case 
 2. **Mark events** — press **G** while playing to add a goal at the current playback position, or enter timestamps manually. Each event records the time, source file, and optional team/scorer metadata.
 3. **Configure clip padding** — set how many seconds before and after each event to include (defaults: 10s before, 4s after). Overlapping segments are automatically merged.
 4. **Preview** — step through the generated segments in-player before committing to a render.
-5. **Render** — FFmpeg extracts each segment via stream-copy, concatenates them into a single MP4, and offers a download. Audio is re-encoded to AAC to ensure cross-segment compatibility.
+5. **Render** — `renderReel()` copies each segment's video and audio packets (snapped to keyframes) into a single MP4 streamed to OPFS, then offers a download / share. With LRV proxies there is a quick **Preview reel** (from the proxies) and a **Full quality render** (from the paired MP4s).
 6. **Export chapters** — generate YouTube-format chapter markers from the goal list.
 
 ## Tech Stack
 
 - **React 19 + TypeScript** — strict mode enabled
-- **Vite 7** — dev server runs on `https://localhost:5174` (HTTPS required for SharedArrayBuffer / FFmpeg multithreading)
+- **Vite 7** — dev server runs on `https://localhost:5174` (HTTPS required: OPFS and phone testing need a secure context)
 - **Zustand 5** — global state (`src/state.ts`)
-- **FFmpeg WASM** (`@ffmpeg/ffmpeg`) — in-browser segment extraction and concatenation (stream-copy, no full re-encode)
+- **Mediabunny** — in-browser MP4 demux/remux for probing and rendering (packet copy, no re-encode)
 - **Video.js 8** — player with keyboard hotkeys (`videojs-hotkeys`)
 - **idb-keyval** — IndexedDB persistence for goals and settings
 - **Vitest + React Testing Library + happy-dom** — unit and integration tests (see Testing below)
@@ -55,7 +55,7 @@ src/
     GoalList.tsx    # Editable list of marked events
     AddGoalControls.tsx       # Manual goal entry (time, team, scorer)
     AddGoalAtCurrentButton.tsx # One-click goal at current playback position
-    RenderHighlights.tsx      # FFmpeg render pipeline — segment extraction + concat
+    RenderHighlights.tsx      # Preview/full render buttons, missing-file prompt, progress, download/share
     ChaptersExport.tsx        # YouTube chapter text generation
     HighlightLengthControls.tsx # Before/after padding config
     PreviewControls.tsx       # Step through highlight segments in-player
@@ -72,7 +72,15 @@ src/
     eventPicker.ts  # Pure picker reducer (type → team → scorer)
     roster.ts       # parseRoster(), filterRoster(), teamShortcuts()
     markers.ts      # markersForFile(), startInFile(), homeTarget()
-    probe.ts        # video metadata extraction
+    probe.ts        # codec/duration via Mediabunny + browser playability
+    gopro.ts        # parseGoProName(), pairFiles() — LRV proxy ↔ GX/GH MP4
+    fileAccept.ts   # isAcceptedVideo(), FILE_INPUT_ACCEPT (extension-only for Android)
+    renderPlan.ts   # buildRenderPlan(): segments → cuts (cross-file split, clamping)
+    renderSources.ts # resolveRenderSources() (preview vs full), formatRenderProgress()
+    fileBadges.ts   # pill badges (proxy, HEVC, can't play here)
+  render/           # Rendering engine behind renderReel()
+    mediabunnyEngine.ts # Packet remux → OPFS
+    fileSource.ts   # 8 MB aligned block reader for File input
 ```
 
 **Data flow:** Files → `state.ts` → components read via Zustand selectors → utils receive plain data and return results (no store imports in utils).
@@ -114,11 +122,13 @@ src/
 - Props interfaces are defined in the same file, above the component.
 - Keep components presentation-focused; push business logic into utils or the store.
 
-### FFmpeg WASM
-- The render pipeline extracts segments via stream-copy (`-c:v copy`) and concatenates them using the MPEG-TS concat method. Video is never re-encoded; audio is re-encoded to AAC for cross-segment compatibility.
-- FFmpeg operations are expensive and blocking. Always run them behind a loading gate with progress feedback; never block the UI thread silently.
-- Never import `@ffmpeg/core` or `@ffmpeg/core-mt` directly — they are externalized and loaded at runtime from `/public/ffmpeg/`.
-- Large files (>2 GB) use WORKERFS mounting instead of `writeFile` to avoid memory limits.
+### Rendering (Mediabunny)
+- Rendering lives behind `renderReel()` in `src/render/`. It remuxes encoded packets (no decode, no re-encode) from each cut into one MP4, streamed to OPFS so memory stays flat.
+- Cuts snap to keyframes (GoPro: 1.001 s GOP) and are clamped to the real end of each file. Audio is copied, so all clips in one render must share codec and audio parameters; mixed inputs are rejected with a message.
+- GoPro `.LRV` proxies are paired with `GX`/`GH` MP4s by `src/utils/gopro.ts`; edit on proxies, render from `fullFile`.
+- Read `File`s through `fileSource()` (`src/render/fileSource.ts`), never `BlobSource`: on Android every read from USB storage costs ~0.25 s, so it reads few, large (8 MB) aligned blocks.
+- Show progress for renders; never block the UI silently.
+- Do not unit-test engine internals; mock `../render` at the boundary.
 
 ## Testing (Red-Green TDD)
 
@@ -133,7 +143,7 @@ Tests use **Vitest** + **React Testing Library**.
 - **Always test utils** — all functions in `src/utils/` must have unit tests. They are pure and easy to test.
 - **Test state logic** — Zustand store actions and selectors via direct store calls, not through components.
 - **Test components** for user-visible behavior (renders, interactions), not implementation details.
-- **Do not test** FFmpeg encoding pipelines directly — mock the FFmpeg API at the boundary.
+- **Do not test** the render engine internals directly — mock `../render` (`renderReel`) at the boundary.
 
 ### Environments
 - Default test environment is `node` (set in `vite.config.ts`). Pure util tests run here.
@@ -163,9 +173,9 @@ describe('mergeOverlappingGoalSegments', () => {
 
 ## Constraints & Gotchas
 
-- **MP4 input required** — stream-copy rendering relies on H.264/AAC in MP4 containers. Other formats will fail or produce broken output.
-- **HTTPS is required** for SharedArrayBuffer (used by FFmpeg multithreading). Dev server uses a self-signed cert (`localhost+2.pem`). New devs need to run `mkcert localhost 127.0.0.1 ::1` to generate their own certs.
-- **COOP/COEP headers** must be set both in Vite dev config and in `vercel.json` for FFmpeg WASM to work in production.
+- **MP4 input required** — H.264 or HEVC video with AAC audio in MP4 containers (`.MP4` / GoPro `.LRV`). HEVC may not play in every browser; pair it with its LRV to edit.
+- **HTTPS is required** (secure context for OPFS, and for testing from a phone). Dev server uses a self-signed cert (`localhost+2.pem`). New devs need to run `mkcert localhost 127.0.0.1 ::1` to generate their own certs.
+- **No COOP/COEP headers** are needed any more (no SharedArrayBuffer).
 - **File objects are not serializable** — `VideoSourceFile.file` (a `File`) cannot be stored in IndexedDB directly. Only goal metadata is persisted; files must be re-loaded on each session.
 - Goal timestamps are stored as absolute `matchTimeSec` relative to the full multi-file timeline, computed via `computeCumulativeOffsets()`.
-- **Cross-file segments** — when a goal's padding window spans two source files, the render pipeline pulls from both files and joins them. Audio is re-encoded in these cases to maintain sync.
+- **Cross-file segments** — when a goal's padding window spans two source files, `buildRenderPlan()` splits it into the previous file's tail and the current file's head; both are copied (no re-encode).

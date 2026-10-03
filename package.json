@@ -13,10 +13,6 @@
     "test:ui": "vitest --ui"
   },
   "dependencies": {
-    "@ffmpeg/core": "^0.12.6",
-    "@ffmpeg/core-mt": "^0.12.6",
-    "@ffmpeg/ffmpeg": "^0.12.15",
-    "@ffmpeg/util": "^0.12.2",
     "@tailwindcss/vite": "^4.2.2",
     "idb-keyval": "^6.2.2",
     "mediabunny": "^1.61.0",
