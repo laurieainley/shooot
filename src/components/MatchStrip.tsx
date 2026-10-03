@@ -39,7 +39,7 @@ export function MatchStrip() {
             <div className="strip-label">
                 {isPreviewMode ? (
                     <>
-                        <span className="strip-label__clock tc text-accent">Preview</span>
+                        <span className="strip-label__clock strip-label__clock--accent tc">Preview</span>
                         <span className="tc">{previewIndex + 1}/{previewCount}</span>
                     </>
                 ) : (

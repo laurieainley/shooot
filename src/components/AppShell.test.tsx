@@ -59,7 +59,7 @@ describe('AppShell', () => {
         expect(screen.queryByText('GX010226.MP4', { selector: '.file-pill__name' })).not.toBeInTheDocument()
         await userEvent.click(screen.getByRole('button', { name: 'Files and match' }))
         expect(screen.getByText('GX010226.MP4', { selector: '.file-pill__name' })).toBeInTheDocument()
-        await userEvent.click(screen.getByRole('button', { name: 'Match' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Match setup' }))
         expect(screen.getByLabelText('Team 1 name')).toBeInTheDocument()
     })
 

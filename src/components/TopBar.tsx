@@ -39,8 +39,8 @@ export function TopBar({ desktop, onOpenMatch }: TopBarProps) {
                                 <FilePills />
                             </section>
                             <section className="export-section">
-                                <h3 className="export-section__title">Match</h3>
-                                <button type="button" onClick={() => { setOverflow(false); onOpenMatch() }} className="btn-quiet">Match</button>
+                                <h3 className="export-section__title">Teams and kick-off</h3>
+                                <button type="button" onClick={() => { setOverflow(false); onOpenMatch() }} className="btn-quiet">Match setup</button>
                             </section>
                         </FloatingPanel>
                     )}

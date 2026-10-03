@@ -168,6 +168,7 @@
   border-right: 1px solid var(--line); font-size: 11px; color: var(--muted);
 }
 .strip-label__clock { font-size: 15px; color: var(--ink); line-height: 1.1; }
+.strip-label__clock--accent { color: var(--accent); }
 .strip-track {
   position: relative; overflow: hidden; cursor: pointer; touch-action: none;
   background:

@@ -119,8 +119,8 @@ export function EventLog() {
                 <button type="button" onClick={() => { const st = useAppState.getState(); st.markEvent(st.currentTimeInFileSec) }}
                     disabled={files.length === 0}
                     className="btn-quiet">+ Event</button>
-                <button type="button" aria-label="Undo" title="Undo (⌘Z)" onClick={() => useAppState.getState().undo()} disabled={!canUndo} className="btn-icon">↶</button>
-                <button type="button" aria-label="Redo" title="Redo (⇧⌘Z)" onClick={() => useAppState.getState().redo()} disabled={!canRedo} className="btn-icon">↷</button>
+                <button type="button" aria-label="Undo" title="Undo (⌘Z)" onClick={() => useAppState.getState().undo()} disabled={!canUndo} className="btn-icon"><UndoIcon /></button>
+                <button type="button" aria-label="Redo" title="Redo (⇧⌘Z)" onClick={() => useAppState.getState().redo()} disabled={!canRedo} className="btn-icon"><UndoIcon redo /></button>
                 <div className="relative">
                     <button type="button" aria-label="More" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)} className="btn-icon">⋯</button>
                     {menuOpen && (
@@ -313,5 +313,17 @@ function ScorerEdit({ event: e, teams, onDone }: ScorerEditProps) {
                 </ul>
             )}
         </span>
+    )
+}
+
+interface UndoIconProps {
+    redo?: boolean
+}
+
+function UndoIcon({ redo = false }: UndoIconProps) {
+    return (
+        <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" style={redo ? { transform: 'scaleX(-1)' } : undefined}>
+            <path d="M5.5 3.5 2.5 6.5l3 3M2.5 6.5h7a4 4 0 0 1 0 8H7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
     )
 }
