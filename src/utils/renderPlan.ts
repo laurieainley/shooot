@@ -1,13 +1,16 @@
 import type { HighlightSegment } from './highlights'
 import type { Cut } from '../render/types'
+import { wantsReplay } from './replays'
 
-export function buildRenderPlan(segments: HighlightSegment[], durationsSec: number[]): Cut[] {
+export type ReplayOptions = { beforeSec: number; afterSec: number; speed: number }
+
+export function buildRenderPlan(segments: HighlightSegment[], durationsSec: number[], replay?: ReplayOptions): Cut[] {
     const cuts: Cut[] = []
-    const push = (sourceIndex: number, start: number, end: number): void => {
+    const push = (sourceIndex: number, start: number, end: number, extra: Partial<Cut> = {}): void => {
         const dur = durationsSec[sourceIndex] ?? Infinity
         const startSec = Math.max(0, Math.min(start, dur))
         const endSec = Math.max(0, Math.min(end, dur))
-        if (endSec > startSec) cuts.push({ sourceIndex, startSec, endSec })
+        if (endSec > startSec) cuts.push({ sourceIndex, startSec, endSec, ...extra })
     }
     for (const s of segments) {
         const idx = s.sourceFileIndex
@@ -17,6 +20,13 @@ export function buildRenderPlan(segments: HighlightSegment[], durationsSec: numb
             push(idx, 0, s.endTime)
         } else {
             push(idx, s.startTime, s.endTime)
+        }
+        if (!replay) continue
+        // Replays never span files: the window is clamped to the event's own file.
+        const wanted = s.goals.filter(wantsReplay).sort((a, b) => a.matchTimeSec - b.matchTimeSec)
+        for (const e of wanted) {
+            push(e.sourceFileIndex ?? idx, e.matchTimeSec - replay.beforeSec, e.matchTimeSec + replay.afterSec,
+                { speed: replay.speed, silent: true })
         }
     }
     return cuts
