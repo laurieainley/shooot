@@ -4,7 +4,10 @@ import 'video.js/dist/video-js.css'
 import 'videojs-hotkeys'
 import { useAppState } from '../state'
 import { formatHMS } from '../utils/timeline'
+import { seekStepFor, frameStepTime, DEFAULT_FPS } from '../utils/hotkeys'
 import { FullscreenControls } from './FullscreenControls'
+
+type FrameStepPlayer = { pause: () => void; currentTime: (t?: number) => number; duration: () => number }
 
 export function Player() {
     const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -40,15 +43,31 @@ export function Player() {
             playerRef.current.ready(() => {
                 if (playerRef.current) {
                     (playerRef.current as any).hotkeys({
-                        volumeStep: 0.1,          // Volume change step (10%)
-                        seekStep: 5,              // Seek step in seconds (aligns with typical keyframes)
-                        enableModifiersForNumbers: false, // Disable Shift+number shortcuts
-                        enableVolumeScroll: false, // Disable mouse wheel volume
-                        enableHoverScroll: false,  // Disable hover + scroll volume
-                        enableFullscreen: true,    // Enable F for fullscreen
-                        alwaysCaptureHotkeys: true, // Capture hotkeys even when not focused
-                        enableNumbers: true,       // Enable 0-9 for seeking
+                        volumeStep: 0.1,
+                        seekStep: seekStepFor,             // ←/→ 5 s, Shift+←/→ 1 s
+                        volumeUpKey: () => false,          // ↑/↓ are frame steps (custom keys below)
+                        volumeDownKey: () => false,
+                        enableModifiersForNumbers: false,
+                        enableVolumeScroll: false,
+                        enableHoverScroll: false,
+                        enableFullscreen: true,
+                        alwaysCaptureHotkeys: true,
+                        enableNumbers: false,              // 0–9 seek disabled (too easy to hit by accident)
                         customKeys: {
+                            frameForward: {
+                                key: (event: KeyboardEvent) => event.which === 38, // ↑
+                                handler: (player: FrameStepPlayer) => {
+                                    player.pause()
+                                    player.currentTime(frameStepTime(player.currentTime() || 0, 1, DEFAULT_FPS, player.duration() || Infinity))
+                                }
+                            },
+                            frameBack: {
+                                key: (event: KeyboardEvent) => event.which === 40, // ↓
+                                handler: (player: FrameStepPlayer) => {
+                                    player.pause()
+                                    player.currentTime(frameStepTime(player.currentTime() || 0, -1, DEFAULT_FPS, player.duration() || Infinity))
+                                }
+                            },
                             // Speed controls
                             decreaseSpeed: {
                                 key: function (event: KeyboardEvent) {
@@ -103,10 +122,10 @@ export function Player() {
                                     console.log('Playback speed: 1x (normal)');
                                 }
                             },
-                            // G or M key - add goal at current time
+                            // G key - add goal at current time (M is video.js mute)
                             addGoal: {
                                 key: function (event: KeyboardEvent) {
-                                    return event.which === 71 || event.which === 77; // G or M key
+                                    return event.which === 71; // G
                                 },
                                 handler: function (player: any) {
                                     const currentTimeSeconds = Math.floor(player.currentTime() || 0);

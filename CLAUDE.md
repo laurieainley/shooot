@@ -71,12 +71,15 @@ src/
 
 | Key | Action |
 |-----|--------|
-| **G / M** | Add goal at current playback time |
+| **G** | Add goal at current playback time |
+| **M** | Mute / unmute |
 | **, / .** | Decrease / increase playback speed (0.25x steps) |
 | **/** | Reset playback speed to 1x |
 | **Home / End** | Jump to start / end of current file |
 | **Left / Right** | Seek ±5 seconds |
-| **0–9** | Seek to 0%–90% of video |
+| **Shift + Left / Right** | Seek ±1 second |
+| **Up / Down** | Step one frame forward / back (pauses) |
+| **[ / ]** | Previous / next file |
 | **F** | Toggle fullscreen |
 
 ## Coding Practices

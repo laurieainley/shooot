@@ -46,7 +46,7 @@ export function EmptyPlayer() {
             </p>
             {error && <p className="text-pink text-xs mb-4">{error}</p>}
             <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-xs text-muted">
-                <span><kbd className="text-light font-bold">G</kbd> / <kbd className="text-light font-bold">M</kbd></span>
+                <span><kbd className="text-light font-bold">G</kbd></span>
                 <span>Mark goal</span>
                 <span><kbd className="text-light font-bold">,</kbd> / <kbd className="text-light font-bold">.</kbd></span>
                 <span>Speed down / up</span>
@@ -54,6 +54,10 @@ export function EmptyPlayer() {
                 <span>Reset speed</span>
                 <span><kbd className="text-light font-bold">[</kbd> / <kbd className="text-light font-bold">]</kbd></span>
                 <span>Prev / next file</span>
+                <span><kbd className="text-light font-bold">⇧←</kbd> / <kbd className="text-light font-bold">⇧→</kbd></span>
+                <span>Back / forward 1 s</span>
+                <span><kbd className="text-light font-bold">↑</kbd> / <kbd className="text-light font-bold">↓</kbd></span>
+                <span>Next / previous frame</span>
             </div>
         </div>
     )

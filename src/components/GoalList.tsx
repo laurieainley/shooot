@@ -55,7 +55,7 @@ export function GoalList() {
             </div>
 
             {goals.length === 0 ? (
-                <p className="text-sm text-muted">No goals marked yet. Press <kbd className="text-light font-bold">G</kbd> or <kbd className="text-light font-bold">M</kbd> during playback to mark a goal.</p>
+                <p className="text-sm text-muted">No goals marked yet. Press <kbd className="text-light font-bold">G</kbd> during playback to mark a goal.</p>
             ) : (
                 <div className="flex flex-col gap-1.5">
                     {goals.map((g) => (
