@@ -13,3 +13,7 @@ export function clampPan(zoom: number, pan: Pan, viewport: { width: number; heig
     const clamp = (v: number, m: number): number => (m <= 0 ? 0 : Math.max(-m, Math.min(m, v)))
     return { x: clamp(pan.x, maxX), y: clamp(pan.y, maxY) }
 }
+
+export function snapZoom(z: number): number {
+    return ZOOM_LEVELS.reduce<number>((best, l) => (Math.abs(l - z) < Math.abs(best - z) ? l : best), ZOOM_LEVELS[0])
+}

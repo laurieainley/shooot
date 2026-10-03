@@ -406,3 +406,6 @@
   border: none; background: none; font-size: 12px; line-height: 1; cursor: pointer; z-index: 2; text-shadow: 0 0 2px #000;
 }
 .timeline-marker--start { font-size: 13px; }
+
+/* Touch: pinch belongs to the player in fullscreen or once zoomed; page scroll otherwise. */
+.player-container:fullscreen, .player-container--zoomed { touch-action: none; }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { nextZoom, clampPan, ZOOM_LEVELS } from './zoom'
+import { nextZoom, clampPan, snapZoom, ZOOM_LEVELS } from './zoom'
 
 describe('nextZoom', () => {
     it('should cycle 1 → 1.5 → 2 → 1', () => {
@@ -19,5 +19,15 @@ describe('clampPan', () => {
         // at 2× the frame is 2000×1000; max offset is half the overflow: 500×250
         expect(clampPan(2, { x: 900, y: -900 }, { width: 1000, height: 500 })).toEqual({ x: 500, y: -250 })
         expect(clampPan(2, { x: 100, y: 50 }, { width: 1000, height: 500 })).toEqual({ x: 100, y: 50 })
+    })
+})
+
+describe('snapZoom', () => {
+    it('should snap a pinch to the nearest zoom level within 1–2', () => {
+        expect(snapZoom(1.1)).toBe(1)
+        expect(snapZoom(1.3)).toBe(1.5)
+        expect(snapZoom(1.8)).toBe(2)
+        expect(snapZoom(3)).toBe(2)
+        expect(snapZoom(0.5)).toBe(1)
     })
 })
