@@ -1,5 +1,5 @@
 import type { MatchEvent, Team } from '../types'
-import { EVENT_META, eventLabel } from './eventTypes'
+import { eventLabel } from './eventTypes'
 import { mergeOverlappingGoalSegments } from './highlights'
 import { linkedEvents } from './relink'
 import { formatHMS } from './timeline'
@@ -57,7 +57,7 @@ export function buildMatchStrip(args: {
         return {
             id: e.id,
             leftPct: pct(g),
-            color: team?.color ?? EVENT_META[e.type].color,
+            color: team?.color ?? 'var(--muted)',
             title: `${formatHMS(g)} ${eventLabel(e)}${e.team ? ` – ${e.team}` : ''}${e.scorer ? ` (${e.scorer})` : ''}`,
             kind: e.type,
         }
