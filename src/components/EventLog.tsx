@@ -25,6 +25,7 @@ export function EventLog() {
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const [editing, setEditing] = useState<Editing>(null)
     const [menuOpen, setMenuOpen] = useState(false)
+    const [confirmNew, setConfirmNew] = useState(false)
     const [pasting, setPasting] = useState(false)
     const [pasteText, setPasteText] = useState('')
     const rootRef = useRef<HTMLElement | null>(null)
@@ -126,10 +127,23 @@ export function EventLog() {
                     {menuOpen && (
                         <div role="menu" className="menu absolute right-0 top-full z-20 mt-1">
                             <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setPasting(true) }}>Paste list</button>
+                            <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setConfirmNew(true) }}>New match…</button>
                         </div>
                     )}
                 </div>
             </header>
+
+            {confirmNew && (
+                <div role="alertdialog" aria-label="New match" className="flex flex-col gap-2 border-b border-line bg-sunk px-3 py-2 text-[13px]">
+                    <p className="m-0">
+                        Clear {events.length} {events.length === 1 ? 'event' : 'events'} and unload the videos? Teams, rosters and clip settings stay. ⌘Z brings the events back.
+                    </p>
+                    <div className="flex gap-2">
+                        <button type="button" onClick={() => { setConfirmNew(false); useAppState.getState().newMatch() }} className="btn-primary">Clear and start new match</button>
+                        <button type="button" onClick={() => setConfirmNew(false)} className="btn-quiet">Keep</button>
+                    </div>
+                </div>
+            )}
 
             {pasting && (
                 <div className="flex flex-col gap-2 border-b border-line bg-sunk px-3 py-2">

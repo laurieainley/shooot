@@ -296,3 +296,32 @@ describe('EventLog header', () => {
         expect(useAppState.getState().events).toHaveLength(0)
     })
 })
+
+describe('EventLog new match', () => {
+    const two: MatchEvent[] = [
+        { id: 'a', matchTimeSec: 10, sourceFileIndex: 0, type: 'goal' },
+        { id: 'b', matchTimeSec: 20, sourceFileIndex: 0, type: 'highlight' },
+    ]
+
+    it('should ask before clearing, and clear on confirm', async () => {
+        setup(two)
+        render(<EventLog />)
+        await userEvent.click(screen.getByRole('button', { name: 'More' }))
+        await userEvent.click(screen.getByRole('menuitem', { name: /new match/i }))
+        expect(useAppState.getState().events).toHaveLength(2)
+        expect(screen.getByText(/clear 2 events and unload the videos/i)).toBeInTheDocument()
+        await userEvent.click(screen.getByRole('button', { name: /clear and start/i }))
+        expect(useAppState.getState().events).toEqual([])
+        expect(useAppState.getState().files).toEqual([])
+    })
+
+    it('should keep everything on cancel', async () => {
+        setup(two)
+        render(<EventLog />)
+        await userEvent.click(screen.getByRole('button', { name: 'More' }))
+        await userEvent.click(screen.getByRole('menuitem', { name: /new match/i }))
+        await userEvent.click(screen.getByRole('button', { name: /keep/i }))
+        expect(useAppState.getState().events).toHaveLength(2)
+        expect(screen.queryByText(/clear 2 events/i)).not.toBeInTheDocument()
+    })
+})

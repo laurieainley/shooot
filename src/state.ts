@@ -49,6 +49,7 @@ type AppState = {
     updateEvent: (id: string, partial: Partial<MatchEvent>) => void
     sortEvents: () => void
     clear: () => void
+    newMatch: () => void
     // Undo/redo
     undoStack: MatchEvent[][]
     redoStack: MatchEvent[][]
@@ -234,6 +235,17 @@ export const useAppState = create<AppState>()(
                 })
             },
             clear: () => set({ files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0, matchStartTimeSec: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, isPreviewMode: false, previewSegments: [], currentPreviewSegment: 0, undoStack: [], redoStack: [], picker: null }),
+            // Start a new game: drop events, videos and kick-off; keep teams, rosters and clip/replay settings.
+            // Events go on the undo stack so an accidental clear can be undone.
+            newMatch: () => {
+                const state = get()
+                for (const f of state.files) if (f.url) URL.revokeObjectURL(f.url)
+                set({
+                    files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0,
+                    matchStartTimeSec: 0, isPreviewMode: false, previewSegments: [], currentPreviewSegment: 0, picker: null,
+                    undoStack: [...state.undoStack.slice(-49), state.events], redoStack: [],
+                })
+            },
             setTeams: (teams) => set({ teams }),
             renameTeam: (index, name) => {
                 const old = get().teams[index]?.name

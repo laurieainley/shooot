@@ -174,3 +174,18 @@ describe('addEvents', () => {
         expect(s().undoStack.length).toBe(undoDepth)
     })
 })
+
+describe('newMatch', () => {
+    it('should clear events, files and kick-off but keep teams and clip/replay settings, undoably', () => {
+        const teams = [{ name: 'Lights', color: '#fff', roster: ['Sam'] }, { name: 'Darks', color: '#000', roster: [] }]
+        useAppState.setState({
+            files: [vf('a.mp4')], cumulativeOffsets: [0], currentFileIndex: 0, matchStartTimeSec: 90,
+            events: [{ id: 'e', matchTimeSec: 100, sourceFileIndex: 0, sourceFileKey: 'a.mp4', type: 'goal' }],
+            teams, lengthBeforeGoalSec: 12, replaySpeed: 0.25, undoStack: [], redoStack: [], picker: { eventId: 'e' },
+        })
+        s().newMatch()
+        expect(s()).toMatchObject({ files: [], events: [], cumulativeOffsets: [], matchStartTimeSec: 0, picker: null, teams, lengthBeforeGoalSec: 12, replaySpeed: 0.25 })
+        s().undo()
+        expect(s().events.map((e) => e.id)).toEqual(['e'])
+    })
+})
