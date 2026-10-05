@@ -51,3 +51,15 @@ Own goals: Ade (for Whites)
 - Unit: goalscorers ordering/pens/own goals; descriptions composition; full-match cut plan (kick-off/final-whistle across files, missing markers); migration of matchStartTimeSec → Kick off event; picker reducer for K/Q types (no further steps; single instance moves).
 - Component: Export tabs; copy buttons labels and content; Match setup without start field; heading placeholder/default MATCH; relink banner states (supported vs not).
 - Browser: render a full match from two generated files with kick-off in file 1 and final whistle in file 2; verify duration and ffmpeg decode clean; phone portrait/landscape screenshots of Export tabs and picker with the new types.
+
+## 6. Rendering on phones: wake lock and resumable renders (user: "Sure")
+
+- While any render runs, hold a Screen Wake Lock (`navigator.wakeLock.request('screen')`, re-acquire on `visibilitychange` back to visible) and show "Keep this screen open until the render finishes". Release on finish/cancel/failure. No-op where unsupported.
+- Resumable renders: the engine records progress per completed cut (cut index, output bytes written, cursor timestamps, audio state) in IndexedDB next to the OPFS output; if the page is frozen/discarded/reloaded mid-render, the Export panel offers **Resume render** (same project, same files relinked) which continues from the last completed cut. If the plan or files changed, offer only a fresh render. Desktop: show a Notification when a long render finishes while the tab is hidden (permission requested on first long render).
+
+## 7. Event caption position and timing (user: goal label up top, 2 s longer)
+
+- Move event captions from the bottom lower third to a **top-left score-bug** style caption (TV convention: score bug top-left): team initials + score (`WH 1–0 CO`) with the event line beneath (`GOAL · Sam Taylor`, `HIGHLIGHT · Jo — nutmeg on the wing`). Non-scoring events show the current score too.
+- **REPLAY** tag moves to **top-right** (broadcaster convention), so captions and the replay tag never overlap.
+- Caption on screen for **5 s** (was 3 s), same slide/fade in and out. Re-encoded GOP window grows accordingly.
+- Title-safe margins (5 %) kept; sizes per the polish pass's ~1.4× scale-up.
