@@ -5,13 +5,19 @@ import { lengthSize, paramSets, spsLimits, spsOf, type SpsLimits } from './nal'
 
 export type EncoderSetup = {
     config: VideoEncoderConfig
+    /** Decoder config of the encoder's output (codec string and avcC/hvcC). */
+    output: { codec: string; description: Uint8Array }
     /** Parameter sets this encoder produces, its SPS limits and NAL length size. */
     params: Uint8Array[]
     limits: SpsLimits
     nalLength: number
 }
 
-export type EncoderTarget = { codec: string; hevc: boolean; width: number; height: number; frameRate: number; bitrate: number }
+export type EncoderTarget = {
+    codec: string; hevc: boolean; width: number; height: number; frameRate: number; bitrate: number
+    /** Footage colour space: generated frames are tagged with it so the encoder signals the same. */
+    colorSpace?: VideoColorSpaceInit
+}
 
 const FALLBACKS = {
     hevc: ['hvc1.1.6.L123.B0', 'hvc1.1.6.L150.B0', 'hvc1.1.6.L153.B0', 'hvc1.1.6.L120.B0'],
@@ -30,7 +36,7 @@ function encoderConfig(t: EncoderTarget, codec: string, latencyMode: LatencyMode
     } as VideoEncoderConfig
 }
 
-type Encoded = { packets: EncodedPacket[]; description: Uint8Array | null }
+type Encoded = { packets: EncodedPacket[]; description: Uint8Array | null; codec: string | null }
 
 /** Runs one encoder session; `produce` feeds frames (which are closed after encoding). Packets keep µs-based timestamps. */
 export async function encodeSegment(
@@ -39,6 +45,7 @@ export async function encodeSegment(
 ): Promise<Encoded> {
     const packets: EncodedPacket[] = []
     let description: Uint8Array | null = null
+    let codec: string | null = null
     let failure: unknown = null
     const enc = new VideoEncoder({
         output: (chunk, meta) => {
@@ -46,6 +53,7 @@ export async function encodeSegment(
             chunk.copyTo(data)
             packets.push(new EncodedPacket(data, chunk.type, chunk.timestamp / 1e6, (chunk.duration ?? 0) / 1e6))
             const d = meta?.decoderConfig?.description
+            if (meta?.decoderConfig && !codec) codec = meta.decoderConfig.codec
             if (d && !description) description = d instanceof Uint8Array ? d.slice() : new Uint8Array(ArrayBuffer.isView(d) ? d.buffer.slice(d.byteOffset, d.byteOffset + d.byteLength) : d.slice(0))
         },
         error: (e) => { failure = e },
@@ -62,7 +70,13 @@ export async function encodeSegment(
         if (enc.state !== 'closed') enc.close()
     }
     if (failure) throw failure instanceof Error ? failure : new Error(String(failure))
-    return { packets, description }
+    return { packets, description, codec }
+}
+
+/** An RGBA frame from canvas pixels, tagged with the footage colour space (canvas frames would be sRGB). */
+export function rgbaFrame(ctx: OffscreenCanvasRenderingContext2D, width: number, height: number, timestampUs: number, durationUs: number, colorSpace?: VideoColorSpaceInit): VideoFrame {
+    const img = ctx.getImageData(0, 0, width, height)
+    return new VideoFrame(img.data, { format: 'RGBA', codedWidth: width, codedHeight: height, timestamp: timestampUs, duration: durationUs, ...(colorSpace ? { colorSpace } : {}) })
 }
 
 export function describeOutput(description: Uint8Array, hevc: boolean): Pick<EncoderSetup, 'params' | 'limits' | 'nalLength'> {
@@ -88,11 +102,11 @@ export async function* probeEncoders(t: EncoderTarget): AsyncGenerator<EncoderSe
                 const canvas = new OffscreenCanvas(t.width, t.height)
                 const ctx = canvas.getContext('2d')!
                 ctx.fillRect(0, 0, t.width, t.height)
-                const { description } = await encodeSegment(config, async (encode) => {
-                    await encode(new VideoFrame(canvas, { timestamp: 0, duration: Math.round(1e6 / t.frameRate) }), true)
+                const out = await encodeSegment(config, async (encode) => {
+                    await encode(rgbaFrame(ctx, t.width, t.height, 0, Math.round(1e6 / t.frameRate), t.colorSpace), true)
                 })
-                if (!description) continue
-                yield { config, ...describeOutput(description, t.hevc) }
+                if (!out.description) continue
+                yield { config, output: { codec: out.codec ?? codec, description: out.description }, ...describeOutput(out.description, t.hevc) }
             } catch {
                 continue
             }

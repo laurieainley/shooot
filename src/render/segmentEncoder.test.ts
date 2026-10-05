@@ -37,7 +37,7 @@ describe('probeEncoders', () => {
         }
         g.VideoEncoder = FakeEncoder
         g.VideoFrame = class { close(): void {} }
-        g.OffscreenCanvas = class { getContext(): unknown { return { fillRect: () => undefined } } }
+        g.OffscreenCanvas = class { getContext(): unknown { return { fillRect: () => undefined, getImageData: () => ({ data: new Uint8ClampedArray(4) }) } } }
 
         const it = probeEncoders({ codec: 'hvc1.1.6.L120.90', hevc: true, width: 1920, height: 1080, frameRate: 29.97, bitrate: 8e6 })
         const first = await it.next()
@@ -47,6 +47,7 @@ describe('probeEncoders', () => {
         expect(setup.limits).toMatchObject({ codedWidth: 1920, codedHeight: 1088 })
         expect(setup.params).toHaveLength(3)
         expect(setup.nalLength).toBe(4)
+        expect(setup.output.codec).toBe('hvc1.1.6.L123.B0')
         expect(supported.mock.calls[0][0].codec).toBe('hvc1.1.6.L120.90')
     })
 
