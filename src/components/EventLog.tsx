@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useAppState } from '../state'
 import type { MatchEvent, Team } from '../types'
-import { eventLabel } from '../utils/eventTypes'
+import { eventLabel, shortNote } from '../utils/eventTypes'
 import { wantsReplay } from '../utils/replays'
 import { filterRoster, rosterTeamFor } from '../utils/roster'
+import { formatScore, scoresAfter } from '../utils/score'
 import { formatEventClock } from '../utils/timeline'
 import { TimeInput } from './TimeInput'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 
-type Editing = { id: string; field: 'scorer' | 'team' | 'time' } | null
+type Field = 'scorer' | 'team' | 'time' | 'notes'
+type Editing = { id: string; field: Field } | null
 
 function isTyping(el: Element | null): boolean {
     return el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
@@ -29,6 +31,7 @@ export function EventLog() {
     const listRef = useRef<HTMLOListElement | null>(null)
 
     const selectedIndex = events.findIndex((e) => e.id === selectedId)
+    const scores = useMemo(() => scoresAfter(events, teams, offsets), [events, teams, offsets])
 
     // A freshly marked event (picker open on it) becomes the selection, so the log shows where it landed.
     const pickerEventId = useAppState((s) => s.picker?.eventId)
@@ -87,6 +90,7 @@ export function EventLog() {
             case 'r': case 'R': if (sel) toggleReplay(sel); break
             case 'e': case 'E': if (sel) setEditing({ id: sel.id, field: 'scorer' }); break
             case 't': case 'T': if (sel) setEditing({ id: sel.id, field: 'team' }); break
+            case 'n': case 'N': if (sel) setEditing({ id: sel.id, field: 'notes' }); break
             case 'g': case 'G': { const st = useAppState.getState(); st.markEvent(st.currentTimeInFileSec); break }
             case 'Escape': rootRef.current?.blur(); break
             default: handled = false
@@ -100,7 +104,7 @@ export function EventLog() {
             aria-label="Events"
             tabIndex={0}
             onKeyDown={onKeyDown}
-            title="L to focus · ↑↓ select · ⏎ watch · R replay · E scorer · T team · ⌫ delete · Esc back to video"
+            title="L to focus · ↑↓ select · ⏎ watch · R replay · E person · T team · N note · ⌫ delete · Esc back to video"
             className="event-log group/log flex min-h-0 flex-col outline-none"
         >
             <header className="flex items-center gap-1 border-b border-line px-3 py-2">
@@ -129,6 +133,7 @@ export function EventLog() {
                             teams={teams}
                             selected={e.id === selectedId}
                             clock={formatEventClock((offsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec, e.matchTimeSec, matchStartTimeSec)}
+                            score={scores.get(e.id)}
                             fileTag={files.length > 1 ? `V${(e.sourceFileIndex ?? 0) + 1}` : null}
                             editing={editing?.id === e.id ? editing.field : null}
                             onSelect={() => { setSelectedId(e.id); seek(e) }}
@@ -149,19 +154,21 @@ interface EventRowProps {
     teams: Team[]
     selected: boolean
     clock: string
+    score?: [number, number]
     fileTag: string | null
-    editing: 'scorer' | 'team' | 'time' | null
+    editing: Field | null
     onSelect: () => void
-    onEdit: (field: 'scorer' | 'team' | 'time' | null) => void
+    onEdit: (field: Field | null) => void
     onToggleReplay: () => void
     onRemove: () => void
     restoreFocus: () => void
 }
 
-function EventRow({ event: e, teams, selected, clock, fileTag, editing, onSelect, onEdit, onToggleReplay, onRemove, restoreFocus }: EventRowProps) {
+function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, onSelect, onEdit, onToggleReplay, onRemove, restoreFocus }: EventRowProps) {
     const team = teams.find((t) => t.name === e.team)
     const replay = wantsReplay(e)
     const label = `${eventLabel(e)}${e.scorer ? ` · ${e.scorer}` : ''}`
+    const note = shortNote(e.notes)
     const stop = (ev: React.SyntheticEvent): void => ev.stopPropagation()
     const done = (): void => { onEdit(null); restoreFocus() }
     const update = useAppState((s) => s.updateEvent)
@@ -213,13 +220,20 @@ function EventRow({ event: e, teams, selected, clock, fileTag, editing, onSelect
                 </span>
             ) : editing === 'scorer' ? (
                 <ScorerEdit event={e} teams={teams} onDone={done} />
+            ) : editing === 'notes' ? (
+                <NoteEdit event={e} onDone={done} />
             ) : (
-                <span className="truncate text-[13px]" onDoubleClick={(ev) => { stop(ev); onEdit('scorer') }} title={e.team ? `${label} – ${e.team}` : label}>
-                    {label}
+                <span className="event-row__label truncate text-[13px]" title={`${label}${e.team ? ` – ${e.team}` : ''}${e.notes ? ` — ${e.notes}` : ''}`}>
+                    <span onDoubleClick={(ev) => { stop(ev); onEdit('scorer') }}>{label}</span>
+                    {note && <>
+                        <span className="text-muted"> — </span>
+                        <span className="text-muted" onDoubleClick={(ev) => { stop(ev); onEdit('notes') }}>{note}</span>
+                    </>}
                 </span>
             )}
 
             <span className="flex items-center gap-1.5">
+                {score && <span data-score className="tc row-score" title="Score after this goal">{formatScore(score)}</span>}
                 {e.unlinked
                     ? <span className="tag tag-warn" title={e.sourceFileKey}>file missing</span>
                     : fileTag && <span className="tag">{fileTag}</span>}
@@ -280,6 +294,43 @@ function ScorerEdit({ event: e, teams, onDone }: ScorerEditProps) {
                     ))}
                 </ul>
             )}
+        </span>
+    )
+}
+
+interface NoteEditProps {
+    event: MatchEvent
+    onDone: () => void
+}
+
+function NoteEdit({ event: e, onDone }: NoteEditProps) {
+    const [value, setValue] = useState(e.notes ?? '')
+    const finished = useRef(false)
+    const finish = (save: boolean): void => {
+        if (finished.current) return
+        finished.current = true
+        const clean = value.trim()
+        if (save && clean !== (e.notes ?? '')) useAppState.getState().updateEvent(e.id, { notes: clean || undefined })
+        onDone()
+    }
+
+    return (
+        <span className="min-w-0" onClick={(ev) => ev.stopPropagation()}>
+            <input
+                autoFocus
+                aria-label="Note"
+                value={value}
+                maxLength={200}
+                onChange={(ev) => setValue(ev.target.value)}
+                onKeyDown={(ev) => {
+                    ev.stopPropagation()
+                    if (ev.key === 'Enter') { ev.preventDefault(); finish(true) }
+                    else if (ev.key === 'Escape') { ev.preventDefault(); finish(false) }
+                }}
+                onBlur={() => finish(true)}
+                placeholder="Note"
+                className="field w-full px-1 py-0 text-[13px]"
+            />
         </span>
     )
 }

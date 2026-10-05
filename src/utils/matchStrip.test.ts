@@ -37,6 +37,11 @@ describe('buildMatchStrip', () => {
         expect(s.events).toEqual([{ id: 'a', leftPct: 70, color: '#c2364a', title: expect.stringContaining('Goal'), kind: 'goal' }])
     })
 
+    it('should add a shortened note to the dot title', () => {
+        const s = buildMatchStrip({ ...base, events: [ev('a', 0, 100, { type: 'foul', team: 'Colours', notes: 'late tackle' })] })
+        expect(s.events[0].title).toMatch(/Foul – Colours — late tackle$/)
+    })
+
     it('should draw events without a team in the neutral muted token', () => {
         const s = buildMatchStrip({ ...base, events: [ev('h', 0, 50, { type: 'highlight' })] })
         expect(s.events[0].color).toBe('var(--muted)')

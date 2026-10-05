@@ -140,6 +140,14 @@
   text-shadow: 0 0 6px rgb(242 179 76 / 0.45);
 }
 .score-sep { opacity: 0.6; }
+.score-final { font-size: 13px; color: var(--muted); }
+/* Fullscreen: the compact badge as a chip over the picture (never takes taps). */
+.overlay-controls.score-chip { pointer-events: none; }
+.overlay-controls.score-chip > * { pointer-events: none; }
+.score-chip .score-badge {
+  gap: 6px; padding: 5px 8px; border-radius: 4px; background: rgb(0 0 0 / 0.55); color: #fff;
+}
+.score-chip .score-final { color: rgb(255 255 255 / 0.7); }
 
 /* ---------- desktop bay ---------- */
 .bay { display: grid; grid-template-columns: minmax(0, 1fr) clamp(280px, 26vw, 360px); min-height: 0; }
@@ -180,9 +188,14 @@
 .event-row[aria-disabled="true"] { cursor: default; }
 .event-row[aria-disabled="true"] > :not(:last-child) { opacity: 0.5; }
 .event-row .team-dot { cursor: default; }
+.row-score { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: no-preference) { .event-row { transition: background-color 0.12s; } }
 .shell--phone .event-log ol { overflow: visible; }
 .shell--phone .event-row { min-height: 44px; }
+/* Phone rows are narrow: let a note wrap onto a second line instead of vanishing into an ellipsis. */
+.shell--phone .event-row__label {
+  white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; line-height: 1.3;
+}
 
 .clip-summary {
   display: grid; gap: 3px; width: 100%; text-align: left; cursor: pointer;
@@ -446,7 +459,7 @@
 
 /* Event picker: popover over the video on desktop, bottom sheet with big chips on the phone */
 .event-picker {
-  position: absolute; left: 12px; bottom: 52px; z-index: 2147483647; width: 250px; max-height: 72%; overflow-y: auto; overscroll-behavior: contain;
+  position: absolute; left: 12px; bottom: 52px; z-index: 2147483647; width: 280px; max-height: 72%; overflow-y: auto; overscroll-behavior: contain;
   border-radius: 5px; background: var(--panel); color: var(--ink); border: 1px solid var(--line);
   box-shadow: 0 10px 30px rgb(0 0 0 / 0.35); font-size: 13px; padding: 6px; pointer-events: auto;
 }
@@ -462,6 +475,11 @@
 .event-picker__input:focus { outline: none; border-color: var(--accent); }
 .event-picker__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 .event-picker__actions > button { min-height: 44px; min-width: 96px; justify-content: center; font-size: 15px; }
+.event-picker__skip {
+  display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 4px; padding: 5px 8px;
+  border: 1px dashed var(--line); border-radius: 3px; background: none; color: var(--muted); font: inherit; cursor: pointer;
+}
+.event-picker__skip:hover { color: var(--ink); border-color: var(--muted); }
 .event-picker__hint { margin-top: 6px; padding: 0 6px; font-size: 11px; color: var(--muted); }
 @media (max-width: 899px) {
   .event-picker {
@@ -474,6 +492,8 @@
   .event-picker__item { padding: 11px 14px; border: 1px solid var(--line); border-radius: 4px; }
   .event-picker__item[aria-selected="true"] { border-color: var(--accent); font-weight: 600; }
   .event-picker__item kbd { display: none; }
+  .event-picker__skip { width: auto; margin-top: 8px; padding: 11px 14px; border-radius: 4px; }
+  .event-picker__input { font-size: 16px; padding: 10px 12px; } /* 16px: no iOS zoom on focus */
 }
 
 /* Container fullscreen (see components/fullscreen.ts) */
@@ -503,7 +523,7 @@
   .btn-icon { width: 44px; height: 44px; }
   .btn-quiet, .btn-primary, .file-add { min-height: 40px; }
   .event-row { min-height: 48px; }
-  .event-picker__item { min-height: 44px; box-sizing: border-box; }
+  .event-picker__item, .event-picker__skip { min-height: 44px; box-sizing: border-box; }
   .control-btn { min-width: 44px; min-height: 44px; justify-content: center; }
   .menu-list > button { min-height: 44px; }
   .swatch { width: 32px; height: 32px; }

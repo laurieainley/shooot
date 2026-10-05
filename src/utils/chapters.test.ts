@@ -97,6 +97,23 @@ describe('generateYouTubeChapters — event types', () => {
     })
 })
 
+describe('chapters — notes', () => {
+    const e = (id: string, t: number, extra: Partial<MatchEvent>): MatchEvent => ({ id, matchTimeSec: t, sourceFileIndex: 0, type: 'highlight', ...extra })
+
+    it('should add a shortened note after the person', () => {
+        const events = [
+            e('a', 734, { team: 'Whites', scorer: 'Sam', notes: 'nutmeg on the wing' }),
+            e('b', 800, { type: 'foul', team: 'Colours', notes: 'late tackle' }),
+            e('c', 900, { notes: 'a very long description of a mazy run beating four defenders before shooting wide' }),
+        ]
+        const out = generateYouTubeChapters(events, [0], 0, 0, 4, ['Whites', 'Colours'])
+        expect(out).toContain('12:14 Highlight (Whites) Sam: nutmeg on the wing')
+        expect(out).toContain('13:20 Foul (Colours): late tackle')
+        expect(out).toContain('15:00 Highlight: a very long description of a mazy run…')
+        expect(generateHighlightChapters(events, [0], 10, 4, ['Whites', 'Colours'])).toContain('00:00 Highlight (Whites) Sam: nutmeg on the wing')
+    })
+})
+
 describe('generateHighlightChapters — event types', () => {
     it('should not advance the score for non-scoring events', () => {
         const events: MatchEvent[] = [

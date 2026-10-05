@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAppState } from '../state'
 import { PICKER_OPTIONS, eventIcon } from '../utils/eventTypes'
-import { initialPickerState, pickerReducer, scorerCandidates, type PickerInput, type PickerState } from '../utils/eventPicker'
+import { SKIP, initialPickerState, pickerReducer, scorerCandidates, type PickerInput, type PickerState } from '../utils/eventPicker'
 import { teamShortcuts } from '../utils/roster'
 import { formatHMS } from '../utils/timeline'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 
-const HANDLED = new Set(['Enter', 'Escape', 'ArrowUp', 'ArrowDown', 'Backspace'])
+const HANDLED = new Set(['Enter', 'Escape', 'ArrowUp', 'ArrowDown', 'Backspace', 'Tab'])
 
 export function EventPicker() {
     const picker = useAppState((s) => s.picker)
@@ -51,16 +51,18 @@ export function EventPicker() {
         const onKey = (e: KeyboardEvent): void => {
             if (e.metaKey || e.ctrlKey || e.altKey) return
             e.stopImmediatePropagation()
-            const inText = stateRef.current.step === 'scorer'
+            const step = stateRef.current.step
+            const inText = step === 'scorer' || step === 'text'
             const isLetter = e.key.length === 1
-            if (HANDLED.has(e.key) && !(inText && e.key === 'Backspace')) {
+            const caretKey = step === 'text' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')
+            if (HANDLED.has(e.key) && !(inText && e.key === 'Backspace') && !caretKey) {
                 e.preventDefault()
                 dispatch({ kind: 'key', key: e.key })
             } else if (isLetter && !inText) {
                 e.preventDefault()
                 dispatch({ kind: 'key', key: e.key })
             }
-            // letters in the scorer step fall through to the focused text field (default action not prevented)
+            // letters in the scorer / text steps fall through to the focused text field (default action not prevented)
         }
         window.addEventListener('keydown', onKey, true)
         return () => window.removeEventListener('keydown', onKey, true)
@@ -72,10 +74,18 @@ export function EventPicker() {
     const shortcuts = teamShortcuts(names)
     const candidates = scorerCandidates(state, { teams })
     const title = `${formatHMS(event.matchTimeSec)} ${eventIcon(event)}`
+    const { option } = state
+    const canSkip = (state.step === 'team' && option.teamOptional) || (state.step === 'scorer' && option.personOptional)
+    const personLabel = option.personLabel ?? 'Scorer'
+    const textLabel = option.textLabel ?? 'Note'
+    const textPlaceholder = option.askText === 'prompt' ? `${textLabel}? e.g. nutmeg on the wing` : `${textLabel} (optional)`
+    const hint = state.step === 'type' ? 'Esc to finish · ⌫ cancel'
+        : state.step === 'text' ? '⏎ save · Esc to finish'
+        : canSkip ? 'Tab skip · Esc to finish' : 'Esc to finish'
 
     return (
         <div className="event-picker" role="dialog" aria-label="Event details">
-            <div className="event-picker__title">{title}{state.team ? ` · ${state.team}` : ''}</div>
+            <div className="event-picker__title">{title}{state.team ? ` · ${state.team}` : ''}{event.scorer ? ` · ${event.scorer}` : ''}</div>
 
             {state.step === 'type' && (
                 <ul role="listbox" className="event-picker__list">
@@ -105,9 +115,9 @@ export function EventPicker() {
                 <div>
                     <input
                         autoFocus
-                        aria-label="Scorer"
+                        aria-label={personLabel}
                         className="event-picker__input"
-                        placeholder="Scorer — type to filter, Enter to pick"
+                        placeholder={`${personLabel} — type to filter, Enter to pick`}
                         value={state.query}
                         onChange={(e) => dispatch({ kind: 'text', value: e.target.value })}
                     />
@@ -127,13 +137,33 @@ export function EventPicker() {
                     </ul>
                 </div>
             )}
+
+            {state.step === 'text' && (
+                <input
+                    autoFocus
+                    aria-label={textLabel}
+                    className="event-picker__input"
+                    placeholder={textPlaceholder}
+                    enterKeyHint="done"
+                    maxLength={200}
+                    value={state.query}
+                    onChange={(e) => dispatch({ kind: 'text', value: e.target.value })}
+                />
+            )}
+
+            {canSkip && (
+                <button type="button" className="event-picker__skip" onClick={() => dispatch({ kind: 'choose', value: SKIP })}>
+                    Skip{!coarse && <kbd>Tab</kbd>}
+                </button>
+            )}
+
             {coarse ? (
                 <div className="event-picker__actions">
                     <button type="button" className="btn-quiet" onClick={() => useAppState.getState().removeEvent(event.id)}>Cancel</button>
-                    <button type="button" className="btn-primary" onClick={() => useAppState.getState().closePicker()}>Done</button>
+                    <button type="button" className="btn-primary" onClick={() => dispatch({ kind: 'key', key: 'Escape' })}>Done</button>
                 </div>
             ) : (
-                <div className="event-picker__hint">Esc to finish{state.step === 'type' ? ' · ⌫ cancel' : ''}</div>
+                <div className="event-picker__hint">{hint}</div>
             )}
         </div>
     )

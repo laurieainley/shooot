@@ -1,5 +1,5 @@
 import type { MatchEvent, Team } from '../types'
-import { eventLabel } from './eventTypes'
+import { eventLabel, shortNote } from './eventTypes'
 import { mergeOverlappingGoalSegments } from './highlights'
 import { linkedEvents } from './relink'
 import { formatHMS } from './timeline'
@@ -54,11 +54,12 @@ export function buildMatchStrip(args: {
     const stripEvents = linked.map((e) => {
         const team = teams.find((t) => t.name === e.team)
         const g = (cumulativeOffsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec
+        const note = shortNote(e.notes)
         return {
             id: e.id,
             leftPct: pct(g),
             color: team?.color ?? 'var(--muted)',
-            title: `${formatHMS(g)} ${eventLabel(e)}${e.team ? ` – ${e.team}` : ''}${e.scorer ? ` (${e.scorer})` : ''}`,
+            title: `${formatHMS(g)} ${eventLabel(e)}${e.team ? ` – ${e.team}` : ''}${e.scorer ? ` (${e.scorer})` : ''}${note ? ` — ${note}` : ''}`,
             kind: e.type,
         }
     })

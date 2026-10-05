@@ -26,18 +26,27 @@ export type PickerOption = {
     key: string          // lower-case shortcut in the picker
     label: string
     askTeam: boolean
-    askScorer: boolean
+    teamOptional: boolean       // team step shows Skip
+    askScorer: boolean          // person step (stored in `scorer`)
+    personLabel?: string
+    personOptional: boolean     // person step shows Skip
+    askText: 'prompt' | 'optional' | false // free-text step (stored in `notes`)
+    textLabel?: string
 }
 
+type Base = Pick<PickerOption, 'pen' | 'askTeam' | 'teamOptional' | 'askScorer' | 'personOptional' | 'askText'>
+const SCORER: Base = { pen: false, askTeam: true, teamOptional: false, askScorer: true, personOptional: false, askText: false }
+const OPTIONAL_ALL: Base = { pen: false, askTeam: true, teamOptional: true, askScorer: true, personOptional: true, askText: 'optional' }
+
 export const PICKER_OPTIONS: PickerOption[] = [
-    { id: 'goal',            type: 'goal',            pen: false, key: 'g', label: 'Goal',            askTeam: true,  askScorer: true },
-    { id: 'goal_pen',        type: 'goal',            pen: true,  key: 'p', label: 'Goal (pen)',      askTeam: true,  askScorer: true },
-    { id: 'own_goal',        type: 'own_goal',        pen: false, key: 'o', label: 'Own goal',        askTeam: true,  askScorer: true },
-    { id: 'penalty_awarded', type: 'penalty_awarded', pen: false, key: 'a', label: 'Penalty awarded', askTeam: true,  askScorer: false },
-    { id: 'penalty_missed',  type: 'penalty_missed',  pen: false, key: 'x', label: 'Penalty missed',  askTeam: true,  askScorer: true },
-    { id: 'highlight',       type: 'highlight',       pen: false, key: 'h', label: 'Highlight',       askTeam: false, askScorer: false },
-    { id: 'foul',            type: 'foul',            pen: false, key: 'f', label: 'Foul',            askTeam: false, askScorer: false },
-    { id: 'save',            type: 'save',            pen: false, key: 's', label: 'Save',            askTeam: true,  askScorer: true },
+    { ...SCORER, id: 'goal',            type: 'goal',            key: 'g', label: 'Goal',            personLabel: 'Scorer' },
+    { ...SCORER, id: 'goal_pen',        type: 'goal',            key: 'p', label: 'Goal (pen)',      personLabel: 'Penalty taker', pen: true },
+    { ...SCORER, id: 'own_goal',        type: 'own_goal',        key: 'o', label: 'Own goal',        personLabel: 'Own goal by' },
+    { ...SCORER, id: 'penalty_awarded', type: 'penalty_awarded', key: 'a', label: 'Penalty awarded', askScorer: false },
+    { ...SCORER, id: 'penalty_missed',  type: 'penalty_missed',  key: 'x', label: 'Penalty missed',  personLabel: 'Taker' },
+    { ...OPTIONAL_ALL, id: 'highlight', type: 'highlight',       key: 'h', label: 'Highlight',       personLabel: 'Who', askText: 'prompt', textLabel: 'What happened' },
+    { ...OPTIONAL_ALL, id: 'foul',      type: 'foul',            key: 'f', label: 'Foul',            personLabel: 'Committed by', textLabel: 'Note' },
+    { ...SCORER, id: 'save',            type: 'save',            key: 's', label: 'Save',            personLabel: 'Goalkeeper', personOptional: true },
 ]
 
 export function optionForKey(key: string): PickerOption | undefined {
@@ -47,6 +56,21 @@ export function optionForKey(key: string): PickerOption | undefined {
 
 export function eventLabel(e: Pick<MatchEvent, 'type' | 'pen'>): string {
     return e.type === 'goal' && e.pen ? 'Goal (pen)' : EVENT_META[e.type].label
+}
+
+/** A note squeezed onto one line, cut at a word with an ellipsis when longer than `max`. */
+export function shortNote(notes: string | undefined, max = 40): string {
+    const clean = (notes ?? '').trim().replace(/\s+/g, ' ')
+    if (clean.length <= max) return clean
+    const cut = clean.slice(0, max - 1)
+    const space = cut.lastIndexOf(' ')
+    return `${(space > max / 2 ? cut.slice(0, space) : cut).trimEnd()}…`
+}
+
+/** One-line description: `Highlight · Sam — nutmeg on the wing`. */
+export function eventSummary(e: Pick<MatchEvent, 'type' | 'pen' | 'scorer' | 'notes'>): string {
+    const note = shortNote(e.notes)
+    return `${eventLabel(e)}${e.scorer ? ` · ${e.scorer}` : ''}${note ? ` — ${note}` : ''}`
 }
 
 export function eventIcon(e: Pick<MatchEvent, 'type'>): string {
