@@ -35,10 +35,47 @@ describe('EventPicker', () => {
         expect(s().picker).toBeNull()
     })
 
-    it('should make a highlight with H and close', () => {
+    it('should make a highlight with H and ask for the team, with a Skip option', () => {
         render(<EventPicker />)
         press('h')
         expect(s().events[0].type).toBe('highlight')
+        expect(s().picker).not.toBeNull()
+        expect(screen.getByRole('option', { name: /whites/i })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /skip/i })).toBeInTheDocument()
+        press('Escape')
+        expect(s().picker).toBeNull()
+        expect(s().events[0].type).toBe('highlight')
+    })
+
+    it('should label the person step per type', () => {
+        render(<EventPicker />)
+        press('p')
+        press('w')
+        expect(screen.getByRole('textbox', { name: 'Penalty taker' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /skip/i })).not.toBeInTheDocument()
+    })
+
+    it('should offer the goalkeeper as optional on a save', () => {
+        render(<EventPicker />)
+        press('s')
+        press('c')
+        expect(screen.getByRole('textbox', { name: 'Goalkeeper' })).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: /skip/i }))
+        expect(s().picker).toBeNull()
+        expect(s().events[0]).toMatchObject({ type: 'save', team: 'Colours' })
+        expect(s().events[0].scorer).toBeUndefined()
+    })
+
+    it('should record highlight → team → who → what happened', () => {
+        render(<EventPicker />)
+        press('h')
+        press('w')
+        fireEvent.click(screen.getByRole('option', { name: /sam taylor/i }))
+        const box = screen.getByRole('textbox', { name: 'What happened' })
+        expect(document.activeElement).toBe(box)
+        fireEvent.change(box, { target: { value: 'nutmeg on the wing' } })
+        press('Enter')
+        expect(s().events[0]).toMatchObject({ type: 'highlight', team: 'Whites', scorer: 'Sam Taylor', notes: 'nutmeg on the wing' })
         expect(s().picker).toBeNull()
     })
 
@@ -100,6 +137,17 @@ describe('EventPicker on touch', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Done' }))
         expect(s().picker).toBeNull()
         expect(s().events[0]).toMatchObject({ type: 'goal', matchTimeSec: 100 })
+    })
+
+    it('should keep the typed note on Done', () => {
+        render(<EventPicker />)
+        fireEvent.click(screen.getByRole('option', { name: /^foul/i }))
+        fireEvent.click(screen.getByRole('option', { name: /colours/i }))
+        fireEvent.click(screen.getByRole('button', { name: /skip/i }))
+        fireEvent.change(screen.getByRole('textbox', { name: 'Note' }), { target: { value: 'late tackle' } })
+        fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+        expect(s().picker).toBeNull()
+        expect(s().events[0]).toMatchObject({ type: 'foul', team: 'Colours', notes: 'late tackle' })
     })
 
     it('should delete the just-created event with Cancel', () => {
