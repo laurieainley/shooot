@@ -558,6 +558,10 @@
 /* Touch: every gesture on the video belongs to the player (taps, double taps, pinch, pan, scrubbing);
    swipes on the picture never scroll or zoom the page. */
 .player-container { touch-action: none; -webkit-tap-highlight-color: transparent; }
+/* Portrait phone, not zoomed, not fullscreen: a vertical swipe on the picture scrolls the page (back up from the
+   event list); taps, double taps and pinches still reach the player. The control bar (scrubbing) keeps every gesture. */
+.shell--phone .player-container:not(.player-container--zoomed):not(:fullscreen) { touch-action: pan-y; }
+.player-container .vjs-control-bar { touch-action: none; }
 
 /* Match graphics: Export panel switches and Match setup fields. */
 .toggle-row { display: flex; align-items: center; gap: 12px; min-height: 44px; cursor: pointer; font-size: 14px; }
