@@ -28,7 +28,7 @@
   - Penalties: Penalty awarded · Penalty missed
   - Other: Save · Foul · Highlight
   - Match: Kick off · Final whistle
-- Labels: "Goal (pen)" → **Penalty goal** everywhere in the UI (picker, edit sheet, log, chapters keep "Goal (pen)"? → use "Penalty goal" in UI and chapters too; lower thirds "PENALTY GOAL"). Keyboard shortcuts unchanged (P).
+- Labels: the app's controls (picker, edit sheet, event log) say **Penalty goal**; outputs keep broadcast style **Goal (pen)** with a space (chapters, descriptions, captions "GOAL (PEN)"). Check the display font renders the space (user saw "Goal(pen)"). Keyboard shortcuts unchanged (P).
 - After choosing a type: team step (big team buttons + Skip), person step (roster chips + search field), text step where applicable — all in the same bottom-aligned panel.
 - Desktop/keyboard flow unchanged (G creates immediately, Enter = Goal).
 
