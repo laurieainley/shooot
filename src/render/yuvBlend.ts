@@ -197,3 +197,19 @@ export function rgbaToI420(rgba: Uint8ClampedArray, width: number, height: numbe
 export function targetColorSpace(cs: VideoColorSpaceInit | undefined): VideoColorSpaceInit {
     return { ...(cs ?? {}), fullRange: cs?.fullRange ?? false }
 }
+
+/** True for the decoded formats overlays can be blended into directly (planar/semi-planar 4:2:0, 8-bit). */
+export function isYuv420(format: VideoPixelFormat | null | undefined): format is 'I420' | 'NV12' {
+    return format === 'I420' || format === 'NV12'
+}
+
+/** Plane layout of a packed I420 buffer (as produced by `rgbaToI420`). */
+export function i420Layout(width: number, height: number): PlaneLayout[] {
+    const cw = Math.ceil(width / 2)
+    const ch = Math.ceil(height / 2)
+    return [
+        { offset: 0, stride: width },
+        { offset: width * height, stride: cw },
+        { offset: width * height + cw * ch, stride: cw },
+    ]
+}
