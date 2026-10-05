@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { useAppState } from '../state'
+import { selectMatchStartSec, useAppState } from '../state'
 import type { MatchEvent, Team } from '../types'
 import { eventLabel, shortNote } from '../utils/eventTypes'
 import { wantsReplay } from '../utils/replays'
@@ -21,7 +21,7 @@ export function EventLog() {
     const files = useAppState((s) => s.files)
     const teams = useAppState((s) => s.teams)
     const offsets = useAppState((s) => s.cumulativeOffsets)
-    const matchStartTimeSec = useAppState((s) => s.matchStartTimeSec)
+    const matchStartTimeSec = useAppState(selectMatchStartSec)
     const canUndo = useAppState((s) => s.undoStack.length > 0)
     const canRedo = useAppState((s) => s.redoStack.length > 0)
     const coarse = useMediaQuery(COARSE_QUERY)

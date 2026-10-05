@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useAppState } from '../state'
+import { selectMatchStartSec, useAppState } from '../state'
 import type { MatchEvent, Team } from '../types'
 import { optionForEvent, personEdit, typeChangePatch } from '../utils/eventEdit'
 import { PICKER_OPTIONS } from '../utils/eventTypes'
@@ -27,7 +27,7 @@ interface EventSheetBodyProps {
 
 function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
     const offset = useAppState((s) => s.cumulativeOffsets[e.sourceFileIndex ?? 0] ?? 0)
-    const matchStartSec = useAppState((s) => s.matchStartTimeSec)
+    const matchStartSec = useAppState(selectMatchStartSec)
     const multiFile = useAppState((s) => s.files.length > 1)
     const option = optionForEvent(e)
     const [person, setPerson] = useState(e.scorer ?? '')

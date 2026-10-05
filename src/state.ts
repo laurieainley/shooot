@@ -4,10 +4,16 @@ import type { MarkerType, MatchEvent, Team, VideoSourceFile } from './types'
 import { migrateEvent } from './utils/eventTypes'
 import { computeCumulativeOffsets } from './utils/timeline'
 import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/highlights'
-import { relinkEvents, linkedEvents } from './utils/relink'
+import { relinkEvents as relinkByKey, linkedEvents } from './utils/relink'
+import { kickOffSec, resolveGlobalEvents, withMigratedKickOff } from './utils/matchClock'
 import { parseGoProName } from './utils/gopro'
 import { buildPreviewPlan, type PreviewStep } from './utils/preview'
 import type { GraphicsSettings } from './graphics/plan'
+
+/** Links events to the loaded files: migrated whole-timeline times are placed first, then file keys matched. */
+function relinkEvents(events: MatchEvent[], files: VideoSourceFile[]): MatchEvent[] {
+    return relinkByKey(resolveGlobalEvents(events, files), files)
+}
 
 /** Menus and sheets; at most one is open, and never together with the event picker. */
 export type Panel = 'menu' | 'files' | 'match' | 'settings' | 'paste' | 'export' | 'event'
@@ -18,7 +24,6 @@ type AppState = {
     cumulativeOffsets: number[]
     currentTimeInFileSec: number
     currentFileIndex: number
-    matchStartTimeSec: number
     adjustTimestampsByOffset: boolean
     // Highlight length configuration
     lengthBeforeGoalSec: number
@@ -44,7 +49,6 @@ type AppState = {
     attachFullFiles: (files: File[]) => string[]
     setCurrentTimeInFile: (t: number) => void
     setCurrentFileIndex: (idx: number) => void
-    setMatchStartTime: (time: number) => void
     setAdjustTimestampsByOffset: (adjust: boolean) => void
     setLengthBeforeGoal: (seconds: number) => void
     setLengthAfterGoal: (seconds: number) => void
@@ -104,6 +108,11 @@ type AppState = {
     setTeamInitials: (index: number, initials: string) => void
 }
 
+/** Kick-off on the whole timeline (0 when not marked): match clocks, Home, chapters and the full match start there. */
+export function selectMatchStartSec(s: Pick<AppState, 'events' | 'cumulativeOffsets'>): number {
+    return kickOffSec(s.events, s.cumulativeOffsets)
+}
+
 /** The heading on the title card. */
 export function matchdayText(s: Pick<AppState, 'matchdayLabel'>): string {
     return s.matchdayLabel?.trim() || 'MATCH'
@@ -139,7 +148,6 @@ export const useAppState = create<AppState>()(
             cumulativeOffsets: [],
             currentTimeInFileSec: 0,
             currentFileIndex: 0,
-            matchStartTimeSec: 0,
             adjustTimestampsByOffset: false,
             // Highlight length configuration
             lengthBeforeGoalSec: 10,
@@ -205,7 +213,6 @@ export const useAppState = create<AppState>()(
             setOpening: (label) => set({ opening: label }),
             setCurrentTimeInFile: (t) => set({ currentTimeInFileSec: t }),
             setCurrentFileIndex: (idx) => set({ currentFileIndex: Math.max(0, Math.min(idx, get().files.length - 1)) }),
-            setMatchStartTime: (time) => set({ matchStartTimeSec: time }),
             setAdjustTimestampsByOffset: (adjust) => set({ adjustTimestampsByOffset: adjust }),
             setLengthBeforeGoal: (seconds) => set({ lengthBeforeGoalSec: Math.max(0, seconds) }),
             setLengthAfterGoal: (seconds) => set({ lengthAfterGoalSec: Math.max(0, seconds) }),
@@ -321,7 +328,7 @@ export const useAppState = create<AppState>()(
                     undoStack: [...state.undoStack, state.events],
                 })
             },
-            clear: () => set({ files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0, matchStartTimeSec: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, undoStack: [], redoStack: [], picker: null }),
+            clear: () => set({ files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, undoStack: [], redoStack: [], picker: null }),
             // Start a new game: drop events, videos and kick-off; keep teams, rosters and clip/replay settings.
             // Events go on the undo stack so an accidental clear can be undone.
             newMatch: () => {
@@ -329,7 +336,7 @@ export const useAppState = create<AppState>()(
                 for (const f of state.files) if (f.url) URL.revokeObjectURL(f.url)
                 set({
                     files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0,
-                    matchStartTimeSec: 0, isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, picker: null, panel: null,
+                    isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, picker: null, panel: null,
                     undoStack: [...state.undoStack.slice(-49), state.events], redoStack: [],
                     matchdayLabel: null,
                 })
@@ -381,7 +388,7 @@ export const useAppState = create<AppState>()(
                 const segments = mergeOverlappingGoalSegments(
                     linkedEvents(state.events),
                     state.cumulativeOffsets,
-                    state.matchStartTimeSec,
+                    selectMatchStartSec(state),
                     state.adjustTimestampsByOffset,
                     state.lengthBeforeGoalSec,
                     state.lengthAfterGoalSec
@@ -418,7 +425,6 @@ export const useAppState = create<AppState>()(
             // Persist events, match start time, and offset adjustment setting; files are ephemeral and cannot be restored across refresh
             partialize: (state) => ({
                 events: state.events,
-                matchStartTimeSec: state.matchStartTimeSec,
                 adjustTimestampsByOffset: state.adjustTimestampsByOffset,
                 lengthBeforeGoalSec: state.lengthBeforeGoalSec,
                 lengthAfterGoalSec: state.lengthAfterGoalSec,
@@ -430,7 +436,7 @@ export const useAppState = create<AppState>()(
                 matchdayLabel: state.matchdayLabel,
                 barCollapsed: state.barCollapsed,
             }),
-            version: 9,
+            version: 10,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -457,8 +463,10 @@ export const useAppState = create<AppState>()(
                     state.events = (state.events as any[]).map((e: any) => migrateEvent(e))
                 }
 
-                if (version < 3 && !('matchStartTimeSec' in state)) {
-                    state.matchStartTimeSec = 0
+                // Match setup's start time became the Kick off event (v10).
+                if ('matchStartTimeSec' in state) {
+                    state.events = withMigratedKickOff(state.events ?? [], Number(state.matchStartTimeSec) || 0)
+                    delete state.matchStartTimeSec
                 }
                 if (version < 5) {
                     delete state.slowMotionEnabled

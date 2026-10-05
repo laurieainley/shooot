@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import videojs from 'video.js'
 import 'video.js/dist/video-js.css'
 import 'videojs-hotkeys'
-import { useAppState } from '../state'
+import { selectMatchStartSec, useAppState } from '../state'
 import { seekStepFor, frameStepTime, DEFAULT_FPS } from '../utils/hotkeys'
 import { FullscreenControls } from './FullscreenControls'
 import { EventPicker } from './EventPicker'
@@ -123,7 +123,7 @@ export function Player() {
                                 },
                                 handler: function (player: any) {
                                     const st = useAppState.getState()
-                                    const start = startInFile(st.matchStartTimeSec, st.cumulativeOffsets, st.currentFileIndex, player.duration() || 0)
+                                    const start = startInFile(selectMatchStartSec(st), st.cumulativeOffsets, st.currentFileIndex, player.duration() || 0)
                                     player.currentTime(homeTarget(player.currentTime() || 0, start))
                                 }
                             },

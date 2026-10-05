@@ -8,7 +8,7 @@ import { ChaptersCopy } from './ChaptersCopy'
 describe('ChaptersCopy', () => {
     beforeEach(() => {
         useAppState.setState({
-            cumulativeOffsets: [0], matchStartTimeSec: 0, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
+            cumulativeOffsets: [0], lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
             teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }],
             events: [{ id: 'a', matchTimeSec: 60, sourceFileIndex: 0, type: 'goal', team: 'Whites' }],
         })

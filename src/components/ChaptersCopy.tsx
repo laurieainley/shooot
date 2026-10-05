@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { useAppState } from '../state'
+import { selectMatchStartSec, useAppState } from '../state'
 import { generateHighlightChapters, generateYouTubeChapters } from '../utils/chapters'
 import { linkedEvents } from '../utils/relink'
 
 export function ChaptersCopy() {
     const events = useAppState((s) => s.events)
     const offsets = useAppState((s) => s.cumulativeOffsets)
-    const start = useAppState((s) => s.matchStartTimeSec)
+    const start = useAppState(selectMatchStartSec)
     const before = useAppState((s) => s.lengthBeforeGoalSec)
     const after = useAppState((s) => s.lengthAfterGoalSec)
     const teams = useAppState((s) => s.teams)

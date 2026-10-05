@@ -1,15 +1,15 @@
 import { useMemo, useRef, type PointerEvent as ReactPointerEvent } from 'react'
-import { useAppState } from '../state'
+import { selectMatchStartSec, useAppState } from '../state'
 import { buildMatchStrip, globalToFileTime } from '../utils/matchStrip'
 import { formatEventClock, formatHMS } from '../utils/timeline'
 
-/** Whole-match overview: every file end to end, clip spans, event dots, kick-off flag and playhead. Click or drag to jump. */
+/** Whole-match overview: every file end to end, clip spans, event dots, kick-off / final-whistle flags and playhead. Click or drag to jump. */
 export function MatchStrip() {
     const files = useAppState((s) => s.files)
     const cumulativeOffsets = useAppState((s) => s.cumulativeOffsets)
     const events = useAppState((s) => s.events)
     const teams = useAppState((s) => s.teams)
-    const matchStartSec = useAppState((s) => s.matchStartTimeSec)
+    const matchStartSec = useAppState(selectMatchStartSec)
     const currentFileIndex = useAppState((s) => s.currentFileIndex)
     const currentTimeSec = useAppState((s) => s.currentTimeInFileSec)
     const before = useAppState((s) => s.lengthBeforeGoalSec)
@@ -20,8 +20,8 @@ export function MatchStrip() {
     const dragging = useRef(false)
 
     const strip = useMemo(
-        () => buildMatchStrip({ files, cumulativeOffsets, events, teams, matchStartSec, currentFileIndex, currentTimeSec, before, after }),
-        [files, cumulativeOffsets, events, teams, matchStartSec, currentFileIndex, currentTimeSec, before, after],
+        () => buildMatchStrip({ files, cumulativeOffsets, events, teams, currentFileIndex, currentTimeSec, before, after }),
+        [files, cumulativeOffsets, events, teams, currentFileIndex, currentTimeSec, before, after],
     )
     const durations = files.map((f) => f.durationSec ?? 0)
     const absNow = (cumulativeOffsets[currentFileIndex] ?? 0) + currentTimeSec
@@ -76,9 +76,9 @@ export function MatchStrip() {
                     {strip.clips.map((c, i) => (
                         <div key={i} className="strip-clip" style={{ left: `${c.leftPct}%`, width: `max(${c.widthPct}%, 3px)` }} />
                     ))}
-                    {strip.startPct !== null && (
-                        <div className="strip-flag" title="Kick-off" style={{ left: `${strip.startPct}%` }} />
-                    )}
+                    {strip.flags.map((f) => (
+                        <div key={f.id} className={`strip-flag strip-flag--${f.kind}`} title={f.title} style={{ left: `${f.leftPct}%` }} />
+                    ))}
                     {strip.events.map((e) => (
                         <button
                             key={e.id}

@@ -17,7 +17,7 @@ let seekToGoal: ReturnType<typeof vi.fn<(fileIndex: number, timeSec: number) => 
 function setup(event: Partial<MatchEvent> = {}): void {
     seekToGoal = vi.fn()
     useAppState.setState({
-        files: [vf('a.mp4')], cumulativeOffsets: [0], teams, matchStartTimeSec: 0, lengthBeforeGoalSec: 10,
+        files: [vf('a.mp4')], cumulativeOffsets: [0], teams, lengthBeforeGoalSec: 10,
         events: [{ id: 'a', matchTimeSec: 95, sourceFileIndex: 0, type: 'goal', team: 'Whites', scorer: 'Sam Taylor', ...event }],
         undoStack: [], redoStack: [], picker: null, panel: 'event', editingEventId: 'a', seekToGoal,
     })

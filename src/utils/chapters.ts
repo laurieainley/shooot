@@ -1,5 +1,5 @@
 import type { MatchEvent } from '../types'
-import { eventLabel, isScoring, shortNote } from './eventTypes'
+import { eventLabel, isMarker, isScoring, shortNote } from './eventTypes'
 import { wantsReplay } from './replays'
 import type { ReplayOptions } from './renderPlan'
 
@@ -40,7 +40,7 @@ export function generateYouTubeChapters(
     const allFromFirstVideo = goals.every((g) => (g.sourceFileIndex ?? 0) === 0)
     if (!hasVideoFiles && !allFromFirstVideo) return 'Load video files to see timestamps'
 
-    const sorted = [...goals].sort((a, b) => absTime(a, cumulativeOffsets) - absTime(b, cumulativeOffsets))
+    const sorted = goals.filter((g) => !isMarker(g)).sort((a, b) => absTime(a, cumulativeOffsets) - absTime(b, cumulativeOffsets))
     const teams = scoreTeams(goals, teamOrder)
     const running: Record<string, number> = {}
     const lines = [...finalScoreLine(goals, teams), '00:00 Start']
@@ -55,6 +55,7 @@ export function generateHighlightChapters(
     goals: MatchEvent[], cumulativeOffsets: number[] = [], lengthBeforeGoalSec: number = 10,
     lengthAfterGoalSec: number = 4, teamOrder?: string[], replay?: ReplayOptions,
 ): string {
+    goals = goals.filter((g) => !isMarker(g))
     if (goals.length === 0) return '00:00 Start'
     const sorted = [...goals].sort((a, b) => absTime(a, cumulativeOffsets) - absTime(b, cumulativeOffsets))
     const teams = scoreTeams(goals, teamOrder)

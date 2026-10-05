@@ -91,7 +91,7 @@ export function isScoring(e: Pick<MatchEvent, 'type'>): boolean {
 }
 
 /** Kick off / Final whistle markers. */
-export function isMarker(e: Pick<MatchEvent, 'type'>): e is Pick<MatchEvent, 'type'> & { type: MarkerType } {
+export function isMarker<T extends Pick<MatchEvent, 'type'>>(e: T): e is T & { type: MarkerType } {
     return EVENT_META[e.type].marker === true
 }
 

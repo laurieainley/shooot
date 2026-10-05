@@ -10,8 +10,8 @@ const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: 
 describe('TimelineMarkers', () => {
     beforeEach(() => {
         useAppState.setState({
-            files: [vf('a.mp4')], cumulativeOffsets: [0], currentFileIndex: 0, matchStartTimeSec: 20, lengthBeforeGoalSec: 10,
-            events: [{ id: 'e', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites' }],
+            files: [vf('a.mp4')], cumulativeOffsets: [0], currentFileIndex: 0, lengthBeforeGoalSec: 10,
+            events: [{ id: 'k', matchTimeSec: 20, sourceFileIndex: 0, type: 'kick_off' }, { id: 'e', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites' }],
         })
     })
 

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type ChangeEvent } from 'react'
-import { matchdayText, useAppState } from '../state'
+import { matchdayText, selectMatchStartSec, useAppState } from '../state'
 import { renderReel, type GraphicsReport } from '../render'
 import { prepareGraphics } from '../graphics/prepare'
 import { mergeOverlappingGoalSegments } from '../utils/highlights'
@@ -14,7 +14,7 @@ export function RenderHighlights() {
     const files = useAppState((s) => s.files)
     const events = useAppState((s) => s.events)
     const cumulativeOffsets = useAppState((s) => s.cumulativeOffsets)
-    const matchStartTimeSec = useAppState((s) => s.matchStartTimeSec)
+    const matchStartTimeSec = useAppState(selectMatchStartSec)
     const adjustTimestampsByOffset = useAppState((s) => s.adjustTimestampsByOffset)
     const before = useAppState((s) => s.lengthBeforeGoalSec)
     const after = useAppState((s) => s.lengthAfterGoalSec)

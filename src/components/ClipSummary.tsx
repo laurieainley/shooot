@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useAppState } from '../state'
+import { selectMatchStartSec, useAppState } from '../state'
 import { formatReelLength, reelSummary } from '../utils/reel'
 
 interface ClipSummaryProps {
@@ -12,7 +12,7 @@ export function ClipSummary({ compact = false }: ClipSummaryProps) {
     const files = useAppState((s) => s.files)
     const events = useAppState((s) => s.events)
     const cumulativeOffsets = useAppState((s) => s.cumulativeOffsets)
-    const matchStartSec = useAppState((s) => s.matchStartTimeSec)
+    const matchStartSec = useAppState(selectMatchStartSec)
     const adjustTimestampsByOffset = useAppState((s) => s.adjustTimestampsByOffset)
     const before = useAppState((s) => s.lengthBeforeGoalSec)
     const after = useAppState((s) => s.lengthAfterGoalSec)

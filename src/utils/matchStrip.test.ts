@@ -19,17 +19,27 @@ describe('globalToFileTime', () => {
 })
 
 describe('buildMatchStrip', () => {
-    const base = { files, cumulativeOffsets: offsets, teams, matchStartSec: 100, currentFileIndex: 1, currentTimeSec: 100, before: 10, after: 4 }
+    const base = { files, cumulativeOffsets: offsets, teams, currentFileIndex: 1, currentTimeSec: 100, before: 10, after: 4 }
 
     it('should lay files end to end by duration', () => {
         const s = buildMatchStrip({ ...base, events: [] })
         expect(s.totalSec).toBe(1000)
+        expect(s.flags).toEqual([])
         expect(s.files).toEqual([
             { name: 'a.mp4', leftPct: 0, widthPct: 60 },
             { name: 'b.mp4', leftPct: 60, widthPct: 40 },
         ])
-        expect(s.startPct).toBe(10)
         expect(s.playheadPct).toBe(70)
+    })
+
+    it('should draw Kick off and Final whistle as flags, not dots or clips', () => {
+        const s = buildMatchStrip({ ...base, events: [ev('k', 0, 100, { type: 'kick_off' }), ev('w', 1, 300, { type: 'final_whistle' })] })
+        expect(s.flags).toEqual([
+            { id: 'k', kind: 'kick_off', leftPct: 10, title: 'Kick off 01:40' },
+            { id: 'w', kind: 'final_whistle', leftPct: 90, title: 'Final whistle 15:00' },
+        ])
+        expect(s.events).toEqual([])
+        expect(s.clips).toEqual([])
     })
 
     it('should place event dots in global time with team colour, skipping unlinked', () => {

@@ -13,7 +13,7 @@ describe('PreviewControls', () => {
     beforeEach(() => {
         useAppState.setState({
             files: [], events: [], cumulativeOffsets: [], isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0,
-            matchStartTimeSec: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
+            adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
             replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5, picker: null, panel: null, undoStack: [], redoStack: [],
         })
         s().setFiles([vf('a.mp4')])

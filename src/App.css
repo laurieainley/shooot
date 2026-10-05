@@ -283,6 +283,13 @@
   content: ""; position: absolute; top: 2px; left: 0; width: 9px; height: 7px;
   background: var(--start); clip-path: polygon(0 0, 100% 50%, 0 100%);
 }
+/* Final whistle: a chequered flag. */
+.strip-flag--final_whistle { border-left-color: var(--ink); }
+.strip-flag--final_whistle::after {
+  width: 10px; height: 8px; clip-path: none;
+  background: conic-gradient(var(--ink) 25%, var(--panel) 0 50%, var(--ink) 0 75%, var(--panel) 0) 0 0 / 5px 4px;
+  box-shadow: 0 0 0 1px var(--ink);
+}
 .strip-head { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px solid var(--accent); margin-left: -1px; pointer-events: none; z-index: 3; }
 .strip-head::before {
   content: ""; position: absolute; top: 0; left: -6px; width: 10px; height: 6px;
@@ -582,7 +589,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   position: absolute; bottom: 100%; transform: translateX(-50%); margin-bottom: 2px; padding: 0;
   border: none; background: none; font-size: 12px; line-height: 1; cursor: pointer; z-index: 2; text-shadow: 0 0 2px #000;
 }
-.timeline-marker--start { font-size: 13px; }
+.timeline-marker--kick_off, .timeline-marker--final_whistle { font-size: 13px; }
 
 /* Touch: every gesture on the video belongs to the player (taps, double taps, pinch, pan, scrubbing);
    swipes on the picture never scroll or zoom the page. */
@@ -684,3 +691,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .event-picker { scroll-padding-bottom: 76px; }
 .kb-open .sheet .floating__head { display: none; }
 .kb-open .sheet__body { padding-top: 8px; }
+
+/* Match setup: where kick-off went (it is an event now). */
+.match-setup__kickoff { display: flex; align-items: flex-start; gap: 10px; margin: 16px 0 4px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); line-height: 1.4; }
+.match-setup__kickoff .kickoff-flag { flex: none; margin-top: 3px; }
