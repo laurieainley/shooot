@@ -33,7 +33,7 @@ export function buildGraphicsSpec(args: {
     if (settings.cards && both) {
         const left = teamBadge(teams[0])
         const right = teamBadge(teams[1])
-        const intro: CardSpec = { heading: args.matchday.trim().toUpperCase() || 'MATCHDAY', centre: 'VS', left, right }
+        const intro: CardSpec = { heading: args.matchday.trim().toUpperCase() || 'MATCH', centre: 'VS', left, right }
         const [a, b] = finalScore(events, teams)
         spec.intro = intro
         spec.outro = { ...intro, heading: 'FULL TIME', centre: `${a} - ${b}` }

@@ -41,6 +41,11 @@ describe('buildGraphicsSpec', () => {
         expect(spec.outro).toMatchObject({ heading: 'FULL TIME', centre: '1 - 2' })
     })
 
+    it('should head the card MATCH when no matchday is set', () => {
+        const spec = buildGraphicsSpec({ events: [], teams, cuts, cumulativeOffsets: [0], settings: ALL, matchday: '  ' })
+        expect(spec.intro?.heading).toBe('MATCH')
+    })
+
     it('should leave cards out when turned off', () => {
         const spec = build([ev('a', 20, {})], { ...ALL, cards: false })
         expect(spec.intro).toBeUndefined()

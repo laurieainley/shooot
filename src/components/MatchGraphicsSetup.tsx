@@ -7,7 +7,6 @@ import { clearCustomLogo, loadCustomLogo, saveCustomLogo } from '../graphics/log
 /** Match setup fields used by the rendered match graphics: matchday heading, team initials, league logo. */
 export function MatchGraphicsSetup() {
     const teams = useAppState((s) => s.teams)
-    const matchNumber = useAppState((s) => s.matchNumber)
     const matchdayLabel = useAppState((s) => s.matchdayLabel)
     const setMatchdayLabel = useAppState((s) => s.setMatchdayLabel)
     const setTeamInitials = useAppState((s) => s.setTeamInitials)
@@ -58,7 +57,7 @@ export function MatchGraphicsSetup() {
                     <input
                         aria-label="Matchday"
                         value={matchday}
-                        placeholder={`Matchday ${matchNumber}`}
+                        placeholder="e.g. Matchday 3"
                         onChange={(e) => setMatchday(e.target.value)}
                         onBlur={() => setMatchdayLabel(matchday)}
                         className="field"

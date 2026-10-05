@@ -96,17 +96,15 @@ type AppState = {
     // Match graphics (title/full-time cards, lower thirds)
     graphics: GraphicsSettings
     setGraphics: (partial: Partial<GraphicsSettings>) => void
-    /** Counts matches (New match adds one) for the default "Matchday n" heading. */
-    matchNumber: number
-    /** Custom matchday heading; null = "Matchday {matchNumber}". */
+    /** Matchday heading on the title card; null = "MATCH". */
     matchdayLabel: string | null
     setMatchdayLabel: (label: string | null) => void
     setTeamInitials: (index: number, initials: string) => void
 }
 
 /** The heading on the title card. */
-export function matchdayText(s: Pick<AppState, 'matchNumber' | 'matchdayLabel'>): string {
-    return s.matchdayLabel?.trim() || `Matchday ${s.matchNumber}`
+export function matchdayText(s: Pick<AppState, 'matchdayLabel'>): string {
+    return s.matchdayLabel?.trim() || 'MATCH'
 }
 
 export const useAppState = create<AppState>()(
@@ -135,7 +133,6 @@ export const useAppState = create<AppState>()(
             barCollapsed: false,
             opening: null,
             graphics: { cards: true, lowerThirds: true, replayTag: false },
-            matchNumber: 1,
             matchdayLabel: null,
             cumulativeOffsets: [],
             currentTimeInFileSec: 0,
@@ -314,7 +311,7 @@ export const useAppState = create<AppState>()(
                     files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0,
                     matchStartTimeSec: 0, isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, picker: null, panel: null,
                     undoStack: [...state.undoStack.slice(-49), state.events], redoStack: [],
-                    matchNumber: state.matchNumber + 1, matchdayLabel: null,
+                    matchdayLabel: null,
                 })
             },
             setTeams: (teams) => set({ teams }),
@@ -410,7 +407,6 @@ export const useAppState = create<AppState>()(
                 replaySpeed: state.replaySpeed,
                 teams: state.teams,
                 graphics: state.graphics,
-                matchNumber: state.matchNumber,
                 matchdayLabel: state.matchdayLabel,
                 barCollapsed: state.barCollapsed,
             }),
@@ -451,6 +447,8 @@ export const useAppState = create<AppState>()(
                 if (version < 6 && !('adjustTimestampsByOffset' in state)) {
                     state.adjustTimestampsByOffset = false
                 }
+                // The card heading no longer counts matches (it says MATCH unless a matchday is typed).
+                delete state.matchNumber
                 if (version < 7) {
                     state.lengthBeforeGoalSec = state.lengthBeforeGoalSec ?? 10
                     state.lengthAfterGoalSec = state.lengthAfterGoalSec ?? 4

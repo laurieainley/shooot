@@ -317,7 +317,7 @@ describe('preview', () => {
 
 describe('match graphics settings', () => {
     beforeEach(() => {
-        useAppState.setState({ graphics: { cards: true, lowerThirds: true, replayTag: false }, matchNumber: 1, matchdayLabel: null })
+        useAppState.setState({ graphics: { cards: true, lowerThirds: true, replayTag: false }, matchdayLabel: null })
     })
 
     it('should default to cards and lower thirds on, replay tag off', () => {
@@ -330,19 +330,19 @@ describe('match graphics settings', () => {
         expect(s().graphics).toEqual({ cards: false, lowerThirds: true, replayTag: true })
     })
 
-    it('should name the matchday from the match number until it is edited', () => {
-        expect(matchdayText(s())).toBe('Matchday 1')
+    it('should head the card MATCH until a matchday is typed', () => {
+        expect(matchdayText(s())).toBe('MATCH')
         s().setMatchdayLabel('Cup final')
         expect(matchdayText(s())).toBe('Cup final')
         s().setMatchdayLabel('  ')
-        expect(matchdayText(s())).toBe('Matchday 1')
+        expect(matchdayText(s())).toBe('MATCH')
     })
 
-    it('should move to the next matchday on New match', () => {
+    it('should clear the matchday on New match without counting matches', () => {
         s().setMatchdayLabel('Cup final')
         s().newMatch()
-        expect(s().matchNumber).toBe(2)
-        expect(matchdayText(s())).toBe('Matchday 2')
+        expect(matchdayText(s())).toBe('MATCH')
+        expect(s()).not.toHaveProperty('matchNumber')
     })
 
     it('should store team initials, clearing them when blank', () => {
@@ -355,6 +355,7 @@ describe('match graphics settings', () => {
 
     it('should persist graphics settings and the matchday', () => {
         const persisted = useAppState.persist.getOptions().partialize!(s()) as Record<string, unknown>
-        expect(persisted).toMatchObject({ graphics: s().graphics, matchNumber: 1, matchdayLabel: null })
+        expect(persisted).toMatchObject({ graphics: s().graphics, matchdayLabel: null })
+        expect(persisted).not.toHaveProperty('matchNumber')
     })
 })
