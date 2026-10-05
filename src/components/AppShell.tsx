@@ -1,12 +1,11 @@
-import { useState } from 'react'
 import { useAppState } from '../state'
 import { ClipSummary } from './ClipSummary'
 import { EmptyPlayer } from './EmptyPlayer'
 import { EventLog } from './EventLog'
 import { Fab } from './Fab'
 import { KeyHints } from './KeyHints'
-import { MatchSetup } from './MatchSetup'
 import { MatchStrip } from './MatchStrip'
+import { Panels } from './Panels'
 import { Player } from './Player'
 import { PreviewControls } from './PreviewControls'
 import { TopBar } from './TopBar'
@@ -20,7 +19,6 @@ export function AppShell() {
     const desktop = useMediaQuery(DESKTOP_QUERY)
     const hasFiles = useAppState((s) => s.files.length > 0)
     const isPreviewMode = useAppState((s) => s.isPreviewMode)
-    const [showMatch, setShowMatch] = useState(false)
 
     const stage = (
         <div className="stage">
@@ -31,7 +29,7 @@ export function AppShell() {
 
     return (
         <div className={desktop ? 'shell shell--desktop' : 'shell shell--phone'}>
-            <TopBar desktop={desktop} onOpenMatch={() => setShowMatch(true)} />
+            <TopBar desktop={desktop} />
             {desktop ? (
                 <>
                     <main className="bay">
@@ -55,7 +53,7 @@ export function AppShell() {
                     <Fab />
                 </main>
             )}
-            {showMatch && <MatchSetup onClose={() => setShowMatch(false)} />}
+            <Panels />
         </div>
     )
 }

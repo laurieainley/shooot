@@ -226,7 +226,7 @@
 .empty-player__keys dt, .empty-player__keys dd { margin: 0; }
 .shell--phone .empty-player__keys { display: none; }
 
-/* ---------- floating panels, sheets and the modal ---------- */
+/* ---------- floating panels and sheets ---------- */
 .floating {
   position: fixed; z-index: 60; box-sizing: border-box;
   width: min(380px, calc(100vw - 24px)); max-height: calc(100dvh - 72px); overflow: auto;
@@ -267,18 +267,44 @@
 .settings-field .field { width: 100%; text-align: right; }
 .settings-field .unit { color: var(--muted); font-size: 12px; }
 
-.modal-backdrop {
-  position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 16px;
-  background: rgb(5 7 6 / 0.5);
+.floating--menu { width: min(260px, calc(100vw - 24px)); }
+.floating--menu .floating__body { padding: 4px; }
+.menu-list { display: flex; flex-direction: column; }
+.menu-list > button {
+  display: flex; align-items: center; width: 100%; min-height: 36px; text-align: left; border: 0; border-radius: 3px;
+  background: transparent; color: var(--ink); padding: 6px 10px; font-size: 14px; cursor: pointer;
 }
-.modal {
-  box-sizing: border-box; width: min(720px, 100%); max-height: calc(100dvh - 32px); overflow: auto;
+.menu-list > button:hover:not(:disabled) { background: var(--sunk); }
+.menu-list > button:disabled { opacity: 0.4; cursor: not-allowed; }
+.menu-list > button:nth-child(1) { border-bottom: 1px solid var(--line); border-radius: 3px 3px 0 0; margin-bottom: 4px; }
+.menu-list > button:nth-last-of-type(2) { border-top: 1px solid var(--line); border-radius: 0 0 3px 3px; margin-top: 4px; }
+
+/* Sheets (Match setup, Advanced settings, Files, Paste list): centred, at most 560px wide; a bottom sheet on portrait phones. */
+.sheet-backdrop {
+  position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 16px;
+  background: rgb(5 7 6 / 0.5); overscroll-behavior: contain;
+}
+.sheet {
+  box-sizing: border-box; width: min(560px, 100%); max-height: calc(100dvh - 32px); overflow: auto; overscroll-behavior: contain;
   background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px;
   box-shadow: 0 20px 50px rgb(0 0 0 / 0.3);
 }
-.modal > :not(.floating__head) { margin-inline: 16px; }
-.modal > .grid { margin-top: 16px; }
-.modal > :last-child { margin-bottom: 16px; }
+.sheet:focus { outline: none; }
+.sheet--narrow { width: min(420px, 100%); }
+.sheet__body { padding: 4px 16px 16px; }
+.team-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 12px; }
+@media (max-width: 899px) and (orientation: portrait) {
+  .sheet-backdrop { place-items: end stretch; padding: 0; }
+  .sheet, .sheet--narrow {
+    width: 100%; max-height: 88dvh; border-radius: 14px 14px 0 0; border-width: 1px 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .team-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-height: 500px) {
+  .sheet-backdrop { padding: 8px; }
+  .sheet { max-height: calc(100dvh - 16px); }
+}
 .team-card { display: flex; flex-direction: column; gap: 8px; border-top: 4px solid; padding-top: 10px; }
 .swatch {
   width: 22px; height: 22px; padding: 0; border-radius: 50%; cursor: pointer;

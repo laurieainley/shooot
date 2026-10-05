@@ -1,8 +1,8 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
+import { useAppState } from '../state'
 import { ChaptersCopy } from './ChaptersCopy'
 import { FloatingPanel } from './FloatingPanel'
 import { PreviewControls } from './PreviewControls'
-import { ProjectIO } from './ProjectIO'
 import { RenderHighlights } from './RenderHighlights'
 
 interface SectionProps {
@@ -20,14 +20,15 @@ function Section({ title, hint, children }: SectionProps) {
     )
 }
 
-/** The one place output happens: in-player preview, rendered reel, chapters and the project file. */
+/** The one place output happens: in-player preview, rendered reel and chapters. */
 export function ExportPanel() {
-    const [open, setOpen] = useState(false)
+    const open = useAppState((s) => s.panel === 'export')
+    const setOpen = (next: boolean): void => { const st = useAppState.getState(); if (next) st.openPanel('export'); else st.closePanel() }
     const anchorRef = useRef<HTMLButtonElement | null>(null)
 
     return (
         <>
-            <button ref={anchorRef} type="button" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen((o) => !o)} className="btn-primary">
+            <button ref={anchorRef} type="button" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen(!open)} className="btn-primary">
                 Export
             </button>
             {open && (
@@ -40,9 +41,6 @@ export function ExportPanel() {
                     </Section>
                     <Section title="Chapters">
                         <ChaptersCopy />
-                    </Section>
-                    <Section title="Project">
-                        <ProjectIO />
                     </Section>
                 </FloatingPanel>
             )}

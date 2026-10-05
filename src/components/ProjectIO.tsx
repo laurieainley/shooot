@@ -2,8 +2,13 @@ import { useRef, useState, type ChangeEvent } from 'react'
 import { useAppState } from '../state'
 import { migrateEvent } from '../utils/eventTypes'
 
+interface ProjectIOProps {
+    /** Render the two actions as menu items (inside the ⋯ menu). */
+    menu?: boolean
+}
+
 /** Export / import the project (events, teams, match start) as JSON. */
-export function ProjectIO() {
+export function ProjectIO({ menu = false }: ProjectIOProps) {
     const events = useAppState((s) => s.events)
     const importRef = useRef<HTMLInputElement | null>(null)
     const [message, setMessage] = useState<string | null>(null)
@@ -36,12 +41,15 @@ export function ProjectIO() {
         }
     }
 
-    return (
-        <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={onExport} disabled={events.length === 0} className="btn-quiet">Export project</button>
-            <button type="button" onClick={() => importRef.current?.click()} className="btn-quiet">Import project</button>
+    const role = menu ? 'menuitem' : undefined
+    const btn = menu ? undefined : 'btn-quiet'
+    const actions = (
+        <>
+            <button type="button" role={role} onClick={onExport} disabled={events.length === 0} className={btn}>Export project</button>
+            <button type="button" role={role} onClick={() => importRef.current?.click()} className={btn}>Import project</button>
             <input ref={importRef} type="file" accept=".json,application/json" onChange={onImport} className="hidden" />
-            {message && <span className="text-[12px] text-muted">{message}</span>}
-        </div>
+            {message && <span role="status" className="px-2.5 py-1 text-[12px] text-muted">{message}</span>}
+        </>
     )
+    return menu ? actions : <div className="flex flex-wrap items-center gap-2">{actions}</div>
 }
