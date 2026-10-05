@@ -39,6 +39,7 @@ export type Team = {
     name: string
     color: string
     roster: string[]
+    initials?: string        // shown on match graphics; default from the name (graphics/teamStyle.ts)
 }
 
 // Keep backward-compat alias for migration
