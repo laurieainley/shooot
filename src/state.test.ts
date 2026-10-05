@@ -189,3 +189,51 @@ describe('newMatch', () => {
         expect(s().events.map((e) => e.id)).toEqual(['e'])
     })
 })
+
+describe('panels and the picker', () => {
+    beforeEach(() => {
+        useAppState.setState({ files: [vf('a.mp4')], events: [], cumulativeOffsets: [0], currentFileIndex: 0, undoStack: [], redoStack: [], picker: null, panel: null })
+    })
+
+    it('should open one panel at a time', () => {
+        s().openPanel('menu')
+        expect(s().panel).toBe('menu')
+        s().openPanel('settings')
+        expect(s().panel).toBe('settings')
+        s().closePanel()
+        expect(s().panel).toBeNull()
+    })
+
+    it('should close the picker (keeping the event) when a panel opens', () => {
+        s().markEvent(10)
+        s().openPanel('menu')
+        expect(s().picker).toBeNull()
+        expect(s().events).toHaveLength(1)
+    })
+
+    it('should close any panel when an event is marked', () => {
+        s().openPanel('files')
+        s().markEvent(10)
+        expect(s().panel).toBeNull()
+        expect(s().picker).not.toBeNull()
+    })
+
+    it('should clear the picker when its event goes away (undo, remove, new match)', () => {
+        s().markEvent(10)
+        s().undo()
+        expect(s().picker).toBeNull()
+        s().markEvent(20)
+        s().removeEvent(s().events[0].id)
+        expect(s().picker).toBeNull()
+        s().markEvent(30)
+        s().setEvents([])
+        expect(s().picker).toBeNull()
+    })
+
+    it('should keep the picker when an unrelated event changes', () => {
+        s().addEvent({ id: 'other', matchTimeSec: 1, sourceFileIndex: 0, type: 'highlight' })
+        s().markEvent(10)
+        s().removeEvent('other')
+        expect(s().picker).not.toBeNull()
+    })
+})
