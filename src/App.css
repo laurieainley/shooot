@@ -180,7 +180,7 @@
 .shell--landscape .event-row { grid-template-columns: auto 10px minmax(0, 1fr) auto; padding-left: 10px; }
 .shell--landscape .bay__left { grid-template-rows: minmax(0, 1fr) 45px; padding-left: env(safe-area-inset-left, 0px); background: var(--video); }
 .shell--landscape .rail { padding-right: env(safe-area-inset-right, 0px); }
-.shell--landscape .match-strip { grid-template-columns: 72px minmax(0, 1fr); }
+.shell--landscape .match-strip { grid-template-columns: 84px minmax(0, 1fr); }
 .shell--landscape .strip-label { padding: 0 8px; }
 .shell--landscape .event-log ol { padding-bottom: 40px; } /* the last row can scroll clear of the ＋ */
 .shell--landscape .fab { bottom: calc(6px + env(safe-area-inset-bottom, 0px)); right: calc(10px + env(safe-area-inset-right, 0px)); width: 56px; height: 56px; }
@@ -246,7 +246,7 @@
 
 /* ---------- match strip (the pitch: files laid end to end, chalk lines between them) ---------- */
 .match-strip { display: grid; grid-template-columns: 96px minmax(0, 1fr); background: var(--panel); border-top: 1px solid var(--line); min-width: 0; }
-.shell--phone .match-strip { height: 48px; border-bottom: 1px solid var(--line); grid-template-columns: 80px minmax(0, 1fr); }
+.shell--phone .match-strip { height: 48px; border-bottom: 1px solid var(--line); grid-template-columns: 88px minmax(0, 1fr); }
 .strip-label {
   display: flex; flex-direction: column; justify-content: center; gap: 1px; padding: 0 12px;
   border-right: 1px solid var(--line); font-size: 11px; color: var(--muted);
@@ -387,6 +387,7 @@
   .team-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-height: 500px) {
+  .sheet:not(.sheet--narrow) { width: min(780px, 100%); } /* short screens: use the width, scroll less */
   .sheet-backdrop { padding: 8px 8px calc(8px + var(--kb, 0px)); }
   .sheet { max-height: calc(100dvh - 16px - var(--kb, 0px)); }
 }
@@ -621,7 +622,13 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .event-picker__item, .event-picker__skip { min-height: 44px; box-sizing: border-box; }
   .control-btn { min-width: 44px; min-height: 44px; justify-content: center; }
   .menu-list > button { min-height: 44px; }
-  .swatch { width: 32px; height: 32px; }
+  /* 44px targets drawn as 32px dots: the transparent border is part of the target, not of the dot. */
+  /* (the inline team colour is a background shorthand, which would reset the clip: hence !important) */
+  .swatch { box-sizing: border-box; width: 44px; height: 44px; border: 6px solid transparent; background-clip: padding-box !important; box-shadow: none; }
+  .swatch[aria-pressed="true"] { outline-offset: -4px; }
+  .swatches { gap: 0; }
+  .field { min-height: 44px; font-size: 16px; } /* 16px: no zoom-on-focus in mobile Safari */
+  .file-row__main { min-height: 44px; }
   .graphics-setup .btn-quiet, .graphics-setup__field .field { min-height: 44px; }
   .btn-quiet, .btn-primary, .file-add { min-height: 44px; }
 
@@ -629,7 +636,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
      Tailwind sizes used in components (unlayered CSS beats the utilities layer) and the small UI classes. */
   .text-\[10px\], .text-\[11px\], .text-\[12px\], .text-\[13px\],
   .btn-quiet, .btn-primary, .file-add, .field, .tag, .row-score, .menu > button, .menu-item,
-  .clip-summary, .export-section__title, .export-section__hint, .toggle-row__hint, .settings-field, .settings-field .unit,
+  .clip-summary, .export-section__title, .settings-group legend, .export-section__hint, .toggle-row__hint, .settings-field, .settings-field .unit,
   .strip-label, .strip-file__name, .graphics-setup__field, .opening-status, .event-picker__hint, .event-picker__title, .event-picker__warn,
   .control-btn, .score-final, .file-row__index, .file-pill, .file-pill__dur, .key-hints,
   .player-container .video-js .vjs-time-control { font-size: 14px; }
@@ -638,6 +645,8 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   /* One fullscreen button on touch: ours over the picture (always visible); the control bar's is hidden. */
   .player-container .video-js .vjs-fullscreen-control { display: none; }
   .strip-label__clock { font-size: 16px; }
+  .strip-label__clock--accent { font-size: 14px; }
+  .strip-label { overflow: hidden; white-space: nowrap; }
   .strip-file { padding-top: 2px; }
 }
 

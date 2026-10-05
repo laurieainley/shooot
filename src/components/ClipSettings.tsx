@@ -56,10 +56,10 @@ export function ClipSettings() {
                 </div>
             </fieldset>
 
-            <label className="flex cursor-pointer items-center gap-2 text-[13px] text-muted">
+            <label className="toggle-row">
                 <input type="checkbox" checked={adjustTimestampsByOffset}
-                    onChange={(e) => setAdjustTimestampsByOffset(e.target.checked)} className="accent-[var(--accent)]" />
-                Adjust timestamps by offset
+                    onChange={(e) => setAdjustTimestampsByOffset(e.target.checked)} />
+                <span className="toggle-row__text">Adjust timestamps by offset</span>
             </label>
         </div>
     )
