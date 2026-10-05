@@ -106,3 +106,24 @@ describe('EventSheet', () => {
         expect(ev()?.team).toBe('Whites')
     })
 })
+
+describe('EventSheet — match markers', () => {
+    it('should offer only time, type and delete for a Kick off', () => {
+        setup({ type: 'kick_off', team: undefined, scorer: undefined })
+        expect(pressed('Kick off')).toBeInTheDocument()
+        expect(screen.queryByRole('group', { name: 'Team' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+        expect(screen.queryByRole('checkbox', { name: /replay/i })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument()
+    })
+
+    it('should make an event the Final whistle, moving an existing one', async () => {
+        setup()
+        useAppState.setState({ events: [...useAppState.getState().events, { id: 'old', matchTimeSec: 500, sourceFileIndex: 0, type: 'final_whistle' }] })
+        await userEvent.click(screen.getByRole('button', { name: 'Final whistle' }))
+        const st = useAppState.getState()
+        expect(ev()).toMatchObject({ type: 'final_whistle' })
+        expect(ev()?.team).toBeUndefined()
+        expect(st.events.some((e) => e.id === 'old')).toBe(false)
+    })
+})

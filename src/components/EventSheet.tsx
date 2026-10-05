@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { selectMatchStartSec, useAppState } from '../state'
 import type { MatchEvent, Team } from '../types'
 import { optionForEvent, personEdit, typeChangePatch } from '../utils/eventEdit'
-import { PICKER_OPTIONS } from '../utils/eventTypes'
+import { PICKER_OPTIONS, isMarker } from '../utils/eventTypes'
+import { watchFromSec } from '../utils/markers'
 import { wantsReplay } from '../utils/replays'
 import { filterRoster, rosterTeamFor } from '../utils/roster'
 import { formatEventClock } from '../utils/timeline'
@@ -30,6 +31,7 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
     const matchStartSec = useAppState(selectMatchStartSec)
     const multiFile = useAppState((s) => s.files.length > 1)
     const option = optionForEvent(e)
+    const marker = isMarker(e)
     const [person, setPerson] = useState(e.scorer ?? '')
     const [note, setNote] = useState(e.notes ?? '')
     // Drafts follow the event when it changes underneath (a type without a person clears it, undo…).
@@ -56,13 +58,13 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
     const close = (): void => {
         const { person: p, note: n } = latest.current
         if (option.askScorer) savePerson(p)
-        saveNote(n)
+        if (!marker) saveNote(n)
         useAppState.getState().closePanel()
     }
     const watch = (): void => {
         close()
         const st = useAppState.getState()
-        if (!e.unlinked) st.seekToGoal(e.sourceFileIndex ?? 0, Math.max(0, e.matchTimeSec - st.lengthBeforeGoalSec))
+        if (!e.unlinked) st.seekToGoal(e.sourceFileIndex ?? 0, watchFromSec(e, st.lengthBeforeGoalSec))
     }
     const nudge = (d: number): void => {
         update({ matchTimeSec: Math.max(0, e.matchTimeSec + d) })
@@ -92,12 +94,17 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
                 <div className="chips">
                     {PICKER_OPTIONS.map((o) => (
                         <button key={o.id} type="button" className="chip" aria-pressed={o.id === option.id}
-                            onClick={() => { if (o.id !== option.id) update(typeChangePatch(e, o)) }}>{o.label}</button>
+                            onClick={() => {
+                                if (o.id === option.id) return
+                                // Kick off / Final whistle: single instance, so the store moves an existing one.
+                                if (o.marker) useAppState.getState().placeMarker(e.id, o.type as 'kick_off' | 'final_whistle')
+                                else update(typeChangePatch(e, o))
+                            }}>{o.label}</button>
                     ))}
                 </div>
             </fieldset>
 
-            {hasTeams && (
+            {hasTeams && !marker && (
                 <fieldset className="event-sheet__group">
                     <legend>Team</legend>
                     <div className="chips">
@@ -139,6 +146,7 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
                 </fieldset>
             )}
 
+            {!marker && <>
             <fieldset className="event-sheet__group">
                 <legend>{option.textLabel ?? 'Note'}</legend>
                 <input
@@ -158,6 +166,7 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
                 <input type="checkbox" checked={wantsReplay(e)} onChange={(ev) => update({ replay: ev.target.checked })} />
                 <span className="toggle-row__text">Slow-mo replay<span className="toggle-row__hint">after the clip in the reel</span></span>
             </label>
+            </>}
 
             <div className="sheet__actions">
                 <button type="button" className="btn-quiet btn-danger" onClick={() => { useAppState.getState().removeEvent(e.id); useAppState.getState().closePanel() }}>Delete</button>
