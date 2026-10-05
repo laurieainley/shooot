@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { useAppState } from '../state'
 import { EventPicker } from './EventPicker'
+import { setCoarsePointer } from '../test/pointer'
 import type { VideoSourceFile } from '../types'
 
 const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec: 600, kind: 'full' })
@@ -79,5 +80,51 @@ describe('EventPicker', () => {
         expect(s().picker).toBeNull()
         expect(document.activeElement).toBe(playerEl)
         playerEl.remove()
+    })
+})
+
+describe('EventPicker on touch', () => {
+    beforeEach(() => {
+        setCoarsePointer(true)
+        useAppState.setState({
+            files: [vf('a.mp4')], events: [], cumulativeOffsets: [0], currentFileIndex: 0, undoStack: [], redoStack: [], picker: null,
+            teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }],
+        })
+        act(() => s().markEvent(100))
+    })
+    afterEach(() => setCoarsePointer(false))
+
+    it('should close and keep the event with Done', async () => {
+        render(<EventPicker />)
+        fireEvent.click(screen.getByRole('option', { name: /^goal ⏎/i }))
+        fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+        expect(s().picker).toBeNull()
+        expect(s().events[0]).toMatchObject({ type: 'goal', matchTimeSec: 100 })
+    })
+
+    it('should delete the just-created event with Cancel', () => {
+        render(<EventPicker />)
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+        expect(s().picker).toBeNull()
+        expect(s().events).toEqual([])
+    })
+
+    it('should hide the keyboard hint', () => {
+        render(<EventPicker />)
+        expect(screen.queryByText(/esc to finish/i)).not.toBeInTheDocument()
+    })
+})
+
+describe('EventPicker with a mouse', () => {
+    beforeEach(() => {
+        setCoarsePointer(false)
+        useAppState.setState({ files: [vf('a.mp4')], events: [], cumulativeOffsets: [0], currentFileIndex: 0, picker: null })
+        act(() => s().markEvent(100))
+    })
+
+    it('should show the keyboard hint and no Done / Cancel buttons', () => {
+        render(<EventPicker />)
+        expect(screen.getByText(/esc to finish/i)).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Done' })).not.toBeInTheDocument()
     })
 })

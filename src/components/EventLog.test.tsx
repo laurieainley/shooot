@@ -4,6 +4,7 @@ import { render, screen, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import { EventLog } from './EventLog'
+import { setCoarsePointer } from '../test/pointer'
 import type { MatchEvent, Team, VideoSourceFile } from '../types'
 
 const vf = (name: string, durationSec = 600): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec, kind: 'full' })
@@ -287,5 +288,21 @@ describe('EventLog header', () => {
         render(<EventLog />)
         const header = log().querySelector('header')!
         expect(within(header).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['+ Event', 'Undo', 'Redo'])
+    })
+})
+
+describe('EventLog empty state', () => {
+    it('should tell touch users to tap ＋', () => {
+        setCoarsePointer(true)
+        setup([])
+        render(<EventLog />)
+        expect(screen.getByText(/no events yet/i)).toHaveTextContent('No events yet. Tap ＋ while the video plays.')
+    })
+
+    it('should tell keyboard users to press G', () => {
+        setCoarsePointer(false)
+        setup([])
+        render(<EventLog />)
+        expect(screen.getByText(/no events yet/i)).toHaveTextContent('No events yet. Press G while it plays.')
     })
 })

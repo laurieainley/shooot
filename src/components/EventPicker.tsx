@@ -4,6 +4,7 @@ import { PICKER_OPTIONS, eventIcon } from '../utils/eventTypes'
 import { initialPickerState, pickerReducer, scorerCandidates, type PickerInput, type PickerState } from '../utils/eventPicker'
 import { teamShortcuts } from '../utils/roster'
 import { formatHMS } from '../utils/timeline'
+import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 
 const HANDLED = new Set(['Enter', 'Escape', 'ArrowUp', 'ArrowDown', 'Backspace'])
 
@@ -11,6 +12,7 @@ export function EventPicker() {
     const picker = useAppState((s) => s.picker)
     const event = useAppState((s) => s.events.find((e) => e.id === s.picker?.eventId))
     const teams = useAppState((s) => s.teams)
+    const coarse = useMediaQuery(COARSE_QUERY)
     const [state, setState] = useState<PickerState>(initialPickerState)
     const stateRef = useRef(state)
     stateRef.current = state
@@ -125,7 +127,14 @@ export function EventPicker() {
                     </ul>
                 </div>
             )}
-            <div className="event-picker__hint">Esc to finish{state.step === 'type' ? ' · ⌫ cancel' : ''}</div>
+            {coarse ? (
+                <div className="event-picker__actions">
+                    <button type="button" className="btn-quiet" onClick={() => useAppState.getState().removeEvent(event.id)}>Cancel</button>
+                    <button type="button" className="btn-primary" onClick={() => useAppState.getState().closePicker()}>Done</button>
+                </div>
+            ) : (
+                <div className="event-picker__hint">Esc to finish{state.step === 'type' ? ' · ⌫ cancel' : ''}</div>
+            )}
         </div>
     )
 }

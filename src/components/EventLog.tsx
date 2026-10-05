@@ -6,6 +6,7 @@ import { wantsReplay } from '../utils/replays'
 import { filterRoster, rosterTeamFor } from '../utils/roster'
 import { formatEventClock } from '../utils/timeline'
 import { TimeInput } from './TimeInput'
+import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 
 type Editing = { id: string; field: 'scorer' | 'team' | 'time' } | null
 
@@ -21,6 +22,7 @@ export function EventLog() {
     const matchStartTimeSec = useAppState((s) => s.matchStartTimeSec)
     const canUndo = useAppState((s) => s.undoStack.length > 0)
     const canRedo = useAppState((s) => s.redoStack.length > 0)
+    const coarse = useMediaQuery(COARSE_QUERY)
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const [editing, setEditing] = useState<Editing>(null)
     const rootRef = useRef<HTMLElement | null>(null)
@@ -114,7 +116,9 @@ export function EventLog() {
 
             {events.length === 0 ? (
                 <p className="m-0 px-3 py-4 text-[13px] text-muted">
-                    No events yet. {files.length === 0 ? 'Load a video, then press ' : 'Press '}<kbd>G</kbd> while it plays.
+                    {coarse
+                        ? <>No events yet. {files.length === 0 ? 'Load a video, then tap ＋ while it plays.' : 'Tap ＋ while the video plays.'}</>
+                        : <>No events yet. {files.length === 0 ? 'Load a video, then press ' : 'Press '}<kbd>G</kbd> while it plays.</>}
                 </p>
             ) : (
                 <ol ref={listRef} role="listbox" aria-label="Event list" className="m-0 min-h-0 flex-1 list-none overflow-y-auto overscroll-contain p-0">

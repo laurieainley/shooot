@@ -15,3 +15,6 @@ export function useMediaQuery(query: string): boolean {
 }
 
 export const DESKTOP_QUERY = '(min-width: 900px)'
+
+/** Touch screens: no hover, fat fingers, no keyboard shortcuts. */
+export const COARSE_QUERY = '(pointer: coarse)'
