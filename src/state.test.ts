@@ -359,3 +359,30 @@ describe('match graphics settings', () => {
         expect(persisted).not.toHaveProperty('matchNumber')
     })
 })
+
+describe('match markers (kick off / final whistle)', () => {
+    beforeEach(() => {
+        useAppState.setState({ files: [], events: [], cumulativeOffsets: [], undoStack: [], redoStack: [], currentFileIndex: 0, picker: null, panel: null })
+        s().setFiles([vf('a.mp4'), vf('b.mp4')])
+    })
+
+    it('should turn an event into a marker without team, person, note or replay', () => {
+        s().addEvent({ id: 'k1', matchTimeSec: 30, sourceFileIndex: 0, type: 'goal', team: 'Whites', scorer: 'Sam', notes: 'x', replay: true, pen: true })
+        s().placeMarker('k1', 'kick_off')
+        const k = s().events.find((e) => e.id === 'k1')!
+        expect(k.type).toBe('kick_off')
+        for (const f of ['team', 'scorer', 'notes', 'replay', 'pen'] as const) expect(k[f]).toBeUndefined()
+    })
+
+    it('should move the existing marker when a second one of the same type is placed, in one undo step', () => {
+        s().addEvent({ id: 'k1', matchTimeSec: 30, sourceFileIndex: 0, type: 'kick_off' })
+        s().addEvent({ id: 'w1', matchTimeSec: 90, sourceFileIndex: 1, type: 'final_whistle' })
+        s().addEvent({ id: 'k2', matchTimeSec: 40, sourceFileIndex: 0, type: 'goal' })
+        s().placeMarker('k2', 'kick_off')
+        expect(s().events.filter((e) => e.type === 'kick_off').map((e) => e.id)).toEqual(['k2'])
+        expect(s().events.some((e) => e.id === 'w1')).toBe(true)
+        s().undo()
+        expect(s().events.find((e) => e.id === 'k1')?.type).toBe('kick_off')
+        expect(s().events.find((e) => e.id === 'k2')?.type).toBe('goal')
+    })
+})

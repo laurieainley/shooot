@@ -1,10 +1,12 @@
-import type { EventType, MatchEvent } from '../types'
+import type { EventType, MarkerType, MatchEvent } from '../types'
 
 export type EventMeta = {
     label: string
     icon: string
     color: string
     scoring: boolean
+    /** Kick off / Final whistle: one each, no details, never in the highlights. */
+    marker?: boolean
 }
 
 export const EVENT_META: Record<EventType, EventMeta> = {
@@ -15,9 +17,11 @@ export const EVENT_META: Record<EventType, EventMeta> = {
     highlight:       { label: 'Highlight',       icon: '★', color: '#4cc9f0', scoring: false },
     foul:            { label: 'Foul',            icon: '🟨', color: '#f4a261', scoring: false },
     save:            { label: 'Save',            icon: '🧤', color: '#4cc9f0', scoring: false },
+    kick_off:        { label: 'Kick off',        icon: '⚑', color: '#22c55e', scoring: false, marker: true },
+    final_whistle:   { label: 'Final whistle',   icon: '🏁', color: '#e5e5e5', scoring: false, marker: true },
 }
 
-export type PickerOptionId = 'goal' | 'goal_pen' | 'own_goal' | 'penalty_awarded' | 'penalty_missed' | 'highlight' | 'foul' | 'save'
+export type PickerOptionId = 'goal' | 'goal_pen' | 'own_goal' | 'penalty_awarded' | 'penalty_missed' | 'highlight' | 'foul' | 'save' | MarkerType
 
 export type PickerOption = {
     id: PickerOptionId
@@ -32,10 +36,12 @@ export type PickerOption = {
     personOptional: boolean     // person step shows Skip
     askText: 'prompt' | 'optional' | false // free-text step (stored in `notes`)
     textLabel?: string
+    marker?: boolean            // single-instance match marker (no further steps)
 }
 
 type Base = Pick<PickerOption, 'pen' | 'askTeam' | 'teamOptional' | 'askScorer' | 'personOptional' | 'askText'>
 const SCORER: Base = { pen: false, askTeam: true, teamOptional: false, askScorer: true, personOptional: false, askText: false }
+const MARKER: Base = { pen: false, askTeam: false, teamOptional: false, askScorer: false, personOptional: false, askText: false }
 const OPTIONAL_ALL: Base = { pen: false, askTeam: true, teamOptional: true, askScorer: true, personOptional: true, askText: 'optional' }
 
 export const PICKER_OPTIONS: PickerOption[] = [
@@ -47,6 +53,9 @@ export const PICKER_OPTIONS: PickerOption[] = [
     { ...OPTIONAL_ALL, id: 'highlight', type: 'highlight',       key: 'h', label: 'Highlight',       personLabel: 'Who', askText: 'prompt', textLabel: 'What happened' },
     { ...OPTIONAL_ALL, id: 'foul',      type: 'foul',            key: 'f', label: 'Foul',            personLabel: 'Committed by', textLabel: 'Note' },
     { ...SCORER, id: 'save',            type: 'save',            key: 's', label: 'Save',            personLabel: 'Goalkeeper', personOptional: true },
+    // Type-step keys: K and W never clash with team shortcuts, which only apply in the team step.
+    { ...MARKER, id: 'kick_off',        type: 'kick_off',        key: 'k', label: 'Kick off',        marker: true },
+    { ...MARKER, id: 'final_whistle',   type: 'final_whistle',   key: 'w', label: 'Final whistle',   marker: true },
 ]
 
 export function optionForKey(key: string): PickerOption | undefined {
@@ -79,6 +88,11 @@ export function eventIcon(e: Pick<MatchEvent, 'type'>): string {
 
 export function isScoring(e: Pick<MatchEvent, 'type'>): boolean {
     return EVENT_META[e.type].scoring
+}
+
+/** Kick off / Final whistle markers. */
+export function isMarker(e: Pick<MatchEvent, 'type'>): e is Pick<MatchEvent, 'type'> & { type: MarkerType } {
+    return EVENT_META[e.type].marker === true
 }
 
 const LEGACY_TYPES: Record<string, EventType> = { moment: 'highlight', card: 'foul' }

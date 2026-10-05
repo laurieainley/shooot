@@ -20,6 +20,9 @@ export type EventType =
     | 'goal' | 'own_goal'
     | 'penalty_awarded' | 'penalty_missed'
     | 'highlight' | 'foul' | 'save'
+    | 'kick_off' | 'final_whistle'   // match markers: never scored, never highlights
+
+export type MarkerType = Extract<EventType, 'kick_off' | 'final_whistle'>
 
 export type MatchEvent = {
     id: string
@@ -33,6 +36,8 @@ export type MatchEvent = {
     scorer?: string          // own goal: player from the other team
     notes?: string
     replay?: boolean         // explicit replay override; undefined = default for the type
+    /** Migrated kick-off: time on the whole timeline, until loaded files cover it (see utils/matchClock.ts). */
+    globalTimeSec?: number
 }
 
 export type Team = {

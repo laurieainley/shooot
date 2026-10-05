@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { MatchEvent, Team, VideoSourceFile } from './types'
+import type { MarkerType, MatchEvent, Team, VideoSourceFile } from './types'
 import { migrateEvent } from './utils/eventTypes'
 import { computeCumulativeOffsets } from './utils/timeline'
 import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/highlights'
@@ -58,6 +58,8 @@ type AppState = {
     setEvents: (events: MatchEvent[]) => void
     removeEvent: (id: string) => void
     updateEvent: (id: string, partial: Partial<MatchEvent>) => void
+    /** Make an event the Kick off / Final whistle, moving any existing one (single instance; one undo step). */
+    placeMarker: (id: string, type: MarkerType) => void
     sortEvents: () => void
     clear: () => void
     newMatch: () => void
@@ -262,6 +264,24 @@ export const useAppState = create<AppState>()(
                 const state = get()
                 set({
                     events: state.events.map((e) => (e.id === id ? { ...e, ...partial } : e)),
+                    undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), state.events],
+                    redoStack: [],
+                })
+            },
+            placeMarker: (id, type) => {
+                const state = get()
+                if (!state.events.some((e) => e.id === id)) return
+                const next = state.events
+                    .filter((e) => e.id === id || e.type !== type)
+                    .map((e) => {
+                        if (e.id !== id) return e
+                        const m: MatchEvent = { ...e, type }
+                        for (const k of ['team', 'scorer', 'notes', 'replay', 'pen'] as const) delete m[k]
+                        return m
+                    })
+                set({
+                    events: next,
+                    ...follow(next),
                     undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), state.events],
                     redoStack: [],
                 })

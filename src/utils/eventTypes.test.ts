@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { isMarker } from './eventTypes'
 import { PICKER_OPTIONS, eventLabel, eventIcon, isScoring, migrateEvent, optionForKey, EVENT_META, shortNote, eventSummary } from './eventTypes'
 import type { MatchEvent } from '../types'
 
@@ -9,7 +10,7 @@ describe('PICKER_OPTIONS', () => {
         expect(PICKER_OPTIONS[0].id).toBe('goal')
         const keys = PICKER_OPTIONS.map((o) => o.key)
         expect(new Set(keys).size).toBe(keys.length)
-        expect(keys).toEqual(['g', 'p', 'o', 'a', 'x', 'h', 'f', 's'])
+        expect(keys).toEqual(['g', 'p', 'o', 'a', 'x', 'h', 'f', 's', 'k', 'w'])
     })
 })
 
@@ -98,5 +99,29 @@ describe('eventSummary', () => {
         expect(eventSummary({ type: 'foul', notes: 'late' })).toBe('Foul — late')
         expect(eventSummary({ type: 'goal', pen: true, scorer: 'Jo' })).toBe('Goal (pen) · Jo')
         expect(eventSummary({ type: 'save' })).toBe('Save')
+    })
+})
+
+describe('match markers', () => {
+    it('should list Kick off (K) and Final whistle (W) after the normal types', () => {
+        const ids = PICKER_OPTIONS.map((o) => o.id)
+        expect(ids.slice(-2)).toEqual(['kick_off', 'final_whistle'])
+        expect(optionForKey('k')?.id).toBe('kick_off')
+        expect(optionForKey('w')?.id).toBe('final_whistle')
+        for (const o of PICKER_OPTIONS.slice(-2)) expect(o).toMatchObject({ askTeam: false, askScorer: false, askText: false, marker: true })
+    })
+
+    it('should never score and be recognised as markers', () => {
+        expect(isScoring({ type: 'kick_off' })).toBe(false)
+        expect(isScoring({ type: 'final_whistle' })).toBe(false)
+        expect(isMarker({ type: 'kick_off' })).toBe(true)
+        expect(isMarker({ type: 'final_whistle' })).toBe(true)
+        expect(isMarker({ type: 'goal' })).toBe(false)
+        expect(eventLabel({ type: 'kick_off' })).toBe('Kick off')
+        expect(eventLabel({ type: 'final_whistle' })).toBe('Final whistle')
+    })
+
+    it('should keep marker types when migrating', () => {
+        expect(migrateEvent({ id: 'k', matchTimeSec: 5, type: 'kick_off' }).type).toBe('kick_off')
     })
 })

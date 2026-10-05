@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { pickerReducer, initialPickerState, scorerCandidates, SKIP, type PickerState, type PickerInput, type PickerContext } from './eventPicker'
 import type { Team } from '../types'
+import { PICKER_OPTIONS } from './eventTypes'
 
 const teams: Team[] = [
     { name: 'Whites', color: '#fff', roster: ['Sam Taylor', 'Sandy Wu'] },
@@ -41,7 +42,7 @@ describe('pickerReducer — type step', () => {
 
     it('should move the highlight with arrows and wrap', () => {
         expect(run([key('ArrowDown'), key('ArrowDown')]).state.highlighted).toBe(2)
-        expect(run([key('ArrowUp')]).state.highlighted).toBe(7)
+        expect(run([key('ArrowUp')]).state.highlighted).toBe(PICKER_OPTIONS.length - 1)
         expect(run([key('ArrowDown'), key('Enter')]).effects[0]).toEqual({ kind: 'update', patch: { type: 'goal', pen: true } })
     })
 
@@ -52,6 +53,20 @@ describe('pickerReducer — type step', () => {
 
     it('should close after type when no teams are configured', () => {
         expect(run([key('Enter')], noTeams).effects.at(-1)).toEqual({ kind: 'close' })
+    })
+
+    it('should place a Kick off marker with K and finish (no team, person or text step)', () => {
+        const r = run([key('k')])
+        expect(r.effects).toEqual([{ kind: 'marker', type: 'kick_off' }, { kind: 'close' }])
+    })
+
+    it('should place a Final whistle marker with W and finish', () => {
+        const r = run([key('W')])
+        expect(r.effects).toEqual([{ kind: 'marker', type: 'final_whistle' }, { kind: 'close' }])
+    })
+
+    it('should place markers chosen by tap as well', () => {
+        expect(run([{ kind: 'choose', value: 'final_whistle' }]).effects).toEqual([{ kind: 'marker', type: 'final_whistle' }, { kind: 'close' }])
     })
 
     it('should ignore unknown keys', () => {
