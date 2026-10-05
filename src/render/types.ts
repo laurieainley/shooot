@@ -4,6 +4,7 @@ export type Cut = {
     endSec: number
     speed?: number    // < 1 = slow motion (timestamps stretched by 1/speed); default 1
     silent?: boolean  // replace source audio with silence
+    gain?: number     // audio volume factor (re-encodes the audio when not 1); default 1
 }
 
 export type RenderSource = {

@@ -259,3 +259,34 @@ describe('replaceFile', () => {
         expect(s().events.find((e) => e.id === 'gb')!.unlinked).toBeUndefined()
     })
 })
+
+describe('preview', () => {
+    beforeEach(() => {
+        useAppState.setState({
+            files: [], events: [], cumulativeOffsets: [], undoStack: [], redoStack: [], currentFileIndex: 0, isPreviewMode: false,
+            matchStartTimeSec: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
+            replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5,
+        })
+        s().setFiles([vf('a.mp4')])
+        s().addEvent({ id: 'g', matchTimeSec: 50, sourceFileIndex: 0, type: 'goal' })
+        s().addEvent({ id: 'h', matchTimeSec: 80, sourceFileIndex: 0, type: 'highlight' })
+    })
+
+    it('should start at the first step and include the replays at replay speed', () => {
+        s().startPreview()
+        expect(s().currentPreviewSegment).toBe(0)
+        expect(s().previewSteps.map((p) => [p.clipIndex, p.replay, p.speed])).toEqual([[0, false, 1], [0, true, 0.5], [1, false, 1]])
+    })
+
+    it('should start again from the first clip every time', () => {
+        s().startPreview()
+        s().nextPreviewSegment()
+        s().nextPreviewSegment()
+        expect(s().currentPreviewSegment).toBe(2)
+        s().nextPreviewSegment()
+        expect(s().currentPreviewSegment).toBe(2)
+        s().exitPreview()
+        s().startPreview()
+        expect(s().currentPreviewSegment).toBe(0)
+    })
+})

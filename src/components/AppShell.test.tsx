@@ -97,4 +97,13 @@ describe('AppShell', () => {
         render(<AppShell />)
         expect(screen.getByRole('group', { name: 'Preview' })).toBeInTheDocument()
     })
+
+    it('should put the preview bar below the video on the phone', () => {
+        setWidth(false)
+        useAppState.setState({ isPreviewMode: true, previewSegments: [], previewSteps: [{ sourceIndex: 0, startSec: 0, endSec: 10, speed: 1, gain: 1, replay: false, clipIndex: 0 }], currentPreviewSegment: 0 })
+        const { container } = render(<AppShell />)
+        const bar = screen.getByRole('group', { name: 'Preview' })
+        expect(container.querySelector('.stage')).not.toContainElement(bar)
+        expect(screen.getByRole('button', { name: 'Exit' })).toBeInTheDocument()
+    })
 })

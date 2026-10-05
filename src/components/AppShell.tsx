@@ -20,10 +20,11 @@ export function AppShell() {
     const hasFiles = useAppState((s) => s.files.length > 0)
     const isPreviewMode = useAppState((s) => s.isPreviewMode)
 
+    // Desktop: the preview bar floats over the top of the picture. Phone: it sits below the video, in the stack.
     const stage = (
         <div className="stage">
             {hasFiles ? <Player /> : <EmptyPlayer />}
-            {isPreviewMode && <div className="preview-bar"><PreviewControls /></div>}
+            {desktop && isPreviewMode && <div className="preview-bar"><PreviewControls /></div>}
         </div>
     )
 
@@ -47,6 +48,7 @@ export function AppShell() {
             ) : (
                 <main className="stack">
                     {stage}
+                    {isPreviewMode && <div className="preview-bar preview-bar--inline"><PreviewControls /></div>}
                     <MatchStrip />
                     <EventLog />
                     <ClipSummary />

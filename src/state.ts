@@ -6,6 +6,7 @@ import { computeCumulativeOffsets } from './utils/timeline'
 import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/highlights'
 import { relinkEvents, linkedEvents } from './utils/relink'
 import { parseGoProName } from './utils/gopro'
+import { buildPreviewPlan, type PreviewStep } from './utils/preview'
 
 /** Menus and sheets; at most one is open, and never together with the event picker. */
 export type Panel = 'menu' | 'files' | 'match' | 'settings' | 'paste' | 'export'
@@ -28,6 +29,8 @@ type AppState = {
     // Preview mode state
     isPreviewMode: boolean
     previewSegments: HighlightSegment[]
+    /** Clips and their replays, in reel order; `currentPreviewSegment` indexes these. */
+    previewSteps: PreviewStep[]
     currentPreviewSegment: number
     setFiles: (files: VideoSourceFile[]) => void
     addFiles: (files: VideoSourceFile[]) => void
@@ -118,6 +121,7 @@ export const useAppState = create<AppState>()(
             // Preview mode state
             isPreviewMode: false,
             previewSegments: [],
+            previewSteps: [],
             currentPreviewSegment: 0,
             setFiles: (files) => set({
                 files,
@@ -266,7 +270,7 @@ export const useAppState = create<AppState>()(
                     undoStack: [...state.undoStack, state.events],
                 })
             },
-            clear: () => set({ files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0, matchStartTimeSec: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, isPreviewMode: false, previewSegments: [], currentPreviewSegment: 0, undoStack: [], redoStack: [], picker: null }),
+            clear: () => set({ files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0, matchStartTimeSec: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, undoStack: [], redoStack: [], picker: null }),
             // Start a new game: drop events, videos and kick-off; keep teams, rosters and clip/replay settings.
             // Events go on the undo stack so an accidental clear can be undone.
             newMatch: () => {
@@ -274,7 +278,7 @@ export const useAppState = create<AppState>()(
                 for (const f of state.files) if (f.url) URL.revokeObjectURL(f.url)
                 set({
                     files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0,
-                    matchStartTimeSec: 0, isPreviewMode: false, previewSegments: [], currentPreviewSegment: 0, picker: null, panel: null,
+                    matchStartTimeSec: 0, isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, picker: null, panel: null,
                     undoStack: [...state.undoStack.slice(-49), state.events], redoStack: [],
                 })
             },
@@ -313,18 +317,23 @@ export const useAppState = create<AppState>()(
                     state.lengthBeforeGoalSec,
                     state.lengthAfterGoalSec
                 )
-                if (segments.length > 0) {
+                const steps = buildPreviewPlan(segments, state.files.map((f) => f.durationSec ?? Infinity),
+                    { beforeSec: state.replayBeforeSec, afterSec: state.replayAfterSec, speed: state.replaySpeed })
+                if (steps.length > 0) {
                     set({
                         isPreviewMode: true,
                         previewSegments: segments,
-                        currentPreviewSegment: 0
+                        previewSteps: steps,
+                        currentPreviewSegment: 0,
+                        picker: null,
+                        panel: null,
                     })
                 }
             },
-            exitPreview: () => set({ isPreviewMode: false, previewSegments: [], currentPreviewSegment: 0 }),
+            exitPreview: () => set({ isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0 }),
             nextPreviewSegment: () => {
                 const state = get()
-                if (state.isPreviewMode && state.currentPreviewSegment < state.previewSegments.length - 1) {
+                if (state.isPreviewMode && state.currentPreviewSegment < state.previewSteps.length - 1) {
                     set({ currentPreviewSegment: state.currentPreviewSegment + 1 })
                 }
             },

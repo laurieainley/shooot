@@ -16,7 +16,7 @@ export function MatchStrip() {
     const after = useAppState((s) => s.lengthAfterGoalSec)
     const isPreviewMode = useAppState((s) => s.isPreviewMode)
     const previewCount = useAppState((s) => s.previewSegments.length)
-    const previewIndex = useAppState((s) => s.currentPreviewSegment)
+    const previewIndex = useAppState((s) => s.previewSteps[s.currentPreviewSegment]?.clipIndex ?? 0)
     const dragging = useRef(false)
 
     const strip = useMemo(
