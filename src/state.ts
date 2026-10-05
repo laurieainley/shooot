@@ -80,6 +80,9 @@ type AppState = {
     markEvent: (timeInFileSec: number) => void
     openPicker: (eventId: string) => void
     closePicker: () => void
+    /** Landscape phones: the top bar folded away for more picture. */
+    barCollapsed: boolean
+    setBarCollapsed: (collapsed: boolean) => void
     /** CSS full-viewport player (fullscreen fallback when the Fullscreen API is missing or refused). */
     immersive: boolean
     setImmersive: (on: boolean) => void
@@ -129,6 +132,7 @@ export const useAppState = create<AppState>()(
             panel: null,
             editingEventId: null,
             immersive: false,
+            barCollapsed: false,
             opening: null,
             graphics: { cards: true, lowerThirds: true, replayTag: false },
             matchNumber: 1,
@@ -348,6 +352,7 @@ export const useAppState = create<AppState>()(
                 }),
             }),
             setImmersive: (on) => set({ immersive: on }),
+            setBarCollapsed: (collapsed) => set({ barCollapsed: collapsed }),
             editEvent: (id) => {
                 if (get().events.some((e) => e.id === id)) set({ panel: 'event', editingEventId: id, picker: null })
             },
@@ -407,6 +412,7 @@ export const useAppState = create<AppState>()(
                 graphics: state.graphics,
                 matchNumber: state.matchNumber,
                 matchdayLabel: state.matchdayLabel,
+                barCollapsed: state.barCollapsed,
             }),
             version: 9,
             migrate: (persistedState: any, version: number) => {

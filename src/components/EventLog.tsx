@@ -148,6 +148,7 @@ export function EventLog() {
                             onToggleReplay={() => toggleReplay(e)}
                             onRemove={() => remove(events.indexOf(e))}
                             restoreFocus={() => rootRef.current?.focus()}
+                            touch={coarse}
                         />
                     ))}
                 </ol>
@@ -169,9 +170,11 @@ interface EventRowProps {
     onToggleReplay: () => void
     onRemove: () => void
     restoreFocus: () => void
+    /** Touch: delete lives in the edit sheet (a tap opens it), so the row keeps only the replay toggle. */
+    touch?: boolean
 }
 
-function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, onSelect, onEdit, onToggleReplay, onRemove, restoreFocus }: EventRowProps) {
+function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, onSelect, onEdit, onToggleReplay, onRemove, restoreFocus, touch = false }: EventRowProps) {
     const team = teams.find((t) => t.name === e.team)
     const replay = wantsReplay(e)
     const label = `${eventLabel(e)}${e.scorer ? ` · ${e.scorer}` : ''}`
@@ -246,8 +249,10 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, o
                     : fileTag && <span className="tag">{fileTag}</span>}
                 <button type="button" aria-label="Replay" aria-pressed={replay} title={replay ? 'Slow-mo replay on (R)' : 'Slow-mo replay off (R)'}
                     tabIndex={-1} onClick={(ev) => { stop(ev); onToggleReplay() }} className="row-btn replay-btn">↻</button>
-                <button type="button" aria-label="Delete event" title="Delete (⌫)" tabIndex={-1}
-                    onClick={(ev) => { stop(ev); onRemove() }} className="row-btn delete-btn">×</button>
+                {!touch && (
+                    <button type="button" aria-label="Delete event" title="Delete (⌫)" tabIndex={-1}
+                        onClick={(ev) => { stop(ev); onRemove() }} className="row-btn delete-btn">×</button>
+                )}
             </span>
         </li>
     )

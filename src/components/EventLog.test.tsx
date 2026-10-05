@@ -375,6 +375,12 @@ describe('EventLog on touch screens', () => {
         expect(useAppState.getState().panel).toBeNull()
     })
 
+    it('should leave deleting to the edit sheet: rows keep the replay toggle but no ×', () => {
+        render(<EventLog />)
+        expect(within(rows()[0]).getByRole('button', { name: 'Replay' })).toBeInTheDocument()
+        expect(within(rows()[0]).queryByRole('button', { name: 'Delete event' })).not.toBeInTheDocument()
+    })
+
     it('should leave marking to the ＋ button: no "+ Event" in the header', () => {
         render(<EventLog />)
         const header = log().querySelector('header')!

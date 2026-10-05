@@ -8,7 +8,7 @@ import { MatchStrip } from './MatchStrip'
 import { Panels } from './Panels'
 import { Player } from './Player'
 import { PreviewControls } from './PreviewControls'
-import { TopBar } from './TopBar'
+import { Chevron, TopBar } from './TopBar'
 import { useLayout } from './useMediaQuery'
 
 /**
@@ -22,6 +22,7 @@ export function AppShell() {
     const hasFiles = useAppState((s) => s.files.length > 0)
     const isPreviewMode = useAppState((s) => s.isPreviewMode)
     const sideBySide = layout !== 'phone'
+    const collapsed = useAppState((s) => s.barCollapsed) && layout === 'landscape'
 
     // Side by side: the preview bar floats over the top of the picture. Portrait phone: it sits below the video.
     const stage = (
@@ -32,8 +33,13 @@ export function AppShell() {
     )
 
     return (
-        <div className={`shell shell--${layout}`}>
-            <TopBar desktop={layout === 'desktop'} />
+        <div className={`shell shell--${layout}${collapsed ? ' shell--bar-collapsed' : ''}`}>
+            {collapsed ? (
+                <button type="button" aria-label="Show top bar" title="Score, Export and menu" className="bar-handle"
+                    onClick={() => useAppState.getState().setBarCollapsed(false)}>
+                    <Chevron />
+                </button>
+            ) : <TopBar layout={layout} />}
             {sideBySide ? (
                 <>
                     <main className="bay">

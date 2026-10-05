@@ -151,6 +151,7 @@
 
 /* ---------- landscape phone: the desktop bay under a 44px top bar, no page scroll ---------- */
 .shell--landscape {
+  --rail-w: clamp(260px, 36vw, 340px); /* the video is height-limited here, so a wider rail costs no picture */
   height: 100dvh; overflow: hidden; background: var(--panel);
   display: grid; grid-template-rows: auto minmax(0, 1fr);
 }
@@ -159,11 +160,24 @@
   padding: 0 max(4px, env(safe-area-inset-right, 0px)) 0 max(12px, env(safe-area-inset-left, 0px));
 }
 .shell--landscape .brand { font-size: 17px; }
+.shell--landscape.shell--bar-collapsed { grid-template-rows: minmax(0, 1fr); }
+.shell--bar-collapsed .event-picker { top: 0 !important; }
+/* The way back to the folded top bar: a small tab on the top edge of the picture (44px target). */
+.bar-handle {
+  position: fixed; z-index: 35; top: 0; left: calc((100vw - var(--rail-w, 0px)) / 2); transform: translateX(-50%);
+  display: grid; place-items: start center; width: 64px; height: 44px; padding: 0; border: 0; background: transparent;
+  color: #fff; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.bar-handle svg { box-sizing: content-box; padding: 2px 16px 4px; border-radius: 0 0 8px 8px; background: rgb(5 7 6 / 0.6); }
+.shell--phone .top-bar { transition: transform 0.2s ease-out; }
+.shell--phone .top-bar.top-bar--hidden { transform: translateY(calc(-100% - env(safe-area-inset-top, 0px))); }
 /* 44px hit areas inside a 44px bar: the transparent border is part of the target but not of the drawn button. */
 .shell--landscape .top-bar .btn-primary, .shell--landscape .top-bar .btn-quiet {
   box-sizing: border-box; min-height: 44px; border: 5px solid transparent; background-clip: padding-box; padding: 0 12px;
 }
-.shell--landscape .bay { grid-template-columns: minmax(0, 1fr) clamp(240px, 32vw, 320px); }
+.shell--landscape .bay { grid-template-columns: minmax(0, 1fr) var(--rail-w); }
+.shell--landscape .rail { min-width: 0; overflow: hidden; }
+.shell--landscape .event-row { grid-template-columns: auto 10px minmax(0, 1fr) auto; padding-left: 10px; }
 .shell--landscape .bay__left { grid-template-rows: minmax(0, 1fr) 45px; padding-left: env(safe-area-inset-left, 0px); background: var(--video); }
 .shell--landscape .rail { padding-right: env(safe-area-inset-right, 0px); }
 .shell--landscape .match-strip { grid-template-columns: 72px minmax(0, 1fr); }
@@ -523,7 +537,7 @@
    in view while choosing; in fullscreen it takes the right-hand edge of the screen. Done / Cancel stay pinned. */
 @media (orientation: landscape) and (max-height: 500px) {
   .event-picker {
-    position: fixed; top: 44px; right: 0; bottom: 0; left: auto; width: clamp(240px, 32vw, 320px); max-height: none;
+    position: fixed; top: 44px; right: 0; bottom: 0; left: auto; width: var(--rail-w, clamp(260px, 36vw, 340px)); max-height: none;
     border-radius: 0; border-width: 0 0 0 1px; box-shadow: -8px 0 24px rgb(0 0 0 / 0.25);
     padding: 10px calc(10px + env(safe-area-inset-right, 0px)) 0 10px; font-size: 15px;
     display: flex; flex-direction: column;
