@@ -88,6 +88,29 @@ describe('lowerThirdLayout', () => {
         expect(panelW((t, size) => t.length * size * 0.3)).toBeLessThan(panelW())
     })
 
+    it('should be legible on a phone-sized 768×432 reel: label, person and score ≥ 35 px, note ≥ 22 px when scaled down', () => {
+        const scale = 432 / 1080
+        const ops = texts(lowerThirdLayout({ ...goal, note: 'TOP CORNER' }, 1.5, true))
+        const size = (t: string): number => ops.find((o) => o.text === t)!.size * scale
+        expect(size('GOAL')).toBeGreaterThanOrEqual(35)
+        expect(size('SAM')).toBeGreaterThanOrEqual(35)
+        expect(size('1–0')).toBeGreaterThanOrEqual(33)
+        expect(size('TOP CORNER')).toBeGreaterThanOrEqual(22)
+    })
+
+    it('should be about 1.4× the original panel (one row ≥ 134 px tall in the 1080 design)', () => {
+        const panel = lowerThirdLayout({ label: 'GOAL', person: 'SAM', stripe: ORANGE }, 1.5, false).filter((o) => o.kind === 'rect')[1]
+        expect(panel.kind === 'rect' && panel.h).toBeGreaterThanOrEqual(134)
+    })
+
+    it('should squeeze a long name inside the safe area rather than overflow', () => {
+        const ops = lowerThirdLayout({ label: 'PENALTY MISSED', person: 'MAXIMILIAN ALEXANDER-FOTHERINGHAM', stripe: ORANGE, score: { left: 'RR', right: 'WT', text: '10–10' } }, 1.5, true)
+        const person = texts(ops).find((o) => o.text.startsWith('MAXIMILIAN'))!
+        const scoreBox = ops.filter((o) => o.kind === 'rect')[2]
+        expect(person.x + (person.maxWidth ?? 0)).toBeLessThanOrEqual(scoreBox.kind === 'rect' ? scoreBox.x : 0)
+        expect(scoreBox.kind === 'rect' && scoreBox.x + scoreBox.w).toBeLessThanOrEqual(1824)
+    })
+
     it('should use the team colour for the stripe', () => {
         expect(lowerThirdLayout(goal, 1.5, true).some((o) => o.kind === 'rect' && o.fill === '#f0f0f0')).toBe(true)
     })
