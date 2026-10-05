@@ -48,6 +48,20 @@ desktop and 390×844.
 | 21 | Console `ERR_FILE_NOT_FOUND` on every file load | Probe aborts its `<video>` fetch (`load()`) before revoking the blob URL | audit "no console errors" on all viewports |
 | 22 | Accidental double G / double tap made duplicate events silently (ideas.md) | Picker warns "Goal already marked 2 s earlier · Cancel if this was a double tap" | `ux-*-09-duplicate.png` |
 
+## Counts (final runs, after all fixes and the merge of main 899dca2)
+
+| Viewport | Checks | Failed |
+|---|---|---|
+| 390×844 portrait (incl. attach GX + full render, graphics off) | 97 | 0 |
+| 412×915 portrait | 92 | 0 |
+| 844×390 landscape | 106 | 0 |
+| 915×412 landscape | 106 | 0 |
+| 1440×900 desktop (incl. full render, graphics off: 2 s) | 70 | 0 |
+
+Focused scripts: `fs2.cjs` 56/56, `kb.cjs` 8/8 (control with the fix disabled: 0/4), `swipe.cjs` 2/2 (control
+stays stuck), `bar.cjs` 26/26. Unit/component tests 476 → 549 (68 → 74 files); tsc clean; lint 19 = baseline.
+One preview-reel render timed out (300 s) while two audit browsers rendered at the same time; it passed alone.
+
 ## Not changed / notes
 
 - Scrub bubble shows file time while the strip label shows match clock (when a kick-off is set) — both correct for
