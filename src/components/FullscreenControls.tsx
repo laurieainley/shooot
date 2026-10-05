@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { DOUBLE_TAP_MS, isDoubleTap, type Tap, type TapZone } from '../utils/tap'
 import { Fab } from './Fab'
+import { ScoreBadge } from './ScoreBadge'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 
 type OverlayPlayer = {
@@ -95,6 +96,7 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
 
             {isFullscreen && (
                 <>
+                    <div className="overlay-controls top-left score-chip"><ScoreBadge compact /></div>
                     <div className="overlay-controls top-right">
                         <button type="button" aria-label="Slower" className="control-btn speed-btn" onClick={() => setRate(Math.max(0.25, currentRate() - 0.25))}>
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 19l-7-7 7-7" /></svg>

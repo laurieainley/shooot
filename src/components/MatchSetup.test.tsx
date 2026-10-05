@@ -39,4 +39,9 @@ describe('MatchSetup', () => {
         await userEvent.click(screen.getByRole('button', { name: /use current time/i }))
         expect(s().matchStartTimeSec).toBe(75)
     })
+
+    it('should say that teams and rosters are remembered', () => {
+        render(<MatchSetup onClose={() => {}} />)
+        expect(screen.getByText('Teams and rosters are remembered for next time.')).toBeInTheDocument()
+    })
 })

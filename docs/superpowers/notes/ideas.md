@@ -11,3 +11,6 @@ Running log of improvements noticed while building. Not committed to; for the us
 - **Shareable match summary page** — final score, scorers and chapter links as an artifact/page to post in the group chat alongside the YouTube link.
 - **Clip trim handles** — per-event before/after overrides by dragging the clip span on the match strip.
 - **Duplicate-mark guard** — warn when two marks of the same type land within ~3 s (accidental double G / double tap).
+- **Landscape phone layout** — side-by-side (video left, event log right) like desktop, with a compact top bar; currently portrait-style stacking pushes the log below the fold. *(Planned for the final mobile polish pass.)*
+- **iPhone fullscreen** — iOS Safari only fullscreens `<video>`, so the container fullscreen (overlays, ＋, picker) can't work there; a "focus mode" (CSS full-viewport, hide chrome) would give a similar experience on iOS.
+- **Graphics preview in the player** — show lower thirds/cards over the video during in-app Preview using the same layout functions, so what you see matches the render.

@@ -1,5 +1,5 @@
 import type { MatchEvent, Team } from '../types'
-import { EVENT_META, eventIcon, eventLabel } from './eventTypes'
+import { EVENT_META, eventIcon, eventLabel, shortNote } from './eventTypes'
 import { linkedEvents } from './relink'
 import { formatHMS } from './timeline'
 
@@ -36,14 +36,15 @@ export function markersForFile(args: {
     for (const e of linkedEvents(events)) {
         if ((e.sourceFileIndex ?? 0) !== fileIndex) continue
         const team = teams.find((t) => t.name === e.team)
-        const who = e.team ? ` – ${e.team}${e.scorer ? ` (${e.scorer})` : ''}` : ''
+        const who = e.team ? ` – ${e.team}${e.scorer ? ` (${e.scorer})` : ''}` : e.scorer ? ` – ${e.scorer}` : ''
+        const note = shortNote(e.notes)
         out.push({
             id: e.id,
             kind: 'event',
             leftPct: pct(e.matchTimeSec),
             icon: eventIcon(e),
             color: team?.color ?? EVENT_META[e.type].color,
-            title: `${formatHMS(e.matchTimeSec)} ${eventLabel(e)}${who}`,
+            title: `${formatHMS(e.matchTimeSec)} ${eventLabel(e)}${who}${note ? ` — ${note}` : ''}`,
         })
     }
     return out
