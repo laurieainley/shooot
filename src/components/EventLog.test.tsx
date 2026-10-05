@@ -255,6 +255,51 @@ describe('EventLog inline edit', () => {
     })
 })
 
+describe('EventLog details & running score', () => {
+    it('should show the score after each scoring event in timeline order, and none on other rows', () => {
+        setup([
+            { id: 'a', matchTimeSec: 30, type: 'goal', team: 'Whites' },
+            { id: 'b', matchTimeSec: 60, type: 'highlight', team: 'Whites' },
+            { id: 'c', matchTimeSec: 90, type: 'own_goal', team: 'Colours', scorer: 'Sam Taylor' },
+            { id: 'd', matchTimeSec: 120, type: 'goal', team: 'Colours' },
+        ])
+        render(<EventLog />)
+        const score = (i: number): string | null => rows()[i].querySelector('[data-score]')?.textContent ?? null
+        expect([score(0), score(1), score(2), score(3)]).toEqual(['1–0', null, '1–1', '1–2'])
+    })
+
+    it('should show the person and a shortened note', () => {
+        setup([{ id: 'a', matchTimeSec: 30, type: 'highlight', team: 'Whites', scorer: 'Sam', notes: 'nutmeg on the wing' }])
+        render(<EventLog />)
+        expect(within(rows()[0]).getByText('Highlight · Sam')).toBeInTheDocument()
+        expect(within(rows()[0]).getByText('nutmeg on the wing')).toBeInTheDocument()
+    })
+
+    it('should edit the note with N and save on Enter', async () => {
+        setup([{ id: 'a', matchTimeSec: 30, type: 'foul', team: 'Whites' }])
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        log().focus()
+        fireEvent.keyDown(log(), { key: 'n' })
+        const input = screen.getByRole('textbox', { name: 'Note' })
+        await userEvent.type(input, 'late tackle{Enter}')
+        expect(byId('a')?.notes).toBe('late tackle')
+        expect(screen.queryByRole('textbox', { name: 'Note' })).not.toBeInTheDocument()
+    })
+
+    it('should edit the note on double-click, clear it when emptied and cancel on Escape', async () => {
+        setup([{ id: 'a', matchTimeSec: 30, type: 'highlight', notes: 'header' }])
+        render(<EventLog />)
+        await userEvent.dblClick(within(rows()[0]).getByText('header'))
+        await userEvent.type(screen.getByRole('textbox', { name: 'Note' }), 'xx{Escape}')
+        expect(byId('a')?.notes).toBe('header')
+        await userEvent.dblClick(within(rows()[0]).getByText('header'))
+        await userEvent.clear(screen.getByRole('textbox', { name: 'Note' }))
+        await userEvent.keyboard('{Enter}')
+        expect(byId('a')?.notes).toBeUndefined()
+    })
+})
+
 describe('EventLog header', () => {
     beforeEach(() => {
         setup([], { currentTimeInFileSec: 42.7 })

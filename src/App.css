@@ -188,6 +188,7 @@
 .event-row[aria-disabled="true"] { cursor: default; }
 .event-row[aria-disabled="true"] > :not(:last-child) { opacity: 0.5; }
 .event-row .team-dot { cursor: default; }
+.row-score { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: no-preference) { .event-row { transition: background-color 0.12s; } }
 .shell--phone .event-log ol { overflow: visible; }
 .shell--phone .event-row { min-height: 44px; }
