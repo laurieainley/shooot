@@ -7,6 +7,7 @@ import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/hig
 import { relinkEvents, linkedEvents } from './utils/relink'
 import { parseGoProName } from './utils/gopro'
 import { buildPreviewPlan, type PreviewStep } from './utils/preview'
+import type { GraphicsSettings } from './graphics/plan'
 
 /** Menus and sheets; at most one is open, and never together with the event picker. */
 export type Panel = 'menu' | 'files' | 'match' | 'settings' | 'paste' | 'export'
@@ -82,6 +83,20 @@ type AppState = {
     panel: Panel | null
     openPanel: (panel: Panel) => void
     closePanel: () => void
+    // Match graphics (title/full-time cards, lower thirds)
+    graphics: GraphicsSettings
+    setGraphics: (partial: Partial<GraphicsSettings>) => void
+    /** Counts matches (New match adds one) for the default "Matchday n" heading. */
+    matchNumber: number
+    /** Custom matchday heading; null = "Matchday {matchNumber}". */
+    matchdayLabel: string | null
+    setMatchdayLabel: (label: string | null) => void
+    setTeamInitials: (index: number, initials: string) => void
+}
+
+/** The heading on the title card. */
+export function matchdayText(s: Pick<AppState, 'matchNumber' | 'matchdayLabel'>): string {
+    return s.matchdayLabel?.trim() || `Matchday ${s.matchNumber}`
 }
 
 export const useAppState = create<AppState>()(
@@ -103,6 +118,9 @@ export const useAppState = create<AppState>()(
             picker: null,
             panel: null,
             opening: null,
+            graphics: { cards: true, lowerThirds: true, replayTag: false },
+            matchNumber: 1,
+            matchdayLabel: null,
             cumulativeOffsets: [],
             currentTimeInFileSec: 0,
             currentFileIndex: 0,
@@ -280,6 +298,7 @@ export const useAppState = create<AppState>()(
                     files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0,
                     matchStartTimeSec: 0, isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, picker: null, panel: null,
                     undoStack: [...state.undoStack.slice(-49), state.events], redoStack: [],
+                    matchNumber: state.matchNumber + 1, matchdayLabel: null,
                 })
             },
             setTeams: (teams) => set({ teams }),
@@ -304,6 +323,18 @@ export const useAppState = create<AppState>()(
             },
             openPicker: (eventId) => set({ picker: { eventId }, panel: null }),
             closePicker: () => set({ picker: null }),
+            setGraphics: (partial) => set({ graphics: { ...get().graphics, ...partial } }),
+            setMatchdayLabel: (label) => set({ matchdayLabel: label?.trim() ? label : null }),
+            setTeamInitials: (index, initials) => set({
+                teams: get().teams.map((t, i) => {
+                    if (i !== index) return t
+                    const next = { ...t }
+                    const v = initials.trim().toUpperCase().slice(0, 3)
+                    if (v) next.initials = v
+                    else delete next.initials
+                    return next
+                }),
+            }),
             openPanel: (panel) => set({ panel, picker: null }),
             closePanel: () => set({ panel: null }),
             // Preview mode actions
@@ -357,6 +388,9 @@ export const useAppState = create<AppState>()(
                 replayAfterSec: state.replayAfterSec,
                 replaySpeed: state.replaySpeed,
                 teams: state.teams,
+                graphics: state.graphics,
+                matchNumber: state.matchNumber,
+                matchdayLabel: state.matchdayLabel,
             }),
             version: 9,
             migrate: (persistedState: any, version: number) => {
