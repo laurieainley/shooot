@@ -4,6 +4,7 @@ import {
     type InputAudioTrack, type InputVideoTrack, type StreamTargetChunk, type Target,
 } from 'mediabunny'
 import { fileSource } from './fileSource'
+import { craToBla, lengthSize } from './nal'
 import { encodeReplayAudio } from './replayAudio'
 import { makeSilentAudio, type SilentAudio } from './silentAudio'
 import type { Cut, RenderFn, RenderSource } from './types'
@@ -16,6 +17,9 @@ type OpenSource = {
     audio: InputAudioTrack | null
     /** End of the last video frame (presentation time), i.e. the real end of the file. */
     endSec: number
+    config: VideoDecoderConfig
+    /** NAL length-field size of the samples (avcC/hvcC). */
+    nalLength: number
 }
 
 async function openSource(src: RenderSource): Promise<OpenSource> {
@@ -27,7 +31,18 @@ async function openSource(src: RenderSource): Promise<OpenSource> {
     }
     const last = await new EncodedPacketSink(video).getPacket(Infinity)
     const endSec = last ? last.timestamp + last.duration : await video.computeDuration()
-    return { input, video, audio: await input.getPrimaryAudioTrack(), endSec }
+    const config = await video.getDecoderConfig()
+    if (!config) {
+        input.dispose()
+        throw new Error(`${src.name}: video cannot be read in this browser`)
+    }
+    const hevc = video.codec === 'hevc'
+    const nalLength = config.description ? lengthSize(config.description, hevc) : 4
+    return { input, video, audio: await input.getPrimaryAudioTrack(), endSec, config, nalLength }
+}
+
+function blaAtCutStart(src: OpenSource, p: EncodedPacket): Uint8Array | null {
+    return p.type === 'key' && src.video.codec === 'hevc' && src.config.description ? craToBla(p.data, src.nalLength) : null
 }
 
 type OutputTarget = { target: Target; result: () => Promise<File | Blob>; discard: () => Promise<void> }
@@ -87,7 +102,7 @@ export const renderReel: RenderFn = async (cuts: Cut[], sources: RenderSource[],
         if (aOut) output.addAudioTrack(aOut)
         await output.start()
 
-        const vMeta = { decoderConfig: (await first.video.getDecoderConfig())! }
+        const vMeta = { decoderConfig: first.config }
         const aMeta = first.audio ? { decoderConfig: (await first.audio.getDecoderConfig())! } : undefined
         // Slowed or quieter cuts (replays) get re-encoded audio: decoded, stretched, gain applied, AAC again.
         // If the browser can't, fall back to silent AAC frames so the audio track stays continuous;
@@ -139,7 +154,12 @@ export const renderReel: RenderFn = async (cuts: Cut[], sources: RenderSource[],
                     if (p.timestamp < cutStart) continue
                     // Slow motion: same encoded frames, timestamps and durations stretched by 1/speed.
                     const rel = (p.timestamp - cutStart) / speed
-                    await vOut.add(p.clone({ timestamp: cursor + rel, duration: p.duration / speed }), vFirst ? vMeta : undefined)
+                    // HEVC open GOP: the cut's first picture is a CRA whose leading pictures were dropped. Mark it
+                    // BLA so decoders start a new sequence there; otherwise picture order continues from the
+                    // previous clip and ffmpeg reorders/drops frames at the join ("non monotonically increasing dts").
+                    const bla = p.timestamp === cutStart ? blaAtCutStart(src, p) : null
+                    const q = bla ? new EncodedPacket(bla, p.type, p.timestamp, p.duration) : p
+                    await vOut.add(q.clone({ timestamp: cursor + rel, duration: p.duration / speed }), vFirst ? vMeta : undefined)
                     vFirst = false
                     videoEnd = Math.max(videoEnd, p.timestamp + p.duration)
                     const within = Math.min(span(cut), Math.max(0, p.timestamp - cut.startSec))
