@@ -6,7 +6,7 @@ import { frameDuration, presentationRanks } from './frameGrid'
 import { covers, craToBla, paramSets, pickSampleEntry, spsLimits, spsOf, withInbandParams, type SpsLimits } from './nal'
 import { overlaySpans, type Gop, type ReencodeSpan } from './overlayWindow'
 import { describeOutput, encodeSegment, i420Frame, probeEncoders, withBitrate, type EncoderSetup } from './segmentEncoder'
-import { applyOverlay, convertRange, fadeI420, matrixOf, prepareOverlay, rgbaToI420, targetColorSpace, type PreparedOverlay, type YuvPlanes } from './yuvBlend'
+import { applyOverlay, convertRange, fadeI420, i420Layout, isYuv420, matrixOf, prepareOverlay, rgbaToI420, targetColorSpace, type PlaneLayout, type PreparedOverlay, type YuvPlanes } from './yuvBlend'
 import type { RenderCard, RenderOverlay } from './types'
 
 export type GraphicsSource = { video: InputVideoTrack; config: VideoDecoderConfig; nalLength: number }
@@ -236,21 +236,46 @@ export class GraphicsSession {
         }
     }
 
+    private rasterCanvas: OffscreenCanvas | null = null
+
+    /** Draws any decodable frame onto a canvas and returns its RGBA pixels. */
+    private rasterise(frame: VideoFrame, width: number, height: number): Uint8ClampedArray {
+        if (!this.rasterCanvas || this.rasterCanvas.width !== width || this.rasterCanvas.height !== height) {
+            this.rasterCanvas = new OffscreenCanvas(width, height)
+        }
+        const ctx = this.rasterCanvas.getContext('2d', { willReadFrequently: true })
+        if (!ctx) throw new Error('no 2D canvas to convert decoded frames')
+        ctx.drawImage(frame, 0, 0, width, height)
+        return ctx.getImageData(0, 0, width, height).data
+    }
+
     /** Copies a decoded frame's planes, blends the active overlays in, and returns a new frame for the encoder. */
     private async paintFrame(frame: VideoFrame, t: number, overlays: RenderOverlay[], cache: OverlayCache, getCtx: () => OffscreenCanvasRenderingContext2D): Promise<VideoFrame> {
-        const format = frame.format
-        if (format !== 'I420' && format !== 'NV12') throw new Error(`unsupported decoded format ${format ?? 'unknown'}`)
         const rect = frame.visibleRect!
-        const buf = new Uint8Array(frame.allocationSize())
-        const layout = await frame.copyTo(buf)
         const W = rect.width
         const H = rect.height
         const cs = this.colorSpace
+        let buf: Uint8Array
+        let layout: PlaneLayout[]
+        let format: 'I420' | 'NV12'
+        if (isYuv420(frame.format)) {
+            format = frame.format
+            buf = new Uint8Array(frame.allocationSize())
+            layout = await frame.copyTo(buf)
+        } else {
+            // Some decoders (e.g. Android hardware, GPU-backed frames) hand back RGBA/BGRA or opaque frames:
+            // rasterise through a canvas and convert to I420 in the footage's matrix and range.
+            const rgba = this.rasterise(frame, W, H)
+            format = 'I420'
+            buf = rgbaToI420(rgba, W, H, matrixOf(cs.matrix), cs.fullRange ?? false)
+            layout = i420Layout(W, H)
+        }
         const planes: YuvPlanes = { format, width: W, height: H, data: buf, planes: layout.map((l) => ({ offset: l.offset, stride: l.stride })) }
         // Decoders may hand back a different range than the footage is coded in (Chrome/VideoToolbox gives
         // limited-range NV12 for full-range HEVC): bring the samples back to the footage's range.
+        // (Rasterised frames were converted straight into the footage's range above.)
         const decodedFull = frame.colorSpace.fullRange ?? false
-        if (decodedFull !== (cs.fullRange ?? false)) convertRange(planes, cs.fullRange ?? false)
+        if (isYuv420(frame.format) && decodedFull !== (cs.fullRange ?? false)) convertRange(planes, cs.fullRange ?? false)
         const active = overlays.filter((o) => t >= o.startSec - 1e-6 && t < o.startSec + o.durationSec)
         if (active.length > 0) {
             const ctx = getCtx()

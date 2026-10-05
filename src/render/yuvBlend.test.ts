@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { applyOverlay, blendRgba, convertRange, fadeI420, prepareOverlay, rgbaToI420, rgbToYuv, targetColorSpace, type YuvPlanes } from './yuvBlend'
+import { applyOverlay, blendRgba, i420Layout, isYuv420, convertRange, fadeI420, prepareOverlay, rgbaToI420, rgbToYuv, targetColorSpace, type YuvPlanes } from './yuvBlend'
 
 function i420(width: number, height: number, y: number, u: number, v: number): YuvPlanes {
     const cw = width / 2
@@ -155,5 +155,22 @@ describe('prepareOverlay / applyOverlay', () => {
         blendRgba(a, img, 'bt709', true)
         applyOverlay(b, prepareOverlay(img, 'bt709', true))
         expect(b.data).toEqual(a.data)
+    })
+})
+
+describe('isYuv420', () => {
+    it('should accept the planar 4:2:0 formats we can blend into directly', () => {
+        expect(isYuv420('I420')).toBe(true)
+        expect(isYuv420('NV12')).toBe(true)
+    })
+    it('should reject RGB formats and opaque (null) frames, which go through a canvas', () => {
+        for (const f of ['RGBA', 'RGBX', 'BGRA', 'BGRX', 'I420A', 'I444', null] as const) expect(isYuv420(f)).toBe(false)
+    })
+})
+
+describe('i420Layout', () => {
+    it('should describe packed Y, U, V planes as written by rgbaToI420', () => {
+        expect(i420Layout(4, 2)).toEqual([{ offset: 0, stride: 4 }, { offset: 8, stride: 2 }, { offset: 10, stride: 2 }])
+        expect(i420Layout(3, 3)).toEqual([{ offset: 0, stride: 3 }, { offset: 9, stride: 2 }, { offset: 13, stride: 2 }])
     })
 })
