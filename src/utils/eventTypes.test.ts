@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { PICKER_OPTIONS, eventLabel, eventIcon, isScoring, migrateEvent, optionForKey, EVENT_META } from './eventTypes'
+import { PICKER_OPTIONS, eventLabel, eventIcon, isScoring, migrateEvent, optionForKey, EVENT_META, shortNote, eventSummary } from './eventTypes'
 import type { MatchEvent } from '../types'
 
 const ev = (extra: Partial<MatchEvent>): MatchEvent => ({ id: 'e', matchTimeSec: 1, type: 'goal', ...extra })
@@ -50,5 +50,53 @@ describe('migrateEvent', () => {
         expect(migrateEvent({ id: 'a', matchTimeSec: 1, type: 'card' }).type).toBe('foul')
         expect(migrateEvent({ id: 'a', matchTimeSec: 1 }).type).toBe('goal')
         expect(migrateEvent({ id: 'a', matchTimeSec: 1, type: 'save' }).type).toBe('save')
+    })
+})
+
+describe('PICKER_OPTIONS — per-type details', () => {
+    const opt = (id: string) => PICKER_OPTIONS.find((o) => o.id === id)!
+
+    it('should label the person step per type', () => {
+        expect(opt('goal').personLabel).toBe('Scorer')
+        expect(opt('goal_pen').personLabel).toBe('Penalty taker')
+        expect(opt('own_goal').personLabel).toBe('Own goal by')
+        expect(opt('penalty_missed').personLabel).toBe('Taker')
+        expect(opt('save').personLabel).toBe('Goalkeeper')
+        expect(opt('highlight').personLabel).toBe('Who')
+        expect(opt('foul').personLabel).toBe('Committed by')
+        expect(opt('penalty_awarded').askScorer).toBe(false)
+    })
+
+    it('should make the goalkeeper, highlight and foul people optional', () => {
+        expect(PICKER_OPTIONS.filter((o) => o.personOptional).map((o) => o.id)).toEqual(['highlight', 'foul', 'save'])
+    })
+
+    it('should ask highlight and foul for an optional team and a text', () => {
+        expect(opt('highlight')).toMatchObject({ askTeam: true, teamOptional: true, askText: 'prompt', textLabel: 'What happened' })
+        expect(opt('foul')).toMatchObject({ askTeam: true, teamOptional: true, askText: 'optional', textLabel: 'Note' })
+        expect(PICKER_OPTIONS.filter((o) => o.askText).map((o) => o.id)).toEqual(['highlight', 'foul'])
+        expect(PICKER_OPTIONS.filter((o) => o.teamOptional).map((o) => o.id)).toEqual(['highlight', 'foul'])
+    })
+})
+
+describe('shortNote', () => {
+    it('should trim and collapse whitespace', () => {
+        expect(shortNote('  nutmeg   on the wing ')).toBe('nutmeg on the wing')
+        expect(shortNote(undefined)).toBe('')
+    })
+
+    it('should shorten long notes at a word with an ellipsis', () => {
+        const s = shortNote('a lovely curling shot from outside the box into the top corner', 30)
+        expect(s.length).toBeLessThanOrEqual(30)
+        expect(s).toBe('a lovely curling shot from…')
+    })
+})
+
+describe('eventSummary', () => {
+    it('should join label, person and short note', () => {
+        expect(eventSummary({ type: 'highlight', scorer: 'Sam', notes: 'nutmeg on the wing' })).toBe('Highlight · Sam — nutmeg on the wing')
+        expect(eventSummary({ type: 'foul', notes: 'late' })).toBe('Foul — late')
+        expect(eventSummary({ type: 'goal', pen: true, scorer: 'Jo' })).toBe('Goal (pen) · Jo')
+        expect(eventSummary({ type: 'save' })).toBe('Save')
     })
 })
