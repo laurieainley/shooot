@@ -237,3 +237,25 @@ describe('panels and the picker', () => {
         expect(s().picker).not.toBeNull()
     })
 })
+
+describe('replaceFile', () => {
+    beforeEach(() => {
+        useAppState.setState({ files: [], events: [], cumulativeOffsets: [], undoStack: [], redoStack: [], currentFileIndex: 1 })
+        s().setFiles([vf('a.mp4'), vf('b.mp4')])
+        s().addEvent(goalIn(0, 'ga'))
+        s().addEvent(goalIn(1, 'gb'))
+    })
+
+    it('should put the replacement files in place of one entry and recompute offsets', () => {
+        s().replaceFile(0, [vf('c.mp4'), vf('d.mp4')])
+        expect(s().files.map((f) => f.name)).toEqual(['c.mp4', 'd.mp4', 'b.mp4'])
+        expect(s().cumulativeOffsets).toEqual([0, 100, 200])
+    })
+
+    it('should unlink events of the old file and keep the others linked', () => {
+        s().replaceFile(0, [vf('c.mp4')])
+        expect(s().events.find((e) => e.id === 'ga')!.unlinked).toBe(true)
+        expect(s().events.find((e) => e.id === 'gb')).toMatchObject({ sourceFileIndex: 1 })
+        expect(s().events.find((e) => e.id === 'gb')!.unlinked).toBeUndefined()
+    })
+})

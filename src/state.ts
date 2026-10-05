@@ -33,6 +33,10 @@ type AppState = {
     addFiles: (files: VideoSourceFile[]) => void
     moveFile: (from: number, to: number) => void
     removeFile: (index: number) => void
+    replaceFile: (index: number, replacement: VideoSourceFile[]) => void
+    /** Progress text while picked files are being opened, e.g. "Opening GX010226.MP4 (11.9 GB)…". */
+    opening: string | null
+    setOpening: (label: string | null) => void
     attachFullFiles: (files: File[]) => string[]
     setCurrentTimeInFile: (t: number) => void
     setCurrentFileIndex: (idx: number) => void
@@ -95,6 +99,7 @@ export const useAppState = create<AppState>()(
             ],
             picker: null,
             panel: null,
+            opening: null,
             cumulativeOffsets: [],
             currentTimeInFileSec: 0,
             currentFileIndex: 0,
@@ -152,6 +157,15 @@ export const useAppState = create<AppState>()(
                     events: relinkEvents(get().events, newFiles),
                 })
             },
+            // Swap one entry for newly picked file(s); events on the old file become unlinked, as with remove.
+            replaceFile: (index, replacement) => {
+                const files = get().files
+                if (index < 0 || index >= files.length || replacement.length === 0) return
+                const old = files[index]
+                if (old.url) URL.revokeObjectURL(old.url)
+                get().setFiles([...files.slice(0, index), ...replacement, ...files.slice(index + 1)])
+            },
+            setOpening: (label) => set({ opening: label }),
             setCurrentTimeInFile: (t) => set({ currentTimeInFileSec: t }),
             setCurrentFileIndex: (idx) => set({ currentFileIndex: Math.max(0, Math.min(idx, get().files.length - 1)) }),
             setMatchStartTime: (time) => set({ matchStartTimeSec: time }),

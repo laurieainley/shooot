@@ -4,6 +4,7 @@ import { FILE_INPUT_ACCEPT } from '../utils/fileAccept'
 import { fileBadges } from '../utils/fileBadges'
 import { formatHMS } from '../utils/timeline'
 import { addPickedFiles } from './addFiles'
+import { OpeningStatus } from './OpeningStatus'
 
 interface AddFilesButtonProps {
     label?: string
@@ -13,9 +14,10 @@ interface AddFilesButtonProps {
 
 export function AddFilesButton({ label = '+ files', className = 'file-add', onError }: AddFilesButtonProps) {
     const inputRef = useRef<HTMLInputElement | null>(null)
+    const busy = useAppState((s) => s.opening !== null)
     return (
         <>
-            <button type="button" onClick={() => inputRef.current?.click()} className={className}>{label}</button>
+            <button type="button" onClick={() => inputRef.current?.click()} disabled={busy} className={className}>{label}</button>
             <input
                 ref={inputRef}
                 type="file"
@@ -71,6 +73,7 @@ export function FilePills() {
                 </div>
             ))}
             <AddFilesButton onError={setMessage} />
+            <OpeningStatus />
             {message && <span className="text-[12px] text-danger">{message}</span>}
         </div>
     )
