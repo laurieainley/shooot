@@ -517,6 +517,10 @@
   border: 1px dashed var(--line); border-radius: 3px; background: none; color: var(--muted); font: inherit; cursor: pointer;
 }
 .event-picker__skip:hover { color: var(--ink); border-color: var(--muted); }
+.event-picker__warn {
+  margin: 0 0 8px; padding: 6px 8px; border-radius: 3px; font-size: 13px; line-height: 1.3;
+  background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--ink); border-left: 3px solid var(--danger);
+}
 .event-picker__hint { margin-top: 6px; padding: 0 6px; font-size: 11px; color: var(--muted); }
 @media (max-width: 899px) {
   .event-picker {
@@ -626,7 +630,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .text-\[10px\], .text-\[11px\], .text-\[12px\], .text-\[13px\],
   .btn-quiet, .btn-primary, .file-add, .field, .tag, .row-score, .menu > button, .menu-item,
   .clip-summary, .export-section__title, .export-section__hint, .toggle-row__hint, .settings-field, .settings-field .unit,
-  .strip-label, .strip-file__name, .graphics-setup__field, .opening-status, .event-picker__hint, .event-picker__title,
+  .strip-label, .strip-file__name, .graphics-setup__field, .opening-status, .event-picker__hint, .event-picker__title, .event-picker__warn,
   .control-btn, .score-final, .file-row__index, .file-pill, .file-pill__dur, .key-hints,
   .player-container .video-js .vjs-time-control { font-size: 14px; }
   .tag { line-height: 18px; }
