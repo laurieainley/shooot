@@ -11,6 +11,8 @@ import { patchPlayerFullscreen, type FullscreenPlayer } from './fullscreen'
 import { homeTarget, startInFile } from '../utils/markers'
 import { useZoomPan, type ZoomPan } from './useZoomPan'
 import { ZoomChip } from './ZoomChip'
+import { useTouchScrub } from './useTouchScrub'
+import { formatHMS } from '../utils/timeline'
 
 type FrameStepPlayer = { pause: () => void; currentTime: (t?: number) => number; duration: () => number }
 
@@ -40,6 +42,7 @@ export function Player() {
     const zoomPan = useZoomPan(getViewport)
     const zoomRef = useRef<ZoomPan>(zoomPan)
     zoomRef.current = zoomPan
+    const scrub = useTouchScrub(containerRef, playerRef)
 
     useEffect(() => {
         if (!videoRef.current) return
@@ -405,6 +408,7 @@ export function Player() {
                 </div>
             )}
             <ZoomChip zoom={zoomPan.zoom} onReset={zoomPan.reset} />
+            {scrub && <div className="scrub-bubble tc" style={{ left: scrub.leftPx }}>{formatHMS(scrub.timeSec)}</div>}
             <FullscreenControls playerRef={playerRef} isFullscreen={isFullscreen} />
             <EventPicker />
             <TimelineMarkers host={progressHost} durationSec={durationSec} />
