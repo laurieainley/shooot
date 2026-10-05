@@ -66,6 +66,7 @@ export function MatchSetup({ onClose }: MatchSetupProps) {
                         </div>
                     ))}
                 </div>
+                <p className="m-0 mt-2 text-[12px] text-muted">Teams and rosters are remembered for next time.</p>
                 <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line pt-3 pb-1">
                     <span className="flex items-center gap-2 text-[13px] text-muted"><span className="kickoff-flag" aria-hidden="true" />Kick-off</span>
                     <TimeInput valueSec={matchStartTimeSec} onCommit={setMatchStartTime} ariaLabel="Match start" />
