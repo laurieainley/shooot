@@ -13,6 +13,7 @@ import { useZoomPan, type ZoomPan } from './useZoomPan'
 import { ZoomChip } from './ZoomChip'
 import { useTouchScrub } from './useTouchScrub'
 import { formatHMS } from '../utils/timeline'
+import { playerOptions } from '../utils/playerOptions'
 
 type FrameStepPlayer = { pause: () => void; currentTime: (t?: number) => number; duration: () => number }
 
@@ -47,13 +48,7 @@ export function Player() {
     useEffect(() => {
         if (!videoRef.current) return
         if (!playerRef.current) {
-            playerRef.current = videojs(videoRef.current, {
-                controls: !isPreviewMode, // Disable controls during preview
-                autoplay: false,
-                preload: 'auto',
-                fluid: false,
-                fill: true,
-            })
+            playerRef.current = videojs(videoRef.current, playerOptions(isPreviewMode))
             patchPlayerFullscreen(playerRef.current as unknown as FullscreenPlayer, () => containerRef.current)
 
             // Enable hotkeys once the player is ready

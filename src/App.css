@@ -356,6 +356,12 @@
 .player-container .video-js .vjs-load-progress { background: rgb(255 255 255 / 0.18); }
 .player-container .video-js .vjs-load-progress div { background: rgb(255 255 255 / 0.12); }
 .player-container .video-js .vjs-time-control { font-family: var(--font-mono); font-size: 12px; }
+/* Elapsed time: current / duration (video.js shows the remaining time by default). */
+.player-container .video-js .vjs-current-time,
+.player-container .video-js .vjs-time-divider,
+.player-container .video-js .vjs-duration { display: block; }
+.player-container .video-js .vjs-current-time, .player-container .video-js .vjs-duration { padding-inline: 0.4em; }
+.player-container .video-js .vjs-time-divider { min-width: 0; padding: 0; }
 .player-container .video-js .vjs-big-play-button {
   border: 2px solid rgb(255 255 255 / 0.85); background: rgb(5 7 6 / 0.55); border-radius: 50%;
   width: 2em; height: 2em; line-height: 1.9em; margin-left: -1em; margin-top: -1em;
@@ -470,3 +476,21 @@
 
 /* Touch: pinch belongs to the player in fullscreen or once zoomed; page scroll otherwise. */
 .player-container:fullscreen, .player-container--zoomed { touch-action: none; }
+
+/* Touch screens: every control at least 44px. */
+@media (pointer: coarse) {
+  .player-container .video-js .vjs-control-bar { height: 44px; }
+  .player-container .video-js .vjs-control-bar .vjs-button { width: 44px; }
+  .player-container .video-js .vjs-control-bar .vjs-button > .vjs-icon-placeholder::before { line-height: 44px; }
+  .player-container .video-js .vjs-time-control { line-height: 44px; }
+  .player-container .video-js .vjs-volume-panel { display: none; }
+  .player-container .video-js .vjs-progress-control { min-width: 3em; }
+  .row-btn { width: 44px; height: 44px; font-size: 17px; }
+  .btn-icon { width: 44px; height: 44px; }
+  .btn-quiet, .btn-primary, .file-add { min-height: 40px; }
+  .event-row { min-height: 48px; }
+  .event-picker__item { min-height: 44px; box-sizing: border-box; }
+  .control-btn { min-width: 44px; min-height: 44px; justify-content: center; }
+  .menu-list > button { min-height: 44px; }
+  .swatch { width: 32px; height: 32px; }
+}
