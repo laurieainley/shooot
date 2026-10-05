@@ -47,6 +47,11 @@ function team(t: TeamBadge, cx: number): DrawOp[] {
     ]
 }
 
+/** Card fade level at `t`: 0 = black, 1 = fully visible (0.5 s in and out). */
+export function cardFade(t: number, duration: number): number {
+    return clamp01(Math.min(t / CARD_FADE, (duration - t) / CARD_FADE))
+}
+
 /** VS or full-time card at `t` seconds of a `duration`-second card (fades from and to black). */
 export function cardLayout(spec: CardSpec, t: number, duration: number, hasLogo: boolean): DrawOp[] {
     const ops: DrawOp[] = [{ kind: 'cardBackground' }]
@@ -55,7 +60,7 @@ export function cardLayout(spec: CardSpec, t: number, duration: number, hasLogo:
     ops.push(...team(spec.left, 520), ...team(spec.right, 1400))
     ops.push({ kind: 'text', text: spec.centre, x: 960, y: 610, size: spec.centre === 'VS' ? 200 : 220, color: WHITE, align: 'center', baseline: 'middle', maxWidth: 560 })
     ops.push({ kind: 'rect', x: 0, y: 1060, w: 640, h: 20, fill: ORANGE }, { kind: 'rect', x: 640, y: 1060, w: 1280, h: 20, fill: BLUE })
-    const fade = clamp01(Math.min(t / CARD_FADE, (duration - t) / CARD_FADE))
+    const fade = cardFade(t, duration)
     if (fade < 1) ops.push({ kind: 'rect', x: 0, y: 0, w: DESIGN_W, h: DESIGN_H, fill: '#000000', alpha: 1 - fade })
     return ops
 }

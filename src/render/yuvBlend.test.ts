@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { blendRgba, convertRange, rgbaToI420, rgbToYuv, targetColorSpace, type YuvPlanes } from './yuvBlend'
+import { applyOverlay, blendRgba, convertRange, fadeI420, prepareOverlay, rgbaToI420, rgbToYuv, targetColorSpace, type YuvPlanes } from './yuvBlend'
 
 function i420(width: number, height: number, y: number, u: number, v: number): YuvPlanes {
     const cw = width / 2
@@ -131,5 +131,29 @@ describe('targetColorSpace', () => {
     it('should make the range explicit (limited when unknown)', () => {
         expect(targetColorSpace(undefined)).toEqual({ fullRange: false })
         expect(targetColorSpace({ matrix: 'smpte170m' })).toEqual({ matrix: 'smpte170m', fullRange: false })
+    })
+})
+
+describe('fadeI420', () => {
+    it('should scale luma towards black and chroma towards neutral', () => {
+        const src = new Uint8Array([235, 235, 235, 235, 240, 16])
+        const out = new Uint8Array(6)
+        fadeI420(src, out, 4, 0.5, false)
+        expect([...out]).toEqual([126, 126, 126, 126, 184, 72])
+        fadeI420(src, out, 4, 0, true)
+        expect([...out]).toEqual([0, 0, 0, 0, 128, 128])
+        fadeI420(src, out, 4, 1, true)
+        expect([...out]).toEqual([...src])
+    })
+})
+
+describe('prepareOverlay / applyOverlay', () => {
+    it('should give the same planes as blendRgba', () => {
+        const img = { data: rgba(4, 4, [0x0f, 0x23, 0x47, 200]), width: 4, height: 4, x: 2, y: 1 }
+        const a = i420(8, 8, 100, 90, 160)
+        const b = i420(8, 8, 100, 90, 160)
+        blendRgba(a, img, 'bt709', true)
+        applyOverlay(b, prepareOverlay(img, 'bt709', true))
+        expect(b.data).toEqual(a.data)
     })
 })

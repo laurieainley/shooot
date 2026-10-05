@@ -41,56 +41,93 @@ export function rgbToYuv(r: number, g: number, b: number, m: YuvMatrix, fullRang
     return [clamp8(y), clamp8(u), clamp8(v)]
 }
 
-/** Alpha-blends `img` (straight alpha) into the planes at (img.x, img.y); clipped to the frame. */
-export function blendRgba(f: YuvPlanes, img: RgbaImage, m: YuvMatrix, fullRange: boolean): void {
-    const x0 = Math.max(0, img.x)
-    const y0 = Math.max(0, img.y)
-    const x1 = Math.min(f.width, img.x + img.width)
-    const y1 = Math.min(f.height, img.y + img.height)
-    if (x1 <= x0 || y1 <= y0) return
-    const d = img.data
-    const Y = f.planes[0]
-    for (let y = y0; y < y1; y++) {
-        for (let x = x0; x < x1; x++) {
-            const i = ((y - img.y) * img.width + (x - img.x)) * 4
+/** An overlay converted to YUV once: luma value + alpha per pixel, chroma contribution + coverage per 2×2 block. */
+export type PreparedOverlay = {
+    x: number; y: number; width: number; height: number
+    luma: Float32Array; alpha: Float32Array
+    cx0: number; cy0: number; cw: number; ch: number
+    cover: Float32Array; uAdd: Float32Array; vAdd: Float32Array
+}
+
+export function prepareOverlay(img: RgbaImage, m: YuvMatrix, fullRange: boolean): PreparedOverlay {
+    const { data: d, width: w, height: h } = img
+    const [kr, kb] = KR_KB[m]
+    const kg = 1 - kr - kb
+    const ys = fullRange ? 255 : 219
+    const yo = fullRange ? 0 : 16
+    const cs = fullRange ? 255 : 224
+    const luma = new Float32Array(w * h)
+    const alpha = new Float32Array(w * h)
+    const cx0 = Math.floor(img.x / 2)
+    const cy0 = Math.floor(img.y / 2)
+    const cw = Math.ceil((img.x + w) / 2) - cx0
+    const ch = Math.ceil((img.y + h) / 2) - cy0
+    const cover = new Float32Array(cw * ch)
+    const uAdd = new Float32Array(cw * ch)
+    const vAdd = new Float32Array(cw * ch)
+    for (let py = 0; py < h; py++) {
+        for (let px = 0; px < w; px++) {
+            const i = (py * w + px) * 4
             const a = d[i + 3] / 255
             if (a === 0) continue
-            const [yy] = yuvFloat(d[i], d[i + 1], d[i + 2], m, fullRange)
-            const o = Y.offset + y * Y.stride + x
-            f.data[o] = clamp8(f.data[o] * (1 - a) + yy * a)
+            const R = d[i] / 255
+            const G = d[i + 1] / 255
+            const B = d[i + 2] / 255
+            const Y = kr * R + kg * G + kb * B
+            const k = py * w + px
+            luma[k] = yo + ys * Y
+            alpha[k] = a
+            const c = (((img.y + py) >> 1) - cy0) * cw + (((img.x + px) >> 1) - cx0)
+            cover[c] += a / 4
+            uAdd[c] += (a * (128 + (cs * (B - Y)) / (2 * (1 - kb)))) / 4
+            vAdd[c] += (a * (128 + (cs * (R - Y)) / (2 * (1 - kr)))) / 4
         }
     }
-    // Chroma: one sample per 2×2 block, mixed by the block's average coverage.
+    return { x: img.x, y: img.y, width: w, height: h, luma, alpha, cx0, cy0, cw, ch, cover, uAdd, vAdd }
+}
+
+export function applyOverlay(f: YuvPlanes, o: PreparedOverlay): void {
+    const x0 = Math.max(0, o.x)
+    const y0 = Math.max(0, o.y)
+    const x1 = Math.min(f.width, o.x + o.width)
+    const y1 = Math.min(f.height, o.y + o.height)
+    if (x1 <= x0 || y1 <= y0) return
+    const Y = f.planes[0]
+    for (let y = y0; y < y1; y++) {
+        const row = Y.offset + y * Y.stride
+        const src = (y - o.y) * o.width - o.x
+        for (let x = x0; x < x1; x++) {
+            const a = o.alpha[src + x]
+            if (a === 0) continue
+            f.data[row + x] = clamp8(f.data[row + x] * (1 - a) + o.luma[src + x] * a)
+        }
+    }
     const nv12 = f.format === 'NV12'
     const U = f.planes[1]
     const V = nv12 ? f.planes[1] : f.planes[2]
     for (let cy = y0 >> 1; cy < (y1 + 1) >> 1; cy++) {
         for (let cx = x0 >> 1; cx < (x1 + 1) >> 1; cx++) {
-            let aSum = 0
-            let uSum = 0
-            let vSum = 0
-            for (let dy = 0; dy < 2; dy++) {
-                for (let dx = 0; dx < 2; dx++) {
-                    const px = cx * 2 + dx - img.x
-                    const py = cy * 2 + dy - img.y
-                    if (px < 0 || py < 0 || px >= img.width || py >= img.height) continue
-                    const i = (py * img.width + px) * 4
-                    const a = d[i + 3] / 255
-                    if (a === 0) continue
-                    const [, u, v] = yuvFloat(d[i], d[i + 1], d[i + 2], m, fullRange)
-                    aSum += a
-                    uSum += a * u
-                    vSum += a * v
-                }
-            }
-            if (aSum === 0) continue
-            const cover = aSum / 4
+            const c = (cy - o.cy0) * o.cw + (cx - o.cx0)
+            const cover = o.cover[c]
+            if (!(cover > 0)) continue
             const uo = nv12 ? U.offset + cy * U.stride + cx * 2 : U.offset + cy * U.stride + cx
             const vo = nv12 ? uo + 1 : V.offset + cy * V.stride + cx
-            f.data[uo] = clamp8(f.data[uo] * (1 - cover) + uSum / 4)
-            f.data[vo] = clamp8(f.data[vo] * (1 - cover) + vSum / 4)
+            f.data[uo] = clamp8(f.data[uo] * (1 - cover) + o.uAdd[c])
+            f.data[vo] = clamp8(f.data[vo] * (1 - cover) + o.vAdd[c])
         }
     }
+}
+
+/** Alpha-blends `img` (straight alpha) into the planes at (img.x, img.y); clipped to the frame. */
+export function blendRgba(f: YuvPlanes, img: RgbaImage, m: YuvMatrix, fullRange: boolean): void {
+    applyOverlay(f, prepareOverlay(img, m, fullRange))
+}
+
+/** A packed I420 picture faded towards black: `level` 1 = unchanged, 0 = black. */
+export function fadeI420(src: Uint8Array, dst: Uint8Array, lumaSize: number, level: number, fullRange: boolean): void {
+    const yo = fullRange ? 0 : 16
+    for (let i = 0; i < lumaSize; i++) dst[i] = clamp8(yo + (src[i] - yo) * level)
+    for (let i = lumaSize; i < src.length; i++) dst[i] = clamp8(128 + (src[i] - 128) * level)
 }
 
 /** Rescales the samples between limited (16–235/240) and full (0–255) range, in place. */
@@ -101,10 +138,11 @@ export function convertRange(f: YuvPlanes, toFull: boolean): void {
         yMap[v] = clamp8(toFull ? ((v - 16) * 255) / 219 : 16 + (v * 219) / 255)
         cMap[v] = clamp8(toFull ? ((v - 128) * 255) / 224 + 128 : ((v - 128) * 224) / 255 + 128)
     }
+    const data = f.data
     const remap = (p: PlaneLayout, rowBytes: number, rows: number, map: Uint8Array): void => {
         for (let y = 0; y < rows; y++) {
-            const o = p.offset + y * p.stride
-            for (let x = 0; x < rowBytes; x++) f.data[o + x] = map[f.data[o + x]]
+            const row = data.subarray(p.offset + y * p.stride, p.offset + y * p.stride + rowBytes)
+            for (let x = 0; x < row.length; x++) row[x] = map[row[x]]
         }
     }
     const cw = Math.ceil(f.width / 2)

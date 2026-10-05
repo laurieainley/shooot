@@ -1,6 +1,6 @@
 // Turns a graphics spec (plain data) into the engine's painters.
 import type { RenderGraphics, RenderOverlay } from '../render/types'
-import { CARD_SEC, cardLayout, lowerThirdLayout, replayTagLayout } from './layout'
+import { CARD_SEC, cardFade, cardLayout, lowerThirdLayout, replayTagLayout } from './layout'
 import { designFit, measureWith, paintOps, type PaintAssets } from './paint'
 import type { CardSpec, GraphicsSpec, OverlaySpec } from './types'
 
@@ -8,7 +8,12 @@ import type { CardSpec, GraphicsSpec, OverlaySpec } from './types'
 const ROWS: Record<OverlaySpec['kind'], [number, number]> = { lowerThird: [770, 976], replayTag: [56, 136] }
 
 function card(spec: CardSpec, label: string, assets: PaintAssets) {
-    return { label, durationSec: CARD_SEC, paint: (ctx: OffscreenCanvasRenderingContext2D, t: number) => paintOps(ctx, cardLayout(spec, t, CARD_SEC, !!assets.logo), assets) }
+    // Drawn once fully visible; the engine applies the fade (cheaper than converting every frame).
+    return {
+        label, durationSec: CARD_SEC,
+        paint: (ctx: OffscreenCanvasRenderingContext2D) => paintOps(ctx, cardLayout(spec, CARD_SEC / 2, CARD_SEC, !!assets.logo), assets),
+        fade: (t: number) => cardFade(t, CARD_SEC),
+    }
 }
 
 export function toRenderGraphics(spec: GraphicsSpec, assets: PaintAssets): RenderGraphics {

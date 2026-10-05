@@ -18,6 +18,8 @@ describe('toRenderGraphics', () => {
         expect(g.intro?.label).toBe('Title card')
         expect(g.intro?.durationSec).toBe(4)
         expect(g.outro?.label).toBe('Full-time card')
+        expect(g.intro?.fade?.(0)).toBe(0)
+        expect(g.intro?.fade?.(2)).toBe(1)
         expect(g.overlays.map((o) => [o.cutIndex, o.startSec, o.durationSec, o.label])).toEqual([[2, 20, 3, 'Lower third: Goal'], [3, 16, 5, 'Replay tag']])
     })
 

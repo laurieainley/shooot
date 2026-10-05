@@ -6,7 +6,7 @@ import { frameDuration, presentationRanks } from './frameGrid'
 import { covers, craToBla, paramSets, pickSampleEntry, spsLimits, spsOf, withInbandParams, type SpsLimits } from './nal'
 import { overlaySpans, type Gop, type ReencodeSpan } from './overlayWindow'
 import { describeOutput, encodeSegment, i420Frame, probeEncoders, withBitrate, type EncoderSetup } from './segmentEncoder'
-import { blendRgba, convertRange, matrixOf, rgbaToI420, targetColorSpace, type YuvPlanes } from './yuvBlend'
+import { applyOverlay, convertRange, fadeI420, matrixOf, prepareOverlay, rgbaToI420, targetColorSpace, type PreparedOverlay, type YuvPlanes } from './yuvBlend'
 import type { RenderCard, RenderOverlay } from './types'
 
 export type GraphicsSource = { video: InputVideoTrack; config: VideoDecoderConfig; nalLength: number }
@@ -15,6 +15,8 @@ export type GraphicsSource = { video: InputVideoTrack; config: VideoDecoderConfi
 export type OutItem = { packet: EncodedPacket; generated: boolean; splice: boolean }
 
 export type OverlayResult = { items: OutItem[]; applied: string[]; skipped: { label: string; reason: string }[] }
+
+type OverlayCache = { words: Uint32Array | null; prepared: PreparedOverlay | null }
 
 function sameWords(a: Uint32Array, b: Uint32Array): boolean {
     if (a.length !== b.length) return false
@@ -83,8 +85,20 @@ export class GraphicsSession {
         const full = this.colorSpace.fullRange ?? false
         let prev: Uint32Array | null = null
         let yuv: Uint8Array | null = null
+        let still: Uint8Array | null = null
+        if (card.fade) {
+            card.paint(ctx, card.durationSec / 2)
+            still = rgbaToI420(ctx.getImageData(0, 0, W, H).data, W, H, matrix, full)
+            yuv = new Uint8Array(still.length)
+        }
         const { packets, description } = await encodeSegment(this.setup.config, async (encode) => {
             for (let i = 0; i < n; i++) {
+                if (still && yuv && card.fade) {
+                    fadeI420(still, yuv, W * H, card.fade(i * frameSec), full)
+                    await encode(i420Frame(yuv, W, H, Math.round(i * frameSec * 1e6), durUs, this.colorSpace), i % keyEvery === 0)
+                    onFrame?.((i + 1) / n)
+                    continue
+                }
                 ctx.save()
                 ctx.clearRect(0, 0, W, H)
                 card.paint(ctx, i * frameSec)
@@ -182,6 +196,7 @@ export class GraphicsSession {
         let canvas: OffscreenCanvas | null = null
         let ctx: OffscreenCanvasRenderingContext2D | null = null
         let encodedCount = 0
+        const cache: OverlayCache = { words: null, prepared: null }
         try {
             decoder.configure(src.config)
             const { packets: encoded, description } = await encodeSegment(withBitrate(this.setup, bitrate), async (encode) => {
@@ -190,7 +205,7 @@ export class GraphicsSession {
                     if (Math.abs(src0.timestamp * 1e6 - frame.timestamp) > 2000 || !inSpan(src0.timestamp)) { frame.close(); return }
                     let out: VideoFrame
                     try {
-                        out = await this.paintFrame(frame, src0.timestamp, overlays, () => {
+                        out = await this.paintFrame(frame, src0.timestamp, overlays, cache, () => {
                             if (!canvas) { canvas = new OffscreenCanvas(frame.visibleRect!.width, frame.visibleRect!.height); ctx = canvas.getContext('2d', { willReadFrequently: true }) }
                             if (!ctx) throw new Error('no 2D canvas')
                             return ctx
@@ -222,7 +237,7 @@ export class GraphicsSession {
     }
 
     /** Copies a decoded frame's planes, blends the active overlays in, and returns a new frame for the encoder. */
-    private async paintFrame(frame: VideoFrame, t: number, overlays: RenderOverlay[], getCtx: () => OffscreenCanvasRenderingContext2D): Promise<VideoFrame> {
+    private async paintFrame(frame: VideoFrame, t: number, overlays: RenderOverlay[], cache: OverlayCache, getCtx: () => OffscreenCanvasRenderingContext2D): Promise<VideoFrame> {
         const format = frame.format
         if (format !== 'I420' && format !== 'NV12') throw new Error(`unsupported decoded format ${format ?? 'unknown'}`)
         const rect = frame.visibleRect!
@@ -248,7 +263,13 @@ export class GraphicsSession {
                 ctx.clearRect(0, y0, W, y1 - y0)
                 for (const o of active) { ctx.save(); o.paint(ctx, t - o.startSec); ctx.restore() }
                 const img = ctx.getImageData(0, y0, W, y1 - y0)
-                blendRgba(planes, { data: img.data, width: W, height: y1 - y0, x: 0, y: y0 }, matrixOf(cs.matrix), cs.fullRange ?? false)
+                // Lower thirds hold still between their slide in and out: convert only when the pixels change.
+                const words = new Uint32Array(img.data.buffer, img.data.byteOffset, img.data.byteLength / 4)
+                if (!cache.prepared || !cache.words || cache.prepared.y !== y0 || !sameWords(cache.words, words)) {
+                    cache.prepared = prepareOverlay({ data: img.data, width: W, height: y1 - y0, x: 0, y: y0 }, matrixOf(cs.matrix), cs.fullRange ?? false)
+                }
+                cache.words = words
+                applyOverlay(planes, cache.prepared)
             }
         }
         return new VideoFrame(buf, {

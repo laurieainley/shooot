@@ -23,7 +23,13 @@ export type RenderProgress = {
 export type FramePainter = (ctx: OffscreenCanvasRenderingContext2D, tSec: number) => void
 
 /** A generated full-frame segment (title / full-time card) with silent audio. */
-export type RenderCard = { label: string; durationSec: number; paint: FramePainter }
+export type RenderCard = {
+    label: string
+    durationSec: number
+    paint: FramePainter
+    /** When set, `paint` draws a still card (any t) and the engine fades it to/from black by this level (0..1). */
+    fade?: (tSec: number) => number
+}
 
 /** Graphics drawn over footage of one cut, from `startSec` (source time) for `durationSec`. */
 export type RenderOverlay = {

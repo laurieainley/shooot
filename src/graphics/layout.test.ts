@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { cardLayout, lowerThirdLayout, replayTagLayout, estimateTextWidth, LOWER_THIRD_SEC, type DrawOp, type TextOp } from './layout'
+import { cardFade, cardLayout, lowerThirdLayout, replayTagLayout, estimateTextWidth, LOWER_THIRD_SEC, type DrawOp, type TextOp } from './layout'
 import { NAVY, ORANGE } from './teamStyle'
 import type { CardSpec, LowerThirdSpec } from './types'
 
@@ -52,6 +52,15 @@ describe('cardLayout', () => {
         expect(black(2)).toBe(0)
         expect(black(3.99)).toBeGreaterThan(0.9)
         expect(black(0.25)).toBeCloseTo(0.5, 1)
+    })
+})
+
+describe('cardFade', () => {
+    it('should fade in and out over half a second', () => {
+        expect(cardFade(0, 4)).toBe(0)
+        expect(cardFade(0.25, 4)).toBeCloseTo(0.5)
+        expect(cardFade(2, 4)).toBe(1)
+        expect(cardFade(4, 4)).toBe(0)
     })
 })
 
