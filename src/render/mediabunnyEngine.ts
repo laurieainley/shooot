@@ -6,6 +6,7 @@ import {
 import { fileSource } from './fileSource'
 import { openGraphicsSession, type GraphicsSession, type OutItem } from './graphicsSession'
 import { craToBla, lengthSize } from './nal'
+import { overlayRegions } from './overlayRegions'
 import { encodeReplayAudio } from './replayAudio'
 import { makeSilentAudio, type SilentAudio } from './silentAudio'
 import type { Cut, GraphicsReport, RenderCard, RenderFn, RenderGraphics, RenderOptions, RenderOverlay, RenderSource } from './types'
@@ -233,17 +234,62 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], { onProgress, si
                     for await (const p of vSink.packets(k0!, kStop ?? undefined)) if (p.timestamp >= cutStart) yield p
                 }
                 let items: AsyncIterable<OutItem> | OutItem[]
-                const overlays = overlaysByCut.get(ci)
+                // Overlays tied to the cut follow its real extent (key frame before the requested start, whole GOPs).
+                const realEnd = kStop ? kStop.timestamp : src.endSec
+                const overlays = overlaysByCut.get(ci)?.map((o): RenderOverlay => {
+                    const length = Math.max(1e-3, realEnd - cutStart)
+                    if (o.anchor === 'fromCutStart') return { ...o, startSec: cutStart }
+                    if (o.anchor === 'wholeCut') {
+                        const shift = cutStart - o.startSec
+                        return { ...o, startSec: cutStart, durationSec: length + 1, paint: (ctx, t) => o.paint(ctx, t + shift) }
+                    }
+                    if (o.anchor === 'stretchToCut') {
+                        const k = o.durationSec / length
+                        return { ...o, startSec: cutStart, durationSec: length + 1, paint: (ctx, t) => o.paint(ctx, Math.min(o.durationSec, t * k)) }
+                    }
+                    return o
+                })
                 if (session && overlays) {
-                    // Overlays: the cut is read first, the GOPs under them re-encoded, then everything written.
-                    const packets: EncodedPacket[] = []
-                    for await (const p of copiedPackets()) packets.push(p)
-                    const end = packets.reduce((m, p) => Math.max(m, p.timestamp + p.duration), cutStart)
-                    onProgress({ cutIndex: ci, cutCount: cuts.length, fraction: Math.min(1, done / total), stage: 'Graphics' })
-                    const r = await session.overlayCut(src, packets, end, overlays)
-                    run!.report.applied.push(...r.applied)
-                    run!.report.skipped.push(...r.skipped)
-                    items = r.items
+                    // Overlays: the cut is streamed; only the stretches around overlay windows are read into memory,
+                    // their GOPs re-encoded with the overlay drawn in, and handed on (see overlayRegions).
+                    const keyTimes: number[] = []
+                    for (let k: EncodedPacket | null = k0; k && (!kStop || k.timestamp < kStop.timestamp); k = await vSink.getNextKeyPacket(k, { metadataOnly: true })) {
+                        keyTimes.push(k.timestamp)
+                    }
+                    const regions = overlayRegions(keyTimes, overlays.map((o): [number, number] => [o.startSec, o.startSec + o.durationSec]))
+                    const sess = session
+                    const report = run!.report
+                    async function* drawn(buf: EncodedPacket[]): AsyncGenerator<OutItem> {
+                        const start = buf.reduce((m, p) => Math.min(m, p.timestamp), Infinity)
+                        const end = buf.reduce((m, p) => Math.max(m, p.timestamp + p.duration), cutStart)
+                        const mine = overlays!.filter((o) => o.startSec < end && o.startSec + o.durationSec > start)
+                        if (mine.length === 0) { for (const p of buf) yield { packet: p, generated: false, splice: false }; return }
+                        onProgress({ cutIndex: ci, cutCount: cuts.length, fraction: Math.min(1, (done + Math.max(0, start - cut.startSec)) / total), stage: 'Graphics' })
+                        const r = await sess.overlayCut(src, buf, end, mine)
+                        report.applied.push(...r.applied)
+                        report.skipped.push(...r.skipped)
+                        yield* r.items
+                    }
+                    items = (async function* () {
+                        let buf: EncodedPacket[] | null = null
+                        let stopAt = Infinity
+                        let ri = 0
+                        for await (const p of copiedPackets()) {
+                            if (p.type === 'key') {
+                                if (buf && p.timestamp >= stopAt) { yield* drawn(buf); buf = null }
+                                if (!buf) {
+                                    while (ri < regions.length && regions[ri][1] <= p.timestamp) ri++
+                                    if (ri < regions.length && regions[ri][0] <= p.timestamp) { buf = []; stopAt = regions[ri][1]; ri++ }
+                                }
+                            }
+                            if (buf) buf.push(p)
+                            else yield { packet: p, generated: false, splice: false }
+                        }
+                        if (buf) yield* drawn(buf)
+                    })()
+                    // Every overlay of this cut is either drawn or reported by overlayCut; none may vanish silently.
+                    const covered = (o: RenderOverlay): boolean => regions.some(([a, b]) => o.startSec + o.durationSec > a && o.startSec < b)
+                    skip(overlays.filter((o) => !covered(o)).map((o) => o.label), 'its window is outside the clip')
                 } else {
                     items = (async function* () { for await (const p of copiedPackets()) yield { packet: p, generated: false, splice: false } })()
                 }

@@ -58,7 +58,7 @@ describe('buildGraphicsSpec', () => {
         expect(spec.overlays).toEqual([
             // 4 s left in the clip: the caption starts at the goal and carries on over the start of its replay (slowed 2×)
             expect.objectContaining({ kind: 'caption', cutIndex: 0, startSec: 20, durationSec: 4, anchored: false, clock: { offsetSec: 0, rate: 1, totalSec: 5 }, spec: { label: 'GOAL', person: 'SAM', stripe: '#f0f0f0', bug: bug('1–0') } }),
-            expect.objectContaining({ kind: 'caption', cutIndex: 1, startSec: 16, durationSec: 0.5, clock: { offsetSec: 4, rate: 2, totalSec: 5 } }),
+            expect.objectContaining({ kind: 'caption', cutIndex: 1, startSec: 16, durationSec: 0.5, clock: { offsetSec: 4, rate: 2, totalSec: 5 }, fromCutStart: true }),
             expect.objectContaining({ kind: 'caption', cutIndex: 2, startSec: 55, durationSec: 5, spec: expect.objectContaining({ label: 'GOAL (PEN)', person: 'ALEX', stripe: '#ec5fa4', bug: bug('1–1') }) }),
         ])
     })

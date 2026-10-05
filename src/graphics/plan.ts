@@ -84,7 +84,7 @@ export function buildGraphicsSpec(args: {
             const rest = CAPTION_SEC - first
             if (rest > 0.05 && next && (next.speed ?? 1) < 1) {
                 const speed = next.speed ?? 1
-                part.push({ kind: 'caption', cutIndex: cutIndex + 1, startSec: next.startSec, durationSec: Math.min(next.endSec - next.startSec, rest * speed), spec: cs, anchored: alwaysBug, clock: clock(first, 1 / speed), label })
+                part.push({ kind: 'caption', cutIndex: cutIndex + 1, startSec: next.startSec, durationSec: Math.min(next.endSec - next.startSec, rest * speed), spec: cs, anchored: alwaysBug, clock: clock(first, 1 / speed), fromCutStart: true, label })
             }
             parts.push(part)
         }

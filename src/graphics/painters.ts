@@ -45,6 +45,9 @@ export function toRenderGraphics(spec: GraphicsSpec, assets: PaintAssets): Rende
         durationSec: o.durationSec,
         rows: (w, h) => { const { s, oy } = designFit(w, h); return [oy + ROWS[o.kind][0] * s, oy + ROWS[o.kind][1] * s] },
         paint: painter(o, assets),
+        ...(o.kind === 'scoreBug' && !o.fadeIn && !o.fadeOut ? { anchor: 'wholeCut' as const } : {}),
+        ...(o.kind === 'caption' && o.fromCutStart ? { anchor: 'fromCutStart' as const } : {}),
+        ...(o.kind === 'replayTag' ? { anchor: 'stretchToCut' as const } : {}),
     }))
     return {
         ...(spec.intro ? { intro: card(spec.intro, 'Title card', assets) } : {}),

@@ -66,6 +66,13 @@ describe('score bug painter', () => {
         expect(r.drawn).toEqual(['WH', '0–0', 'CO'])
     })
 
+    it('should cover the whole cut when always on, and start a carried-on caption with its cut', () => {
+        expect(overlay.anchor).toBe('wholeCut')
+        const [cap] = toRenderGraphics({ overlays: [{ kind: 'caption', cutIndex: 1, startSec: 16, durationSec: 0.5, spec: { label: 'GOAL', stripe: '#fff' }, anchored: false, clock: { offsetSec: 4, rate: 2, totalSec: 5 }, fromCutStart: true, label: 'c' }] }, { logo: null }).overlays
+        expect(cap.anchor).toBe('fromCutStart')
+        expect(toRenderGraphics(spec, { logo: null }).overlays[1].anchor).toBe('stretchToCut')
+    })
+
     it('should draw nothing while a caption shows the score', () => {
         const r = recorder()
         overlay.paint(r.ctx, 11)
