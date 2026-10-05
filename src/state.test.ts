@@ -230,6 +230,30 @@ describe('panels and the picker', () => {
         expect(s().picker).toBeNull()
     })
 
+    it('should open the edit sheet for one event as a panel, closing the picker and other panels', () => {
+        s().addEvent({ id: 'a', matchTimeSec: 1, sourceFileIndex: 0, type: 'highlight' })
+        s().markEvent(10)
+        s().editEvent('a')
+        expect(s().panel).toBe('event')
+        expect(s().editingEventId).toBe('a')
+        expect(s().picker).toBeNull()
+        s().openPanel('menu')
+        expect(s().panel).toBe('menu')
+    })
+
+    it('should close the edit sheet when its event goes away (delete, undo)', () => {
+        s().addEvent({ id: 'a', matchTimeSec: 1, sourceFileIndex: 0, type: 'highlight' })
+        s().editEvent('a')
+        s().removeEvent('a')
+        expect(s().panel).toBeNull()
+        s().editEvent(s().events[0]?.id ?? 'missing')
+        expect(s().panel).toBeNull()
+        s().undo()
+        s().editEvent('a')
+        s().undo()
+        expect(s().panel).toBeNull()
+    })
+
     it('should keep the picker when an unrelated event changes', () => {
         s().addEvent({ id: 'other', matchTimeSec: 1, sourceFileIndex: 0, type: 'highlight' })
         s().markEvent(10)

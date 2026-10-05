@@ -1,5 +1,6 @@
 import { useAppState } from '../state'
 import { ClipSettings } from './ClipSettings'
+import { EventSheet } from './EventSheet'
 import { FilesSheet } from './FilesSheet'
 import { MatchSetup } from './MatchSetup'
 import { PasteList } from './PasteList'
@@ -13,6 +14,7 @@ export function Panels() {
         case 'files': return <FilesSheet onClose={close} />
         case 'match': return <MatchSetup onClose={close} />
         case 'settings': return <Sheet label="Advanced settings" onClose={close} className="sheet--narrow"><ClipSettings /></Sheet>
+        case 'event': return <EventSheet />
         case 'paste': return <Sheet label="Paste list" onClose={close} className="sheet--narrow"><PasteList /></Sheet>
         default: return null
     }
