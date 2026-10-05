@@ -29,6 +29,11 @@ describe('markersForFile', () => {
         expect(m).toEqual([{ id: 'b', kind: 'event', leftPct: 10, icon: '★', color: '#4cc9f0', title: '00:10 Highlight' }])
     })
 
+    it('should add a shortened note to the title', () => {
+        const m = markersForFile({ events: [ev('b', 0, 10, { type: 'highlight', team: 'Whites', scorer: 'Sam', notes: 'nutmeg on the wing' })], fileIndex: 0, durationSec: 100, teams, matchStartSec: 0, cumulativeOffsets: [0] })
+        expect(m.at(-1)?.title).toBe('00:10 Highlight – Whites (Sam) — nutmeg on the wing')
+    })
+
     it('should return nothing without a duration', () => {
         expect(markersForFile({ events: [ev('a', 0, 5)], fileIndex: 0, durationSec: 0, teams, matchStartSec: 0, cumulativeOffsets: [0] })).toEqual([])
     })
