@@ -140,6 +140,14 @@
   text-shadow: 0 0 6px rgb(242 179 76 / 0.45);
 }
 .score-sep { opacity: 0.6; }
+.score-final { font-size: 13px; color: var(--muted); }
+/* Fullscreen: the compact badge as a chip over the picture (never takes taps). */
+.overlay-controls.score-chip { pointer-events: none; }
+.overlay-controls.score-chip > * { pointer-events: none; }
+.score-chip .score-badge {
+  gap: 6px; padding: 5px 8px; border-radius: 4px; background: rgb(0 0 0 / 0.55); color: #fff;
+}
+.score-chip .score-final { color: rgb(255 255 255 / 0.7); }
 
 /* ---------- desktop bay ---------- */
 .bay { display: grid; grid-template-columns: minmax(0, 1fr) clamp(280px, 26vw, 360px); min-height: 0; }
