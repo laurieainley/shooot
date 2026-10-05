@@ -25,7 +25,7 @@ describe('ExportPanel', () => {
         expect(screen.queryByRole('dialog', { name: 'Export' })).not.toBeInTheDocument()
     })
 
-    it('should show preview, render and chapters sections when opened (project import/export lives in ⋯)', async () => {
+    it('should show preview, render and description sections when opened (project import/export lives in ⋯)', async () => {
         render(<ExportPanel />)
         await userEvent.click(screen.getByRole('button', { name: 'Export' }))
         const dialog = screen.getByRole('dialog', { name: 'Export' })
@@ -33,7 +33,7 @@ describe('ExportPanel', () => {
         expect(screen.getByRole('button', { name: /preview in player/i })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: /preview reel/i })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: /full quality/i })).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: /copy youtube chapters/i })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /copy highlights description/i })).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: /export project/i })).not.toBeInTheDocument()
     })
 

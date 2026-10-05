@@ -9,7 +9,7 @@ const s = () => useAppState.getState()
 
 describe('GraphicsSettings', () => {
     beforeEach(() => {
-        useAppState.setState({ graphics: { cards: true, lowerThirds: true, replayTag: false } })
+        useAppState.setState({ graphics: { cards: true, lowerThirds: true, replayTag: false, scoreBug: false } })
     })
 
     it('should show the three graphics with their current state', () => {
@@ -23,6 +23,6 @@ describe('GraphicsSettings', () => {
         render(<GraphicsSettings />)
         await userEvent.click(screen.getByRole('checkbox', { name: /title & full-time cards/i }))
         await userEvent.click(screen.getByRole('checkbox', { name: /replay tag/i }))
-        expect(s().graphics).toEqual({ cards: false, lowerThirds: true, replayTag: true })
+        expect(s().graphics).toEqual({ cards: false, lowerThirds: true, replayTag: true, scoreBug: false })
     })
 })

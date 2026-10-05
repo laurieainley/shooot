@@ -143,7 +143,7 @@ export const useAppState = create<AppState>()(
             immersive: false,
             barCollapsed: false,
             opening: null,
-            graphics: { cards: true, lowerThirds: true, replayTag: false },
+            graphics: { cards: true, lowerThirds: true, replayTag: false, scoreBug: false },
             matchdayLabel: null,
             cumulativeOffsets: [],
             currentTimeInFileSec: 0,

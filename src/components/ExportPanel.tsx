@@ -1,6 +1,6 @@
 import { useRef, type ReactNode } from 'react'
 import { useAppState } from '../state'
-import { ChaptersCopy } from './ChaptersCopy'
+import { DescriptionCopy } from './DescriptionCopy'
 import { FloatingPanel } from './FloatingPanel'
 import { GraphicsSettings } from './GraphicsSettings'
 import { PreviewControls } from './PreviewControls'
@@ -43,8 +43,8 @@ export function ExportPanel() {
                     <Section title="Render" hint="one MP4 reel">
                         <RenderHighlights />
                     </Section>
-                    <Section title="Chapters">
-                        <ChaptersCopy />
+                    <Section title="YouTube" hint="description with chapters">
+                        <DescriptionCopy kind="highlights" />
                     </Section>
                 </FloatingPanel>
             )}

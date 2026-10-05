@@ -7,7 +7,7 @@ const teams: Team[] = [
     { name: "Ryan's Rovers", color: '#f0f0f0', roster: [] },
     { name: 'Walford Town', color: '#ec5fa4', roster: [], initials: 'WT' },
 ]
-const ALL: GraphicsSettings = { cards: true, lowerThirds: true, replayTag: false }
+const ALL: GraphicsSettings = { cards: true, lowerThirds: true, replayTag: false, scoreBug: false }
 const ev = (id: string, t: number, extra: Partial<MatchEvent>): MatchEvent => ({ id, matchTimeSec: t, sourceFileIndex: 0, type: 'goal', ...extra })
 const cuts: Cut[] = [
     { sourceIndex: 0, startSec: 10, endSec: 24 },
@@ -92,7 +92,7 @@ describe('buildGraphicsSpec', () => {
     })
 
     it('should tag replays when asked', () => {
-        const spec = build([], { cards: false, lowerThirds: false, replayTag: true })
+        const spec = build([], { cards: false, lowerThirds: false, replayTag: true, scoreBug: false })
         expect(spec.overlays).toEqual([expect.objectContaining({ kind: 'replayTag', cutIndex: 1, startSec: 16, durationSec: 5 })])
     })
 })

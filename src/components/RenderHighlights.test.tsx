@@ -21,7 +21,7 @@ describe('RenderHighlights', () => {
             files: [proxy],
             events: [{ id: 'e', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal' }],
             lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
-            graphics: { cards: true, lowerThirds: true, replayTag: false },
+            graphics: { cards: true, lowerThirds: true, replayTag: false, scoreBug: false },
         })
     })
 
@@ -92,7 +92,7 @@ describe('RenderHighlights', () => {
     })
 
     it('should render without graphics when they are all turned off', async () => {
-        useAppState.setState({ graphics: { cards: false, lowerThirds: false, replayTag: false } })
+        useAppState.setState({ graphics: { cards: false, lowerThirds: false, replayTag: false, scoreBug: false } })
         renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
         render(<RenderHighlights />)
         await userEvent.click(screen.getByRole('button', { name: /preview reel/i }))

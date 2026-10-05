@@ -317,17 +317,17 @@ describe('preview', () => {
 
 describe('match graphics settings', () => {
     beforeEach(() => {
-        useAppState.setState({ graphics: { cards: true, lowerThirds: true, replayTag: false }, matchdayLabel: null })
+        useAppState.setState({ graphics: { cards: true, lowerThirds: true, replayTag: false, scoreBug: false }, matchdayLabel: null })
     })
 
     it('should default to cards and lower thirds on, replay tag off', () => {
-        expect(s().graphics).toEqual({ cards: true, lowerThirds: true, replayTag: false })
+        expect(s().graphics).toEqual({ cards: true, lowerThirds: true, replayTag: false, scoreBug: false })
     })
 
     it('should toggle one graphic at a time', () => {
         s().setGraphics({ replayTag: true })
         s().setGraphics({ cards: false })
-        expect(s().graphics).toEqual({ cards: false, lowerThirds: true, replayTag: true })
+        expect(s().graphics).toEqual({ cards: false, lowerThirds: true, replayTag: true, scoreBug: false })
     })
 
     it('should head the card MATCH until a matchday is typed', () => {

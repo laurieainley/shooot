@@ -7,7 +7,14 @@ import { LOWER_THIRD_SEC } from './layout'
 import { ORANGE, teamBadge } from './teamStyle'
 import type { CardSpec, GraphicsSpec, LowerThirdSpec, OverlaySpec } from './types'
 
-export type GraphicsSettings = { cards: boolean; lowerThirds: boolean; replayTag: boolean }
+export type GraphicsSettings = {
+    cards: boolean
+    /** Event captions (top-left, 5 s); the key predates the move from the bottom lower third. */
+    lowerThirds: boolean
+    replayTag: boolean
+    /** Highlights: score bug on every frame (re-encodes the whole reel). */
+    scoreBug: boolean
+}
 
 /** Lower thirds go on goals (incl. penalties and own goals), missed penalties and highlights with a note. */
 export function wantsLowerThird(e: Pick<MatchEvent, 'type' | 'notes' | 'pen'>): boolean {

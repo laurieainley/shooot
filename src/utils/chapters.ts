@@ -57,17 +57,53 @@ export function generateHighlightChapters(
 ): string {
     goals = goals.filter((g) => !isMarker(g))
     if (goals.length === 0) return '00:00 Start'
+    const teams = scoreTeams(goals, teamOrder)
+    return [...finalScoreLine(goals, teams), ...highlightChapterLines(goals, cumulativeOffsets, lengthBeforeGoalSec, lengthAfterGoalSec, teamOrder, replay)].join('\n')
+}
+
+/**
+ * Chapter lines of the highlights reel (no score header). `offsetSec` (a title card) delays every chapter but the
+ * first, which YouTube needs at 00:00.
+ */
+export function highlightChapterLines(
+    goals: MatchEvent[], cumulativeOffsets: number[], lengthBeforeGoalSec: number, lengthAfterGoalSec: number,
+    teamOrder?: string[], replay?: ReplayOptions, offsetSec = 0,
+): string[] {
+    goals = goals.filter((g) => !isMarker(g))
     const sorted = [...goals].sort((a, b) => absTime(a, cumulativeOffsets) - absTime(b, cumulativeOffsets))
     const teams = scoreTeams(goals, teamOrder)
     const running: Record<string, number> = {}
-    const lines = finalScoreLine(goals, teams)
+    const lines: string[] = []
     const segmentLength = lengthBeforeGoalSec + lengthAfterGoalSec
     let extra = 0 // seconds added by earlier replays
     sorted.forEach((g, i) => {
-        lines.push(`${secondsToStamp(i * (segmentLength + 1) + extra)} ${chapterLabel(g, teams, running)}`)
+        const at = i === 0 ? 0 : i * (segmentLength + 1) + extra + offsetSec
+        lines.push(`${secondsToStamp(at)} ${chapterLabel(g, teams, running)}`)
         if (replay && wantsReplay(g)) extra += Math.round((replay.beforeSec + replay.afterSec) / replay.speed)
     })
-    return lines.join('\n')
+    return lines
+}
+
+/**
+ * Chapter lines of the full match video, which starts at kick-off (after an optional title card of `offsetSec`):
+ * "00:00 Kick off", then every event from kick-off to the final whistle, a little before it happens.
+ */
+export function matchChapterLines(
+    events: MatchEvent[], cumulativeOffsets: number[], kickOffSec: number, finalWhistleSec: number | null,
+    lengthBeforeGoalSec: number, teamOrder?: string[], offsetSec = 0,
+): string[] {
+    const inMatch = events
+        .filter((e) => !isMarker(e))
+        .filter((e) => { const t = absTime(e, cumulativeOffsets); return t >= kickOffSec && (finalWhistleSec === null || t <= finalWhistleSec) })
+        .sort((a, b) => absTime(a, cumulativeOffsets) - absTime(b, cumulativeOffsets))
+    const teams = scoreTeams(events.filter((e) => !isMarker(e)), teamOrder)
+    const running: Record<string, number> = {}
+    const lines = ['00:00 Kick off']
+    for (const e of inMatch) {
+        const at = Math.max(0, Math.floor(absTime(e, cumulativeOffsets) - kickOffSec - lengthBeforeGoalSec)) + offsetSec
+        lines.push(`${secondsToStamp(at)} ${chapterLabel(e, teams, running)}`)
+    }
+    return lines
 }
 
 function secondsToStamp(s: number): string {
