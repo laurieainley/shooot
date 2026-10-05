@@ -422,7 +422,7 @@
 .player-container .vjs-tech { transform-origin: center; }
 .player-container--zoomed .vjs-tech { cursor: grab; }
 .zoom-chip {
-  position: absolute; top: 10px; right: 10px; z-index: 30;
+  position: absolute; top: 10px; left: 10px; z-index: 30; /* top-right is the touch fullscreen button */
   border: 1px solid rgb(255 255 255 / 0.3); border-radius: 3px; padding: 2px 8px;
   background: rgb(5 7 6 / 0.7); color: #f2b34c; font-family: var(--font-mono); font-size: 13px; cursor: pointer;
 }
@@ -528,7 +528,7 @@
     padding: 10px calc(10px + env(safe-area-inset-right, 0px)) 0 10px; font-size: 15px;
     display: flex; flex-direction: column;
   }
-  .player-container:fullscreen .event-picker { top: 0; }
+  .player-container:fullscreen .event-picker, .player-container--immersive .event-picker { top: 0; }
   .event-picker__title { font-size: 15px; padding-bottom: 8px; }
   .event-picker__list { display: flex; flex-wrap: wrap; gap: 6px; }
   .event-picker__item { padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; }
@@ -545,6 +545,14 @@
 
 /* Container fullscreen (see components/fullscreen.ts) */
 .player-container:fullscreen { width: 100vw; height: 100vh; border-radius: 0; background: #000; }
+/* Immersive: the same, in CSS, when the Fullscreen API is missing (iPhone) or refused. */
+.player-container--immersive {
+  position: fixed; inset: 0; z-index: 80; width: auto; height: auto; background: #000;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+html:has(.player-container--immersive), body:has(.player-container--immersive) { overflow: hidden; }
+.player-container--immersive .event-picker { top: 0; }
+.player-container:fullscreen .zoom-chip, .player-container--immersive .zoom-chip { top: auto; bottom: 64px; }
 .player-container:fullscreen .video-js { width: 100%; height: 100%; }
 
 /* Scrubber markers */
@@ -608,6 +616,9 @@
   .control-btn, .score-final, .file-row__index, .file-pill, .file-pill__dur, .key-hints,
   .player-container .video-js .vjs-time-control { font-size: 14px; }
   .tag { line-height: 18px; }
+  .zoom-chip { min-width: 44px; min-height: 44px; font-size: 14px; }
+  /* One fullscreen button on touch: ours over the picture (always visible); the control bar's is hidden. */
+  .player-container .video-js .vjs-fullscreen-control { display: none; }
   .strip-label__clock { font-size: 16px; }
   .strip-file { padding-top: 2px; }
 }

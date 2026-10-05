@@ -80,6 +80,9 @@ type AppState = {
     markEvent: (timeInFileSec: number) => void
     openPicker: (eventId: string) => void
     closePicker: () => void
+    /** CSS full-viewport player (fullscreen fallback when the Fullscreen API is missing or refused). */
+    immersive: boolean
+    setImmersive: (on: boolean) => void
     panel: Panel | null
     /** The event the touch edit sheet (panel 'event') is editing. */
     editingEventId: string | null
@@ -125,6 +128,7 @@ export const useAppState = create<AppState>()(
             picker: null,
             panel: null,
             editingEventId: null,
+            immersive: false,
             opening: null,
             graphics: { cards: true, lowerThirds: true, replayTag: false },
             matchNumber: 1,
@@ -343,6 +347,7 @@ export const useAppState = create<AppState>()(
                     return next
                 }),
             }),
+            setImmersive: (on) => set({ immersive: on }),
             editEvent: (id) => {
                 if (get().events.some((e) => e.id === id)) set({ panel: 'event', editingEventId: id, picker: null })
             },

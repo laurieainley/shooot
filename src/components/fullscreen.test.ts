@@ -103,3 +103,77 @@ describe('patchPlayerFullscreen across orientation changes', () => {
         expect(lock).not.toHaveBeenCalled()
     })
 })
+
+describe('patchPlayerFullscreen on phones (real device fixes and the immersive fallback)', () => {
+    let fsEl: Element | null = null
+    let immersive = false
+    const mode = { get: () => immersive, set: (on: boolean) => { immersive = on } }
+    beforeEach(() => {
+        fsEl = null
+        immersive = false
+        Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => fsEl })
+    })
+    const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
+
+    it('should call requestFullscreen synchronously inside the gesture, hiding the navigation bar', () => {
+        const container = document.createElement('div')
+        container.requestFullscreen = vi.fn(() => Promise.resolve())
+        const player = fakePlayer()
+        patchPlayerFullscreen(player, () => container, mode)
+        player.requestFullscreen()
+        expect(container.requestFullscreen).toHaveBeenCalledWith({ navigationUI: 'hide' })
+        expect(immersive).toBe(false)
+    })
+
+    it('should fall back to immersive (CSS full viewport) when the browser rejects fullscreen', async () => {
+        const container = document.createElement('div')
+        container.requestFullscreen = vi.fn(() => Promise.reject(new TypeError('Permissions check failed')))
+        const player = fakePlayer()
+        patchPlayerFullscreen(player, () => container, mode)
+        player.requestFullscreen()
+        await flush()
+        expect(immersive).toBe(true)
+        expect(player.isFullscreen()).toBe(true)
+        expect(player.classFs).toBe(true)
+        expect(player.trigger).toHaveBeenCalledWith('fullscreenchange')
+    })
+
+    it('should fall back to immersive at once when there is no element fullscreen API (iPhone)', () => {
+        const container = document.createElement('div') as HTMLDivElement & { requestFullscreen?: unknown }
+        Object.defineProperty(container, 'requestFullscreen', { value: undefined })
+        const player = fakePlayer()
+        patchPlayerFullscreen(player, () => container, mode)
+        player.requestFullscreen()
+        expect(immersive).toBe(true)
+    })
+
+    it('should fall back when requestFullscreen throws', () => {
+        const container = document.createElement('div')
+        container.requestFullscreen = vi.fn(() => { throw new Error('not allowed') })
+        const player = fakePlayer()
+        patchPlayerFullscreen(player, () => container, mode)
+        player.requestFullscreen()
+        expect(immersive).toBe(true)
+    })
+
+    it('should leave immersive mode on exit without touching the document', () => {
+        document.exitFullscreen = vi.fn(() => Promise.resolve())
+        const player = fakePlayer()
+        patchPlayerFullscreen(player, () => document.createElement('div'), mode)
+        immersive = true
+        player.exitFullscreen()
+        expect(immersive).toBe(false)
+        expect(document.exitFullscreen).not.toHaveBeenCalled()
+        expect(player.classFs).toBe(false)
+    })
+
+    it('should not request again while already immersive', () => {
+        const container = document.createElement('div')
+        container.requestFullscreen = vi.fn(() => Promise.resolve())
+        const player = fakePlayer()
+        patchPlayerFullscreen(player, () => container, mode)
+        immersive = true
+        player.requestFullscreen()
+        expect(container.requestFullscreen).not.toHaveBeenCalled()
+    })
+})

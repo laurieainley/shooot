@@ -11,6 +11,8 @@ type OverlayPlayer = {
     currentTime: (t?: number) => number
     playbackRate: (r?: number) => number
     userActive?: (active: boolean) => unknown
+    requestFullscreen?: () => unknown
+    exitFullscreen?: () => unknown
 }
 
 interface FullscreenControlsProps {
@@ -94,6 +96,16 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
                 {tapFeedback?.side === 'right' && <SeekFeedback side="right" />}
             </div>
 
+            {/* Touch: our own button, always visible and hittable (the control bar's is hidden before the first
+                play and swallows the first tap while idle). Enters synchronously inside the tap gesture. */}
+            {coarse && !isFullscreen && (
+                <div className="overlay-controls top-right">
+                    <button type="button" aria-label="Fullscreen" className="control-btn fs-btn" onClick={() => playerRef.current?.requestFullscreen?.()}>
+                        <FsIcon />
+                    </button>
+                </div>
+            )}
+
             {isFullscreen && (
                 <>
                     <div className="overlay-controls top-left score-chip"><ScoreBadge compact /></div>
@@ -107,6 +119,11 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
                         <button type="button" aria-label="Faster" className="control-btn speed-btn" onClick={() => setRate(Math.min(4, currentRate() + 0.25))}>
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13 5l7 7-7 7" /></svg>
                         </button>
+                        {coarse && (
+                            <button type="button" aria-label="Exit fullscreen" className="control-btn fs-btn" onClick={() => playerRef.current?.exitFullscreen?.()}>
+                                <FsIcon exit />
+                            </button>
+                        )}
                     </div>
                     <Fab />
                 </>
@@ -128,4 +145,15 @@ function SeekFeedback({ side }: SeekFeedbackProps) {
             <div className="tap-feedback-text">{side === 'left' ? `-${SEEK_SEC}s` : `+${SEEK_SEC}s`}</div>
         </div>
     )
+}
+
+interface FsIconProps {
+    exit?: boolean
+}
+
+function FsIcon({ exit = false }: FsIconProps) {
+    const d = exit
+        ? 'M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5'
+        : 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5'
+    return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>
 }
