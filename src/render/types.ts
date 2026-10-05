@@ -59,6 +59,13 @@ export type RenderOptions = {
     /** Optional match graphics. Any that cannot be made are left out (never failing the render) and reported. */
     graphics?: RenderGraphics
     onGraphics?: (report: GraphicsReport) => void
+    /** Output file name (default highlights.mp4). */
+    outputName?: string
+    /**
+     * Save progress after every unit (card / cut) so an interrupted render can carry on after a reload. The signature
+     * identifies the render (plan, sources, graphics): a saved job with another signature is discarded.
+     */
+    resumable?: { signature: string; kind: 'highlights' | 'fullMatch' }
 }
 
 export type RenderFn = (cuts: Cut[], sources: RenderSource[], opts: RenderOptions) => Promise<File | Blob>
