@@ -9,6 +9,7 @@ import { Panels } from './Panels'
 import { Player } from './Player'
 import { PreviewControls } from './PreviewControls'
 import { Chevron, TopBar } from './TopBar'
+import { useKeyboardInset } from './useKeyboardInset'
 import { useLayout } from './useMediaQuery'
 
 /**
@@ -19,6 +20,7 @@ import { useLayout } from './useMediaQuery'
  */
 export function AppShell() {
     const layout = useLayout()
+    useKeyboardInset()
     const hasFiles = useAppState((s) => s.files.length > 0)
     const isPreviewMode = useAppState((s) => s.isPreviewMode)
     const sideBySide = layout !== 'phone'
