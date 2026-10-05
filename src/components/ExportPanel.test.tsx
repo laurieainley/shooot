@@ -14,7 +14,7 @@ const proxy: VideoSourceFile = { id: 'p', name: 'GL010226.LRV', kind: 'proxy', u
 describe('ExportPanel', () => {
     beforeEach(() => {
         useAppState.setState({
-            files: [proxy], cumulativeOffsets: [0], isPreviewMode: false, previewSegments: [], currentPreviewSegment: 0,
+            files: [proxy], cumulativeOffsets: [0], isPreviewMode: false, previewSegments: [], currentPreviewSegment: 0, panel: null,
             events: [{ id: 'e', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal' }],
             lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
         })
@@ -25,7 +25,7 @@ describe('ExportPanel', () => {
         expect(screen.queryByRole('dialog', { name: 'Export' })).not.toBeInTheDocument()
     })
 
-    it('should show preview, render, chapters and project sections when opened', async () => {
+    it('should show preview, render and chapters sections when opened (project import/export lives in ⋯)', async () => {
         render(<ExportPanel />)
         await userEvent.click(screen.getByRole('button', { name: 'Export' }))
         const dialog = screen.getByRole('dialog', { name: 'Export' })
@@ -34,8 +34,7 @@ describe('ExportPanel', () => {
         expect(screen.getByRole('button', { name: /preview reel/i })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: /full quality/i })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: /copy youtube chapters/i })).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: /export project/i })).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: /import project/i })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /export project/i })).not.toBeInTheDocument()
     })
 
     it('should start the in-player preview and close itself', async () => {

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAppState } from '../state'
 import { parseRoster } from '../utils/roster'
+import { Sheet } from './Sheet'
 import { TimeInput } from './TimeInput'
 
 // Kit colours: readable as dots on both the light and the dark theme.
@@ -25,14 +26,8 @@ export function MatchSetup({ onClose }: MatchSetupProps) {
     }
 
     return (
-        <div className="modal-backdrop" onClick={onClose}>
-            <div role="dialog" aria-label="Match setup" className="modal" onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose() } }}>
-                <div className="floating__head">
-                    <h2 className="floating__title">Match setup</h2>
-                    <button type="button" onClick={onClose} aria-label="Close" className="btn-icon">×</button>
-                </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Sheet label="Match setup" onClose={onClose}>
+                <div className="team-grid">
                     {teams.map((team, i) => (
                         <div key={i} className="team-card" style={{ borderTopColor: team.color }}>
                             <input
@@ -71,14 +66,13 @@ export function MatchSetup({ onClose }: MatchSetupProps) {
                         </div>
                     ))}
                 </div>
-                <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line pt-3">
+                <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line pt-3 pb-1">
                     <span className="flex items-center gap-2 text-[13px] text-muted"><span className="kickoff-flag" aria-hidden="true" />Kick-off</span>
                     <TimeInput valueSec={matchStartTimeSec} onCommit={setMatchStartTime} ariaLabel="Match start" />
                     <button onClick={applyCurrentTime} className="btn-quiet">
                         Use current time
                     </button>
                 </div>
-            </div>
-        </div>
+        </Sheet>
     )
 }

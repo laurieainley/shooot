@@ -133,9 +133,9 @@ describe('attachFullFiles', () => {
 })
 
 describe('replay settings', () => {
-    it('should default to 3 s before, 1 s after, 0.5× and persist them', () => {
+    it('should default to 4 s before, 1 s after, 0.5× and persist them', () => {
         const init = useAppState.getInitialState()
-        expect([init.replayBeforeSec, init.replayAfterSec, init.replaySpeed]).toEqual([3, 1, 0.5])
+        expect([init.replayBeforeSec, init.replayAfterSec, init.replaySpeed]).toEqual([4, 1, 0.5])
         s().setReplayWindow(2, 2)
         s().setReplaySpeed(0.25)
         expect([s().replayBeforeSec, s().replayAfterSec, s().replaySpeed]).toEqual([2, 2, 0.25])
@@ -187,5 +187,106 @@ describe('newMatch', () => {
         expect(s()).toMatchObject({ files: [], events: [], cumulativeOffsets: [], matchStartTimeSec: 0, picker: null, teams, lengthBeforeGoalSec: 12, replaySpeed: 0.25 })
         s().undo()
         expect(s().events.map((e) => e.id)).toEqual(['e'])
+    })
+})
+
+describe('panels and the picker', () => {
+    beforeEach(() => {
+        useAppState.setState({ files: [vf('a.mp4')], events: [], cumulativeOffsets: [0], currentFileIndex: 0, undoStack: [], redoStack: [], picker: null, panel: null })
+    })
+
+    it('should open one panel at a time', () => {
+        s().openPanel('menu')
+        expect(s().panel).toBe('menu')
+        s().openPanel('settings')
+        expect(s().panel).toBe('settings')
+        s().closePanel()
+        expect(s().panel).toBeNull()
+    })
+
+    it('should close the picker (keeping the event) when a panel opens', () => {
+        s().markEvent(10)
+        s().openPanel('menu')
+        expect(s().picker).toBeNull()
+        expect(s().events).toHaveLength(1)
+    })
+
+    it('should close any panel when an event is marked', () => {
+        s().openPanel('files')
+        s().markEvent(10)
+        expect(s().panel).toBeNull()
+        expect(s().picker).not.toBeNull()
+    })
+
+    it('should clear the picker when its event goes away (undo, remove, new match)', () => {
+        s().markEvent(10)
+        s().undo()
+        expect(s().picker).toBeNull()
+        s().markEvent(20)
+        s().removeEvent(s().events[0].id)
+        expect(s().picker).toBeNull()
+        s().markEvent(30)
+        s().setEvents([])
+        expect(s().picker).toBeNull()
+    })
+
+    it('should keep the picker when an unrelated event changes', () => {
+        s().addEvent({ id: 'other', matchTimeSec: 1, sourceFileIndex: 0, type: 'highlight' })
+        s().markEvent(10)
+        s().removeEvent('other')
+        expect(s().picker).not.toBeNull()
+    })
+})
+
+describe('replaceFile', () => {
+    beforeEach(() => {
+        useAppState.setState({ files: [], events: [], cumulativeOffsets: [], undoStack: [], redoStack: [], currentFileIndex: 1 })
+        s().setFiles([vf('a.mp4'), vf('b.mp4')])
+        s().addEvent(goalIn(0, 'ga'))
+        s().addEvent(goalIn(1, 'gb'))
+    })
+
+    it('should put the replacement files in place of one entry and recompute offsets', () => {
+        s().replaceFile(0, [vf('c.mp4'), vf('d.mp4')])
+        expect(s().files.map((f) => f.name)).toEqual(['c.mp4', 'd.mp4', 'b.mp4'])
+        expect(s().cumulativeOffsets).toEqual([0, 100, 200])
+    })
+
+    it('should unlink events of the old file and keep the others linked', () => {
+        s().replaceFile(0, [vf('c.mp4')])
+        expect(s().events.find((e) => e.id === 'ga')!.unlinked).toBe(true)
+        expect(s().events.find((e) => e.id === 'gb')).toMatchObject({ sourceFileIndex: 1 })
+        expect(s().events.find((e) => e.id === 'gb')!.unlinked).toBeUndefined()
+    })
+})
+
+describe('preview', () => {
+    beforeEach(() => {
+        useAppState.setState({
+            files: [], events: [], cumulativeOffsets: [], undoStack: [], redoStack: [], currentFileIndex: 0, isPreviewMode: false,
+            matchStartTimeSec: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
+            replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5,
+        })
+        s().setFiles([vf('a.mp4')])
+        s().addEvent({ id: 'g', matchTimeSec: 50, sourceFileIndex: 0, type: 'goal' })
+        s().addEvent({ id: 'h', matchTimeSec: 80, sourceFileIndex: 0, type: 'highlight' })
+    })
+
+    it('should start at the first step and include the replays at replay speed', () => {
+        s().startPreview()
+        expect(s().currentPreviewSegment).toBe(0)
+        expect(s().previewSteps.map((p) => [p.clipIndex, p.replay, p.speed])).toEqual([[0, false, 1], [0, true, 0.5], [1, false, 1]])
+    })
+
+    it('should start again from the first clip every time', () => {
+        s().startPreview()
+        s().nextPreviewSegment()
+        s().nextPreviewSegment()
+        expect(s().currentPreviewSegment).toBe(2)
+        s().nextPreviewSegment()
+        expect(s().currentPreviewSegment).toBe(2)
+        s().exitPreview()
+        s().startPreview()
+        expect(s().currentPreviewSegment).toBe(0)
     })
 })

@@ -4,6 +4,7 @@ import { render, screen, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import { EventLog } from './EventLog'
+import { setCoarsePointer } from '../test/pointer'
 import type { MatchEvent, Team, VideoSourceFile } from '../types'
 
 const vf = (name: string, durationSec = 600): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec, kind: 'full' })
@@ -283,45 +284,25 @@ describe('EventLog header', () => {
         expect(useAppState.getState().events).toHaveLength(1)
     })
 
-    it('should reveal the bulk paste box from the menu and add each parsed line', async () => {
+    it('should keep only + Event, undo and redo in the header (the rest lives in the top-bar menu)', () => {
         render(<EventLog />)
-        expect(screen.queryByRole('textbox', { name: 'Paste list' })).not.toBeInTheDocument()
-        await userEvent.click(screen.getByRole('button', { name: 'More' }))
-        await userEvent.click(screen.getByRole('menuitem', { name: 'Paste list' }))
-        fireEvent.change(screen.getByRole('textbox', { name: 'Paste list' }), { target: { value: '07:12 Whites - Sam\n23:41 Colours - Jo' } })
-        await userEvent.click(screen.getByRole('button', { name: 'Add events' }))
-        expect(useAppState.getState().events.map((e) => [e.matchTimeSec, e.team, e.scorer])).toEqual([[432, 'Whites', 'Sam'], [1421, 'Colours', 'Jo']])
-        expect(screen.queryByRole('textbox', { name: 'Paste list' })).not.toBeInTheDocument()
-        await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
-        expect(useAppState.getState().events).toHaveLength(0)
+        const header = log().querySelector('header')!
+        expect(within(header).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['+ Event', 'Undo', 'Redo'])
     })
 })
 
-describe('EventLog new match', () => {
-    const two: MatchEvent[] = [
-        { id: 'a', matchTimeSec: 10, sourceFileIndex: 0, type: 'goal' },
-        { id: 'b', matchTimeSec: 20, sourceFileIndex: 0, type: 'highlight' },
-    ]
-
-    it('should ask before clearing, and clear on confirm', async () => {
-        setup(two)
+describe('EventLog empty state', () => {
+    it('should tell touch users to tap ＋', () => {
+        setCoarsePointer(true)
+        setup([])
         render(<EventLog />)
-        await userEvent.click(screen.getByRole('button', { name: 'More' }))
-        await userEvent.click(screen.getByRole('menuitem', { name: /new match/i }))
-        expect(useAppState.getState().events).toHaveLength(2)
-        expect(screen.getByText(/clear 2 events and unload the videos/i)).toBeInTheDocument()
-        await userEvent.click(screen.getByRole('button', { name: /clear and start/i }))
-        expect(useAppState.getState().events).toEqual([])
-        expect(useAppState.getState().files).toEqual([])
+        expect(screen.getByText(/no events yet/i)).toHaveTextContent('No events yet. Tap ＋ while the video plays.')
     })
 
-    it('should keep everything on cancel', async () => {
-        setup(two)
+    it('should tell keyboard users to press G', () => {
+        setCoarsePointer(false)
+        setup([])
         render(<EventLog />)
-        await userEvent.click(screen.getByRole('button', { name: 'More' }))
-        await userEvent.click(screen.getByRole('menuitem', { name: /new match/i }))
-        await userEvent.click(screen.getByRole('button', { name: /keep/i }))
-        expect(useAppState.getState().events).toHaveLength(2)
-        expect(screen.queryByText(/clear 2 events/i)).not.toBeInTheDocument()
+        expect(screen.getByText(/no events yet/i)).toHaveTextContent('No events yet. Press G while it plays.')
     })
 })

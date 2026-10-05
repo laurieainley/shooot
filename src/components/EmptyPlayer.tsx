@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { addPickedFiles } from './addFiles'
 import { AddFilesButton } from './FilePills'
+import { OpeningStatus } from './OpeningStatus'
 
 const HINTS: [string, string][] = [
     ['G', 'mark an event'], ['⇧← ⇧→', '1 s back / on'], ['↑ ↓', 'frame step'], [', .', 'speed down / up'],
@@ -27,6 +28,7 @@ export function EmptyPlayer() {
                 <p className="empty-player__title">{dragging ? 'Drop to load' : 'Load the match'}</p>
                 <p className="m-0 text-[13px] text-muted">Drop GoPro MP4s (or their .LRV previews) here, in any order.</p>
                 <AddFilesButton label="Choose files" className="btn-primary" onError={setError} />
+                <OpeningStatus />
                 {error && <p className="m-0 text-[12px] text-danger">{error}</p>}
                 <dl className="empty-player__keys">
                     {HINTS.map(([k, v]) => (

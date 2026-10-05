@@ -4,6 +4,9 @@ import { wantsReplay } from './replays'
 
 export type ReplayOptions = { beforeSec: number; afterSec: number; speed: number }
 
+/** Replays keep their (slowed, pitch-kept) audio at half volume (−6 dB). */
+export const REPLAY_GAIN = 0.5
+
 export function buildRenderPlan(segments: HighlightSegment[], durationsSec: number[], replay?: ReplayOptions): Cut[] {
     const cuts: Cut[] = []
     const push = (sourceIndex: number, start: number, end: number, extra: Partial<Cut> = {}): void => {
@@ -26,7 +29,7 @@ export function buildRenderPlan(segments: HighlightSegment[], durationsSec: numb
         const wanted = s.goals.filter(wantsReplay).sort((a, b) => a.matchTimeSec - b.matchTimeSec)
         for (const e of wanted) {
             push(e.sourceFileIndex ?? idx, e.matchTimeSec - replay.beforeSec, e.matchTimeSec + replay.afterSec,
-                { speed: replay.speed, silent: true })
+                { speed: replay.speed, gain: REPLAY_GAIN })
         }
     }
     return cuts

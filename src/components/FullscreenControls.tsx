@@ -1,177 +1,129 @@
 import { useEffect, useRef, useState } from 'react'
-import { useAppState } from '../state'
+import { DOUBLE_TAP_MS, isDoubleTap, type Tap, type TapZone } from '../utils/tap'
+import { Fab } from './Fab'
+import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
+
+type OverlayPlayer = {
+    paused: () => boolean
+    play: () => unknown
+    pause: () => unknown
+    currentTime: (t?: number) => number
+    playbackRate: (r?: number) => number
+    userActive?: (active: boolean) => unknown
+}
 
 interface FullscreenControlsProps {
-    playerRef: React.MutableRefObject<any>
+    playerRef: React.MutableRefObject<OverlayPlayer | null>
     isFullscreen: boolean
 }
 
-function useIsMobile(): boolean {
-    const [isMobile, setIsMobile] = useState(
-        () => window.matchMedia('(max-width: 768px)').matches
-    )
-    useEffect(() => {
-        const mq = window.matchMedia('(max-width: 768px)')
-        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
-        mq.addEventListener('change', handler)
-        return () => mq.removeEventListener('change', handler)
-    }, [])
-    return isMobile
-}
+const SEEK_SEC = 5
 
+/**
+ * Touch layer over the picture (touch screens, and fullscreen everywhere): a single tap toggles playback,
+ * a double tap on the left / right third seeks −5 s / +5 s. Fullscreen adds speed buttons and the ＋ mark button.
+ */
 export function FullscreenControls({ playerRef, isFullscreen }: FullscreenControlsProps) {
     const [playbackSpeed, setPlaybackSpeed] = useState(1)
     const [tapFeedback, setTapFeedback] = useState<{ side: 'left' | 'right'; timestamp: number } | null>(null)
-
-    const lastTapRef = useRef<{ time: number; side: 'left' | 'right' } | null>(null)
+    const lastTapRef = useRef<Tap | null>(null)
     const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-    const overlayRef = useRef<HTMLDivElement>(null)
-    const isMobile = useIsMobile()
+    const coarse = useMediaQuery(COARSE_QUERY)
 
     useEffect(() => {
-        if (playerRef.current) {
-            const rate = playerRef.current.playbackRate()
-            setPlaybackSpeed(rate)
-        }
+        if (playerRef.current) setPlaybackSpeed(playerRef.current.playbackRate())
     }, [playerRef])
 
     useEffect(() => () => {
         if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current)
     }, [])
 
-    // Single tap toggles play/pause (once the double-tap window has passed); double tap seeks
-    const handleTap = (side: 'left' | 'right') => {
-        const now = Date.now()
-        const lastTap = lastTapRef.current
+    const togglePlay = (): void => {
+        const player = playerRef.current
+        if (!player) return
+        if (player.paused()) player.play()
+        else player.pause()
+    }
 
+    const handleTap = (zone: TapZone): void => {
+        const player = playerRef.current
+        player?.userActive?.(true) // our layer swallows the tap, so show the control bar ourselves
+        const tap: Tap = { time: Date.now(), zone }
         if (singleTapTimerRef.current) {
             clearTimeout(singleTapTimerRef.current)
             singleTapTimerRef.current = null
         }
-
-        if (lastTap && lastTap.side === side && now - lastTap.time < 300) {
-            // Double tap detected
-            if (playerRef.current) {
-                const seekAmount = 5 // seconds
-                const currentTime = playerRef.current.currentTime()
-                const newTime = side === 'left'
-                    ? Math.max(0, currentTime - seekAmount)
-                    : currentTime + seekAmount
-                playerRef.current.currentTime(newTime)
-
-                // Show feedback
-                setTapFeedback({ side, timestamp: now })
+        if (isDoubleTap(lastTapRef.current, tap) && zone !== 'centre') {
+            if (player) {
+                const t = player.currentTime() || 0
+                player.currentTime(zone === 'left' ? Math.max(0, t - SEEK_SEC) : t + SEEK_SEC)
+                setTapFeedback({ side: zone, timestamp: tap.time })
                 setTimeout(() => setTapFeedback(null), 500)
             }
             lastTapRef.current = null
-        } else {
-            lastTapRef.current = { time: now, side }
-            singleTapTimerRef.current = setTimeout(() => {
-                singleTapTimerRef.current = null
-                const player = playerRef.current
-                if (!player) return
-                if (player.paused()) player.play()
-                else player.pause()
-            }, 300)
+            return
         }
-    }
-
-    const handleSpeedDecrease = () => {
-        if (playerRef.current) {
-            const currentRate = playerRef.current.playbackRate()
-            const newRate = Math.max(0.25, currentRate - 0.25)
-            playerRef.current.playbackRate(newRate)
-            setPlaybackSpeed(newRate)
+        lastTapRef.current = tap
+        if (zone === 'centre') {
+            togglePlay() // no double tap in the centre, so no need to wait
+            return
         }
+        singleTapTimerRef.current = setTimeout(() => {
+            singleTapTimerRef.current = null
+            togglePlay()
+        }, DOUBLE_TAP_MS)
     }
 
-    const handleSpeedReset = () => {
-        if (playerRef.current) {
-            playerRef.current.playbackRate(1)
-            setPlaybackSpeed(1)
-        }
+    const setRate = (rate: number): void => {
+        if (!playerRef.current) return
+        playerRef.current.playbackRate(rate)
+        setPlaybackSpeed(rate)
     }
+    const currentRate = (): number => playerRef.current?.playbackRate() ?? 1
 
-    const handleSpeedIncrease = () => {
-        if (playerRef.current) {
-            const currentRate = playerRef.current.playbackRate()
-            const newRate = Math.min(4, currentRate + 0.25)
-            playerRef.current.playbackRate(newRate)
-            setPlaybackSpeed(newRate)
-        }
-    }
-
-    const handleAddGoal = () => {
-        const player = playerRef.current
-        if (player) useAppState.getState().markEvent(player.currentTime() || 0)
-    }
-
-    // Desktop non-fullscreen: hide overlay entirely
-    if (!isFullscreen && !isMobile) {
-        return null
-    }
-
-    // Mobile non-fullscreen: tap zones only
-    // Fullscreen: show everything (tap zones, goal button, speed controls)
-    const showSpeedControls = isFullscreen
+    if (!isFullscreen && !coarse) return null
 
     return (
-        <div
-            ref={overlayRef}
-            className={`fullscreen-overlay ${isFullscreen ? 'fullscreen-overlay--fullscreen' : 'fullscreen-overlay--normal'}`}
-        >
-            {/* Double-tap zones */}
+        <div className={`fullscreen-overlay ${isFullscreen ? 'fullscreen-overlay--fullscreen' : 'fullscreen-overlay--normal'}`}>
             <div className="tap-zone tap-zone-left" onClick={() => handleTap('left')}>
-                {tapFeedback?.side === 'left' && (
-                    <div className="tap-feedback">
-                        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                            <path d="M19 12H5M12 19l-7-7 7-7" />
-                        </svg>
-                        <div className="tap-feedback-text">-5s</div>
-                    </div>
-                )}
+                {tapFeedback?.side === 'left' && <SeekFeedback side="left" />}
             </div>
-
+            <div className="tap-zone tap-zone-centre" onClick={() => handleTap('centre')} />
             <div className="tap-zone tap-zone-right" onClick={() => handleTap('right')}>
-                {tapFeedback?.side === 'right' && (
-                    <div className="tap-feedback">
-                        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                            <path d="M5 12h14M12 5l7 7-7 7" />
-                        </svg>
-                        <div className="tap-feedback-text">+5s</div>
-                    </div>
-                )}
+                {tapFeedback?.side === 'right' && <SeekFeedback side="right" />}
             </div>
 
-            {/* Event button — fullscreen only; outside fullscreen the phone layout's ＋ button marks events */}
-            {isFullscreen && <div className="overlay-controls top-left">
-                <button className="control-btn add-goal-btn" aria-label="Event" onClick={handleAddGoal}>
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="M12 8v8M8 12h8" />
-                    </svg>
-                    <span>Event</span>
-                </button>
-            </div>}
-
-            {/* Speed controls (fullscreen only) */}
-            {showSpeedControls && (
-                <div className="overlay-controls top-right">
-                    <button className="control-btn speed-btn" onClick={handleSpeedDecrease}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M11 19l-7-7 7-7" />
-                        </svg>
-                    </button>
-                    <button className="control-btn speed-btn speed-display" onClick={handleSpeedReset}>
-                        {playbackSpeed.toFixed(2)}x
-                    </button>
-                    <button className="control-btn speed-btn" onClick={handleSpeedIncrease}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M13 5l7 7-7 7" />
-                        </svg>
-                    </button>
-                </div>
+            {isFullscreen && (
+                <>
+                    <div className="overlay-controls top-right">
+                        <button type="button" aria-label="Slower" className="control-btn speed-btn" onClick={() => setRate(Math.max(0.25, currentRate() - 0.25))}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 19l-7-7 7-7" /></svg>
+                        </button>
+                        <button type="button" aria-label="Normal speed" className="control-btn speed-btn speed-display" onClick={() => setRate(1)}>
+                            {playbackSpeed.toFixed(2)}x
+                        </button>
+                        <button type="button" aria-label="Faster" className="control-btn speed-btn" onClick={() => setRate(Math.min(4, currentRate() + 0.25))}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13 5l7 7-7 7" /></svg>
+                        </button>
+                    </div>
+                    <Fab />
+                </>
             )}
+        </div>
+    )
+}
+
+interface SeekFeedbackProps {
+    side: 'left' | 'right'
+}
+
+function SeekFeedback({ side }: SeekFeedbackProps) {
+    return (
+        <div className="tap-feedback">
+            <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                <path d={side === 'left' ? 'M19 12H5M12 19l-7-7 7-7' : 'M5 12h14M12 5l7 7-7 7'} />
+            </svg>
+            <div className="tap-feedback-text">{side === 'left' ? `-${SEEK_SEC}s` : `+${SEEK_SEC}s`}</div>
         </div>
     )
 }

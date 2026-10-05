@@ -11,6 +11,10 @@ import { patchPlayerFullscreen, type FullscreenPlayer } from './fullscreen'
 import { homeTarget, startInFile } from '../utils/markers'
 import { useZoomPan, type ZoomPan } from './useZoomPan'
 import { ZoomChip } from './ZoomChip'
+import { useTouchScrub } from './useTouchScrub'
+import { formatHMS } from '../utils/timeline'
+import { playerOptions } from '../utils/playerOptions'
+import { shouldAdvance } from '../utils/preview'
 
 type FrameStepPlayer = { pause: () => void; currentTime: (t?: number) => number; duration: () => number }
 
@@ -29,7 +33,7 @@ export function Player() {
     const setCurrentTimeInFile = useAppState((s) => s.setCurrentTimeInFile)
     // Preview mode state
     const isPreviewMode = useAppState((s) => s.isPreviewMode)
-    const previewSegments = useAppState((s) => s.previewSegments)
+    const previewSteps = useAppState((s) => s.previewSteps)
     const currentPreviewSegment = useAppState((s) => s.currentPreviewSegment)
     const nextPreviewSegment = useAppState((s) => s.nextPreviewSegment)
     // Zoom / pan of the picture only (Z, 0, Shift-drag, pinch)
@@ -40,17 +44,12 @@ export function Player() {
     const zoomPan = useZoomPan(getViewport)
     const zoomRef = useRef<ZoomPan>(zoomPan)
     zoomRef.current = zoomPan
+    const scrub = useTouchScrub(containerRef, playerRef)
 
     useEffect(() => {
         if (!videoRef.current) return
         if (!playerRef.current) {
-            playerRef.current = videojs(videoRef.current, {
-                controls: !isPreviewMode, // Disable controls during preview
-                autoplay: false,
-                preload: 'auto',
-                fluid: false,
-                fill: true,
-            })
+            playerRef.current = videojs(videoRef.current, playerOptions(isPreviewMode))
             patchPlayerFullscreen(playerRef.current as unknown as FullscreenPlayer, () => containerRef.current)
 
             // Enable hotkeys once the player is ready
@@ -244,63 +243,63 @@ export function Player() {
         }
     }, [currentFileIndex, files, setCurrentFileIndex])
 
-    // Handle preview mode changes
+    // Preview: play each step (clip or slowed replay) from its start, at its speed and volume.
+    // The end check only arms once the playhead is seen inside the step, so a playhead that was already
+    // past the step's end (or a file still loading) never skips it — preview always starts at clip 1.
+    const previewArmedRef = useRef(false)
+    const previewLoadingRef = useRef(false)
+    const beforePreviewRef = useRef<{ rate: number; volume: number } | null>(null)
     useEffect(() => {
-        if (playerRef.current) {
-            if (isPreviewMode) {
-                // Disable controls during preview
-                playerRef.current.controls(false)
-                // Load and play current preview segment
-                if (previewSegments.length > 0 && currentPreviewSegment < previewSegments.length) {
-                    const segment = previewSegments[currentPreviewSegment]
-                    if (segment.sourceFileIndex !== currentFileIndex) {
-                        setCurrentFileIndex(segment.sourceFileIndex)
-                    }
-                    // Wait for video to load, then seek to segment start
-                    setTimeout(() => {
-                        if (playerRef.current) {
-                            playerRef.current.currentTime(segment.startTime)
-                            playerRef.current.play()
-                        }
-                    }, 100)
-                }
-            } else {
-                // Re-enable controls when exiting preview
-                playerRef.current.controls(true)
-            }
+        const p = playerRef.current
+        if (!p) return
+        if (!isPreviewMode) {
+            p.controls(true)
+            const before = beforePreviewRef.current
+            if (before) { p.playbackRate(before.rate); p.volume(before.volume) }
+            beforePreviewRef.current = null
+            return
         }
-    }, [isPreviewMode, currentPreviewSegment, previewSegments, currentFileIndex, setCurrentFileIndex])
+        p.controls(false)
+        if (!beforePreviewRef.current) beforePreviewRef.current = { rate: p.playbackRate() || 1, volume: p.volume() ?? 1 }
+        const step = previewSteps[currentPreviewSegment]
+        if (!step) return
+        let cancelled = false
+        previewArmedRef.current = false
+        const go = (): void => {
+            if (cancelled) return
+            previewLoadingRef.current = false
+            p.currentTime(step.startSec)
+            p.playbackRate(step.speed) // pitch is preserved by the browser
+            p.volume((beforePreviewRef.current?.volume ?? 1) * step.gain)
+            void Promise.resolve(p.play()).catch(() => undefined)
+        }
+        if (step.sourceIndex !== useAppState.getState().currentFileIndex) {
+            previewLoadingRef.current = true
+            p.pause()
+            p.one('loadedmetadata', go)
+            setCurrentFileIndex(step.sourceIndex)
+        } else {
+            go()
+        }
+        return () => { cancelled = true; p.off('loadedmetadata', go) }
+    }, [isPreviewMode, currentPreviewSegment, previewSteps, setCurrentFileIndex])
 
-    // Handle segment end detection during preview
     useEffect(() => {
-        if (!isPreviewMode || !playerRef.current || previewSegments.length === 0) return
-
-        const handleTimeUpdate = () => {
-            if (playerRef.current && currentPreviewSegment < previewSegments.length) {
-                const segment = previewSegments[currentPreviewSegment]
-                const currentTime = playerRef.current.currentTime()
-
-                // Check if we've reached the end of the current segment
-                if (currentTime >= segment.endTime) {
-                    // Move to next segment if available
-                    if (currentPreviewSegment < previewSegments.length - 1) {
-                        nextPreviewSegment()
-                    } else {
-                        // End of preview - pause
-                        playerRef.current.pause()
-                    }
-                }
-            }
+        const p = playerRef.current
+        const step = previewSteps[currentPreviewSegment]
+        if (!isPreviewMode || !p || !step) return
+        const onTime = (): void => {
+            if (previewLoadingRef.current) return
+            const t = p.currentTime() || 0
+            if (t >= step.startSec - 0.5 && t < step.endSec - 0.05) previewArmedRef.current = true
+            if (!shouldAdvance(t, step, previewArmedRef.current)) return
+            previewArmedRef.current = false
+            if (currentPreviewSegment < previewSteps.length - 1) nextPreviewSegment()
+            else p.pause()
         }
-
-        const player = playerRef.current
-        if (player) {
-            player.on('timeupdate', handleTimeUpdate)
-            return () => {
-                player.off('timeupdate', handleTimeUpdate)
-            }
-        }
-    }, [isPreviewMode, currentPreviewSegment, previewSegments, nextPreviewSegment])
+        p.on('timeupdate', onTime)
+        return () => p.off('timeupdate', onTime)
+    }, [isPreviewMode, currentPreviewSegment, previewSteps, nextPreviewSegment])
 
     // Apply the zoom to the video picture (the tech element), not to the controls.
     useEffect(() => {
@@ -370,29 +369,21 @@ export function Player() {
         }
     }, [])
 
-    // Track fullscreen state
+    // Track fullscreen state (also on resize / rotation: leaving fullscreen by rotating may not fire an event)
     useEffect(() => {
-        const handleFullscreenChange = () => {
-            const isFS = !!(
-                document.fullscreenElement ||
-                (document as any).webkitFullscreenElement ||
-                (document as any).mozFullScreenElement ||
-                (document as any).msFullscreenElement
-            )
-            console.log('Fullscreen state changed:', isFS)
-            setIsFullscreen(isFS)
+        const sync = (): void => {
+            const d = document as Document & { webkitFullscreenElement?: Element | null }
+            const el = d.fullscreenElement ?? d.webkitFullscreenElement ?? null
+            setIsFullscreen(el !== null && el === containerRef.current)
         }
-
-        document.addEventListener('fullscreenchange', handleFullscreenChange)
-        document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
-        document.addEventListener('mozfullscreenchange', handleFullscreenChange)
-        document.addEventListener('msfullscreenchange', handleFullscreenChange)
-
+        const events = ['fullscreenchange', 'webkitfullscreenchange'] as const
+        for (const e of events) document.addEventListener(e, sync)
+        window.addEventListener('resize', sync)
+        window.addEventListener('orientationchange', sync)
         return () => {
-            document.removeEventListener('fullscreenchange', handleFullscreenChange)
-            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
-            document.removeEventListener('mozfullscreenchange', handleFullscreenChange)
-            document.removeEventListener('msfullscreenchange', handleFullscreenChange)
+            for (const e of events) document.removeEventListener(e, sync)
+            window.removeEventListener('resize', sync)
+            window.removeEventListener('orientationchange', sync)
         }
     }, [])
 
@@ -405,6 +396,7 @@ export function Player() {
                 </div>
             )}
             <ZoomChip zoom={zoomPan.zoom} onReset={zoomPan.reset} />
+            {scrub && <div className="scrub-bubble tc" style={{ left: scrub.leftPx }}>{formatHMS(scrub.timeSec)}</div>}
             <FullscreenControls playerRef={playerRef} isFullscreen={isFullscreen} />
             <EventPicker />
             <TimelineMarkers host={progressHost} durationSec={durationSec} />

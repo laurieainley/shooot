@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, fireEvent, act } from '@testing-library/react'
 import { FullscreenControls } from './FullscreenControls'
 import { useAppState } from '../state'
+import { setCoarsePointer } from '../test/pointer'
 
 function fakePlayer() {
     let paused = true
@@ -19,6 +20,8 @@ function fakePlayer() {
 describe('FullscreenControls', () => {
     beforeEach(() => { vi.useFakeTimers() })
     afterEach(() => { vi.useRealTimers() })
+
+    beforeEach(() => { useAppState.setState({ files: [], picker: null }) })
 
     it('should toggle play/pause on a single tap in a tap zone', () => {
         const player = fakePlayer()
@@ -44,13 +47,34 @@ describe('FullscreenControls', () => {
         expect(player.pause).not.toHaveBeenCalled()
     })
 
-    it('should mark an event from the overlay button', () => {
+    it('should toggle play/pause at once on a centre tap', () => {
         const player = fakePlayer()
-        useAppState.setState({ events: [], picker: null, currentFileIndex: 0, files: [] })
-        const { getByRole } = render(<FullscreenControls playerRef={{ current: player }} isFullscreen />)
-        fireEvent.click(getByRole('button', { name: /event/i }))
+        const { container } = render(<FullscreenControls playerRef={{ current: player }} isFullscreen />)
+        fireEvent.click(container.querySelector('.tap-zone-centre')!)
+        expect(player.play).toHaveBeenCalledTimes(1)
+    })
+
+    it('should seek back on a double tap on the left third', () => {
+        setCoarsePointer(true)
+        const player = fakePlayer()
+        const { container } = render(<FullscreenControls playerRef={{ current: player }} isFullscreen={false} />)
+        const left = container.querySelector('.tap-zone-left')!
+        fireEvent.click(left)
+        fireEvent.click(left)
+        act(() => { vi.advanceTimersByTime(600) })
+        expect(player.currentTime).toHaveBeenLastCalledWith(15)
+        expect(player.play).not.toHaveBeenCalled()
+    })
+
+    it('should mark events with the ＋ button in fullscreen, not the old Event overlay', () => {
+        const player = fakePlayer()
+        useAppState.setState({ events: [], picker: null, currentFileIndex: 0, currentTimeInFileSec: 20, files: [{ id: 'a', name: 'a.mp4', url: '', file: new File([''], 'a.mp4'), kind: 'full' }] })
+        const { getByRole, queryByRole } = render(<FullscreenControls playerRef={{ current: player }} isFullscreen />)
+        expect(queryByRole('button', { name: 'Event' })).toBeNull()
+        fireEvent.click(getByRole('button', { name: 'Mark event' }))
         expect(useAppState.getState().events[0]).toMatchObject({ matchTimeSec: 20, type: 'goal' })
         expect(useAppState.getState().picker).not.toBeNull()
+        expect(queryByRole('button', { name: 'Mark event' })).toBeNull()
     })
 
     it('should keep the tap zones but leave marking to the ＋ button on a phone outside fullscreen', () => {

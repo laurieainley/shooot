@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import { ClipSummary } from './ClipSummary'
 import type { VideoSourceFile } from '../types'
@@ -34,13 +33,9 @@ describe('ClipSummary', () => {
         expect(screen.getByText('0:14 · 1 clip')).toBeInTheDocument()
     })
 
-    it('should open the clip settings when clicked and close them on Escape', async () => {
+    it('should be read-only text, not a button (settings live in ⋯ → Advanced settings)', () => {
         render(<ClipSummary />)
-        expect(screen.queryByLabelText('Replay before')).not.toBeInTheDocument()
-        await userEvent.click(screen.getByRole('button', { name: /clip settings/i }))
-        expect(screen.getByLabelText('Replay before')).toBeInTheDocument()
-        expect(screen.getByLabelText('Before')).toHaveValue(10)
-        await userEvent.keyboard('{Escape}')
-        expect(screen.queryByLabelText('Replay before')).not.toBeInTheDocument()
+        expect(screen.queryByRole('button')).not.toBeInTheDocument()
+        expect(screen.getByLabelText('Clip summary')).toHaveTextContent('Clip−10s / +4s')
     })
 })

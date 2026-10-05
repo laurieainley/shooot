@@ -6,6 +6,10 @@ import { computeCumulativeOffsets } from './utils/timeline'
 import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/highlights'
 import { relinkEvents, linkedEvents } from './utils/relink'
 import { parseGoProName } from './utils/gopro'
+import { buildPreviewPlan, type PreviewStep } from './utils/preview'
+
+/** Menus and sheets; at most one is open, and never together with the event picker. */
+export type Panel = 'menu' | 'files' | 'match' | 'settings' | 'paste' | 'export'
 
 type AppState = {
     files: VideoSourceFile[]
@@ -25,11 +29,17 @@ type AppState = {
     // Preview mode state
     isPreviewMode: boolean
     previewSegments: HighlightSegment[]
+    /** Clips and their replays, in reel order; `currentPreviewSegment` indexes these. */
+    previewSteps: PreviewStep[]
     currentPreviewSegment: number
     setFiles: (files: VideoSourceFile[]) => void
     addFiles: (files: VideoSourceFile[]) => void
     moveFile: (from: number, to: number) => void
     removeFile: (index: number) => void
+    replaceFile: (index: number, replacement: VideoSourceFile[]) => void
+    /** Progress text while picked files are being opened, e.g. "Opening GX010226.MP4 (11.9 GB)…". */
+    opening: string | null
+    setOpening: (label: string | null) => void
     attachFullFiles: (files: File[]) => string[]
     setCurrentTimeInFile: (t: number) => void
     setCurrentFileIndex: (idx: number) => void
@@ -69,12 +79,20 @@ type AppState = {
     markEvent: (timeInFileSec: number) => void
     openPicker: (eventId: string) => void
     closePicker: () => void
+    panel: Panel | null
+    openPanel: (panel: Panel) => void
+    closePanel: () => void
 }
 
 export const useAppState = create<AppState>()(
     persist(
         (set, get) => {
             const MAX_UNDO_DEPTH = 50
+            // The picker edits one event; it closes when that event is gone (undo, delete, import).
+            const pickerFor = (events: MatchEvent[]): AppState['picker'] => {
+                const p = get().picker
+                return p && events.some((e) => e.id === p.eventId) ? p : null
+            }
             return {
             files: [],
             events: [],
@@ -83,6 +101,8 @@ export const useAppState = create<AppState>()(
                 { name: 'Colours', color: '#c2364a', roster: [] },
             ],
             picker: null,
+            panel: null,
+            opening: null,
             cumulativeOffsets: [],
             currentTimeInFileSec: 0,
             currentFileIndex: 0,
@@ -92,7 +112,7 @@ export const useAppState = create<AppState>()(
             lengthBeforeGoalSec: 10,
             lengthAfterGoalSec: 4,
             // Slow-mo replay configuration
-            replayBeforeSec: 3,
+            replayBeforeSec: 4,
             replayAfterSec: 1,
             replaySpeed: 0.5,
             // Undo/redo stacks
@@ -101,6 +121,7 @@ export const useAppState = create<AppState>()(
             // Preview mode state
             isPreviewMode: false,
             previewSegments: [],
+            previewSteps: [],
             currentPreviewSegment: 0,
             setFiles: (files) => set({
                 files,
@@ -140,6 +161,15 @@ export const useAppState = create<AppState>()(
                     events: relinkEvents(get().events, newFiles),
                 })
             },
+            // Swap one entry for newly picked file(s); events on the old file become unlinked, as with remove.
+            replaceFile: (index, replacement) => {
+                const files = get().files
+                if (index < 0 || index >= files.length || replacement.length === 0) return
+                const old = files[index]
+                if (old.url) URL.revokeObjectURL(old.url)
+                get().setFiles([...files.slice(0, index), ...replacement, ...files.slice(index + 1)])
+            },
+            setOpening: (label) => set({ opening: label }),
             setCurrentTimeInFile: (t) => set({ currentTimeInFileSec: t }),
             setCurrentFileIndex: (idx) => set({ currentFileIndex: Math.max(0, Math.min(idx, get().files.length - 1)) }),
             setMatchStartTime: (time) => set({ matchStartTimeSec: time }),
@@ -179,16 +209,20 @@ export const useAppState = create<AppState>()(
             },
             setEvents: (events) => {
                 const state = get()
+                const next = relinkEvents(events, state.files)
                 set({
-                    events: relinkEvents(events, state.files),
+                    events: next,
+                    picker: pickerFor(next),
                     undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), state.events],
                     redoStack: [],
                 })
             },
             removeEvent: (id) => {
                 const state = get()
+                const next = state.events.filter((e) => e.id !== id)
                 set({
-                    events: state.events.filter((e) => e.id !== id),
+                    events: next,
+                    picker: pickerFor(next),
                     undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), state.events],
                     redoStack: [],
                 })
@@ -217,9 +251,10 @@ export const useAppState = create<AppState>()(
             undo: () => {
                 const state = get()
                 if (state.undoStack.length === 0) return
-                const previous = state.undoStack[state.undoStack.length - 1]
+                const previous = relinkEvents(state.undoStack[state.undoStack.length - 1], state.files)
                 set({
-                    events: relinkEvents(previous, state.files),
+                    events: previous,
+                    picker: pickerFor(previous),
                     undoStack: state.undoStack.slice(0, -1),
                     redoStack: [...state.redoStack, state.events],
                 })
@@ -227,14 +262,15 @@ export const useAppState = create<AppState>()(
             redo: () => {
                 const state = get()
                 if (state.redoStack.length === 0) return
-                const next = state.redoStack[state.redoStack.length - 1]
+                const next = relinkEvents(state.redoStack[state.redoStack.length - 1], state.files)
                 set({
-                    events: relinkEvents(next, state.files),
+                    events: next,
+                    picker: pickerFor(next),
                     redoStack: state.redoStack.slice(0, -1),
                     undoStack: [...state.undoStack, state.events],
                 })
             },
-            clear: () => set({ files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0, matchStartTimeSec: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, isPreviewMode: false, previewSegments: [], currentPreviewSegment: 0, undoStack: [], redoStack: [], picker: null }),
+            clear: () => set({ files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0, matchStartTimeSec: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, undoStack: [], redoStack: [], picker: null }),
             // Start a new game: drop events, videos and kick-off; keep teams, rosters and clip/replay settings.
             // Events go on the undo stack so an accidental clear can be undone.
             newMatch: () => {
@@ -242,7 +278,7 @@ export const useAppState = create<AppState>()(
                 for (const f of state.files) if (f.url) URL.revokeObjectURL(f.url)
                 set({
                     files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0,
-                    matchStartTimeSec: 0, isPreviewMode: false, previewSegments: [], currentPreviewSegment: 0, picker: null,
+                    matchStartTimeSec: 0, isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, picker: null, panel: null,
                     undoStack: [...state.undoStack.slice(-49), state.events], redoStack: [],
                 })
             },
@@ -264,10 +300,12 @@ export const useAppState = create<AppState>()(
             markEvent: (timeInFileSec) => {
                 const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
                 get().addEvent({ id, matchTimeSec: Math.floor(timeInFileSec), sourceFileIndex: get().currentFileIndex, type: 'goal' })
-                set({ picker: { eventId: id } })
+                set({ picker: { eventId: id }, panel: null })
             },
-            openPicker: (eventId) => set({ picker: { eventId } }),
+            openPicker: (eventId) => set({ picker: { eventId }, panel: null }),
             closePicker: () => set({ picker: null }),
+            openPanel: (panel) => set({ panel, picker: null }),
+            closePanel: () => set({ panel: null }),
             // Preview mode actions
             startPreview: () => {
                 const state = get()
@@ -279,18 +317,23 @@ export const useAppState = create<AppState>()(
                     state.lengthBeforeGoalSec,
                     state.lengthAfterGoalSec
                 )
-                if (segments.length > 0) {
+                const steps = buildPreviewPlan(segments, state.files.map((f) => f.durationSec ?? Infinity),
+                    { beforeSec: state.replayBeforeSec, afterSec: state.replayAfterSec, speed: state.replaySpeed })
+                if (steps.length > 0) {
                     set({
                         isPreviewMode: true,
                         previewSegments: segments,
-                        currentPreviewSegment: 0
+                        previewSteps: steps,
+                        currentPreviewSegment: 0,
+                        picker: null,
+                        panel: null,
                     })
                 }
             },
-            exitPreview: () => set({ isPreviewMode: false, previewSegments: [], currentPreviewSegment: 0 }),
+            exitPreview: () => set({ isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0 }),
             nextPreviewSegment: () => {
                 const state = get()
-                if (state.isPreviewMode && state.currentPreviewSegment < state.previewSegments.length - 1) {
+                if (state.isPreviewMode && state.currentPreviewSegment < state.previewSteps.length - 1) {
                     set({ currentPreviewSegment: state.currentPreviewSegment + 1 })
                 }
             },

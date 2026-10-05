@@ -5,8 +5,8 @@ import { eventLabel } from '../utils/eventTypes'
 import { wantsReplay } from '../utils/replays'
 import { filterRoster, rosterTeamFor } from '../utils/roster'
 import { formatEventClock } from '../utils/timeline'
-import { parseBulkPaste } from '../utils/bulkPaste'
 import { TimeInput } from './TimeInput'
+import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 
 type Editing = { id: string; field: 'scorer' | 'team' | 'time' } | null
 
@@ -22,12 +22,9 @@ export function EventLog() {
     const matchStartTimeSec = useAppState((s) => s.matchStartTimeSec)
     const canUndo = useAppState((s) => s.undoStack.length > 0)
     const canRedo = useAppState((s) => s.redoStack.length > 0)
+    const coarse = useMediaQuery(COARSE_QUERY)
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const [editing, setEditing] = useState<Editing>(null)
-    const [menuOpen, setMenuOpen] = useState(false)
-    const [confirmNew, setConfirmNew] = useState(false)
-    const [pasting, setPasting] = useState(false)
-    const [pasteText, setPasteText] = useState('')
     const rootRef = useRef<HTMLElement | null>(null)
     const listRef = useRef<HTMLOListElement | null>(null)
 
@@ -97,13 +94,6 @@ export function EventLog() {
         if (handled) { ev.preventDefault(); ev.stopPropagation() }
     }
 
-    const addPasted = (): void => {
-        const idx = useAppState.getState().currentFileIndex
-        useAppState.getState().addEvents(parseBulkPaste(pasteText, idx))
-        setPasteText('')
-        setPasting(false)
-    }
-
     return (
         <section
             ref={rootRef}
@@ -122,49 +112,13 @@ export function EventLog() {
                     className="btn-quiet">+ Event</button>
                 <button type="button" aria-label="Undo" title="Undo (⌘Z)" onClick={() => useAppState.getState().undo()} disabled={!canUndo} className="btn-icon"><UndoIcon /></button>
                 <button type="button" aria-label="Redo" title="Redo (⇧⌘Z)" onClick={() => useAppState.getState().redo()} disabled={!canRedo} className="btn-icon"><UndoIcon redo /></button>
-                <div className="relative">
-                    <button type="button" aria-label="More" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)} className="btn-icon">⋯</button>
-                    {menuOpen && (
-                        <div role="menu" className="menu absolute right-0 top-full z-20 mt-1">
-                            <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setPasting(true) }}>Paste list</button>
-                            <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setConfirmNew(true) }}>New match…</button>
-                        </div>
-                    )}
-                </div>
             </header>
-
-            {confirmNew && (
-                <div role="alertdialog" aria-label="New match" className="flex flex-col gap-2 border-b border-line bg-sunk px-3 py-2 text-[13px]">
-                    <p className="m-0">
-                        Clear {events.length} {events.length === 1 ? 'event' : 'events'} and unload the videos? Teams, rosters and clip settings stay. ⌘Z brings the events back.
-                    </p>
-                    <div className="flex gap-2">
-                        <button type="button" onClick={() => { setConfirmNew(false); useAppState.getState().newMatch() }} className="btn-primary">Clear and start new match</button>
-                        <button type="button" onClick={() => setConfirmNew(false)} className="btn-quiet">Keep</button>
-                    </div>
-                </div>
-            )}
-
-            {pasting && (
-                <div className="flex flex-col gap-2 border-b border-line bg-sunk px-3 py-2">
-                    <textarea
-                        autoFocus
-                        aria-label="Paste list"
-                        value={pasteText}
-                        onChange={(e) => setPasteText(e.target.value)}
-                        placeholder={'07:12 Whites - Sam\n23:41 Colours - Jo'}
-                        className="field tc h-20 resize-y text-[13px]"
-                    />
-                    <div className="flex gap-2">
-                        <button type="button" onClick={addPasted} className="btn-primary">Add events</button>
-                        <button type="button" onClick={() => setPasting(false)} className="btn-quiet">Cancel</button>
-                    </div>
-                </div>
-            )}
 
             {events.length === 0 ? (
                 <p className="m-0 px-3 py-4 text-[13px] text-muted">
-                    No events yet. {files.length === 0 ? 'Load a video, then press ' : 'Press '}<kbd>G</kbd> while it plays.
+                    {coarse
+                        ? <>No events yet. {files.length === 0 ? 'Load a video, then tap ＋ while it plays.' : 'Tap ＋ while the video plays.'}</>
+                        : <>No events yet. {files.length === 0 ? 'Load a video, then press ' : 'Press '}<kbd>G</kbd> while it plays.</>}
                 </p>
             ) : (
                 <ol ref={listRef} role="listbox" aria-label="Event list" className="m-0 min-h-0 flex-1 list-none overflow-y-auto overscroll-contain p-0">

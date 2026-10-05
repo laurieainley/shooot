@@ -40,10 +40,10 @@ const segWith = (file: number, start: number, end: number, goals: MatchEvent[]):
 const REPLAY = { beforeSec: 3, afterSec: 1, speed: 0.5 }
 
 describe('buildRenderPlan — replays', () => {
-    it('should append a silent slow replay after the segment for a goal', () => {
+    it('should append a slow replay at half volume after the segment for a goal', () => {
         expect(buildRenderPlan([segWith(0, 50, 64, [g('a', 0, 60)])], [100], REPLAY)).toEqual([
             { sourceIndex: 0, startSec: 50, endSec: 64 },
-            { sourceIndex: 0, startSec: 57, endSec: 61, speed: 0.5, silent: true },
+            { sourceIndex: 0, startSec: 57, endSec: 61, speed: 0.5, gain: 0.5 },
         ])
     })
 
@@ -54,12 +54,12 @@ describe('buildRenderPlan — replays', () => {
 
     it('should honour explicit overrides', () => {
         const cuts = buildRenderPlan([segWith(0, 50, 64, [g('a', 0, 60, { replay: false }), g('s', 0, 61, { type: 'save', replay: true })])], [100], REPLAY)
-        expect(cuts.slice(1)).toEqual([{ sourceIndex: 0, startSec: 58, endSec: 62, speed: 0.5, silent: true }])
+        expect(cuts.slice(1)).toEqual([{ sourceIndex: 0, startSec: 58, endSec: 62, speed: 0.5, gain: 0.5 }])
     })
 
     it('should clamp the replay window to its own file', () => {
         const cuts = buildRenderPlan([segWith(1, -5, 9, [g('a', 1, 1)])], [100, 100], REPLAY)
-        expect(cuts.at(-1)).toEqual({ sourceIndex: 1, startSec: 0, endSec: 2, speed: 0.5, silent: true })
+        expect(cuts.at(-1)).toEqual({ sourceIndex: 1, startSec: 0, endSec: 2, speed: 0.5, gain: 0.5 })
     })
 
     it('should add no replays when the option is omitted', () => {
