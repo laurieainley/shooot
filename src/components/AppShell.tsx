@@ -9,29 +9,32 @@ import { Panels } from './Panels'
 import { Player } from './Player'
 import { PreviewControls } from './PreviewControls'
 import { TopBar } from './TopBar'
-import { DESKTOP_QUERY, useMediaQuery } from './useMediaQuery'
+import { useLayout } from './useMediaQuery'
 
 /**
  * Edit bay. Desktop (≥ 900px): one screen, no page scroll — player and match strip on the left, the event
- * rail on the right, key hints below. Phone: stacked, the event list scrolls with the page, ＋ marks.
+ * rail on the right, key hints below. Landscape phone (short viewport): the same side-by-side bay under a
+ * compact top bar, with the ＋ in the rail so it never covers the video controls. Portrait phone: stacked,
+ * the event list scrolls with the page, ＋ floats bottom-right.
  */
 export function AppShell() {
-    const desktop = useMediaQuery(DESKTOP_QUERY)
+    const layout = useLayout()
     const hasFiles = useAppState((s) => s.files.length > 0)
     const isPreviewMode = useAppState((s) => s.isPreviewMode)
+    const sideBySide = layout !== 'phone'
 
-    // Desktop: the preview bar floats over the top of the picture. Phone: it sits below the video, in the stack.
+    // Side by side: the preview bar floats over the top of the picture. Portrait phone: it sits below the video.
     const stage = (
         <div className="stage">
             {hasFiles ? <Player /> : <EmptyPlayer />}
-            {desktop && isPreviewMode && <div className="preview-bar"><PreviewControls /></div>}
+            {sideBySide && isPreviewMode && <div className="preview-bar"><PreviewControls /></div>}
         </div>
     )
 
     return (
-        <div className={desktop ? 'shell shell--desktop' : 'shell shell--phone'}>
-            <TopBar desktop={desktop} />
-            {desktop ? (
+        <div className={`shell shell--${layout}`}>
+            <TopBar desktop={layout === 'desktop'} />
+            {sideBySide ? (
                 <>
                     <main className="bay">
                         <div className="bay__left">
@@ -40,10 +43,11 @@ export function AppShell() {
                         </div>
                         <aside className="rail" aria-label="Event rail">
                             <EventLog />
-                            <ClipSummary />
+                            <ClipSummary compact={layout === 'landscape'} />
+                            {layout === 'landscape' && <Fab />}
                         </aside>
                     </main>
-                    <KeyHints />
+                    {layout === 'desktop' && <KeyHints />}
                 </>
             ) : (
                 <main className="stack">

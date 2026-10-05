@@ -149,6 +149,31 @@
 }
 .score-chip .score-final { color: rgb(255 255 255 / 0.7); }
 
+/* ---------- landscape phone: the desktop bay under a 44px top bar, no page scroll ---------- */
+.shell--landscape {
+  height: 100dvh; overflow: hidden; background: var(--panel);
+  display: grid; grid-template-rows: auto minmax(0, 1fr);
+}
+.shell--landscape .top-bar {
+  box-sizing: border-box; height: 44px; gap: 8px;
+  padding: 0 max(4px, env(safe-area-inset-right, 0px)) 0 max(12px, env(safe-area-inset-left, 0px));
+}
+.shell--landscape .brand { font-size: 17px; }
+/* 44px hit areas inside a 44px bar: the transparent border is part of the target but not of the drawn button. */
+.shell--landscape .top-bar .btn-primary, .shell--landscape .top-bar .btn-quiet {
+  box-sizing: border-box; min-height: 44px; border: 5px solid transparent; background-clip: padding-box; padding: 0 12px;
+}
+.shell--landscape .bay { grid-template-columns: minmax(0, 1fr) clamp(240px, 32vw, 320px); }
+.shell--landscape .bay__left { grid-template-rows: minmax(0, 1fr) 45px; padding-left: env(safe-area-inset-left, 0px); background: var(--video); }
+.shell--landscape .rail { padding-right: env(safe-area-inset-right, 0px); }
+.shell--landscape .match-strip { grid-template-columns: 72px minmax(0, 1fr); }
+.shell--landscape .strip-label { padding: 0 8px; }
+.shell--landscape .event-log__add { display: none; } /* the ＋ in the rail does this */
+.shell--landscape .event-log ol { padding-bottom: 40px; } /* the last row can scroll clear of the ＋ */
+.shell--landscape .fab { bottom: calc(6px + env(safe-area-inset-bottom, 0px)); right: calc(10px + env(safe-area-inset-right, 0px)); width: 56px; height: 56px; }
+.clip-summary--compact { padding: 8px 76px 8px 12px; }
+.clip-summary.clip-summary--compact .kv { justify-content: flex-start; }
+
 /* ---------- desktop bay ---------- */
 .bay { display: grid; grid-template-columns: minmax(0, 1fr) clamp(280px, 26vw, 360px); min-height: 0; }
 .bay__left { display: grid; grid-template-rows: minmax(0, 1fr) 56px; min-height: 0; min-width: 0; }
@@ -270,7 +295,7 @@
 .empty-player__keys { display: grid; grid-template-columns: repeat(3, auto); gap: 4px 18px; margin: 8px 0 0; font-size: 12px; color: var(--muted); }
 .empty-player__keys div { display: flex; gap: 6px; align-items: center; }
 .empty-player__keys dt, .empty-player__keys dd { margin: 0; }
-.shell--phone .empty-player__keys { display: none; }
+.shell--phone .empty-player__keys, .shell--landscape .empty-player__keys { display: none; }
 
 /* ---------- floating panels and sheets ---------- */
 .floating {
@@ -371,8 +396,7 @@
 /* Over the video (fullscreen, landscape phones) the ＋ sits above the 44px control bar, never on its buttons. */
 .player-container .fab { bottom: calc(64px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px; }
 @media (orientation: landscape) and (max-height: 500px) {
-  .fab { bottom: calc(64px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px; }
-  .floating { max-height: calc(100dvh - 64px); }
+  .floating { max-height: calc(100dvh - 56px); }
 }
 
 /* ---------- player: video.js skin, overlays ---------- */
@@ -496,6 +520,30 @@
   .event-picker__input { font-size: 16px; padding: 10px 12px; } /* 16px: no iOS zoom on focus */
 }
 
+/* Landscape phones: the picker is a side sheet over the event rail (below the top bar), so the picture stays
+   in view while choosing; in fullscreen it takes the right-hand edge of the screen. Done / Cancel stay pinned. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .event-picker {
+    position: fixed; top: 44px; right: 0; bottom: 0; left: auto; width: clamp(240px, 32vw, 320px); max-height: none;
+    border-radius: 0; border-width: 0 0 0 1px; box-shadow: -8px 0 24px rgb(0 0 0 / 0.25);
+    padding: 10px calc(10px + env(safe-area-inset-right, 0px)) 0 10px; font-size: 15px;
+    display: flex; flex-direction: column;
+  }
+  .player-container:fullscreen .event-picker { top: 0; }
+  .event-picker__title { font-size: 15px; padding-bottom: 8px; }
+  .event-picker__list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .event-picker__item { padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; }
+  .event-picker__item[aria-selected="true"] { border-color: var(--accent); font-weight: 600; }
+  .event-picker__item kbd { display: none; }
+  .event-picker__skip { width: auto; margin-top: 6px; padding: 10px 12px; border-radius: 4px; }
+  .event-picker__input { font-size: 16px; padding: 10px 12px; }
+  .event-picker__actions {
+    position: sticky; bottom: 0; margin-top: auto; padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px));
+    background: var(--panel);
+  }
+  .event-picker__actions > button { flex: 1; min-width: 0; }
+}
+
 /* Container fullscreen (see components/fullscreen.ts) */
 .player-container:fullscreen { width: 100vw; height: 100vh; border-radius: 0; background: #000; }
 .player-container:fullscreen .video-js { width: 100%; height: 100%; }
@@ -540,11 +588,23 @@
   .player-container .video-js .vjs-progress-control { min-width: 3em; }
   .row-btn { width: 44px; height: 44px; font-size: 17px; }
   .btn-icon { width: 44px; height: 44px; }
-  .btn-quiet, .btn-primary, .file-add { min-height: 40px; }
   .event-row { min-height: 48px; }
   .event-picker__item, .event-picker__skip { min-height: 44px; box-sizing: border-box; }
   .control-btn { min-width: 44px; min-height: 44px; justify-content: center; }
   .menu-list > button { min-height: 44px; }
   .swatch { width: 32px; height: 32px; }
   .graphics-setup .btn-quiet, .graphics-setup__field .field { min-height: 44px; }
+  .btn-quiet, .btn-primary, .file-add { min-height: 44px; }
+
+  /* Touch screens are phones and tablets held at arm's length: no text under 14px. Covers the small
+     Tailwind sizes used in components (unlayered CSS beats the utilities layer) and the small UI classes. */
+  .text-\[10px\], .text-\[11px\], .text-\[12px\], .text-\[13px\],
+  .btn-quiet, .btn-primary, .file-add, .field, .tag, .row-score, .menu > button, .menu-item,
+  .clip-summary, .export-section__title, .export-section__hint, .toggle-row__hint, .settings-field, .settings-field .unit,
+  .strip-label, .strip-file__name, .graphics-setup__field, .opening-status, .event-picker__hint, .event-picker__title,
+  .control-btn, .score-final, .file-row__index, .file-pill, .file-pill__dur, .key-hints,
+  .player-container .video-js .vjs-time-control { font-size: 14px; }
+  .tag { line-height: 18px; }
+  .strip-label__clock { font-size: 16px; }
+  .strip-file { padding-top: 2px; }
 }
