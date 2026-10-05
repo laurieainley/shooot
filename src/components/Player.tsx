@@ -373,29 +373,21 @@ export function Player() {
         }
     }, [])
 
-    // Track fullscreen state
+    // Track fullscreen state (also on resize / rotation: leaving fullscreen by rotating may not fire an event)
     useEffect(() => {
-        const handleFullscreenChange = () => {
-            const isFS = !!(
-                document.fullscreenElement ||
-                (document as any).webkitFullscreenElement ||
-                (document as any).mozFullScreenElement ||
-                (document as any).msFullscreenElement
-            )
-            console.log('Fullscreen state changed:', isFS)
-            setIsFullscreen(isFS)
+        const sync = (): void => {
+            const d = document as Document & { webkitFullscreenElement?: Element | null }
+            const el = d.fullscreenElement ?? d.webkitFullscreenElement ?? null
+            setIsFullscreen(el !== null && el === containerRef.current)
         }
-
-        document.addEventListener('fullscreenchange', handleFullscreenChange)
-        document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
-        document.addEventListener('mozfullscreenchange', handleFullscreenChange)
-        document.addEventListener('msfullscreenchange', handleFullscreenChange)
-
+        const events = ['fullscreenchange', 'webkitfullscreenchange'] as const
+        for (const e of events) document.addEventListener(e, sync)
+        window.addEventListener('resize', sync)
+        window.addEventListener('orientationchange', sync)
         return () => {
-            document.removeEventListener('fullscreenchange', handleFullscreenChange)
-            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
-            document.removeEventListener('mozfullscreenchange', handleFullscreenChange)
-            document.removeEventListener('msfullscreenchange', handleFullscreenChange)
+            for (const e of events) document.removeEventListener(e, sync)
+            window.removeEventListener('resize', sync)
+            window.removeEventListener('orientationchange', sync)
         }
     }, [])
 
