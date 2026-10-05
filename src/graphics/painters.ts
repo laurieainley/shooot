@@ -1,11 +1,32 @@
 // Turns a graphics spec (plain data) into the engine's painters.
 import type { RenderGraphics, RenderOverlay } from '../render/types'
-import { CARD_SEC, cardFade, cardLayout, lowerThirdLayout, replayTagLayout } from './layout'
+import { BUG_ROWS, CAPTION_ROWS, CARD_SEC, REPLAY_ROWS, captionLayout, cardFade, cardLayout, replayTagLayout, scoreBugLayout } from './layout'
 import { designFit, measureWith, paintOps, type PaintAssets } from './paint'
 import type { CardSpec, GraphicsSpec, OverlaySpec } from './types'
 
 /** Design-space rows each overlay kind can touch (with room for anti-aliasing). */
-const ROWS: Record<OverlaySpec['kind'], [number, number]> = { lowerThird: [770, 976], replayTag: [56, 136] }
+const ROWS: Record<OverlaySpec['kind'], [number, number]> = { caption: CAPTION_ROWS, replayTag: REPLAY_ROWS, scoreBug: BUG_ROWS }
+
+type Painter = (ctx: OffscreenCanvasRenderingContext2D, t: number) => void
+
+function painter(o: OverlaySpec, assets: PaintAssets): Painter {
+    const logo = !!assets.logo
+    switch (o.kind) {
+        case 'caption':
+            return (ctx, t) => paintOps(ctx, captionLayout(o.spec, o.clock.offsetSec + t * o.clock.rate, logo, o.clock.totalSec, measureWith(ctx), o.anchored), assets)
+        case 'replayTag':
+            return (ctx, t) => paintOps(ctx, replayTagLayout(t, o.durationSec), assets)
+        case 'scoreBug':
+            return (ctx, t) => {
+                const at = o.startSec + t
+                // Under a caption the caption shows the score (the bug "expands" into it).
+                if (o.hide.some(([a, b]) => at >= a - 1e-6 && at < b)) return
+                let bug = o.scores[0]?.bug
+                for (const s of o.scores) if (s.fromSec <= at + 1e-6) bug = s.bug
+                if (bug) paintOps(ctx, scoreBugLayout(bug, t, o.durationSec, logo, { in: o.fadeIn, out: o.fadeOut }, measureWith(ctx)), assets)
+            }
+    }
+}
 
 function card(spec: CardSpec, label: string, assets: PaintAssets) {
     // Drawn once fully visible; the engine applies the fade (cheaper than converting every frame).
@@ -23,9 +44,7 @@ export function toRenderGraphics(spec: GraphicsSpec, assets: PaintAssets): Rende
         startSec: o.startSec,
         durationSec: o.durationSec,
         rows: (w, h) => { const { s, oy } = designFit(w, h); return [oy + ROWS[o.kind][0] * s, oy + ROWS[o.kind][1] * s] },
-        paint: o.kind === 'lowerThird'
-            ? (ctx, t) => paintOps(ctx, lowerThirdLayout(o.spec, t, !!assets.logo, o.durationSec, measureWith(ctx)), assets)
-            : (ctx, t) => paintOps(ctx, replayTagLayout(t, o.durationSec), assets),
+        paint: painter(o, assets),
     }))
     return {
         ...(spec.intro ? { intro: card(spec.intro, 'Title card', assets) } : {}),

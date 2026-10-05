@@ -102,6 +102,9 @@ type AppState = {
     // Match graphics (title/full-time cards, lower thirds)
     graphics: GraphicsSettings
     setGraphics: (partial: Partial<GraphicsSettings>) => void
+    /** Measured render seconds per second of video for whole-reel re-encodes on this device (null = not yet). */
+    reencodeSecPerSec: number | null
+    noteReencodeSpeed: (secPerSec: number) => void
     /** Matchday heading on the title card; null = "MATCH". */
     matchdayLabel: string | null
     setMatchdayLabel: (label: string | null) => void
@@ -364,6 +367,8 @@ export const useAppState = create<AppState>()(
             openPicker: (eventId) => set({ picker: { eventId }, panel: null }),
             closePicker: () => set({ picker: null }),
             setGraphics: (partial) => set({ graphics: { ...get().graphics, ...partial } }),
+            reencodeSecPerSec: null,
+            noteReencodeSpeed: (secPerSec) => { if (secPerSec > 0 && Number.isFinite(secPerSec)) set({ reencodeSecPerSec: secPerSec }) },
             setMatchdayLabel: (label) => set({ matchdayLabel: label?.trim() ? label : null }),
             setTeamInitials: (index, initials) => set({
                 teams: get().teams.map((t, i) => {
@@ -433,6 +438,7 @@ export const useAppState = create<AppState>()(
                 replaySpeed: state.replaySpeed,
                 teams: state.teams,
                 graphics: state.graphics,
+                reencodeSecPerSec: state.reencodeSecPerSec,
                 matchdayLabel: state.matchdayLabel,
                 barCollapsed: state.barCollapsed,
             }),

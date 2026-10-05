@@ -81,14 +81,14 @@ describe('RenderHighlights', () => {
         ])
     })
 
-    it('should pass title cards and a lower third for the goal to the renderer', async () => {
+    it('should pass title cards and a caption for the goal (carrying on over its replay) to the renderer', async () => {
         renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
         render(<RenderHighlights />)
         await userEvent.click(screen.getByRole('button', { name: /preview reel/i }))
         const g = renderReel.mock.calls[0][2].graphics
         expect(g.intro.label).toBe('Title card')
         expect(g.outro.label).toBe('Full-time card')
-        expect(g.overlays.map((o: { cutIndex: number; startSec: number }) => [o.cutIndex, o.startSec])).toEqual([[0, 100]])
+        expect(g.overlays.map((o: { cutIndex: number; startSec: number }) => [o.cutIndex, o.startSec])).toEqual([[0, 100], [1, expect.any(Number)]])
     })
 
     it('should render without graphics when they are all turned off', async () => {

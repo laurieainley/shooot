@@ -1,7 +1,7 @@
 // Match graphics as draw-op lists in a 1920×1080 design space (paint.ts scales them to the output size).
 // Visual language from the user's cards: navy ground, orange headings, Bebas Neue, team-colour shields.
 import { BLUE, NAVY, NAVY_DARK, ORANGE, WHITE, type TeamBadge } from './teamStyle'
-import type { CardSpec, LowerThirdSpec } from './types'
+import type { BugSpec, CaptionSpec, CardSpec } from './types'
 
 export const DESIGN_W = 1920
 export const DESIGN_H = 1080
@@ -10,7 +10,8 @@ export const SAFE_X = 96
 export const SAFE_Y = 54
 
 export const CARD_SEC = 4
-export const LOWER_THIRD_SEC = 3
+/** Event captions stay on screen for 5 s. */
+export const CAPTION_SEC = 5
 const CARD_FADE = 0.5
 const OVERLAY_FADE = 0.3
 
@@ -73,81 +74,112 @@ function motion(t: number, duration: number): { alpha: number; dx: number } {
     return { alpha: p, dx: -60 * (1 - p) }
 }
 
-/** Lower thirds are drawn 1.4× the original design so they read on a phone (and on a 768×432 preview reel). */
-export const LOWER_THIRD_SCALE = 1.4
+/** Captions, the score bug and the REPLAY tag are drawn 1.4× the original design so they read on a phone. */
+export const OVERLAY_SCALE = 1.4
+const k = (v: number): number => Math.round(v * OVERLAY_SCALE)
 
-/** Lower third at `t` seconds: stripe, navy panel with label + person (+ note), score box for scoring events. */
-export function lowerThirdLayout(spec: LowerThirdSpec, t: number, hasLogo: boolean, duration = LOWER_THIRD_SEC, measure: MeasureText = estimateTextWidth): DrawOp[] {
-    const k = (v: number): number => Math.round(v * LOWER_THIRD_SCALE)
-    const right = DESIGN_W - SAFE_X
-    const barH = k(6)
-    const bottom = DESIGN_H - SAFE_Y - barH - 20 // the coloured base bar ends inside title-safe
-    const row1 = k(96)
-    const row2 = spec.note ? k(60) : 0
-    const h = row1 + row2
-    const top = bottom - h
-    const stripeW = k(14)
-    const pad = k(28)
-    const gap = k(26)
-    const logoW = hasLogo ? k(72) : 0
-    const textX = SAFE_X + stripeW + pad + (hasLogo ? logoW + k(20) : 0)
+const BUG_H = k(64)
+const BUG_PAD = k(16)
+const BUG_BAR = k(8)
+const ACCENT_H = k(4)
+const EVENT_H = k(72)
+const NOTE_H = k(50)
+/** Captions stay left of the REPLAY tag (top right). */
+const CAPTION_MAX_RIGHT = 1480
 
-    const labelSize = k(64)
-    const noteSize = k(40)
-    const scoreSize = k(60)
-    const teamSize = k(48)
-    const labelW = measure(spec.label, labelSize)
-    const personX = textX + labelW + gap
-    const scoreText = spec.score ? `${spec.score.left} ${spec.score.text} ${spec.score.right}` : ''
-    const scoreW = spec.score ? measure(scoreText, scoreSize) + 2 * pad : 0
-    const maxPanelRight = right - scoreW
-    const personW = spec.person ? measure(spec.person, labelSize) : 0
-    const noteW = spec.note ? measure(spec.note, noteSize) : 0
-    const contentRight = Math.max(personX + personW - (spec.person ? 0 : gap), textX + noteW)
-    const panelRight = Math.min(maxPanelRight, Math.max(textX + k(240), contentRight + pad))
+/** Design-space rows the score bug / a caption can touch (with room for anti-aliasing). */
+export const BUG_ROWS: [number, number] = [SAFE_Y - 14, SAFE_Y + BUG_H + ACCENT_H + 14]
+export const CAPTION_ROWS: [number, number] = [SAFE_Y - 14, SAFE_Y + BUG_H + ACCENT_H + EVENT_H + NOTE_H + 14]
 
-    const ops: DrawOp[] = [
-        { kind: 'rect', x: SAFE_X, y: top, w: stripeW, h, fill: spec.stripe },
-        { kind: 'rect', x: SAFE_X + stripeW, y: top, w: panelRight - SAFE_X - stripeW, h, fill: NAVY },
-    ]
-    if (hasLogo) ops.push({ kind: 'logo', x: SAFE_X + stripeW + pad, y: top + (row1 - logoW) / 2, h: logoW, align: 'left' })
-    ops.push({ kind: 'text', text: spec.label, x: textX, y: top + row1 / 2 + k(4), size: labelSize, color: ORANGE, align: 'left', baseline: 'middle' })
-    if (spec.person) {
-        ops.push({ kind: 'text', text: spec.person, x: personX, y: top + row1 / 2 + k(4), size: labelSize, color: WHITE, align: 'left', baseline: 'middle', maxWidth: Math.max(80, panelRight - pad - personX) })
+/** TV-style score bug row at the top-left title-safe corner: [logo] ▌WH  1–0  CO▐ with an orange underline. */
+function bugRow(bug: BugSpec, hasLogo: boolean, measure: MeasureText): { ops: DrawOp[]; right: number } {
+    const initialsSize = k(44)
+    const scoreSize = k(50)
+    const y = SAFE_Y
+    const cy = y + BUG_H / 2 + k(3)
+    let x = SAFE_X
+    const ops: DrawOp[] = []
+    if (hasLogo) {
+        ops.push({ kind: 'rect', x, y, w: BUG_H, h: BUG_H, fill: NAVY_DARK })
+        ops.push({ kind: 'logo', x: x + BUG_H / 2, y: y + k(7), h: BUG_H - 2 * k(7), align: 'center' })
+        x += BUG_H
     }
-    if (spec.note) {
-        ops.push({ kind: 'text', text: spec.note, x: textX, y: top + row1 + row2 / 2 - k(6), size: noteSize, color: '#c9d6ea', align: 'left', baseline: 'middle', maxWidth: Math.max(80, panelRight - pad - textX) })
-    }
-    if (spec.score) {
-        ops.push({ kind: 'rect', x: panelRight, y: top, w: scoreW, h, fill: NAVY_DARK })
-        const cy = top + h / 2 + k(4)
-        const mid = panelRight + scoreW / 2
-        const numW = measure(spec.score.text, scoreSize)
-        ops.push(
-            { kind: 'text', text: spec.score.left, x: mid - numW / 2 - k(14), y: cy, size: teamSize, color: '#c9d6ea', align: 'right', baseline: 'middle' },
-            { kind: 'text', text: spec.score.text, x: mid, y: cy, size: scoreSize, color: WHITE, align: 'center', baseline: 'middle' },
-            { kind: 'text', text: spec.score.right, x: mid + numW / 2 + k(14), y: cy, size: teamSize, color: '#c9d6ea', align: 'left', baseline: 'middle' },
-        )
-    }
-    const barRight = panelRight + scoreW
-    const split = SAFE_X + (barRight - SAFE_X) / 3
-    ops.push(
-        { kind: 'rect', x: SAFE_X, y: bottom, w: split - SAFE_X, h: barH, fill: ORANGE },
-        { kind: 'rect', x: split, y: bottom, w: barRight - split, h: barH, fill: BLUE },
-    )
-    const m = motion(t, duration)
-    return withMotion(ops, m.alpha, m.dx)
+    const initialsW = Math.max(measure(bug.left, initialsSize), measure(bug.right, initialsSize)) + 2 * BUG_PAD
+    const scoreW = Math.max(k(80), measure(bug.text, scoreSize) + 2 * BUG_PAD)
+    const right = x + 2 * BUG_BAR + 2 * initialsW + scoreW
+    ops.push({ kind: 'rect', x, y, w: right - x, h: BUG_H, fill: NAVY })
+    ops.push({ kind: 'rect', x, y, w: BUG_BAR, h: BUG_H, fill: bug.leftColour })
+    ops.push({ kind: 'text', text: bug.left, x: x + BUG_BAR + initialsW / 2, y: cy, size: initialsSize, color: WHITE, align: 'center', baseline: 'middle' })
+    const sx = x + BUG_BAR + initialsW
+    ops.push({ kind: 'rect', x: sx, y, w: scoreW, h: BUG_H, fill: NAVY_DARK })
+    ops.push({ kind: 'text', text: bug.text, x: sx + scoreW / 2, y: cy, size: scoreSize, color: WHITE, align: 'center', baseline: 'middle' })
+    ops.push({ kind: 'text', text: bug.right, x: sx + scoreW + initialsW / 2, y: cy, size: initialsSize, color: WHITE, align: 'center', baseline: 'middle' })
+    ops.push({ kind: 'rect', x: right - BUG_BAR, y, w: BUG_BAR, h: BUG_H, fill: bug.rightColour })
+    ops.push({ kind: 'rect', x: SAFE_X, y: y + BUG_H, w: right - SAFE_X, h: ACCENT_H, fill: ORANGE })
+    return { ops, right }
 }
 
-/** Small "REPLAY" tag, top right, for the length of a slowed replay. */
+/** The score bug on its own: still when always on screen, or sliding / fading in and out over 0.3 s when it comes and goes. */
+export function scoreBugLayout(bug: BugSpec, t: number, duration: number, hasLogo: boolean, fade: boolean | { in: boolean; out: boolean }, measure: MeasureText = estimateTextWidth): DrawOp[] {
+    const { ops } = bugRow(bug, hasLogo, measure)
+    const f = typeof fade === 'boolean' ? { in: fade, out: fade } : fade
+    if (!f.in && !f.out) return ops.map((o) => (o.kind === 'cardBackground' ? o : { ...o, alpha: 1 }))
+    // A window split at a file join keeps going there: no fade at that edge.
+    const p = easeOut(clamp01(Math.min(f.in ? t / OVERLAY_FADE : 1, f.out ? (duration - t) / OVERLAY_FADE : 1)))
+    return withMotion(ops, p, -60 * (1 - p))
+}
+
+/**
+ * Event caption, top-left (TV score-bug convention): the score bug row with the event line beneath
+ * (`GOAL · SAM TAYLOR`, optional note). 5 s, sliding and fading in and out over 0.3 s. `anchored`: the score bug is
+ * already on screen, so its row stays still and only the event line animates.
+ */
+export function captionLayout(spec: CaptionSpec, t: number, hasLogo: boolean, duration = CAPTION_SEC, measure: MeasureText = estimateTextWidth, anchored = false): DrawOp[] {
+    const bug = spec.bug ? bugRow(spec.bug, hasLogo, measure) : null
+    const top = bug ? SAFE_Y + BUG_H + ACCENT_H : SAFE_Y
+    const stripeW = k(10)
+    const pad = k(22)
+    const gap = k(20)
+    const labelSize = k(54)
+    const noteSize = k(36)
+    const textX = SAFE_X + stripeW + pad
+    const labelW = measure(spec.label, labelSize)
+    const personX = textX + labelW + gap
+    const personW = spec.person ? measure(spec.person, labelSize) : 0
+    const noteW = spec.note ? measure(spec.note, noteSize) : 0
+    const contentRight = Math.max(spec.person ? personX + personW : textX + labelW, textX + noteW) + pad
+    const right = Math.min(CAPTION_MAX_RIGHT, Math.max(bug?.right ?? 0, contentRight, textX + k(200)))
+    const h = EVENT_H + (spec.note ? NOTE_H : 0)
+    const event: DrawOp[] = [
+        { kind: 'rect', x: SAFE_X, y: top, w: stripeW, h, fill: spec.stripe },
+        { kind: 'rect', x: SAFE_X + stripeW, y: top, w: right - SAFE_X - stripeW, h, fill: NAVY },
+        { kind: 'text', text: spec.label, x: textX, y: top + EVENT_H / 2 + k(4), size: labelSize, color: ORANGE, align: 'left', baseline: 'middle' },
+    ]
+    if (spec.person) {
+        event.push({ kind: 'text', text: spec.person, x: personX, y: top + EVENT_H / 2 + k(4), size: labelSize, color: WHITE, align: 'left', baseline: 'middle', maxWidth: Math.max(80, right - pad - personX) })
+    }
+    if (spec.note) {
+        event.push({ kind: 'text', text: spec.note, x: textX, y: top + EVENT_H + NOTE_H / 2 - k(6), size: noteSize, color: '#c9d6ea', align: 'left', baseline: 'middle', maxWidth: Math.max(80, right - pad - textX) })
+    }
+    const m = motion(t, duration)
+    const bugOps = bug ? (anchored ? bug.ops.map((o) => (o.kind === 'cardBackground' ? o : { ...o, alpha: 1 })) : withMotion(bug.ops, m.alpha, m.dx)) : []
+    return [...bugOps, ...withMotion(event, m.alpha, m.dx)]
+}
+
+/** Design-space rows of the REPLAY tag. */
+export const REPLAY_ROWS: [number, number] = [SAFE_Y - 8, SAFE_Y + k(64) + 14]
+
+/** Small "REPLAY" tag, top right (broadcast convention; captions are top left), for the length of a slowed replay. */
 export function replayTagLayout(t: number, duration: number): DrawOp[] {
-    const w = 210
+    const w = k(150)
+    const h = k(64)
+    const bar = k(8)
     const x = DESIGN_W - SAFE_X - w
-    const y = 64
+    const y = SAFE_Y
     const ops: DrawOp[] = [
-        { kind: 'rect', x, y, w, h: 64, fill: NAVY },
-        { kind: 'rect', x, y, w: 8, h: 64, fill: ORANGE },
-        { kind: 'text', text: 'REPLAY', x: x + 8 + (w - 8) / 2, y: y + 36, size: 48, color: WHITE, align: 'center', baseline: 'middle' },
+        { kind: 'rect', x, y, w, h, fill: NAVY },
+        { kind: 'rect', x, y, w: bar, h, fill: ORANGE },
+        { kind: 'text', text: 'REPLAY', x: x + bar + (w - bar) / 2, y: y + h / 2 + k(4), size: k(48), color: WHITE, align: 'center', baseline: 'middle' },
     ]
     const m = motion(t, duration)
     return withMotion(ops, m.alpha, 0)
