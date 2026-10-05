@@ -11,10 +11,10 @@ const REPLAY = { beforeSec: 4, afterSec: 1, speed: 0.5 }
 describe('buildPreviewPlan', () => {
     it('should play each clip and then its replays, in reel order', () => {
         const steps = buildPreviewPlan([seg(0, 90, 104, [g('a', 100)]), seg(0, 290, 304, [g('h', 300, { type: 'highlight' })])], [600], REPLAY)
-        expect(steps.map((s) => [s.clipIndex, s.replay, s.startSec, s.endSec, s.speed])).toEqual([
-            [0, false, 90, 104, 1],
-            [0, true, 96, 101, 0.5],
-            [1, false, 290, 304, 1],
+        expect(steps.map((s) => [s.clipIndex, s.replay, s.startSec, s.endSec, s.speed, s.gain])).toEqual([
+            [0, false, 90, 104, 1, 1],
+            [0, true, 96, 101, 0.5, 0.5],
+            [1, false, 290, 304, 1, 1],
         ])
     })
 

@@ -1,9 +1,10 @@
 import {
-    ALL_FORMATS, BufferTarget, EncodedAudioPacketSource, EncodedPacketSink,
+    ALL_FORMATS, BufferTarget, EncodedAudioPacketSource, EncodedPacket, EncodedPacketSink,
     EncodedVideoPacketSource, Input, Mp4OutputFormat, Output, StreamTarget,
     type InputAudioTrack, type InputVideoTrack, type StreamTargetChunk, type Target,
 } from 'mediabunny'
 import { fileSource } from './fileSource'
+import { encodeReplayAudio } from './replayAudio'
 import { makeSilentAudio, type SilentAudio } from './silentAudio'
 import type { Cut, RenderFn, RenderSource } from './types'
 
@@ -88,13 +89,18 @@ export const renderReel: RenderFn = async (cuts: Cut[], sources: RenderSource[],
 
         const vMeta = { decoderConfig: (await first.video.getDecoderConfig())! }
         const aMeta = first.audio ? { decoderConfig: (await first.audio.getDecoderConfig())! } : undefined
-        // Replays are silent: fill their (stretched) span with silent AAC frames so the
-        // audio track stays continuous. Without an AAC encoder, leave a gap.
-        let silence: SilentAudio | null = null
-        if (aOut && first.audio && cuts.some((c) => c.silent || (c.speed ?? 1) !== 1)) {
-            silence = await makeSilentAudio({ sampleRate: first.audio.sampleRate, numberOfChannels: first.audio.numberOfChannels })
-                .catch(() => null)
-            if (!silence) console.warn('Replay audio: no AAC encoder, leaving a gap')
+        // Slowed or quieter cuts (replays) get re-encoded audio: decoded, stretched, gain applied, AAC again.
+        // If the browser can't, fall back to silent AAC frames so the audio track stays continuous;
+        // without an AAC encoder at all, leave a gap. Silence is only prepared when first needed.
+        let silence: SilentAudio | null | undefined
+        const silencePackets = async (durationSec: number): Promise<EncodedPacket[] | null> => {
+            if (silence === undefined) {
+                silence = first.audio
+                    ? await makeSilentAudio({ sampleRate: first.audio.sampleRate, numberOfChannels: first.audio.numberOfChannels }).catch(() => null)
+                    : null
+                if (!silence) console.warn('Replay audio: no AAC encoder, leaving a gap')
+            }
+            return silence ? silence.packets(durationSec) : null
         }
         const span = (c: Cut): number => Math.max(0, Math.min(c.endSec, opened[c.sourceIndex].endSec) - c.startSec)
         const total = cuts.reduce((acc, c) => acc + span(c), 0) || 1
@@ -108,8 +114,9 @@ export const renderReel: RenderFn = async (cuts: Cut[], sources: RenderSource[],
                 if (signal?.aborted) throw new DOMException('Render cancelled', 'AbortError')
                 const src = opened[cut.sourceIndex]
                 const speed = cut.speed ?? 1
-                // Slowed audio would need re-encoding, so any slowed cut is silent.
-                const silent = cut.silent || speed !== 1
+                const gain = cut.gain ?? 1
+                // Stream-copied audio can't be slowed or made quieter: those cuts are re-encoded.
+                const reencode = !cut.silent && (speed !== 1 || gain !== 1)
                 // Never trust the requested range: a cut past the end of the file would
                 // otherwise inflate the timeline (there is no next key packet to stop at).
                 const endSec = Math.min(cut.endSec, src.endSec)
@@ -144,9 +151,15 @@ export const renderReel: RenderFn = async (cuts: Cut[], sources: RenderSource[],
                 const cutEnd = videoEnd > cutStart ? videoEnd : (kStop ? kStop.timestamp : src.endSec)
 
                 const outSpan = (cutEnd - cutStart) / speed
-                if (silent) {
-                    if (aOut && silence) {
-                        for (const p of silence.packets(outSpan)) {
+                if (cut.silent || reencode) {
+                    if (aOut) {
+                        let packets: EncodedPacket[] | null = null
+                        if (reencode && src.audio) {
+                            packets = await encodeReplayAudio(src.audio, { startSec: cutStart, endSec: cutEnd, speed, gain, outDurationSec: outSpan })
+                                .catch((e: unknown) => { console.warn('Replay audio: re-encoding failed, using silence', e); return null })
+                        }
+                        packets ??= await silencePackets(outSpan)
+                        for (const p of packets ?? []) {
                             await aOut.add(p.clone({ timestamp: cursor + p.timestamp }), aFirst ? aMeta : undefined)
                             aFirst = false
                         }
