@@ -206,6 +206,8 @@
   display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 10px;
   background: var(--panel); border: 1px solid var(--accent); border-radius: 4px; box-shadow: 0 6px 18px rgb(0 0 0 / 0.3);
 }
+.preview-controls > button { flex: none; } /* never squeeze ← / → / Exit below their 44px targets */
+.preview-controls > .tc { white-space: nowrap; }
 .preview-controls__label {
   font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent);
 }
