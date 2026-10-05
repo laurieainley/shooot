@@ -192,6 +192,10 @@
 @media (prefers-reduced-motion: no-preference) { .event-row { transition: background-color 0.12s; } }
 .shell--phone .event-log ol { overflow: visible; }
 .shell--phone .event-row { min-height: 44px; }
+/* Phone rows are narrow: let a note wrap onto a second line instead of vanishing into an ellipsis. */
+.shell--phone .event-row__label {
+  white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; line-height: 1.3;
+}
 
 .clip-summary {
   display: grid; gap: 3px; width: 100%; text-align: left; cursor: pointer;
@@ -455,7 +459,7 @@
 
 /* Event picker: popover over the video on desktop, bottom sheet with big chips on the phone */
 .event-picker {
-  position: absolute; left: 12px; bottom: 52px; z-index: 2147483647; width: 250px; max-height: 72%; overflow-y: auto; overscroll-behavior: contain;
+  position: absolute; left: 12px; bottom: 52px; z-index: 2147483647; width: 280px; max-height: 72%; overflow-y: auto; overscroll-behavior: contain;
   border-radius: 5px; background: var(--panel); color: var(--ink); border: 1px solid var(--line);
   box-shadow: 0 10px 30px rgb(0 0 0 / 0.35); font-size: 13px; padding: 6px; pointer-events: auto;
 }

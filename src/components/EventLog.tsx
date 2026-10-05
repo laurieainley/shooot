@@ -223,7 +223,7 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, o
             ) : editing === 'notes' ? (
                 <NoteEdit event={e} onDone={done} />
             ) : (
-                <span className="truncate text-[13px]" title={`${label}${e.team ? ` – ${e.team}` : ''}${e.notes ? ` — ${e.notes}` : ''}`}>
+                <span className="event-row__label truncate text-[13px]" title={`${label}${e.team ? ` – ${e.team}` : ''}${e.notes ? ` — ${e.notes}` : ''}`}>
                     <span onDoubleClick={(ev) => { stop(ev); onEdit('scorer') }}>{label}</span>
                     {note && <>
                         <span className="text-muted"> — </span>
