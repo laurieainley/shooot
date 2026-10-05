@@ -483,7 +483,6 @@
   .player-container .video-js .vjs-control-bar .vjs-button { width: 44px; }
   .player-container .video-js .vjs-control-bar .vjs-button > .vjs-icon-placeholder::before { line-height: 44px; }
   .player-container .video-js .vjs-time-control { line-height: 44px; }
-  .player-container .video-js .vjs-volume-panel { display: none; }
   .player-container .video-js .vjs-progress-control { min-width: 3em; }
   .row-btn { width: 44px; height: 44px; font-size: 17px; }
   .btn-icon { width: 44px; height: 44px; }
