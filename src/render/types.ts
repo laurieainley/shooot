@@ -16,11 +16,36 @@ export type RenderProgress = {
     cutIndex: number   // 0-based index of the cut being processed
     cutCount: number
     fraction: number   // 0..1 overall
+    stage?: string     // e.g. "Title card" while a graphic is being made
 }
+
+/** Draws one frame of a graphic at `tSec` into a context the size of the output video (cleared beforehand). */
+export type FramePainter = (ctx: OffscreenCanvasRenderingContext2D, tSec: number) => void
+
+/** A generated full-frame segment (title / full-time card) with silent audio. */
+export type RenderCard = { label: string; durationSec: number; paint: FramePainter }
+
+/** Graphics drawn over footage of one cut, from `startSec` (source time) for `durationSec`. */
+export type RenderOverlay = {
+    label: string
+    cutIndex: number
+    startSec: number
+    durationSec: number
+    paint: FramePainter
+    /** Pixel rows the overlay can touch, for a frame of this size (only these are read back and blended). */
+    rows: (width: number, height: number) => [number, number]
+}
+
+export type RenderGraphics = { intro?: RenderCard; outro?: RenderCard; overlays: RenderOverlay[] }
+
+export type GraphicsReport = { applied: string[]; skipped: { label: string; reason: string }[] }
 
 export type RenderOptions = {
     onProgress: (p: RenderProgress) => void
     signal?: AbortSignal
+    /** Optional match graphics. Any that cannot be made are left out (never failing the render) and reported. */
+    graphics?: RenderGraphics
+    onGraphics?: (report: GraphicsReport) => void
 }
 
 export type RenderFn = (cuts: Cut[], sources: RenderSource[], opts: RenderOptions) => Promise<File | Blob>

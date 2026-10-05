@@ -57,7 +57,7 @@ describe('cardLayout', () => {
 
 describe('lowerThirdLayout', () => {
     const goal: LowerThirdSpec = { label: 'GOAL', person: 'SAM', stripe: '#f0f0f0', score: { left: 'RR', right: 'WT', text: '1–0' } }
-    const alphaAt = (spec: LowerThirdSpec, t: number): number => Math.max(...lowerThirdLayout(spec, t, true).map((o) => o.alpha ?? 1))
+    const alphaAt = (spec: LowerThirdSpec, t: number): number => Math.max(...lowerThirdLayout(spec, t, true).map((o) => (o.kind === 'cardBackground' ? 1 : o.alpha ?? 1)))
 
     it('should show label, person and the score after a goal', () => {
         const ops = lowerThirdLayout(goal, 1.5, true)
