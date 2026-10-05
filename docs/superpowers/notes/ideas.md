@@ -10,7 +10,8 @@ Running log of improvements noticed while building. Not committed to; for the us
 - **Lightweight logo asset** — ship a 512 px WebP of the T.N.F badge instead of the 7 MB PNG.
 - **Shareable match summary page** — final score, scorers and chapter links as an artifact/page to post in the group chat alongside the YouTube link.
 - **Clip trim handles** — per-event before/after overrides by dragging the clip span on the match strip.
-- **Duplicate-mark guard** — warn when two marks of the same type land within ~3 s (accidental double G / double tap).
-- **Landscape phone layout** — side-by-side (video left, event log right) like desktop, with a compact top bar; currently portrait-style stacking pushes the log below the fold. *(Planned for the final mobile polish pass.)*
-- **iPhone fullscreen** — iOS Safari only fullscreens `<video>`, so the container fullscreen (overlays, ＋, picker) can't work there; a "focus mode" (CSS full-viewport, hide chrome) would give a similar experience on iOS.
+- ~~**Duplicate-mark guard**~~ — done in the mobile polish pass (picker warns when a mark lands within 3 s of another).
+- **Landscape phone layout** — side-by-side (video left, event log right) like desktop, with a compact top bar; *(Done in the mobile polish pass.)*
+- **iPhone fullscreen** — iOS Safari only fullscreens `<video>`, so the container fullscreen (overlays, ＋, picker) can't work there; a "focus mode" (CSS full-viewport, hide chrome) would give a similar experience on iOS. *(Mobile polish added this as the immersive fallback; untested on an iPhone.)*
 - **Graphics preview in the player** — show lower thirds/cards over the video during in-app Preview using the same layout functions, so what you see matches the render.
+- **Unify scrub bubble and match clock** — the scrub bubble shows file time; the strip label shows match time once a kick-off is set.
