@@ -1,7 +1,7 @@
 // Turns a graphics spec (plain data) into the engine's painters.
 import type { RenderGraphics, RenderOverlay } from '../render/types'
 import { CARD_SEC, cardLayout, lowerThirdLayout, replayTagLayout } from './layout'
-import { designFit, paintOps, type PaintAssets } from './paint'
+import { designFit, measureWith, paintOps, type PaintAssets } from './paint'
 import type { CardSpec, GraphicsSpec, OverlaySpec } from './types'
 
 /** Design-space rows each overlay kind can touch (with room for anti-aliasing). */
@@ -19,7 +19,7 @@ export function toRenderGraphics(spec: GraphicsSpec, assets: PaintAssets): Rende
         durationSec: o.durationSec,
         rows: (w, h) => { const { s, oy } = designFit(w, h); return [oy + ROWS[o.kind][0] * s, oy + ROWS[o.kind][1] * s] },
         paint: o.kind === 'lowerThird'
-            ? (ctx, t) => paintOps(ctx, lowerThirdLayout(o.spec, t, !!assets.logo, o.durationSec), assets)
+            ? (ctx, t) => paintOps(ctx, lowerThirdLayout(o.spec, t, !!assets.logo, o.durationSec, measureWith(ctx)), assets)
             : (ctx, t) => paintOps(ctx, replayTagLayout(t, o.durationSec), assets),
     }))
     return {

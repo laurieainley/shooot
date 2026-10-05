@@ -92,3 +92,70 @@ export function blendRgba(f: YuvPlanes, img: RgbaImage, m: YuvMatrix, fullRange:
         }
     }
 }
+
+/** Rescales the samples between limited (16–235/240) and full (0–255) range, in place. */
+export function convertRange(f: YuvPlanes, toFull: boolean): void {
+    const yMap = new Uint8Array(256)
+    const cMap = new Uint8Array(256)
+    for (let v = 0; v < 256; v++) {
+        yMap[v] = clamp8(toFull ? ((v - 16) * 255) / 219 : 16 + (v * 219) / 255)
+        cMap[v] = clamp8(toFull ? ((v - 128) * 255) / 224 + 128 : ((v - 128) * 224) / 255 + 128)
+    }
+    const remap = (p: PlaneLayout, rowBytes: number, rows: number, map: Uint8Array): void => {
+        for (let y = 0; y < rows; y++) {
+            const o = p.offset + y * p.stride
+            for (let x = 0; x < rowBytes; x++) f.data[o + x] = map[f.data[o + x]]
+        }
+    }
+    const cw = Math.ceil(f.width / 2)
+    const ch = Math.ceil(f.height / 2)
+    remap(f.planes[0], f.width, f.height, yMap)
+    if (f.format === 'NV12') remap(f.planes[1], cw * 2, ch, cMap)
+    else { remap(f.planes[1], cw, ch, cMap); remap(f.planes[2], cw, ch, cMap) }
+}
+
+/** Converts straight-alpha RGBA (alpha ignored) to a packed I420 buffer with the given matrix and range. */
+export function rgbaToI420(rgba: Uint8ClampedArray, width: number, height: number, m: YuvMatrix, fullRange: boolean): Uint8Array {
+    const cw = Math.ceil(width / 2)
+    const ch = Math.ceil(height / 2)
+    const out = new Uint8Array(width * height + 2 * cw * ch)
+    const uOff = width * height
+    const vOff = uOff + cw * ch
+    const [kr, kb] = KR_KB[m]
+    const kg = 1 - kr - kb
+    const ys = fullRange ? 255 : 219
+    const yo = fullRange ? 0 : 16
+    const cs = fullRange ? 255 : 224
+    const uSum = new Float32Array(cw * ch)
+    const vSum = new Float32Array(cw * ch)
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const i = (y * width + x) * 4
+            const R = rgba[i] / 255
+            const G = rgba[i + 1] / 255
+            const B = rgba[i + 2] / 255
+            const Y = kr * R + kg * G + kb * B
+            out[y * width + x] = clamp8(yo + ys * Y)
+            const c = (y >> 1) * cw + (x >> 1)
+            uSum[c] += (B - Y) / (2 * (1 - kb))
+            vSum[c] += (R - Y) / (2 * (1 - kr))
+        }
+    }
+    for (let cy = 0; cy < ch; cy++) {
+        for (let cx = 0; cx < cw; cx++) {
+            const n = (Math.min(2, width - cx * 2)) * (Math.min(2, height - cy * 2))
+            const c = cy * cw + cx
+            out[uOff + c] = clamp8(128 + (cs * uSum[c]) / n)
+            out[vOff + c] = clamp8(128 + (cs * vSum[c]) / n)
+        }
+    }
+    return out
+}
+
+/**
+ * The colour space generated frames are tagged with: exactly the footage's tags (unspecified stays unspecified,
+ * so joins never change colour signalling), with the range made explicit (default limited).
+ */
+export function targetColorSpace(cs: VideoColorSpaceInit | undefined): VideoColorSpaceInit {
+    return { ...(cs ?? {}), fullRange: cs?.fullRange ?? false }
+}

@@ -17,7 +17,6 @@ describe('probeEncoders', () => {
     afterEach(() => {
         delete g.VideoEncoder
         delete g.VideoFrame
-        delete g.OffscreenCanvas
     })
 
     it('should skip unsupported configs and yield a setup with the encoder parameter sets', async () => {
@@ -37,7 +36,6 @@ describe('probeEncoders', () => {
         }
         g.VideoEncoder = FakeEncoder
         g.VideoFrame = class { close(): void {} }
-        g.OffscreenCanvas = class { getContext(): unknown { return { fillRect: () => undefined, getImageData: () => ({ data: new Uint8ClampedArray(4) }) } } }
 
         const it = probeEncoders({ codec: 'hvc1.1.6.L120.90', hevc: true, width: 1920, height: 1080, frameRate: 29.97, bitrate: 8e6 })
         const first = await it.next()

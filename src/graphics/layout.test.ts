@@ -70,6 +70,15 @@ describe('lowerThirdLayout', () => {
         expect(textOf(ops)).not.toContain('1–0')
     })
 
+    it('should size the panel from the measured text', () => {
+        const panelW = (m?: (t: string, s: number) => number): number => {
+            const ops = lowerThirdLayout({ label: 'HIGHLIGHT', person: 'JOSEPHINE BLOGGS', stripe: ORANGE }, 1.5, false, LOWER_THIRD_SEC, m)
+            const panel = ops.filter((o) => o.kind === 'rect')[1]
+            return panel.kind === 'rect' ? panel.w : 0
+        }
+        expect(panelW((t, size) => t.length * size * 0.3)).toBeLessThan(panelW())
+    })
+
     it('should use the team colour for the stripe', () => {
         expect(lowerThirdLayout(goal, 1.5, true).some((o) => o.kind === 'rect' && o.fill === '#f0f0f0')).toBe(true)
     })

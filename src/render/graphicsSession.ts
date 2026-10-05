@@ -5,8 +5,8 @@ import { EncodedPacket, type InputVideoTrack } from 'mediabunny'
 import { frameDuration, presentationRanks } from './frameGrid'
 import { covers, craToBla, paramSets, pickSampleEntry, spsLimits, spsOf, withInbandParams, type SpsLimits } from './nal'
 import { overlaySpans, type Gop, type ReencodeSpan } from './overlayWindow'
-import { describeOutput, encodeSegment, probeEncoders, rgbaFrame, withBitrate, type EncoderSetup } from './segmentEncoder'
-import { blendRgba, matrixOf, type YuvPlanes } from './yuvBlend'
+import { describeOutput, encodeSegment, i420Frame, probeEncoders, withBitrate, type EncoderSetup } from './segmentEncoder'
+import { blendRgba, convertRange, matrixOf, rgbaToI420, targetColorSpace, type YuvPlanes } from './yuvBlend'
 import type { RenderCard, RenderOverlay } from './types'
 
 export type GraphicsSource = { video: InputVideoTrack; config: VideoDecoderConfig; nalLength: number }
@@ -15,6 +15,12 @@ export type GraphicsSource = { video: InputVideoTrack; config: VideoDecoderConfi
 export type OutItem = { packet: EncodedPacket; generated: boolean; splice: boolean }
 
 export type OverlayResult = { items: OutItem[]; applied: string[]; skipped: { label: string; reason: string }[] }
+
+function sameWords(a: Uint32Array, b: Uint32Array): boolean {
+    if (a.length !== b.length) return false
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
+    return true
+}
 
 const message = (e: unknown): string => (e instanceof Error ? e.message : String(e))
 const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
@@ -26,14 +32,15 @@ export class GraphicsSession {
     readonly frameSec: number
     private readonly width: number
     private readonly height: number
-    private readonly colorSpace: VideoColorSpaceInit | undefined
+    /** Colour space of every generated frame: the footage's (matrix, range, primaries, transfer). */
+    private readonly colorSpace: VideoColorSpaceInit
     private readonly setup: EncoderSetup
     private readonly entryLimits: SpsLimits
     private readonly footageParams: Map<GraphicsSource, Uint8Array[]>
 
     constructor(o: {
         hevc: boolean; entry: VideoDecoderConfig; frameSec: number; width: number; height: number
-        colorSpace: VideoColorSpaceInit | undefined; setup: EncoderSetup; entryLimits: SpsLimits; footageParams: Map<GraphicsSource, Uint8Array[]>
+        colorSpace: VideoColorSpaceInit; setup: EncoderSetup; entryLimits: SpsLimits; footageParams: Map<GraphicsSource, Uint8Array[]>
     }) {
         this.hevc = o.hevc
         this.entry = o.entry
@@ -72,13 +79,23 @@ export class GraphicsSession {
         const ctx = canvas.getContext('2d', { willReadFrequently: true })
         if (!ctx) throw new Error('no 2D canvas')
         const durUs = Math.round(frameSec * 1e6)
+        const matrix = matrixOf(this.colorSpace.matrix)
+        const full = this.colorSpace.fullRange ?? false
+        let prev: Uint32Array | null = null
+        let yuv: Uint8Array | null = null
         const { packets, description } = await encodeSegment(this.setup.config, async (encode) => {
             for (let i = 0; i < n; i++) {
                 ctx.save()
                 ctx.clearRect(0, 0, W, H)
                 card.paint(ctx, i * frameSec)
                 ctx.restore()
-                await encode(rgbaFrame(ctx, W, H, Math.round(i * frameSec * 1e6), durUs, this.colorSpace), i % keyEvery === 0)
+                // Our own RGB→YUV with the footage's matrix and range (encoders pick their own for RGBA input).
+                // Cards are still between fades, so reuse the last conversion when nothing changed.
+                const rgba = ctx.getImageData(0, 0, W, H).data
+                const words = new Uint32Array(rgba.buffer, rgba.byteOffset, rgba.byteLength / 4)
+                if (!yuv || !prev || !sameWords(prev, words)) yuv = rgbaToI420(rgba, W, H, matrix, full)
+                prev = words
+                await encode(i420Frame(yuv, W, H, Math.round(i * frameSec * 1e6), durUs, this.colorSpace), i % keyEvery === 0)
                 onFrame?.((i + 1) / n)
             }
         })
@@ -213,7 +230,12 @@ export class GraphicsSession {
         const layout = await frame.copyTo(buf)
         const W = rect.width
         const H = rect.height
-        const cs = this.colorSpace ?? frame.colorSpace.toJSON()
+        const cs = this.colorSpace
+        const planes: YuvPlanes = { format, width: W, height: H, data: buf, planes: layout.map((l) => ({ offset: l.offset, stride: l.stride })) }
+        // Decoders may hand back a different range than the footage is coded in (Chrome/VideoToolbox gives
+        // limited-range NV12 for full-range HEVC): bring the samples back to the footage's range.
+        const decodedFull = frame.colorSpace.fullRange ?? false
+        if (decodedFull !== (cs.fullRange ?? false)) convertRange(planes, cs.fullRange ?? false)
         const active = overlays.filter((o) => t >= o.startSec - 1e-6 && t < o.startSec + o.durationSec)
         if (active.length > 0) {
             const ctx = getCtx()
@@ -226,7 +248,6 @@ export class GraphicsSession {
                 ctx.clearRect(0, y0, W, y1 - y0)
                 for (const o of active) { ctx.save(); o.paint(ctx, t - o.startSec); ctx.restore() }
                 const img = ctx.getImageData(0, y0, W, y1 - y0)
-                const planes: YuvPlanes = { format, width: W, height: H, data: buf, planes: layout.map((l) => ({ offset: l.offset, stride: l.stride })) }
                 blendRgba(planes, { data: img.data, width: W, height: y1 - y0, x: 0, y: y0 }, matrixOf(cs.matrix), cs.fullRange ?? false)
             }
         }
@@ -260,7 +281,7 @@ export async function openGraphicsSession(sources: GraphicsSource[], first: Grap
     }
     const stats = await first.video.computePacketStats(90)
     const frameSec = frameDuration(stats.averagePacketRate)
-    const colorSpace = first.config.colorSpace
+    const colorSpace = targetColorSpace(first.config.colorSpace)
     const cardBitrate = Math.max(2e6, Math.min(12e6, (width * height) / (1920 * 1080) * 10e6))
     let reason = 'no encoder for this video in this browser'
     for await (const setup of probeEncoders({ codec: first.config.codec, hevc, width, height, frameRate: 1 / frameSec, bitrate: cardBitrate, colorSpace })) {
@@ -270,7 +291,7 @@ export async function openGraphicsSession(sources: GraphicsSource[], first: Grap
         if (idx === -1) { reason = 'the encoder and the footage need different decoder sizes'; continue }
         const entry: VideoDecoderConfig = idx < sources.length
             ? sources[idx].config
-            : { codec: setup.output.codec, description: setup.output.description, codedWidth: width, codedHeight: height, ...(colorSpace ? { colorSpace } : {}) }
+            : { codec: setup.output.codec, description: setup.output.description, codedWidth: width, codedHeight: height, colorSpace }
         return new GraphicsSession({ hevc, entry, frameSec, width, height, colorSpace, setup, entryLimits: all[idx], footageParams })
     }
     throw new Error(reason)

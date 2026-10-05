@@ -1,5 +1,5 @@
 // Executes layout draw ops on a canvas. The 1920×1080 design is scaled uniformly and centred in the frame.
-import { DESIGN_H, DESIGN_W, type DrawOp } from './layout'
+import { DESIGN_H, DESIGN_W, type DrawOp, type MeasureText } from './layout'
 import { NAVY, NAVY_DARK } from './teamStyle'
 
 export const DISPLAY_FONT = '"Bebas Neue", "Oswald", "Arial Narrow", sans-serif'
@@ -39,6 +39,17 @@ function background(ctx: Ctx, x0: number, y0: number, x1: number, y1: number): v
         ctx.lineTo(x + (y1 - y0), y0)
         ctx.closePath()
         ctx.fill()
+    }
+}
+
+/** Real text widths for layouts, from the canvas's font metrics. */
+export function measureWith(ctx: Ctx): MeasureText {
+    return (text, size) => {
+        ctx.save()
+        ctx.font = `${size}px ${DISPLAY_FONT}`
+        const w = ctx.measureText(text).width
+        ctx.restore()
+        return w
     }
 }
 

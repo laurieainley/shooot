@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { blendRgba, rgbToYuv, type YuvPlanes } from './yuvBlend'
+import { blendRgba, convertRange, rgbaToI420, rgbToYuv, targetColorSpace, type YuvPlanes } from './yuvBlend'
 
 function i420(width: number, height: number, y: number, u: number, v: number): YuvPlanes {
     const cw = width / 2
@@ -89,5 +89,47 @@ describe('blendRgba', () => {
         blendRgba(f, { data: rgba(4, 4, [255, 255, 255, 255]), width: 4, height: 4, x: 2, y: -2 }, 'bt709', false)
         expect([...f.data.subarray(0, 4)]).toEqual([16, 16, 235, 235])
         expect([...f.data.subarray(8, 12)]).toEqual([16, 16, 16, 16])
+    })
+})
+
+describe('convertRange', () => {
+    it('should stretch limited-range samples to full range', () => {
+        const f = i420(2, 2, 16, 16, 240)
+        f.data[0] = 235
+        f.data[1] = 126
+        convertRange(f, true)
+        expect([...f.data.subarray(0, 4)]).toEqual([255, 128, 0, 0])
+        expect(f.data[4]).toBe(1) // 128 - 112·255/224 = 0.5
+        expect(f.data[5]).toBe(255)
+    })
+
+    it('should squeeze full-range samples to limited range (NV12)', () => {
+        const f = nv12(2, 2, 255, 0, 128)
+        convertRange(f, false)
+        expect([...f.data]).toEqual([235, 235, 235, 235, 16, 128])
+    })
+})
+
+describe('rgbaToI420', () => {
+    it('should give a frame-sized I420 buffer with the matrix and range asked for', () => {
+        const out = rgbaToI420(rgba(4, 2, [255, 255, 255, 255]), 4, 2, 'bt709', true)
+        expect(out.length).toBe(4 * 2 * 1.5)
+        expect([...out.subarray(0, 8)]).toEqual(Array(8).fill(255))
+        expect([...out.subarray(8)]).toEqual([128, 128, 128, 128])
+        const navy = rgbaToI420(rgba(2, 2, [0x0f, 0x23, 0x47, 255]), 2, 2, 'bt709', false)
+        expect(navy[0]).toBe(rgbToYuv(0x0f, 0x23, 0x47, 'bt709', false)[0])
+    })
+})
+
+describe('targetColorSpace', () => {
+    it('should copy the footage tags without inventing primaries or transfer', () => {
+        expect(targetColorSpace({ matrix: 'bt709', fullRange: true })).toEqual({ matrix: 'bt709', fullRange: true })
+        expect(targetColorSpace({ matrix: 'bt709', primaries: 'smpte170m', transfer: 'iec61966-2-1', fullRange: false }))
+            .toEqual({ matrix: 'bt709', primaries: 'smpte170m', transfer: 'iec61966-2-1', fullRange: false })
+    })
+
+    it('should make the range explicit (limited when unknown)', () => {
+        expect(targetColorSpace(undefined)).toEqual({ fullRange: false })
+        expect(targetColorSpace({ matrix: 'smpte170m' })).toEqual({ matrix: 'smpte170m', fullRange: false })
     })
 })

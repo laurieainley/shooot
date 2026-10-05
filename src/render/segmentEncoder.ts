@@ -73,10 +73,9 @@ export async function encodeSegment(
     return { packets, description, codec }
 }
 
-/** An RGBA frame from canvas pixels, tagged with the footage colour space (canvas frames would be sRGB). */
-export function rgbaFrame(ctx: OffscreenCanvasRenderingContext2D, width: number, height: number, timestampUs: number, durationUs: number, colorSpace?: VideoColorSpaceInit): VideoFrame {
-    const img = ctx.getImageData(0, 0, width, height)
-    return new VideoFrame(img.data, { format: 'RGBA', codedWidth: width, codedHeight: height, timestamp: timestampUs, duration: durationUs, ...(colorSpace ? { colorSpace } : {}) })
+/** An I420 frame from a packed buffer, tagged with the colour space its samples are in. */
+export function i420Frame(data: Uint8Array, width: number, height: number, timestampUs: number, durationUs: number, colorSpace?: VideoColorSpaceInit): VideoFrame {
+    return new VideoFrame(data, { format: 'I420', codedWidth: width, codedHeight: height, timestamp: timestampUs, duration: durationUs, ...(colorSpace ? { colorSpace } : {}) })
 }
 
 export function describeOutput(description: Uint8Array, hevc: boolean): Pick<EncoderSetup, 'params' | 'limits' | 'nalLength'> {
@@ -92,18 +91,20 @@ export function describeOutput(description: Uint8Array, hevc: boolean): Pick<Enc
  * frame, which also tells us the parameter sets it will produce.
  */
 export async function* probeEncoders(t: EncoderTarget): AsyncGenerator<EncoderSetup> {
-    if (typeof globalThis.VideoEncoder === 'undefined' || typeof globalThis.OffscreenCanvas === 'undefined') return
+    if (typeof globalThis.VideoEncoder === 'undefined' || typeof globalThis.VideoFrame === 'undefined') return
     for (const codec of encoderCandidates(t.codec, t.hevc)) {
         for (const latencyMode of ['quality', 'realtime'] as LatencyMode[]) {
             const config = encoderConfig(t, codec, latencyMode)
             const support = await VideoEncoder.isConfigSupported(config).catch(() => ({ supported: false }))
             if (!support.supported) continue
             try {
-                const canvas = new OffscreenCanvas(t.width, t.height)
-                const ctx = canvas.getContext('2d')!
-                ctx.fillRect(0, 0, t.width, t.height)
+                // A black frame in the same format and colour space as real generated frames, so the
+                // parameter sets (incl. VUI) match what cards and overlays will produce.
+                const cw = Math.ceil(t.width / 2)
+                const black = new Uint8Array(t.width * t.height + 2 * cw * Math.ceil(t.height / 2)).fill(128)
+                black.fill(t.colorSpace?.fullRange ? 0 : 16, 0, t.width * t.height)
                 const out = await encodeSegment(config, async (encode) => {
-                    await encode(rgbaFrame(ctx, t.width, t.height, 0, Math.round(1e6 / t.frameRate), t.colorSpace), true)
+                    await encode(i420Frame(black, t.width, t.height, 0, Math.round(1e6 / t.frameRate), t.colorSpace), true)
                 })
                 if (!out.description) continue
                 yield { config, output: { codec: out.codec ?? codec, description: out.description }, ...describeOutput(out.description, t.hevc) }
