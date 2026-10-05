@@ -149,6 +149,44 @@
 }
 .score-chip .score-final { color: rgb(255 255 255 / 0.7); }
 
+/* ---------- landscape phone: the desktop bay under a 44px top bar, no page scroll ---------- */
+.shell--landscape {
+  --rail-w: clamp(260px, 36vw, 340px); /* the video is height-limited here, so a wider rail costs no picture */
+  height: 100dvh; overflow: hidden; background: var(--panel);
+  display: grid; grid-template-rows: auto minmax(0, 1fr);
+}
+.shell--landscape .top-bar {
+  box-sizing: border-box; height: 44px; gap: 8px;
+  padding: 0 max(4px, env(safe-area-inset-right, 0px)) 0 max(12px, env(safe-area-inset-left, 0px));
+}
+.shell--landscape .brand { font-size: 17px; }
+.shell--landscape.shell--bar-collapsed { grid-template-rows: minmax(0, 1fr); }
+.shell--bar-collapsed .event-picker { top: 0 !important; }
+/* The way back to the folded top bar: a small tab on the top edge of the picture (44px target). */
+.bar-handle {
+  position: fixed; z-index: 35; top: 0; left: calc((100vw - var(--rail-w, 0px)) / 2); transform: translateX(-50%);
+  display: grid; place-items: start center; width: 64px; height: 44px; padding: 0; border: 0; background: transparent;
+  color: #fff; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.bar-handle svg { box-sizing: content-box; padding: 2px 16px 4px; border-radius: 0 0 8px 8px; background: rgb(5 7 6 / 0.6); }
+.shell--phone .top-bar { transition: transform 0.2s ease-out; }
+.shell--phone .top-bar.top-bar--hidden { transform: translateY(calc(-100% - env(safe-area-inset-top, 0px))); }
+/* 44px hit areas inside a 44px bar: the transparent border is part of the target but not of the drawn button. */
+.shell--landscape .top-bar .btn-primary, .shell--landscape .top-bar .btn-quiet {
+  box-sizing: border-box; min-height: 44px; border: 5px solid transparent; background-clip: padding-box; padding: 0 12px;
+}
+.shell--landscape .bay { grid-template-columns: minmax(0, 1fr) var(--rail-w); }
+.shell--landscape .rail { min-width: 0; overflow: hidden; }
+.shell--landscape .event-row { grid-template-columns: auto 10px minmax(0, 1fr) auto; padding-left: 10px; }
+.shell--landscape .bay__left { grid-template-rows: minmax(0, 1fr) 45px; padding-left: env(safe-area-inset-left, 0px); background: var(--video); }
+.shell--landscape .rail { padding-right: env(safe-area-inset-right, 0px); }
+.shell--landscape .match-strip { grid-template-columns: 84px minmax(0, 1fr); }
+.shell--landscape .strip-label { padding: 0 8px; }
+.shell--landscape .event-log ol { padding-bottom: 40px; } /* the last row can scroll clear of the ＋ */
+.shell--landscape .fab { bottom: calc(6px + env(safe-area-inset-bottom, 0px)); right: calc(10px + env(safe-area-inset-right, 0px)); width: 56px; height: 56px; }
+.clip-summary--compact { padding: 8px 76px 8px 12px; }
+.clip-summary.clip-summary--compact .kv { justify-content: flex-start; }
+
 /* ---------- desktop bay ---------- */
 .bay { display: grid; grid-template-columns: minmax(0, 1fr) clamp(280px, 26vw, 360px); min-height: 0; }
 .bay__left { display: grid; grid-template-rows: minmax(0, 1fr) 56px; min-height: 0; min-width: 0; }
@@ -168,6 +206,8 @@
   display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 10px;
   background: var(--panel); border: 1px solid var(--accent); border-radius: 4px; box-shadow: 0 6px 18px rgb(0 0 0 / 0.3);
 }
+.preview-controls > button { flex: none; } /* never squeeze ← / → / Exit below their 44px targets */
+.preview-controls > .tc { white-space: nowrap; }
 .preview-controls__label {
   font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent);
 }
@@ -193,7 +233,7 @@
 .shell--phone .event-log ol { overflow: visible; }
 .shell--phone .event-row { min-height: 44px; }
 /* Phone rows are narrow: let a note wrap onto a second line instead of vanishing into an ellipsis. */
-.shell--phone .event-row__label {
+.shell--phone .event-row__label, .shell--landscape .event-row__label {
   white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; line-height: 1.3;
 }
 
@@ -208,7 +248,7 @@
 
 /* ---------- match strip (the pitch: files laid end to end, chalk lines between them) ---------- */
 .match-strip { display: grid; grid-template-columns: 96px minmax(0, 1fr); background: var(--panel); border-top: 1px solid var(--line); min-width: 0; }
-.shell--phone .match-strip { height: 48px; border-bottom: 1px solid var(--line); grid-template-columns: 80px minmax(0, 1fr); }
+.shell--phone .match-strip { height: 48px; border-bottom: 1px solid var(--line); grid-template-columns: 88px minmax(0, 1fr); }
 .strip-label {
   display: flex; flex-direction: column; justify-content: center; gap: 1px; padding: 0 12px;
   border-right: 1px solid var(--line); font-size: 11px; color: var(--muted);
@@ -270,7 +310,7 @@
 .empty-player__keys { display: grid; grid-template-columns: repeat(3, auto); gap: 4px 18px; margin: 8px 0 0; font-size: 12px; color: var(--muted); }
 .empty-player__keys div { display: flex; gap: 6px; align-items: center; }
 .empty-player__keys dt, .empty-player__keys dd { margin: 0; }
-.shell--phone .empty-player__keys { display: none; }
+.shell--phone .empty-player__keys, .shell--landscape .empty-player__keys { display: none; }
 
 /* ---------- floating panels and sheets ---------- */
 .floating {
@@ -328,11 +368,11 @@
 
 /* Sheets (Match setup, Advanced settings, Files, Paste list): centred, at most 560px wide; a bottom sheet on portrait phones. */
 .sheet-backdrop {
-  position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 16px;
+  position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 16px 16px calc(16px + var(--kb, 0px));
   background: rgb(5 7 6 / 0.5); overscroll-behavior: contain;
 }
 .sheet {
-  box-sizing: border-box; width: min(560px, 100%); max-height: calc(100dvh - 32px); overflow: auto; overscroll-behavior: contain;
+  box-sizing: border-box; width: min(560px, 100%); max-height: calc(100dvh - 32px - var(--kb, 0px)); overflow: auto; overscroll-behavior: contain;
   background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px;
   box-shadow: 0 20px 50px rgb(0 0 0 / 0.3);
 }
@@ -341,16 +381,17 @@
 .sheet__body { padding: 4px 16px 16px; }
 .team-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 12px; }
 @media (max-width: 899px) and (orientation: portrait) {
-  .sheet-backdrop { place-items: end stretch; padding: 0; }
+  .sheet-backdrop { place-items: end stretch; padding: 0 0 var(--kb, 0px); }
   .sheet, .sheet--narrow {
-    width: 100%; max-height: 88dvh; border-radius: 14px 14px 0 0; border-width: 1px 0 0;
+    width: 100%; max-height: calc(88dvh - var(--kb, 0px)); border-radius: 14px 14px 0 0; border-width: 1px 0 0;
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .team-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-height: 500px) {
-  .sheet-backdrop { padding: 8px; }
-  .sheet { max-height: calc(100dvh - 16px); }
+  .sheet:not(.sheet--narrow) { width: min(780px, 100%); } /* short screens: use the width, scroll less */
+  .sheet-backdrop { padding: 8px 8px calc(8px + var(--kb, 0px)); }
+  .sheet { max-height: calc(100dvh - 16px - var(--kb, 0px)); }
 }
 .team-card { display: flex; flex-direction: column; gap: 8px; border-top: 4px solid; padding-top: 10px; }
 .swatch {
@@ -371,8 +412,7 @@
 /* Over the video (fullscreen, landscape phones) the ＋ sits above the 44px control bar, never on its buttons. */
 .player-container .fab { bottom: calc(64px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px; }
 @media (orientation: landscape) and (max-height: 500px) {
-  .fab { bottom: calc(64px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px; }
-  .floating { max-height: calc(100dvh - 64px); }
+  .floating { max-height: calc(100dvh - 56px); }
 }
 
 /* ---------- player: video.js skin, overlays ---------- */
@@ -399,7 +439,7 @@
 .player-container .vjs-tech { transform-origin: center; }
 .player-container--zoomed .vjs-tech { cursor: grab; }
 .zoom-chip {
-  position: absolute; top: 10px; right: 10px; z-index: 30;
+  position: absolute; top: 10px; left: 10px; z-index: 30; /* top-right is the touch fullscreen button */
   border: 1px solid rgb(255 255 255 / 0.3); border-radius: 3px; padding: 2px 8px;
   background: rgb(5 7 6 / 0.7); color: #f2b34c; font-family: var(--font-mono); font-size: 13px; cursor: pointer;
 }
@@ -480,10 +520,14 @@
   border: 1px dashed var(--line); border-radius: 3px; background: none; color: var(--muted); font: inherit; cursor: pointer;
 }
 .event-picker__skip:hover { color: var(--ink); border-color: var(--muted); }
+.event-picker__warn {
+  margin: 0 0 8px; padding: 6px 8px; border-radius: 3px; font-size: 13px; line-height: 1.3;
+  background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--ink); border-left: 3px solid var(--danger);
+}
 .event-picker__hint { margin-top: 6px; padding: 0 6px; font-size: 11px; color: var(--muted); }
 @media (max-width: 899px) {
   .event-picker {
-    position: fixed; left: 0; right: 0; bottom: 0; width: auto; max-height: 60vh;
+    position: fixed; left: 0; right: 0; bottom: var(--kb, 0px); width: auto; max-height: min(60vh, calc(100dvh - var(--kb, 0px) - 8px));
     border-radius: 14px 14px 0 0; border-width: 1px 0 0; padding: 14px 14px calc(14px + env(safe-area-inset-bottom, 0px));
     font-size: 16px; box-shadow: 0 -8px 24px rgb(0 0 0 / 0.25);
   }
@@ -496,8 +540,40 @@
   .event-picker__input { font-size: 16px; padding: 10px 12px; } /* 16px: no iOS zoom on focus */
 }
 
+/* Landscape phones: the picker is a side sheet over the event rail (below the top bar), so the picture stays
+   in view while choosing; in fullscreen it takes the right-hand edge of the screen. Done / Cancel stay pinned. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .event-picker {
+    position: fixed; top: max(0px, calc(44px - var(--kb, 0px))); right: 0; bottom: var(--kb, 0px); left: auto; width: var(--rail-w, clamp(260px, 36vw, 340px)); max-height: none;
+    border-radius: 0; border-width: 0 0 0 1px; box-shadow: -8px 0 24px rgb(0 0 0 / 0.25);
+    padding: 10px calc(10px + env(safe-area-inset-right, 0px)) 0 10px; font-size: 15px;
+    display: flex; flex-direction: column;
+  }
+  .player-container:fullscreen .event-picker, .player-container--immersive .event-picker { top: 0; }
+  .event-picker__title { font-size: 15px; padding-bottom: 8px; }
+  .event-picker__list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .event-picker__item { padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; }
+  .event-picker__item[aria-selected="true"] { border-color: var(--accent); font-weight: 600; }
+  .event-picker__item kbd { display: none; }
+  .event-picker__skip { width: auto; margin-top: 6px; padding: 10px 12px; border-radius: 4px; }
+  .event-picker__input { font-size: 16px; padding: 10px 12px; }
+  .event-picker__actions {
+    position: sticky; bottom: 0; margin-top: auto; padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px));
+    background: var(--panel);
+  }
+  .event-picker__actions > button { flex: 1; min-width: 0; }
+}
+
 /* Container fullscreen (see components/fullscreen.ts) */
 .player-container:fullscreen { width: 100vw; height: 100vh; border-radius: 0; background: #000; }
+/* Immersive: the same, in CSS, when the Fullscreen API is missing (iPhone) or refused. */
+.player-container--immersive {
+  position: fixed; inset: 0; z-index: 80; width: auto; height: auto; background: #000;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+html:has(.player-container--immersive), body:has(.player-container--immersive) { overflow: hidden; }
+.player-container--immersive .event-picker { top: 0; }
+.player-container:fullscreen .zoom-chip, .player-container--immersive .zoom-chip { top: auto; bottom: 64px; }
 .player-container:fullscreen .video-js { width: 100%; height: 100%; }
 
 /* Scrubber markers */
@@ -511,6 +587,10 @@
 /* Touch: every gesture on the video belongs to the player (taps, double taps, pinch, pan, scrubbing);
    swipes on the picture never scroll or zoom the page. */
 .player-container { touch-action: none; -webkit-tap-highlight-color: transparent; }
+/* Portrait phone, not zoomed, not fullscreen: a vertical swipe on the picture scrolls the page (back up from the
+   event list); taps, double taps and pinches still reach the player. The control bar (scrubbing) keeps every gesture. */
+.shell--phone .player-container:not(.player-container--zoomed):not(:fullscreen) { touch-action: pan-y; }
+.player-container .vjs-control-bar { touch-action: none; }
 
 /* Match graphics: Export panel switches and Match setup fields. */
 .toggle-row { display: flex; align-items: center; gap: 12px; min-height: 44px; cursor: pointer; font-size: 14px; }
@@ -540,11 +620,67 @@
   .player-container .video-js .vjs-progress-control { min-width: 3em; }
   .row-btn { width: 44px; height: 44px; font-size: 17px; }
   .btn-icon { width: 44px; height: 44px; }
-  .btn-quiet, .btn-primary, .file-add { min-height: 40px; }
   .event-row { min-height: 48px; }
   .event-picker__item, .event-picker__skip { min-height: 44px; box-sizing: border-box; }
   .control-btn { min-width: 44px; min-height: 44px; justify-content: center; }
   .menu-list > button { min-height: 44px; }
-  .swatch { width: 32px; height: 32px; }
+  /* 44px targets drawn as 32px dots: the transparent border is part of the target, not of the dot. */
+  /* (the inline team colour is a background shorthand, which would reset the clip: hence !important) */
+  .swatch { box-sizing: border-box; width: 44px; height: 44px; border: 6px solid transparent; background-clip: padding-box !important; box-shadow: none; }
+  .swatch[aria-pressed="true"] { outline-offset: -4px; }
+  .swatches { gap: 0; }
+  .field { min-height: 44px; font-size: 16px; } /* 16px: no zoom-on-focus in mobile Safari */
+  .file-row__main { min-height: 44px; }
   .graphics-setup .btn-quiet, .graphics-setup__field .field { min-height: 44px; }
+  .btn-quiet, .btn-primary, .file-add { min-height: 44px; }
+
+  /* Touch screens are phones and tablets held at arm's length: no text under 14px. Covers the small
+     Tailwind sizes used in components (unlayered CSS beats the utilities layer) and the small UI classes. */
+  .text-\[10px\], .text-\[11px\], .text-\[12px\], .text-\[13px\],
+  .btn-quiet, .btn-primary, .file-add, .field, .tag, .row-score, .menu > button, .menu-item,
+  .clip-summary, .export-section__title, .settings-group legend, .export-section__hint, .toggle-row__hint, .settings-field, .settings-field .unit,
+  .strip-label, .strip-file__name, .graphics-setup__field, .opening-status, .event-picker__hint, .event-picker__title, .event-picker__warn,
+  .control-btn, .score-final, .file-row__index, .file-pill, .file-pill__dur, .key-hints,
+  .player-container .video-js .vjs-time-control { font-size: 14px; }
+  .tag { line-height: 18px; }
+  .zoom-chip { min-width: 44px; min-height: 44px; font-size: 14px; }
+  /* One fullscreen button on touch: ours over the picture (always visible); the control bar's is hidden. */
+  .player-container .video-js .vjs-fullscreen-control { display: none; }
+  .strip-label__clock { font-size: 16px; }
+  .strip-label__clock--accent { font-size: 14px; }
+  .strip-label { overflow: hidden; white-space: nowrap; }
+  .strip-file { padding-top: 2px; }
 }
+
+/* Event edit sheet (touch): chips for type / team / person, inputs, sticky actions. */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; box-sizing: border-box; min-height: 44px; padding: 0 14px;
+  border: 1px solid var(--line); border-radius: 4px; background: var(--panel); color: var(--ink); font-size: 15px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.chip[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--panel)); font-weight: 600; }
+.event-sheet__when { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; font-size: 18px; }
+.event-sheet__when .tc { color: var(--accent); font-weight: 500; }
+.event-sheet__nudge { display: inline-flex; gap: 6px; margin-left: auto; }
+.event-sheet__group { display: grid; gap: 8px; border: 0; margin: 12px 0 0; padding: 0; min-width: 0; }
+.event-sheet__group legend {
+  margin-bottom: 6px; padding: 0; font-family: var(--font-display); font-weight: 600; font-size: 14px;
+  text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+}
+.event-sheet__input { width: 100%; min-height: 44px; font-size: 16px; padding: 8px 12px; } /* 16px: no zoom on focus */
+.event-sheet .toggle-row { margin-top: 8px; }
+.sheet__actions {
+  position: sticky; bottom: 0; z-index: 1; display: flex; align-items: center; gap: 8px;
+  margin: 12px -16px -16px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: var(--panel); border-top: 1px solid var(--line);
+}
+.sheet__actions > button { min-height: 44px; min-width: 72px; justify-content: center; font-size: 15px; }
+.btn-danger { color: var(--danger); }
+
+/* On-screen keyboard open (see useKeyboardInset): focused fields scroll clear of the sticky head and actions,
+   and the sheet drops its title bar so the field, Done and Cancel fit in what is left of the screen. */
+.sheet { scroll-padding: 64px 0 92px; }
+.event-picker { scroll-padding-bottom: 76px; }
+.kb-open .sheet .floating__head { display: none; }
+.kb-open .sheet__body { padding-top: 8px; }

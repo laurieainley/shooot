@@ -101,3 +101,31 @@ describe('FullscreenControls', () => {
         setCoarsePointer(false)
     })
 })
+
+describe('FullscreenControls fullscreen button (touch)', () => {
+    afterEach(() => setCoarsePointer(false))
+    const withFs = () => ({ ...fakePlayer(), requestFullscreen: vi.fn(), exitFullscreen: vi.fn() })
+
+    it('should offer an always-visible Fullscreen button over the picture on touch screens, entering synchronously', () => {
+        setCoarsePointer(true)
+        const player = withFs()
+        const { getByRole } = render(<FullscreenControls playerRef={{ current: player }} isFullscreen={false} />)
+        fireEvent.click(getByRole('button', { name: 'Fullscreen' }))
+        expect(player.requestFullscreen).toHaveBeenCalledTimes(1)
+    })
+
+    it('should offer Exit fullscreen while fullscreen', () => {
+        setCoarsePointer(true)
+        const player = withFs()
+        const { getByRole, queryByRole } = render(<FullscreenControls playerRef={{ current: player }} isFullscreen />)
+        expect(queryByRole('button', { name: 'Fullscreen' })).not.toBeInTheDocument()
+        fireEvent.click(getByRole('button', { name: 'Exit fullscreen' }))
+        expect(player.exitFullscreen).toHaveBeenCalledTimes(1)
+    })
+
+    it('should leave the button to the control bar with a mouse', () => {
+        setCoarsePointer(false)
+        const { queryByRole } = render(<FullscreenControls playerRef={{ current: withFs() }} isFullscreen={false} />)
+        expect(queryByRole('button', { name: 'Fullscreen' })).not.toBeInTheDocument()
+    })
+})

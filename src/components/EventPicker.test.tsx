@@ -176,3 +176,26 @@ describe('EventPicker with a mouse', () => {
         expect(screen.queryByRole('button', { name: 'Done' })).not.toBeInTheDocument()
     })
 })
+
+describe('EventPicker duplicate-mark guard', () => {
+    beforeEach(() => {
+        useAppState.setState({
+            files: [vf('a.mp4')], events: [], cumulativeOffsets: [0], currentFileIndex: 0, undoStack: [], redoStack: [], picker: null,
+            teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }],
+        })
+    })
+
+    it('should warn when the new mark lands within 3 s of another one', () => {
+        act(() => s().addEvent({ id: 'old', matchTimeSec: 99, sourceFileIndex: 0, type: 'goal', team: 'Whites' }))
+        act(() => s().markEvent(101))
+        render(<EventPicker />)
+        expect(screen.getByRole('alert')).toHaveTextContent('Goal already marked 2 s earlier')
+    })
+
+    it('should not warn for a mark on its own', () => {
+        act(() => s().addEvent({ id: 'old', matchTimeSec: 90, sourceFileIndex: 0, type: 'goal' }))
+        act(() => s().markEvent(101))
+        render(<EventPicker />)
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+})

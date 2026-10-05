@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
@@ -349,5 +349,48 @@ describe('EventLog empty state', () => {
         setup([])
         render(<EventLog />)
         expect(screen.getByText(/no events yet/i)).toHaveTextContent('No events yet. Press G while it plays.')
+    })
+})
+
+describe('EventLog on touch screens', () => {
+    beforeEach(() => {
+        setCoarsePointer(true)
+        setup([
+            { id: 'a', matchTimeSec: 30, sourceFileIndex: 0, type: 'goal' },
+            { id: 'b', matchTimeSec: 60, sourceFileIndex: 0, type: 'highlight' },
+        ], { panel: null, editingEventId: null })
+    })
+    afterEach(() => setCoarsePointer(false))
+
+    it('should seek and open the edit sheet for a tapped row', async () => {
+        render(<EventLog />)
+        await userEvent.click(rows()[1])
+        expect(seekToGoal).toHaveBeenCalledWith(0, 50)
+        expect(useAppState.getState()).toMatchObject({ panel: 'event', editingEventId: 'b' })
+    })
+
+    it('should not open the edit sheet from the replay or delete buttons', async () => {
+        render(<EventLog />)
+        await userEvent.click(within(rows()[0]).getByRole('button', { name: 'Replay' }))
+        expect(useAppState.getState().panel).toBeNull()
+    })
+
+    it('should leave deleting to the edit sheet: rows keep the replay toggle but no ×', () => {
+        render(<EventLog />)
+        expect(within(rows()[0]).getByRole('button', { name: 'Replay' })).toBeInTheDocument()
+        expect(within(rows()[0]).queryByRole('button', { name: 'Delete event' })).not.toBeInTheDocument()
+    })
+
+    it('should leave marking to the ＋ button: no "+ Event" in the header', () => {
+        render(<EventLog />)
+        const header = log().querySelector('header')!
+        expect(within(header).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Undo', 'Redo'])
+    })
+
+    it('should keep inline editing for mouse users (no sheet on click)', async () => {
+        setCoarsePointer(false)
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        expect(useAppState.getState().panel).toBeNull()
     })
 })

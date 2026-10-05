@@ -10,7 +10,7 @@ import { buildPreviewPlan, type PreviewStep } from './utils/preview'
 import type { GraphicsSettings } from './graphics/plan'
 
 /** Menus and sheets; at most one is open, and never together with the event picker. */
-export type Panel = 'menu' | 'files' | 'match' | 'settings' | 'paste' | 'export'
+export type Panel = 'menu' | 'files' | 'match' | 'settings' | 'paste' | 'export' | 'event'
 
 type AppState = {
     files: VideoSourceFile[]
@@ -80,7 +80,17 @@ type AppState = {
     markEvent: (timeInFileSec: number) => void
     openPicker: (eventId: string) => void
     closePicker: () => void
+    /** Landscape phones: the top bar folded away for more picture. */
+    barCollapsed: boolean
+    setBarCollapsed: (collapsed: boolean) => void
+    /** CSS full-viewport player (fullscreen fallback when the Fullscreen API is missing or refused). */
+    immersive: boolean
+    setImmersive: (on: boolean) => void
     panel: Panel | null
+    /** The event the touch edit sheet (panel 'event') is editing. */
+    editingEventId: string | null
+    /** Open the edit sheet for an event (touch: tapping a row in the event log). */
+    editEvent: (id: string) => void
     openPanel: (panel: Panel) => void
     closePanel: () => void
     // Match graphics (title/full-time cards, lower thirds)
@@ -103,10 +113,13 @@ export const useAppState = create<AppState>()(
     persist(
         (set, get) => {
             const MAX_UNDO_DEPTH = 50
-            // The picker edits one event; it closes when that event is gone (undo, delete, import).
-            const pickerFor = (events: MatchEvent[]): AppState['picker'] => {
-                const p = get().picker
-                return p && events.some((e) => e.id === p.eventId) ? p : null
+            // The picker and the edit sheet each edit one event; they close when that event is gone (undo, delete, import).
+            const follow = (events: MatchEvent[]): Pick<AppState, 'picker' | 'panel'> => {
+                const { picker: p, panel, editingEventId } = get()
+                return {
+                    picker: p && events.some((e) => e.id === p.eventId) ? p : null,
+                    panel: panel === 'event' && !events.some((e) => e.id === editingEventId) ? null : panel,
+                }
             }
             return {
             files: [],
@@ -117,6 +130,9 @@ export const useAppState = create<AppState>()(
             ],
             picker: null,
             panel: null,
+            editingEventId: null,
+            immersive: false,
+            barCollapsed: false,
             opening: null,
             graphics: { cards: true, lowerThirds: true, replayTag: false },
             matchNumber: 1,
@@ -230,7 +246,7 @@ export const useAppState = create<AppState>()(
                 const next = relinkEvents(events, state.files)
                 set({
                     events: next,
-                    picker: pickerFor(next),
+                    ...follow(next),
                     undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), state.events],
                     redoStack: [],
                 })
@@ -240,7 +256,7 @@ export const useAppState = create<AppState>()(
                 const next = state.events.filter((e) => e.id !== id)
                 set({
                     events: next,
-                    picker: pickerFor(next),
+                    ...follow(next),
                     undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), state.events],
                     redoStack: [],
                 })
@@ -272,7 +288,7 @@ export const useAppState = create<AppState>()(
                 const previous = relinkEvents(state.undoStack[state.undoStack.length - 1], state.files)
                 set({
                     events: previous,
-                    picker: pickerFor(previous),
+                    ...follow(previous),
                     undoStack: state.undoStack.slice(0, -1),
                     redoStack: [...state.redoStack, state.events],
                 })
@@ -283,7 +299,7 @@ export const useAppState = create<AppState>()(
                 const next = relinkEvents(state.redoStack[state.redoStack.length - 1], state.files)
                 set({
                     events: next,
-                    picker: pickerFor(next),
+                    ...follow(next),
                     redoStack: state.redoStack.slice(0, -1),
                     undoStack: [...state.undoStack, state.events],
                 })
@@ -335,6 +351,11 @@ export const useAppState = create<AppState>()(
                     return next
                 }),
             }),
+            setImmersive: (on) => set({ immersive: on }),
+            setBarCollapsed: (collapsed) => set({ barCollapsed: collapsed }),
+            editEvent: (id) => {
+                if (get().events.some((e) => e.id === id)) set({ panel: 'event', editingEventId: id, picker: null })
+            },
             openPanel: (panel) => set({ panel, picker: null }),
             closePanel: () => set({ panel: null }),
             // Preview mode actions
@@ -391,6 +412,7 @@ export const useAppState = create<AppState>()(
                 graphics: state.graphics,
                 matchNumber: state.matchNumber,
                 matchdayLabel: state.matchdayLabel,
+                barCollapsed: state.barCollapsed,
             }),
             version: 9,
             migrate: (persistedState: any, version: number) => {

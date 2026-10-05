@@ -50,7 +50,10 @@ export function Player() {
         if (!videoRef.current) return
         if (!playerRef.current) {
             playerRef.current = videojs(videoRef.current, playerOptions(isPreviewMode))
-            patchPlayerFullscreen(playerRef.current as unknown as FullscreenPlayer, () => containerRef.current)
+            patchPlayerFullscreen(playerRef.current as unknown as FullscreenPlayer, () => containerRef.current, {
+                get: () => useAppState.getState().immersive,
+                set: (on) => useAppState.getState().setImmersive(on),
+            })
 
             // Enable hotkeys once the player is ready
             playerRef.current.ready(() => {
@@ -308,7 +311,7 @@ export function Player() {
         tech.style.transform = zoomPan.zoom > 1 ? `translate(${zoomPan.pan.x}px, ${zoomPan.pan.y}px) scale(${zoomPan.zoom})` : ''
     }, [zoomPan.zoom, zoomPan.pan, currentFileIndex, files])
 
-    // Shift+drag (mouse) or two-finger drag pans while zoomed; a two-finger pinch zooms between 1× and 2×.
+    // Shift+drag (mouse) or two-finger drag pans while zoomed; a two-finger pinch zooms between 1× and 4×.
     useEffect(() => {
         const el = containerRef.current
         if (!el) return
@@ -369,6 +372,18 @@ export function Player() {
         }
     }, [])
 
+    // Immersive (CSS) fullscreen: Esc leaves it, as it would real fullscreen; unloading the player ends it.
+    const immersive = useAppState((s) => s.immersive)
+    useEffect(() => () => useAppState.getState().setImmersive(false), [])
+    useEffect(() => {
+        if (!immersive) return
+        const onKey = (e: KeyboardEvent): void => {
+            if (e.key === 'Escape' && !useAppState.getState().picker) { e.preventDefault(); playerRef.current?.exitFullscreen() }
+        }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [immersive])
+
     // Track fullscreen state (also on resize / rotation: leaving fullscreen by rotating may not fire an event)
     useEffect(() => {
         const sync = (): void => {
@@ -388,7 +403,7 @@ export function Player() {
     }, [])
 
     return (
-        <div ref={containerRef} className={`player-container${zoomPan.zoom > 1 ? ' player-container--zoomed' : ''}`}>
+        <div ref={containerRef} className={`player-container${zoomPan.zoom > 1 ? ' player-container--zoomed' : ''}${immersive ? ' player-container--immersive' : ''}`}>
             <video ref={videoRef} className="video-js vjs-default-skin" />
             {speedIndicator !== null && (
                 <div className="speed-indicator" key={speedIndicator + '-' + Date.now()}>
@@ -397,7 +412,7 @@ export function Player() {
             )}
             <ZoomChip zoom={zoomPan.zoom} onReset={zoomPan.reset} />
             {scrub && <div className="scrub-bubble tc" style={{ left: scrub.leftPx }}>{formatHMS(scrub.timeSec)}</div>}
-            <FullscreenControls playerRef={playerRef} isFullscreen={isFullscreen} />
+            <FullscreenControls playerRef={playerRef} isFullscreen={isFullscreen || immersive} />
             <EventPicker />
             <TimelineMarkers host={progressHost} durationSec={durationSec} />
         </div>

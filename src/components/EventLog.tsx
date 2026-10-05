@@ -111,9 +111,11 @@ export function EventLog() {
                 <h2 className="m-0 mr-auto font-display text-[15px] font-semibold uppercase tracking-[0.08em]">
                     Events <span className="tc text-[13px] font-normal tracking-normal text-muted">· {events.length}</span>
                 </h2>
-                <button type="button" onClick={() => { const st = useAppState.getState(); st.markEvent(st.currentTimeInFileSec) }}
-                    disabled={files.length === 0}
-                    className="btn-quiet">+ Event</button>
+                {!coarse && (
+                    <button type="button" onClick={() => { const st = useAppState.getState(); st.markEvent(st.currentTimeInFileSec) }}
+                        disabled={files.length === 0}
+                        className="btn-quiet">+ Event</button>
+                )}
                 <button type="button" aria-label="Undo" title="Undo (⌘Z)" onClick={() => useAppState.getState().undo()} disabled={!canUndo} className="btn-icon"><UndoIcon /></button>
                 <button type="button" aria-label="Redo" title="Redo (⇧⌘Z)" onClick={() => useAppState.getState().redo()} disabled={!canRedo} className="btn-icon"><UndoIcon redo /></button>
             </header>
@@ -136,11 +138,17 @@ export function EventLog() {
                             score={scores.get(e.id)}
                             fileTag={files.length > 1 ? `V${(e.sourceFileIndex ?? 0) + 1}` : null}
                             editing={editing?.id === e.id ? editing.field : null}
-                            onSelect={() => { setSelectedId(e.id); seek(e) }}
+                            onSelect={() => {
+                                setSelectedId(e.id)
+                                seek(e)
+                                // Touch: no double-click or keys, so a tap opens the edit sheet (desktop edits inline).
+                                if (coarse) useAppState.getState().editEvent(e.id)
+                            }}
                             onEdit={(field) => { setSelectedId(e.id); setEditing(field ? { id: e.id, field } : null) }}
                             onToggleReplay={() => toggleReplay(e)}
                             onRemove={() => remove(events.indexOf(e))}
                             restoreFocus={() => rootRef.current?.focus()}
+                            touch={coarse}
                         />
                     ))}
                 </ol>
@@ -162,9 +170,11 @@ interface EventRowProps {
     onToggleReplay: () => void
     onRemove: () => void
     restoreFocus: () => void
+    /** Touch: delete lives in the edit sheet (a tap opens it), so the row keeps only the replay toggle. */
+    touch?: boolean
 }
 
-function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, onSelect, onEdit, onToggleReplay, onRemove, restoreFocus }: EventRowProps) {
+function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, onSelect, onEdit, onToggleReplay, onRemove, restoreFocus, touch = false }: EventRowProps) {
     const team = teams.find((t) => t.name === e.team)
     const replay = wantsReplay(e)
     const label = `${eventLabel(e)}${e.scorer ? ` · ${e.scorer}` : ''}`
@@ -239,8 +249,10 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, o
                     : fileTag && <span className="tag">{fileTag}</span>}
                 <button type="button" aria-label="Replay" aria-pressed={replay} title={replay ? 'Slow-mo replay on (R)' : 'Slow-mo replay off (R)'}
                     tabIndex={-1} onClick={(ev) => { stop(ev); onToggleReplay() }} className="row-btn replay-btn">↻</button>
-                <button type="button" aria-label="Delete event" title="Delete (⌫)" tabIndex={-1}
-                    onClick={(ev) => { stop(ev); onRemove() }} className="row-btn delete-btn">×</button>
+                {!touch && (
+                    <button type="button" aria-label="Delete event" title="Delete (⌫)" tabIndex={-1}
+                        onClick={(ev) => { stop(ev); onRemove() }} className="row-btn delete-btn">×</button>
+                )}
             </span>
         </li>
     )

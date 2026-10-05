@@ -36,7 +36,9 @@ function loadsInVideoElement(file: File): Promise<boolean> {
     video.preload = 'metadata'
     return new Promise<boolean>((resolve) => {
         const done = (ok: boolean): void => {
+            // Abort the element's own fetch before revoking, or it reads a dead blob URL (console ERR_FILE_NOT_FOUND).
             video.removeAttribute('src')
+            video.load()
             URL.revokeObjectURL(url)
             resolve(ok)
         }

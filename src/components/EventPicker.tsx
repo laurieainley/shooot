@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppState } from '../state'
-import { PICKER_OPTIONS, eventIcon } from '../utils/eventTypes'
+import { nearbyMark } from '../utils/duplicates'
+import { PICKER_OPTIONS, eventIcon, eventLabel } from '../utils/eventTypes'
 import { SKIP, initialPickerState, pickerReducer, scorerCandidates, type PickerInput, type PickerState } from '../utils/eventPicker'
 import { teamShortcuts } from '../utils/roster'
 import { formatHMS } from '../utils/timeline'
@@ -12,7 +13,10 @@ export function EventPicker() {
     const picker = useAppState((s) => s.picker)
     const event = useAppState((s) => s.events.find((e) => e.id === s.picker?.eventId))
     const teams = useAppState((s) => s.teams)
+    const events = useAppState((s) => s.events)
     const coarse = useMediaQuery(COARSE_QUERY)
+    // Duplicate-mark guard: a second mark within 3 s is usually a double G / double tap.
+    const near = useMemo(() => (picker ? nearbyMark(events, picker.eventId) : null), [events, picker])
     const [state, setState] = useState<PickerState>(initialPickerState)
     const stateRef = useRef(state)
     stateRef.current = state
@@ -86,6 +90,12 @@ export function EventPicker() {
     return (
         <div className="event-picker" role="dialog" aria-label="Event details">
             <div className="event-picker__title">{title}{state.team ? ` · ${state.team}` : ''}{event.scorer ? ` · ${event.scorer}` : ''}</div>
+            {near && state.step === 'type' && (
+                <p role="alert" className="event-picker__warn">
+                    {eventLabel(near.event)} already marked {near.deltaSec === 0 ? 'at this second' : `${Math.abs(near.deltaSec)} s ${near.deltaSec < 0 ? 'earlier' : 'later'}`}
+                    {' · '}{coarse ? 'Cancel' : <kbd>⌫</kbd>} if this was a double tap
+                </p>
+            )}
 
             {state.step === 'type' && (
                 <ul role="listbox" className="event-picker__list">

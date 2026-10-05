@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import type { VideoSourceFile } from '../types'
+import { setMedia } from '../test/pointer'
 
 vi.mock('./Player', () => ({ Player: () => <div data-testid="player" /> }))
 vi.mock('../render', () => ({ renderReel: vi.fn() }))
@@ -13,11 +14,12 @@ import { AppShell } from './AppShell'
 const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec: 600, kind: 'full' })
 
 function setWidth(desktop: boolean): void {
-    window.matchMedia = ((query: string) => ({
-        matches: desktop, media: query, onchange: null,
-        addEventListener: () => undefined, removeEventListener: () => undefined,
-        addListener: () => undefined, removeListener: () => undefined, dispatchEvent: () => false,
-    })) as unknown as typeof window.matchMedia
+    setMedia({ desktop, coarse: !desktop })
+}
+
+/** A phone on its side: short and (for 915×412) possibly wider than 900px. */
+function setLandscape(wide = false): void {
+    setMedia({ desktop: wide, coarse: true, landscape: true })
 }
 
 describe('AppShell', () => {
@@ -105,5 +107,69 @@ describe('AppShell', () => {
         const bar = screen.getByRole('group', { name: 'Preview' })
         expect(container.querySelector('.stage')).not.toContainElement(bar)
         expect(screen.getByRole('button', { name: 'Exit' })).toBeInTheDocument()
+    })
+
+    describe('landscape phone', () => {
+        it.each([false, true])('should put the video and match strip beside the event rail (wider than 900px: %s)', (wide) => {
+            setLandscape(wide)
+            const { container } = render(<AppShell />)
+            expect(container.firstElementChild).toHaveClass('shell--landscape')
+            const rail = screen.getByRole('complementary', { name: 'Event rail' })
+            expect(rail).toContainElement(screen.getByRole('region', { name: 'Events' }))
+            const left = container.querySelector('.bay__left')
+            expect(left).toContainElement(screen.getByTestId('player'))
+            expect(left).toContainElement(screen.getByRole('slider', { name: 'Match timeline' }))
+        })
+
+        it('should use the compact top bar: no file pills, no Match button, no key hints', () => {
+            setLandscape(true)
+            render(<AppShell />)
+            expect(screen.queryByText('GX010226.MP4', { selector: '.file-pill__name' })).not.toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: 'Match' })).not.toBeInTheDocument()
+            expect(screen.queryByText('mark')).not.toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Export' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Menu' })).toBeInTheDocument()
+        })
+
+        it('should keep the ＋ mark button in the rail, off the video', async () => {
+            setLandscape()
+            const { container } = render(<AppShell />)
+            const fab = screen.getByRole('button', { name: 'Mark event' })
+            expect(container.querySelector('.stage')).not.toContainElement(fab)
+            await userEvent.click(fab)
+            expect(useAppState.getState().events).toHaveLength(1)
+        })
+
+        it('should float the preview bar over the picture rather than stacking it below', () => {
+            setLandscape()
+            useAppState.setState({ isPreviewMode: true, previewSegments: [], previewSteps: [{ sourceIndex: 0, startSec: 0, endSec: 10, speed: 1, gain: 1, replay: false, clipIndex: 0 }], currentPreviewSegment: 0 })
+            const { container } = render(<AppShell />)
+            expect(container.querySelector('.stage')).toContainElement(screen.getByRole('group', { name: 'Preview' }))
+        })
+    })
+
+    describe('top bar out of the way', () => {
+        it('should collapse the top bar in landscape and bring it back from the handle', async () => {
+            setLandscape()
+            useAppState.setState({ barCollapsed: false })
+            const { container } = render(<AppShell />)
+            await userEvent.click(screen.getByRole('button', { name: 'Hide top bar' }))
+            expect(container.querySelector('.top-bar')).toBeNull()
+            expect(screen.queryByRole('button', { name: 'Export' })).not.toBeInTheDocument()
+            await userEvent.click(screen.getByRole('button', { name: 'Show top bar' }))
+            expect(container.querySelector('.top-bar')).not.toBeNull()
+            expect(useAppState.getState().barCollapsed).toBe(false)
+        })
+
+        it('should hide the portrait top bar while scrolling down and show it on scrolling up', () => {
+            setWidth(false)
+            const { container } = render(<AppShell />)
+            const bar = container.querySelector('.top-bar')!
+            const scrollTo = (y: number): void => { act(() => { Object.defineProperty(window, 'scrollY', { configurable: true, value: y }); window.dispatchEvent(new Event('scroll')) }) }
+            scrollTo(100); scrollTo(300)
+            expect(bar).toHaveClass('top-bar--hidden')
+            scrollTo(250)
+            expect(bar).not.toHaveClass('top-bar--hidden')
+        })
     })
 })

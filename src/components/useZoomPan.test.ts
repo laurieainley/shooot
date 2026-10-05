@@ -6,7 +6,7 @@ import { useZoomPan } from './useZoomPan'
 const viewport = (): { width: number; height: number } => ({ width: 1000, height: 500 })
 
 describe('useZoomPan', () => {
-    it('should cycle 1× → 1.5× → 2× → 1× on Z and reset the pan back at 1×', () => {
+    it('should cycle up from 1× on Z and reset the pan back at 1×', () => {
         const { result } = renderHook(() => useZoomPan(viewport))
         expect(result.current.zoom).toBe(1)
         act(() => result.current.cycle())
@@ -14,7 +14,7 @@ describe('useZoomPan', () => {
         act(() => result.current.cycle())
         act(() => result.current.panBy(100, 50))
         expect(result.current.pan).toEqual({ x: 100, y: 50 })
-        act(() => result.current.cycle())
+        act(() => { result.current.cycle(); result.current.cycle(); result.current.cycle() })
         expect(result.current.zoom).toBe(1)
         expect(result.current.pan).toEqual({ x: 0, y: 0 })
     })
@@ -41,17 +41,26 @@ describe('useZoomPan', () => {
         expect(result.current.pan).toEqual({ x: 0, y: 0 })
     })
 
-    it('should follow a pinch continuously, then snap to a level and re-clamp the pan on release', () => {
+    it('should follow a pinch continuously up to 4×, keep it on release, and re-clamp the pan', () => {
         const { result } = renderHook(() => useZoomPan(viewport))
         act(() => result.current.pinchTo(1.8))
         expect(result.current.zoom).toBe(1.8)
         act(() => result.current.panBy(400, 0))
         expect(result.current.pan.x).toBe(400)
         act(() => result.current.pinchEnd())
-        expect(result.current.zoom).toBe(2)
-        act(() => result.current.pinchTo(1.2))
+        expect(result.current.zoom).toBe(1.8)
+        act(() => result.current.pinchTo(6))
+        expect(result.current.zoom).toBe(4)
+        act(() => result.current.pinchTo(1.05))
         act(() => result.current.pinchEnd())
         expect(result.current.zoom).toBe(1)
         expect(result.current.pan).toEqual({ x: 0, y: 0 })
+    })
+
+    it('should cycle on Z through 3× and 4× before going back to 1×', () => {
+        const { result } = renderHook(() => useZoomPan(viewport))
+        const seen: number[] = []
+        for (let i = 0; i < 5; i++) { act(() => result.current.cycle()); seen.push(result.current.zoom) }
+        expect(seen).toEqual([1.5, 2, 3, 4, 1])
     })
 })

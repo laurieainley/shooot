@@ -1,5 +1,6 @@
 import type { MatchEvent, Team } from '../types'
 import { PICKER_OPTIONS, optionForKey, type PickerOption } from './eventTypes'
+import { optionPatch, personEdit } from './eventEdit'
 import { filterRoster, rosterTeamFor, teamShortcuts } from './roster'
 
 export type PickerStep = 'type' | 'team' | 'scorer' | 'text'
@@ -58,7 +59,7 @@ function afterPerson(state: PickerState, effects: PickerEffect[]): Result {
 }
 
 function chooseOption(state: PickerState, option: PickerOption, ctx: PickerContext): Result {
-    const effects: PickerEffect[] = [{ kind: 'update', patch: { type: option.type, pen: option.pen ? true : undefined } }]
+    const effects: PickerEffect[] = [{ kind: 'update', patch: optionPatch(option) }]
     const next = { ...state, option }
     if (option.askTeam && hasTeams(ctx)) {
         return { state: { ...next, step: 'team', highlighted: 0, query: '' }, effects }
@@ -76,11 +77,10 @@ function chooseTeam(state: PickerState, team: string): Result {
 }
 
 function chooseScorer(state: PickerState, name: string, ctx: PickerContext): Result {
-    const roster = rosterTeam(state, ctx)
-    const known = roster?.roster.some((r) => r.toLowerCase() === name.toLowerCase()) ?? false
+    const { patch, addToRoster } = personEdit(ctx.teams, { team: state.team, type: state.option.type }, name)
     const effects: PickerEffect[] = []
-    if (!known && roster) effects.push({ kind: 'addToRoster', team: roster.name, name })
-    effects.push({ kind: 'update', patch: { scorer: name } })
+    if (addToRoster) effects.push({ kind: 'addToRoster', ...addToRoster })
+    effects.push({ kind: 'update', patch })
     return afterPerson(state, effects)
 }
 
