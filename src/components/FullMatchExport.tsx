@@ -13,9 +13,10 @@ import { formatHMS } from '../utils/timeline'
 import { MissingFullFiles } from './MissingFullFiles'
 import { RenderStatus } from './RenderStatus'
 import { ResumeOffer } from './ResumeOffer'
-import { requestFor } from './renderRequest'
+import { startExport } from './renderRequest'
+import { useRenderJobs } from '../renderJobs'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
-import { useRenderRunner, useSavedJob } from './useRenderRunner'
+import { useSavedJob } from './useSavedJob'
 
 const BUG_MODES: [ScoreBugMode, string][] = [['off', 'Off'], ['goals', 'After goals'], ['periodic', 'Periodic']]
 const INTERVALS = Array.from({ length: MAX_INTERVAL_MIN - MIN_INTERVAL_MIN + 1 }, (_, i) => i + MIN_INTERVAL_MIN)
@@ -32,8 +33,9 @@ export function FullMatchExport() {
     const setFullMatch = useAppState((s) => s.setFullMatch)
     const { files, events, cumulativeOffsets, fullMatch } = st
     const phone = useMediaQuery(COARSE_QUERY)
-    const runner = useRenderRunner()
-    const saved = useSavedJob('fullMatch', runner.busy)
+    const busy = useRenderJobs((s) => s.job?.phase === 'running')
+    const saved = useSavedJob('fullMatch', busy)
+    const [note, setNote] = useState<string | null>(null)
     const [missing, setMissing] = useState<string[]>([])
 
     const plan = useMemo(() => fullMatchExport(st, 'full'), [st])
@@ -46,13 +48,13 @@ export function FullMatchExport() {
     const from = hasKickOff ? `Kick off ${formatHMS(kickOffSec(linked, cumulativeOffsets))} (${where(span.startSec)})` : 'Start of V1'
     const to = hasWhistle ? `Final whistle ${formatHMS(span.endSec)} (${where(Math.max(0, span.endSec - 0.001))})` : `End of V${files.length}`
     const hasProxies = files.some((f) => f.kind === 'proxy')
-    const disabled = runner.busy || plan.cuts.length === 0
+    const disabled = plan.cuts.length === 0
 
     const run = (quality: RenderQuality): void => {
         const p = fullMatchExport(useAppState.getState(), quality)
         if (p.missing.length > 0) { setMissing(p.missing); return }
         setMissing([])
-        void runner.run(() => requestFor(p, (reason) => runner.setReport({ applied: [], skipped: [{ label: 'Graphics', reason }] })), true)
+        startExport('fullMatch', quality, p, true)
     }
     const job = saved.job
     const matchingQuality = job ? (['full', 'preview'] as const).find((q) => fullMatchExport(useAppState.getState(), q).signature === job.signature) : undefined
@@ -100,7 +102,7 @@ export function FullMatchExport() {
             </fieldset>
 
             {job && (
-                <ResumeOffer job={job} matches={!!matchingQuality} filesLoaded={files.length > 0} busy={runner.busy}
+                <ResumeOffer job={job} matches={!!matchingQuality} filesLoaded={files.length > 0} busy={busy}
                     onResume={() => run(matchingQuality!)} onDiscard={() => void saved.discard()} />
             )}
             {hasProxies && (
@@ -109,8 +111,9 @@ export function FullMatchExport() {
             <button type="button" onClick={() => run('full')} disabled={disabled} className="btn-primary w-full justify-center">
                 {hasProxies ? 'Render full match (full quality)' : 'Render full match'}
             </button>
-            <MissingFullFiles missing={missing} onChange={(m, msg) => { setMissing(m); if (msg) runner.setStatus(msg) }} onPreviewInstead={() => run('preview')} />
-            <RenderStatus busy={runner.busy} status={runner.status} report={runner.report} result={runner.result} onCancel={runner.cancel} />
+            <MissingFullFiles missing={missing} onChange={(m, msg) => { setMissing(m); setNote(msg) }} onPreviewInstead={() => run('preview')} />
+            {note && <p role="note" className="m-0 text-[12px] text-muted">{note}</p>}
+            <RenderStatus kind="fullMatch" />
         </div>
     )
 }

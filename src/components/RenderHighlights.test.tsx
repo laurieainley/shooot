@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
+import { resetRenderJobs } from '../renderJobs'
 import type { VideoSourceFile } from '../types'
 
 const renderReel = vi.fn()
@@ -16,6 +17,7 @@ const proxy: VideoSourceFile = { id: 'p', name: 'GL010226.LRV', kind: 'proxy', u
 
 describe('RenderHighlights', () => {
     beforeEach(() => {
+        resetRenderJobs()
         renderReel.mockReset()
         useAppState.setState({
             files: [proxy],

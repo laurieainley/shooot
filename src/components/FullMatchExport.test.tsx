@@ -14,6 +14,7 @@ const saved = { job: null as unknown }
 vi.mock('../render/renderJob', () => ({ loadJob: vi.fn(async () => saved.job), discardJob: vi.fn(async () => { saved.job = null }) }))
 
 import { FullMatchExport } from './FullMatchExport'
+import { resetRenderJobs } from '../renderJobs'
 import { fullMatchExport } from '../utils/exportPlans'
 
 const big = (name: string, gb: number): VideoSourceFile => {
@@ -25,6 +26,7 @@ const big = (name: string, gb: number): VideoSourceFile => {
 describe('FullMatchExport', () => {
     beforeEach(() => {
         renderReel.mockReset()
+        resetRenderJobs()
         saved.job = null
         setCoarsePointer(false)
         useAppState.setState({
@@ -61,7 +63,8 @@ describe('FullMatchExport', () => {
         expect(cuts).toEqual([{ sourceIndex: 0, startSec: 60, endSec: 600 }, { sourceIndex: 1, startSec: 0, endSec: 540 }])
         expect(opts.outputName).toBe('full-match.mp4')
         expect(opts.resumable).toMatchObject({ kind: 'fullMatch' })
-        expect(await screen.findByRole('link', { name: /download full-match\.mp4/i })).toBeInTheDocument()
+        expect(await screen.findByText('Downloaded full-match.mp4')).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: 'Download again' })).toBeInTheDocument()
     })
 
     it('should set the score bug and cards', async () => {

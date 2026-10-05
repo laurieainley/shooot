@@ -1,27 +1,62 @@
-import type { GraphicsReport } from '../render'
-import type { RenderResult } from './useRenderRunner'
+import { useEffect, useState } from 'react'
+import type { JobKind } from '../render/renderJob'
+import { renderJobs, useRenderJobs } from '../renderJobs'
 
 interface RenderStatusProps {
-    busy: boolean
-    status: string
-    report: GraphicsReport | null
-    result: RenderResult | null
-    onCancel: () => void
+    /** Which export this panel section belongs to: it shows that render, and notes when the other one is running. */
+    kind: JobKind
 }
 
-/** Progress (with Keep-the-screen-open and Cancel while rendering), skipped graphics, and the finished file. */
-export function RenderStatus({ busy, status, report, result, onCancel }: RenderStatusProps) {
-    const canShare = result != null && typeof navigator.canShare === 'function' && navigator.canShare({ files: [result.file] })
-    const skipped = report ? [...new Map(report.skipped.map((g) => [`${g.label}|${g.reason}`, g])).values()] : []
+const CONFIRM_AFTER_MS = 10_000
+const NAMES: Record<JobKind, string> = { highlights: 'highlights', fullMatch: 'full match' }
+
+/** The render's progress, Cancel (confirmed after 10 s), skipped graphics, and the downloaded file. */
+export function RenderStatus({ kind }: RenderStatusProps) {
+    const job = useRenderJobs((s) => s.job)
+    const conflict = useRenderJobs((s) => s.conflict)
+    const [confirming, setConfirming] = useState(false)
+    const [, tick] = useState(0)
+    useEffect(() => { if (job?.phase !== 'running') setConfirming(false) }, [job?.phase])
+    useEffect(() => {
+        if (job?.phase !== 'running') return
+        const t = setInterval(() => tick((n) => n + 1), 1000)
+        return () => clearInterval(t)
+    }, [job?.phase])
+
+    const jobs = renderJobs().getState()
+    const askCancel = (): void => {
+        if (job && Date.now() - job.startedAt > CONFIRM_AFTER_MS) setConfirming(true)
+        else jobs.cancel()
+    }
+    const cancelControls = confirming ? (
+        <span role="group" aria-label="Cancel the render?" className="flex flex-wrap items-center gap-2">
+            <span>Cancel at {Math.round((job?.fraction ?? 0) * 100)}%?</span>
+            <button type="button" className="btn-quiet btn-danger" onClick={() => { setConfirming(false); jobs.cancel() }}>Cancel render</button>
+            <button type="button" className="btn-quiet" onClick={() => setConfirming(false)}>Keep rendering</button>
+        </span>
+    ) : <button type="button" className="btn-quiet" onClick={askCancel}>Cancel</button>
+
+    if (job && job.kind !== kind) {
+        if (job.phase !== 'running') return null
+        return (
+            <div className="render-busy" role="status">
+                <p className="m-0">Rendering {NAMES[job.kind]} · {Math.round(job.fraction * 100)}%{conflict ? ' — one render at a time: cancel it to start this one.' : ''}</p>
+                {cancelControls}
+            </div>
+        )
+    }
+    if (!job) return null
+    const canShare = job.result != null && typeof navigator.canShare === 'function' && navigator.canShare({ files: [job.result.file] })
+    const skipped = job.report ? [...new Map(job.report.skipped.map((g) => [`${g.label}|${g.reason}`, g])).values()] : []
     return (
         <>
-            {busy && (
+            {job.phase === 'running' && (
                 <div className="render-busy">
-                    <p className="m-0">Keep this screen open until the render finishes.</p>
-                    <button type="button" className="btn-quiet" onClick={onCancel}>Cancel</button>
+                    <p className="m-0">Keep this screen open until the render finishes.{conflict ? ' One render at a time.' : ''}</p>
+                    {cancelControls}
                 </div>
             )}
-            {status && <div role="status" className="tc text-[12px] text-muted">{status}</div>}
+            <div role="status" className="tc text-[12px] text-muted">{job.phase === 'failed' ? `Render failed: ${job.error}` : job.status}</div>
             {skipped.length > 0 && (
                 <div className="rounded border border-line p-2 text-[12px] text-muted">
                     <p className="m-0 mb-1">Rendered without:</p>
@@ -30,15 +65,15 @@ export function RenderStatus({ busy, status, report, result, onCancel }: RenderS
                     </ul>
                 </div>
             )}
-            {result && (
-                <div className="flex items-center gap-3">
-                    <a href={result.url} download={result.file.name} className="btn-primary no-underline">
-                        Download {result.file.name}
+            {job.result && (
+                <div className="render-done">
+                    <span>{job.result.downloaded ? `Downloaded ${job.result.file.name}` : `${job.result.file.name} is ready`}</span>
+                    <a href={job.result.url} download={job.result.file.name} className={job.result.downloaded ? 'btn-quiet no-underline' : 'btn-primary no-underline'}
+                        onClick={(e) => { e.preventDefault(); jobs.downloadAgain() }}>
+                        {job.result.downloaded ? 'Download again' : `Download ${job.result.file.name}`}
                     </a>
                     {canShare && (
-                        <button onClick={() => navigator.share({ files: [result.file] }).catch(() => undefined)} className="btn-quiet">
-                            Share
-                        </button>
+                        <button type="button" onClick={() => navigator.share({ files: [job.result!.file] }).catch(() => undefined)} className="btn-quiet">Share</button>
                     )}
                 </div>
             )}

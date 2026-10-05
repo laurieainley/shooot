@@ -11,6 +11,7 @@ import { patchPlayerFullscreen, type FullscreenPlayer } from './fullscreen'
 import { homeTarget, startInFile } from '../utils/markers'
 import { useZoomPan, type ZoomPan } from './useZoomPan'
 import { ZoomChip } from './ZoomChip'
+import { RenderChip } from './RenderChip'
 import { useTouchScrub } from './useTouchScrub'
 import { formatEventClock } from '../utils/timeline'
 import { playerOptions } from '../utils/playerOptions'
@@ -414,6 +415,7 @@ export function Player() {
                 </div>
             )}
             <ZoomChip zoom={zoomPan.zoom} onReset={zoomPan.reset} />
+            {(isFullscreen || immersive) && <RenderChip variant="overlay" />}
             {scrub && <div className="scrub-bubble tc" style={{ left: scrub.leftPx }}>{formatEventClock(fileOffset + scrub.timeSec, scrub.timeSec, matchStartSec)}</div>}
             <FullscreenControls playerRef={playerRef} isFullscreen={isFullscreen || immersive} />
             <EventPicker />
