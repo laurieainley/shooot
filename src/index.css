@@ -45,6 +45,8 @@
 }
 
 html, body, #root { height: 100%; }
+/* No pull-to-refresh or scroll chaining: a drag that overshoots must never reload the page mid-edit. */
+html, body { overscroll-behavior-y: contain; }
 body {
   margin: 0;
   min-width: 320px;
