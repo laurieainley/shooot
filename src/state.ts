@@ -92,7 +92,7 @@ export const useAppState = create<AppState>()(
             lengthBeforeGoalSec: 10,
             lengthAfterGoalSec: 4,
             // Slow-mo replay configuration
-            replayBeforeSec: 3,
+            replayBeforeSec: 4,
             replayAfterSec: 1,
             replaySpeed: 0.5,
             // Undo/redo stacks

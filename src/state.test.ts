@@ -133,9 +133,9 @@ describe('attachFullFiles', () => {
 })
 
 describe('replay settings', () => {
-    it('should default to 3 s before, 1 s after, 0.5× and persist them', () => {
+    it('should default to 4 s before, 1 s after, 0.5× and persist them', () => {
         const init = useAppState.getInitialState()
-        expect([init.replayBeforeSec, init.replayAfterSec, init.replaySpeed]).toEqual([3, 1, 0.5])
+        expect([init.replayBeforeSec, init.replayAfterSec, init.replaySpeed]).toEqual([4, 1, 0.5])
         s().setReplayWindow(2, 2)
         s().setReplaySpeed(0.25)
         expect([s().replayBeforeSec, s().replayAfterSec, s().replaySpeed]).toEqual([2, 2, 0.25])
