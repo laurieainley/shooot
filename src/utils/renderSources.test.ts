@@ -29,4 +29,8 @@ describe('formatRenderProgress', () => {
     it('should format clip count and percent', () => {
         expect(formatRenderProgress({ cutIndex: 2, cutCount: 12, fraction: 0.414 })).toBe('Clip 3 of 12 · 41%')
     })
+
+    it('should name the stage while a graphic is being made', () => {
+        expect(formatRenderProgress({ cutIndex: 0, cutCount: 3, fraction: 0.02, stage: 'Title card' })).toBe('Title card · 2%')
+    })
 })

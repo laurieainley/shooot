@@ -7,6 +7,8 @@ import type { VideoSourceFile } from '../types'
 
 const renderReel = vi.fn()
 vi.mock('../render', () => ({ renderReel: (...a: unknown[]) => renderReel(...a) }))
+vi.mock('../graphics/assets', () => ({ loadGraphicsFont: vi.fn(async () => true), loadLogo: vi.fn(async () => null) }))
+vi.mock('../graphics/logoStore', () => ({ loadCustomLogo: vi.fn(async () => null) }))
 
 import { RenderHighlights } from './RenderHighlights'
 
@@ -19,6 +21,7 @@ describe('RenderHighlights', () => {
             files: [proxy],
             events: [{ id: 'e', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal' }],
             lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
+            graphics: { cards: true, lowerThirds: true, replayTag: false },
         })
     })
 
@@ -76,5 +79,34 @@ describe('RenderHighlights', () => {
             { sourceIndex: 0, startSec: 90, endSec: 104 },
             { sourceIndex: 0, startSec: 97, endSec: 101, speed: 0.5, gain: 0.5 },
         ])
+    })
+
+    it('should pass title cards and a lower third for the goal to the renderer', async () => {
+        renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
+        render(<RenderHighlights />)
+        await userEvent.click(screen.getByRole('button', { name: /preview reel/i }))
+        const g = renderReel.mock.calls[0][2].graphics
+        expect(g.intro.label).toBe('Title card')
+        expect(g.outro.label).toBe('Full-time card')
+        expect(g.overlays.map((o: { cutIndex: number; startSec: number }) => [o.cutIndex, o.startSec])).toEqual([[0, 100]])
+    })
+
+    it('should render without graphics when they are all turned off', async () => {
+        useAppState.setState({ graphics: { cards: false, lowerThirds: false, replayTag: false } })
+        renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
+        render(<RenderHighlights />)
+        await userEvent.click(screen.getByRole('button', { name: /preview reel/i }))
+        expect(renderReel.mock.calls[0][2].graphics).toBeUndefined()
+    })
+
+    it('should say which graphics were left out and why', async () => {
+        renderReel.mockImplementation(async (_c, _s, { onGraphics }) => {
+            onGraphics({ applied: ['Title card'], skipped: [{ label: 'Full-time card', reason: 'no encoder' }] })
+            return new Blob(['x'], { type: 'video/mp4' })
+        })
+        render(<RenderHighlights />)
+        await userEvent.click(screen.getByRole('button', { name: /preview reel/i }))
+        expect(await screen.findByText(/Full-time card/)).toBeInTheDocument()
+        expect(screen.getByText(/no encoder/)).toBeInTheDocument()
     })
 })

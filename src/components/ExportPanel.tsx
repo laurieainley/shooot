@@ -2,6 +2,7 @@ import { useRef, type ReactNode } from 'react'
 import { useAppState } from '../state'
 import { ChaptersCopy } from './ChaptersCopy'
 import { FloatingPanel } from './FloatingPanel'
+import { GraphicsSettings } from './GraphicsSettings'
 import { PreviewControls } from './PreviewControls'
 import { RenderHighlights } from './RenderHighlights'
 
@@ -35,6 +36,9 @@ export function ExportPanel() {
                 <FloatingPanel label="Export" anchorRef={anchorRef} placement="below" onClose={() => setOpen(false)}>
                     <Section title="Preview" hint="in the player, clip by clip">
                         <PreviewControls onStart={() => setOpen(false)} />
+                    </Section>
+                    <Section title="Graphics" hint="drawn into the rendered reel">
+                        <GraphicsSettings />
                     </Section>
                     <Section title="Render" hint="one MP4 reel">
                         <RenderHighlights />

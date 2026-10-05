@@ -18,5 +18,6 @@ export function resolveRenderSources(
 }
 
 export function formatRenderProgress(p: RenderProgress): string {
-    return `Clip ${p.cutIndex + 1} of ${p.cutCount} · ${Math.round(p.fraction * 100)}%`
+    const pct = `${Math.round(p.fraction * 100)}%`
+    return p.stage ? `${p.stage} · ${pct}` : `Clip ${p.cutIndex + 1} of ${p.cutCount} · ${pct}`
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { useAppState } from './state'
+import { matchdayText, useAppState } from './state'
 import type { MatchEvent, VideoSourceFile } from './types'
 
 const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec: 100, kind: 'full' })
@@ -288,5 +288,49 @@ describe('preview', () => {
         s().exitPreview()
         s().startPreview()
         expect(s().currentPreviewSegment).toBe(0)
+    })
+})
+
+describe('match graphics settings', () => {
+    beforeEach(() => {
+        useAppState.setState({ graphics: { cards: true, lowerThirds: true, replayTag: false }, matchNumber: 1, matchdayLabel: null })
+    })
+
+    it('should default to cards and lower thirds on, replay tag off', () => {
+        expect(s().graphics).toEqual({ cards: true, lowerThirds: true, replayTag: false })
+    })
+
+    it('should toggle one graphic at a time', () => {
+        s().setGraphics({ replayTag: true })
+        s().setGraphics({ cards: false })
+        expect(s().graphics).toEqual({ cards: false, lowerThirds: true, replayTag: true })
+    })
+
+    it('should name the matchday from the match number until it is edited', () => {
+        expect(matchdayText(s())).toBe('Matchday 1')
+        s().setMatchdayLabel('Cup final')
+        expect(matchdayText(s())).toBe('Cup final')
+        s().setMatchdayLabel('  ')
+        expect(matchdayText(s())).toBe('Matchday 1')
+    })
+
+    it('should move to the next matchday on New match', () => {
+        s().setMatchdayLabel('Cup final')
+        s().newMatch()
+        expect(s().matchNumber).toBe(2)
+        expect(matchdayText(s())).toBe('Matchday 2')
+    })
+
+    it('should store team initials, clearing them when blank', () => {
+        useAppState.setState({ teams: [{ name: 'Whites', color: '#f0f0f0', roster: [] }, { name: 'Colours', color: '#ec5fa4', roster: [] }] })
+        s().setTeamInitials(1, 'wt')
+        expect(s().teams[1].initials).toBe('WT')
+        s().setTeamInitials(1, ' ')
+        expect(s().teams[1].initials).toBeUndefined()
+    })
+
+    it('should persist graphics settings and the matchday', () => {
+        const persisted = useAppState.persist.getOptions().partialize!(s()) as Record<string, unknown>
+        expect(persisted).toMatchObject({ graphics: s().graphics, matchNumber: 1, matchdayLabel: null })
     })
 })

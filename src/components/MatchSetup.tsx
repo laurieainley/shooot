@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAppState } from '../state'
 import { parseRoster } from '../utils/roster'
+import { MatchGraphicsSetup } from './MatchGraphicsSetup'
 import { Sheet } from './Sheet'
 import { TimeInput } from './TimeInput'
 
@@ -74,6 +75,7 @@ export function MatchSetup({ onClose }: MatchSetupProps) {
                         Use current time
                     </button>
                 </div>
+                <MatchGraphicsSetup />
         </Sheet>
     )
 }

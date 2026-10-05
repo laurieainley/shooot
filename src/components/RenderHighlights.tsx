@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type ChangeEvent } from 'react'
-import { useAppState } from '../state'
-import { renderReel } from '../render'
+import { matchdayText, useAppState } from '../state'
+import { renderReel, type GraphicsReport } from '../render'
+import { prepareGraphics } from '../graphics/prepare'
 import { mergeOverlappingGoalSegments } from '../utils/highlights'
 import { linkedEvents } from '../utils/relink'
 import { buildRenderPlan } from '../utils/renderPlan'
@@ -21,6 +22,9 @@ export function RenderHighlights() {
     const replayBeforeSec = useAppState((s) => s.replayBeforeSec)
     const replayAfterSec = useAppState((s) => s.replayAfterSec)
     const replaySpeed = useAppState((s) => s.replaySpeed)
+    const graphicsSettings = useAppState((s) => s.graphics)
+    const teams = useAppState((s) => s.teams)
+    const [graphicsReport, setGraphicsReport] = useState<GraphicsReport | null>(null)
     const [status, setStatus] = useState('')
     const [busy, setBusy] = useState(false)
     const [missing, setMissing] = useState<string[]>([])
@@ -40,13 +44,23 @@ export function RenderHighlights() {
         setMissing([])
         if (result) URL.revokeObjectURL(result.url)
         setResult(null)
+        setGraphicsReport(null)
         setBusy(true)
         setStatus('Preparing…')
         try {
             const segments = mergeOverlappingGoalSegments(linked, cumulativeOffsets, matchStartTimeSec, adjustTimestampsByOffset, before, after)
             const cuts = buildRenderPlan(segments, files.map((f) => f.durationSec ?? Infinity),
                 { beforeSec: replayBeforeSec, afterSec: replayAfterSec, speed: replaySpeed })
-            const out = await renderReel(cuts, sources, { onProgress: (p) => setStatus(formatRenderProgress(p)) })
+            const graphics = await prepareGraphics({
+                events: linked, teams, cuts, cumulativeOffsets, settings: graphicsSettings, matchday: matchdayText(useAppState.getState()),
+            }).catch((e: unknown) => {
+                setGraphicsReport({ applied: [], skipped: [{ label: 'Graphics', reason: e instanceof Error ? e.message : String(e) }] })
+                return undefined
+            })
+            const out = await renderReel(cuts, sources, {
+                onProgress: (p) => setStatus(formatRenderProgress(p)),
+                ...(graphics ? { graphics, onGraphics: setGraphicsReport } : {}),
+            })
             const name = quality === 'preview' ? 'highlights-preview.mp4' : 'highlights.mp4'
             const file = new File([out], name, { type: 'video/mp4' })
             setResult({ url: URL.createObjectURL(file), file })
@@ -106,6 +120,14 @@ export function RenderHighlights() {
             )}
 
             {status && <div role="status" className="tc text-[12px] text-muted">{status}</div>}
+            {graphicsReport && graphicsReport.skipped.length > 0 && (
+                <div className="rounded border border-line p-2 text-[12px] text-muted">
+                    <p className="m-0 mb-1">Rendered without:</p>
+                    <ul className="m-0 list-disc pl-4">
+                        {graphicsReport.skipped.map((g, i) => <li key={i}>{g.label} — {g.reason}</li>)}
+                    </ul>
+                </div>
+            )}
             {result && (
                 <div className="flex items-center gap-3">
                     <a href={result.url} download={result.file.name} className="btn-primary no-underline">
