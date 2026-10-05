@@ -1,8 +1,11 @@
-export const ZOOM_LEVELS = [1, 1.5, 2] as const
+/** Z cycles through these; a pinch can land anywhere between 1× and MAX_ZOOM. */
+export const ZOOM_LEVELS = [1, 1.5, 2, 3, 4] as const
+export const MAX_ZOOM = 4
 
+/** Next level up (from a pinched zoom between levels: the level above it); after the top, back to 1×. */
 export function nextZoom(current: number): number {
-    const i = ZOOM_LEVELS.findIndex((z) => z === current)
-    return i === -1 || i === ZOOM_LEVELS.length - 1 ? 1 : ZOOM_LEVELS[i + 1]
+    const up = ZOOM_LEVELS.find((z) => z > current + 1e-6)
+    return up ?? 1
 }
 
 export type Pan = { x: number; y: number }
@@ -14,6 +17,12 @@ export function clampPan(zoom: number, pan: Pan, viewport: { width: number; heig
     return { x: clamp(pan.x, maxX), y: clamp(pan.y, maxY) }
 }
 
-export function snapZoom(z: number): number {
-    return ZOOM_LEVELS.reduce<number>((best, l) => (Math.abs(l - z) < Math.abs(best - z) ? l : best), ZOOM_LEVELS[0])
+export function clampZoom(z: number): number {
+    return Math.min(MAX_ZOOM, Math.max(1, z))
+}
+
+/** Where a released pinch rests: where the fingers left it, except just above 1× snaps back home. */
+export function settleZoom(z: number): number {
+    const c = clampZoom(z)
+    return c < 1.1 ? 1 : c
 }

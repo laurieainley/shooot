@@ -308,7 +308,7 @@ export function Player() {
         tech.style.transform = zoomPan.zoom > 1 ? `translate(${zoomPan.pan.x}px, ${zoomPan.pan.y}px) scale(${zoomPan.zoom})` : ''
     }, [zoomPan.zoom, zoomPan.pan, currentFileIndex, files])
 
-    // Shift+drag (mouse) or two-finger drag pans while zoomed; a two-finger pinch zooms between 1× and 2×.
+    // Shift+drag (mouse) or two-finger drag pans while zoomed; a two-finger pinch zooms between 1× and 4×.
     useEffect(() => {
         const el = containerRef.current
         if (!el) return
