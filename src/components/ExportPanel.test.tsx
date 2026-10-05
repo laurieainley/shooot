@@ -16,7 +16,7 @@ describe('ExportPanel', () => {
         useAppState.setState({
             files: [proxy], cumulativeOffsets: [0], isPreviewMode: false, previewSegments: [], currentPreviewSegment: 0, panel: null,
             events: [{ id: 'e', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal' }],
-            lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
+            lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, exportTab: 'highlights',
         })
     })
 
@@ -35,6 +35,21 @@ describe('ExportPanel', () => {
         expect(screen.getByRole('button', { name: /full quality/i })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: /copy highlights description/i })).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: /export project/i })).not.toBeInTheDocument()
+    })
+
+    it('should have Export highlights and Export full match tabs', async () => {
+        render(<ExportPanel />)
+        await userEvent.click(screen.getByRole('button', { name: 'Export' }))
+        const highlights = screen.getByRole('tab', { name: 'Export highlights' })
+        expect(highlights).toHaveAttribute('aria-selected', 'true')
+        await userEvent.click(screen.getByRole('tab', { name: 'Export full match' }))
+        expect(screen.getByRole('tab', { name: 'Export full match' })).toHaveAttribute('aria-selected', 'true')
+        expect(screen.getByRole('tabpanel', { name: 'Export full match' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /render full match/i })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Copy full match description' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /preview in player/i })).not.toBeInTheDocument()
+        await userEvent.keyboard('{ArrowLeft}')
+        expect(screen.getByRole('tab', { name: 'Export highlights' })).toHaveAttribute('aria-selected', 'true')
     })
 
     it('should start the in-player preview and close itself', async () => {

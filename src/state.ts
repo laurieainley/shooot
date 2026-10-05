@@ -9,6 +9,7 @@ import { kickOffSec, resolveGlobalEvents, withMigratedKickOff } from './utils/ma
 import { parseGoProName } from './utils/gopro'
 import { buildPreviewPlan, type PreviewStep } from './utils/preview'
 import type { GraphicsSettings } from './graphics/plan'
+import type { FullMatchSettings } from './utils/exportPlans'
 
 /** Links events to the loaded files: migrated whole-timeline times are placed first, then file keys matched. */
 function relinkEvents(events: MatchEvent[], files: VideoSourceFile[]): MatchEvent[] {
@@ -104,6 +105,12 @@ type AppState = {
     setGraphics: (partial: Partial<GraphicsSettings>) => void
     /** Measured render seconds per second of video for whole-reel re-encodes on this device (null = not yet). */
     reencodeSecPerSec: number | null
+    /** Export full match: VS / FT cards and the score bug (off / after goals / periodic every n minutes). */
+    fullMatch: FullMatchSettings
+    /** Which half of the Export panel is showing. */
+    exportTab: 'highlights' | 'fullMatch'
+    setExportTab: (tab: 'highlights' | 'fullMatch') => void
+    setFullMatch: (partial: Partial<FullMatchSettings>) => void
     noteReencodeSpeed: (secPerSec: number) => void
     /** Matchday heading on the title card; null = "MATCH". */
     matchdayLabel: string | null
@@ -368,6 +375,10 @@ export const useAppState = create<AppState>()(
             closePicker: () => set({ picker: null }),
             setGraphics: (partial) => set({ graphics: { ...get().graphics, ...partial } }),
             reencodeSecPerSec: null,
+            fullMatch: { cards: true, scoreBug: 'periodic', intervalMin: 5 },
+            exportTab: 'highlights',
+            setExportTab: (tab) => set({ exportTab: tab }),
+            setFullMatch: (partial) => set({ fullMatch: { ...get().fullMatch, ...partial } }),
             noteReencodeSpeed: (secPerSec) => { if (secPerSec > 0 && Number.isFinite(secPerSec)) set({ reencodeSecPerSec: secPerSec }) },
             setMatchdayLabel: (label) => set({ matchdayLabel: label?.trim() ? label : null }),
             setTeamInitials: (index, initials) => set({
@@ -439,6 +450,7 @@ export const useAppState = create<AppState>()(
                 teams: state.teams,
                 graphics: state.graphics,
                 reencodeSecPerSec: state.reencodeSecPerSec,
+                fullMatch: state.fullMatch,
                 matchdayLabel: state.matchdayLabel,
                 barCollapsed: state.barCollapsed,
             }),
