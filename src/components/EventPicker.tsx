@@ -64,7 +64,7 @@ export function EventPicker() {
     }
 
     // The scorer field takes focus and then unmounts; give focus back (normally the
-    // video.js element, where its hotkeys listen) so G keeps working afterwards.
+    // video.js element) so focus is not left on nothing.
     const isOpen = picker !== null
     useEffect(() => {
         if (!isOpen) return

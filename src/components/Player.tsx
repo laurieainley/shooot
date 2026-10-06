@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import videojs from 'video.js'
 import 'video.js/dist/video-js.css'
-import 'videojs-hotkeys'
 import { selectMatchStartSec, useAppState } from '../state'
-import { seekStepFor, frameStepTime, DEFAULT_FPS } from '../utils/hotkeys'
+import { shortcutFor, shouldHandleShortcut } from '../utils/shortcuts'
+import { runShortcut, type ShortcutPlayer } from './playerShortcuts'
 import { FullscreenControls } from './FullscreenControls'
 import { EventPicker } from './EventPicker'
 import { TimelineMarkers } from './TimelineMarkers'
 import { patchPlayerFullscreen, type FullscreenPlayer } from './fullscreen'
-import { homeTarget, startInFile } from '../utils/markers'
 import { cropTransform } from '../utils/crop'
 import { useZoomPan, type ZoomPan } from './useZoomPan'
 import { ZoomChip } from './ZoomChip'
@@ -18,8 +17,6 @@ import { PlayIndicator } from './PlayIndicator'
 import { formatEventClock } from '../utils/timeline'
 import { playerOptions } from '../utils/playerOptions'
 import { shouldAdvance } from '../utils/preview'
-
-type FrameStepPlayer = { pause: () => void; currentTime: (t?: number) => number; duration: () => number }
 
 export function Player() {
     const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -53,6 +50,29 @@ export function Player() {
     const matchStartSec = useAppState(selectMatchStartSec)
     const fileOffset = useAppState((s) => s.cumulativeOffsets[s.currentFileIndex] ?? 0)
 
+    // Every player shortcut, wherever focus is (see utils/shortcuts.ts); the event log's own keys stop propagation first.
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent): void => {
+            if (e.defaultPrevented) return
+            const action = shortcutFor(e)
+            const player = playerRef.current as ShortcutPlayer | null
+            const st = useAppState.getState()
+            if (!action || !player || !shouldHandleShortcut(e.target, { modalOpen: !!(st.picker || st.panel) })) return
+            e.preventDefault()
+            e.stopPropagation()
+            runShortcut(action, player, zoomRef.current)
+        }
+        // Space on a focused button activates it on key-up: the key-up of a handled Space must not click anything.
+        const onKeyUp = (e: KeyboardEvent): void => {
+            if (e.key !== ' ') return
+            const st = useAppState.getState()
+            if (shouldHandleShortcut(e.target, { modalOpen: !!(st.picker || st.panel) })) e.preventDefault()
+        }
+        window.addEventListener('keydown', onKey)
+        window.addEventListener('keyup', onKeyUp)
+        return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKeyUp) }
+    }, [])
+
     useEffect(() => {
         if (!videoRef.current) return
         if (!playerRef.current) {
@@ -62,139 +82,10 @@ export function Player() {
                 set: (on) => useAppState.getState().setImmersive(on),
             })
 
-            // Enable hotkeys once the player is ready
+            // Once the player is ready: the progress bar hosts the scrubber markers
             playerRef.current.ready(() => {
                 if (playerRef.current) {
                     setProgressHost(playerRef.current.el().querySelector('.vjs-progress-holder'))
-                    ;(playerRef.current as any).hotkeys({
-                        volumeStep: 0.1,
-                        seekStep: seekStepFor,             // ←/→ 5 s, Shift+←/→ 1 s
-                        volumeUpKey: () => false,          // ↑/↓ are frame steps (custom keys below)
-                        volumeDownKey: () => false,
-                        enableModifiersForNumbers: false,
-                        enableVolumeScroll: false,
-                        enableHoverScroll: false,
-                        enableFullscreen: true,
-                        alwaysCaptureHotkeys: true,
-                        enableNumbers: false,              // 0–9 seek disabled (too easy to hit by accident)
-                        customKeys: {
-                            zoomCycle: {
-                                key: (event: KeyboardEvent) => event.which === 90 && !event.metaKey && !event.ctrlKey && !event.altKey, // Z
-                                handler: () => zoomRef.current.cycle(),
-                            },
-                            zoomReset: {
-                                key: (event: KeyboardEvent) => (event.which === 48 || event.which === 96) && !event.metaKey && !event.ctrlKey, // 0
-                                handler: () => zoomRef.current.reset(),
-                            },
-                            frameForward: {
-                                key: (event: KeyboardEvent) => event.which === 38, // ↑
-                                handler: (player: FrameStepPlayer) => {
-                                    player.pause()
-                                    player.currentTime(frameStepTime(player.currentTime() || 0, 1, DEFAULT_FPS, player.duration() || Infinity))
-                                }
-                            },
-                            frameBack: {
-                                key: (event: KeyboardEvent) => event.which === 40, // ↓
-                                handler: (player: FrameStepPlayer) => {
-                                    player.pause()
-                                    player.currentTime(frameStepTime(player.currentTime() || 0, -1, DEFAULT_FPS, player.duration() || Infinity))
-                                }
-                            },
-                            // Speed controls
-                            decreaseSpeed: {
-                                key: function (event: KeyboardEvent) {
-                                    return event.which === 188 && !event.shiftKey; // comma (,)
-                                },
-                                handler: function (player: any) {
-                                    const currentRate = player.playbackRate();
-                                    const newRate = Math.max(0.25, currentRate - 0.25);
-                                    player.playbackRate(newRate);
-                                    console.log(`Playback speed: ${newRate}x`);
-                                }
-                            },
-                            increaseSpeed: {
-                                key: function (event: KeyboardEvent) {
-                                    return event.which === 190 && !event.shiftKey; // period (.)
-                                },
-                                handler: function (player: any) {
-                                    const currentRate = player.playbackRate();
-                                    const newRate = Math.min(4, currentRate + 0.25);
-                                    player.playbackRate(newRate);
-                                    console.log(`Playback speed: ${newRate}x`);
-                                }
-                            },
-                            // Home key - jump to start
-                            jumpToStart: {
-                                key: function (event: KeyboardEvent) {
-                                    return event.which === 36; // Home key
-                                },
-                                handler: function (player: any) {
-                                    const st = useAppState.getState()
-                                    const start = startInFile(selectMatchStartSec(st), st.cumulativeOffsets, st.currentFileIndex, player.duration() || 0)
-                                    player.currentTime(homeTarget(player.currentTime() || 0, start))
-                                }
-                            },
-                            // End key - jump to end
-                            jumpToEnd: {
-                                key: function (event: KeyboardEvent) {
-                                    return event.which === 35; // End key
-                                },
-                                handler: function (player: any) {
-                                    const duration = player.duration();
-                                    if (duration) {
-                                        player.currentTime(duration - 1); // 1 second before end
-                                    }
-                                }
-                            },
-                            // / key - reset speed to normal
-                            resetSpeed: {
-                                key: function (event: KeyboardEvent) {
-                                    return event.which === 191 && !event.shiftKey; // forward slash (/)
-                                },
-                                handler: function (player: any) {
-                                    player.playbackRate(1);
-                                    console.log('Playback speed: 1x (normal)');
-                                }
-                            },
-                            // G key - mark an event at the current time and open the picker (M is video.js mute)
-                            addGoal: {
-                                key: function (event: KeyboardEvent) {
-                                    return event.which === 71; // G
-                                },
-                                handler: function (player: any) {
-                                    useAppState.getState().markEvent(player.currentTime() || 0)
-                                }
-                            },
-                            // [ key - switch to previous video
-                            prevVideo: {
-                                key: function (event: KeyboardEvent) {
-                                    return event.which === 219 || event.keyCode === 219; // [ key
-                                },
-                                handler: function () {
-                                    const state = useAppState.getState();
-                                    if (state.currentFileIndex > 0) {
-                                        const newIndex = state.currentFileIndex - 1;
-                                        state.setCurrentFileIndex(newIndex);
-                                        console.log(`Switched to Video ${newIndex + 1}`);
-                                    }
-                                }
-                            },
-                            // ] key - switch to next video
-                            nextVideo: {
-                                key: function (event: KeyboardEvent) {
-                                    return event.which === 221 || event.keyCode === 221; // ] key
-                                },
-                                handler: function () {
-                                    const state = useAppState.getState();
-                                    if (state.currentFileIndex < state.files.length - 1) {
-                                        const newIndex = state.currentFileIndex + 1;
-                                        state.setCurrentFileIndex(newIndex);
-                                        console.log(`Switched to Video ${newIndex + 1}`);
-                                    }
-                                }
-                            }
-                        }
-                    })
                 }
             })
         }

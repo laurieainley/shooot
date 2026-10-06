@@ -1,3 +1,4 @@
+import { shouldHandleShortcut } from '../utils/shortcuts'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { selectMatchStartSec, useAppState } from '../state'
 import type { MatchEvent, Team } from '../types'
@@ -44,7 +45,8 @@ export function EventLog() {
         const onKey = (e: KeyboardEvent): void => {
             if (e.key !== 'l' && e.key !== 'L') return
             if (e.metaKey || e.ctrlKey || e.altKey) return
-            if (useAppState.getState().picker || isTyping(document.activeElement)) return
+            const st = useAppState.getState()
+            if (!shouldHandleShortcut(e.target, { modalOpen: !!(st.picker || st.panel) })) return
             if (rootRef.current?.contains(document.activeElement)) return
             e.preventDefault()
             rootRef.current?.focus()
