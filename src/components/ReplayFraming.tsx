@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useAppState } from '../state'
 import type { CropRect, MatchEvent, ReplayCrop } from '../types'
 import { replayCropResolver } from '../utils/attack'
@@ -23,7 +24,7 @@ const choiceOf = (c: ReplayCrop | undefined): (typeof CHOICES)[number]['id'] => 
  */
 export function ReplayFraming({ event: e }: ReplayFramingProps) {
     const areas = useAppState((s) => s.goalAreas)
-    const resolverState = useAppState((s) => ({ events: s.events, teams: s.teams, cumulativeOffsets: s.cumulativeOffsets, whitesAttackLeft: s.whitesAttackLeft, areas: s.goalAreas }))
+    const resolverState = useAppState(useShallow((s) => ({ events: s.events, teams: s.teams, cumulativeOffsets: s.cumulativeOffsets, whitesAttackLeft: s.whitesAttackLeft, areas: s.goalAreas })))
     const file = useAppState((s) => s.files[e.sourceFileIndex ?? 0])
     const frame = useFrameAt(e.unlinked ? null : file?.url, e.unlinked || !file ? null : e.matchTimeSec)
     const resolved = useMemo(() => replayCropResolver(resolverState)(e), [resolverState, e])
@@ -32,7 +33,6 @@ export function ReplayFraming({ event: e }: ReplayFramingProps) {
     const [draft, setDraftState] = useState<CropRect | null>(null)
     const draftRef = useRef<CropRect | null>(null)
     const setDraft = (r: CropRect | null): void => { draftRef.current = r; setDraftState(r) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => setDraft(null), [e.replayCrop, e.id])
     const shown = draft ?? resolved ?? null
     const set = (crop: ReplayCrop | undefined): void => useAppState.getState().updateEvent(e.id, { replayCrop: crop })

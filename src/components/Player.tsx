@@ -9,6 +9,7 @@ import { EventPicker } from './EventPicker'
 import { TimelineMarkers } from './TimelineMarkers'
 import { patchPlayerFullscreen, type FullscreenPlayer } from './fullscreen'
 import { homeTarget, startInFile } from '../utils/markers'
+import { cropTransform } from '../utils/crop'
 import { useZoomPan, type ZoomPan } from './useZoomPan'
 import { ZoomChip } from './ZoomChip'
 import { RenderChip } from './RenderChip'
@@ -322,11 +323,24 @@ export function Player() {
     }, [isPreviewMode, currentPreviewSegment, previewSteps, nextPreviewSegment])
 
     // Apply the zoom to the video picture (the tech element), not to the controls.
+    const { zoom: userZoom, pan: userPan } = zoomPan
     useEffect(() => {
         const tech = containerRef.current?.querySelector<HTMLElement>('.vjs-tech')
         if (!tech) return
-        tech.style.transform = zoomPan.zoom > 1 ? `translate(${zoomPan.pan.x}px, ${zoomPan.pan.y}px) scale(${zoomPan.zoom})` : ''
-    }, [zoomPan.zoom, zoomPan.pan, currentFileIndex, files])
+        // Preview replays show the part of the picture the render crops to (same maths, so what you see is what you get).
+        const crop = isPreviewMode ? previewSteps[currentPreviewSegment]?.crop : undefined
+        let zoom = userZoom
+        let pan = userPan
+        if (crop) {
+            const video = tech as HTMLVideoElement
+            const box = { width: tech.clientWidth, height: tech.clientHeight }
+            const aspect = video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : box.width / (box.height || 1)
+            // The picture sits letterboxed in the element: fractions of the frame are fractions of that picture.
+            const content = box.width / (box.height || 1) > aspect ? { width: box.height * aspect, height: box.height } : { width: box.width, height: box.width / aspect }
+            ;({ zoom, pan } = cropTransform(crop, content))
+        }
+        tech.style.transform = zoom > 1 ? `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` : ''
+    }, [userZoom, userPan, currentFileIndex, files, isPreviewMode, previewSteps, currentPreviewSegment])
 
     // Shift+drag (mouse) or two-finger drag pans while zoomed; a two-finger pinch zooms between 1× and 4×.
     useEffect(() => {
