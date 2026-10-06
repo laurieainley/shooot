@@ -90,7 +90,9 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                         signal,
                         outputName: req.outputName,
                         ...(req.resumable ? { resumable: req.resumable } : {}),
-                        ...(req.graphics ? { graphics: req.graphics, onGraphics: (report) => patch(id, { report }) } : {}),
+                        // Reports also come for replay crops, which are drawn even when there are no graphics.
+                        onGraphics: (report) => patch(id, { report }),
+                        ...(req.graphics ? { graphics: req.graphics } : {}),
                     })
                     const file = out instanceof File && out.name === req.outputName ? out : new File([out], req.outputName, { type: 'video/mp4' })
                     const url = deps.createUrl(file)
