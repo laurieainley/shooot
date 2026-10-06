@@ -47,12 +47,48 @@ describe('FrameBoxes', () => {
 
     it('should resize from the corner handle with the aspect locked', () => {
         const { onChange } = setup()
-        const h = screen.getByRole('button', { name: 'Resize Left goal box' })
+        const h = screen.getByRole('button', { name: 'Resize Left goal box, bottom right' })
         fireEvent.pointerDown(h, { pointerId: 1, clientX: 500, clientY: 250 })
         fireEvent.pointerMove(h, { pointerId: 1, clientX: 600, clientY: 250 })
         expect(last(onChange).w).toBeCloseTo(0.5)
         expect(last(onChange).h).toBeCloseTo(0.5)
         expect(last(onChange).x).toBeCloseTo(0.1) // anchored at the top-left corner
+    })
+
+    it.each([
+        ['top left', 100, 100, -100, -50, { x: 0, y: 0.1 }],
+        ['top right', 500, 100, 100, -50, { x: 0.1, y: 0.1 }],
+        ['bottom left', 100, 300, -100, 50, { x: 0, y: 0.2 }],
+        ['bottom right', 500, 300, 100, 50, { x: 0.1, y: 0.2 }],
+    ])('should resize from the %s handle with the opposite corner fixed', (corner, px, py, dx, dy, expected) => {
+        const { onChange } = setup()
+        const h = screen.getByRole('button', { name: `Resize Left goal box, ${corner}` })
+        fireEvent.pointerDown(h, { pointerId: 1, clientX: px, clientY: py })
+        fireEvent.pointerMove(h, { pointerId: 1, clientX: px + dx, clientY: py + dy })
+        const r = last(onChange)
+        expect(r.w).toBeCloseTo(0.5)
+        expect(r.h).toBeCloseTo(0.5)
+        expect(r.x).toBeCloseTo(expected.x)
+        expect(r.y).toBeCloseTo(expected.y)
+    })
+
+    it('should draw the box that was last pressed above the other', () => {
+        const rects = [{ x: 0.1, y: 0.2, w: 0.4, h: 0.4 }, { x: 0.3, y: 0.2, w: 0.4, h: 0.4 }]
+        render(<FrameBoxes state={ready} boxes={[
+            { id: 'left', label: 'Left goal', short: 'L', rect: rects[0], tone: 'left' },
+            { id: 'right', label: 'Right goal', short: 'R', rect: rects[1], tone: 'right' },
+        ]} onChange={() => {}} emptyText="none" />)
+        const left = screen.getByRole('group', { name: 'Left goal box' })
+        const right = screen.getByRole('group', { name: 'Right goal box' })
+        const z = (e: HTMLElement): number => Number(e.style.zIndex || 0)
+        fireEvent.pointerDown(right, { pointerId: 1, clientX: 600, clientY: 200 })
+        expect(z(right)).toBeGreaterThan(z(left))
+        fireEvent.pointerUp(right, { pointerId: 1 })
+        fireEvent.pointerDown(left, { pointerId: 2, clientX: 200, clientY: 200 })
+        expect(z(left)).toBeGreaterThan(z(right))
+        fireEvent.pointerUp(left, { pointerId: 2 })
+        fireEvent.focus(right)
+        expect(z(right)).toBeGreaterThan(z(left))
     })
 
     it('should resize around the centre with a two-finger pinch', () => {
@@ -79,6 +115,6 @@ describe('FrameBoxes', () => {
     it('should give the handle a 44 px target', () => {
         setup()
         // happy-dom does not run the stylesheet; assert the class that carries it.
-        expect(screen.getByRole('button', { name: 'Resize Left goal box' })).toHaveClass('frame-box__handle')
+        expect(screen.getByRole('button', { name: 'Resize Left goal box, bottom right' })).toHaveClass('frame-box__handle')
     })
 })
