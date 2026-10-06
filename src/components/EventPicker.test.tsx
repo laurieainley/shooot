@@ -194,6 +194,12 @@ describe('EventPicker on touch', () => {
         expect(s().picker).toBeNull()
     })
 
+    it('should not preselect the first team either', () => {
+        render(<EventPicker />)
+        fireEvent.click(screen.getByRole('option', { name: /^goal$/i }))
+        expect(screen.getAllByRole('option').every((o) => o.getAttribute('aria-selected') !== 'true')).toBe(true)
+    })
+
     it('should group the types: Goals, Penalties, Other, Match', () => {
         render(<EventPicker />)
         const groups = screen.getAllByRole('group')

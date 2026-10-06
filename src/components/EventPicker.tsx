@@ -161,7 +161,7 @@ export function EventPicker() {
             {state.step === 'team' && (
                 <ul role="listbox" className="event-picker__list event-picker__list--teams">
                     {names.map((n, i) => (
-                        <li key={n} role="option" aria-selected={i === state.highlighted}
+                        <li key={n} role="option" aria-selected={!coarse && i === state.highlighted}
                             className="event-picker__item" onClick={() => dispatch({ kind: 'choose', value: n })}>
                             {coarse && <span className="team-dot" style={{ background: teams[i].color }} />}
                             <span>{n}</span>{' '}
@@ -185,13 +185,13 @@ export function EventPicker() {
                     />
                     <ul role="listbox" className="event-picker__list">
                         {candidates.map((n, i) => (
-                            <li key={n} role="option" aria-selected={i === state.highlighted}
+                            <li key={n} role="option" aria-selected={!coarse && i === state.highlighted}
                                 className="event-picker__item" onClick={() => dispatch({ kind: 'choose', value: n })}>
                                 <span>{n}</span>
                             </li>
                         ))}
                         {state.query.trim() && candidates.length === 0 && (
-                            <li role="option" aria-selected className="event-picker__item"
+                            <li role="option" aria-selected={!coarse} className="event-picker__item"
                                 onClick={() => dispatch({ kind: 'choose', value: state.query.trim() })}>
                                 <span>+ add “{state.query.trim()}”</span>
                             </li>
