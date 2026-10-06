@@ -62,14 +62,14 @@ describe('highlightsExport', () => {
 })
 
 describe('highlightsExport — replay zoom', () => {
-    const areas = { left: { x: 0.04, y: 0.3, w: 0.4, h: 0.4 }, right: { x: 0.56, y: 0.3, w: 0.4, h: 0.4 } }
-    it('should crop replays to the attacking goal area and leave clips whole', () => {
-        const p = highlightsExport(state({ goalAreas: areas, whitesAttackLeft: false }), 'full')
-        expect(p.cuts.map((c) => c.crop ?? null)).toEqual([null, areas.right])
+    const areas = { team1: { x: 0.04, y: 0.3, w: 0.4, h: 0.4 }, team2: { x: 0.56, y: 0.3, w: 0.4, h: 0.4 } }
+    it('should crop replays to the goal the scoring team attacks and leave clips whole', () => {
+        const p = highlightsExport(state({ goalAreas: areas }), 'full')
+        expect(p.cuts.map((c) => c.crop ?? null)).toEqual([null, areas.team2])
     })
     it('should change the job signature with the framing', () => {
-        const a = highlightsExport(state({ goalAreas: areas, whitesAttackLeft: true }), 'full').signature
-        const b = highlightsExport(state({ goalAreas: areas, whitesAttackLeft: false }), 'full').signature
+        const a = highlightsExport(state({ goalAreas: areas }), 'full').signature
+        const b = highlightsExport(state({ goalAreas: { team1: areas.team2, team2: areas.team1 } }), 'full').signature
         expect(a).not.toBe(b)
     })
     it('should not crop without goal areas', () => {

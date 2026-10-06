@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
-import { useAppState } from '../state'
+import { selectClockLong, useAppState } from '../state'
+import { clockWidthCh } from '../utils/timeline'
 import { ClipSummary } from './ClipSummary'
 import { EmptyPlayer } from './EmptyPlayer'
 import { EventLog } from './EventLog'
@@ -32,6 +33,13 @@ export function AppShell() {
     const coarse = useMediaQuery(COARSE_QUERY)
     const sideBySide = layout === 'desktop' || layout === 'landscape'
     const collapsed = useAppState((s) => s.barCollapsed) && layout === 'landscape'
+    // Running times have one fixed width per project: the CSS variables size every clock (.clock) and video.js' own times.
+    const clockLong = useAppState(selectClockLong)
+    useEffect(() => {
+        const root = document.documentElement.style
+        root.setProperty('--clock-w', `${clockWidthCh(clockLong, true)}ch`)
+        root.setProperty('--clock-w-file', `${clockWidthCh(clockLong, false)}ch`)
+    }, [clockLong])
     // A render keeps the screen on for its whole life (not just while the Export panel is open)…
     const rendering = useRenderJobs((s) => s.job?.phase === 'running')
     useWakeLock(rendering)

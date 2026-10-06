@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { clampRect, cropPixels, cropTransform, defaultGoalAreas, isSoft, moveRect, resizeFromCorner, normaliseAreas, resizeRect, zoomOf, zoomRect, MIN_BOX_W } from './crop'
+import { clampRect, cropPixels, cropTransform, defaultGoalAreas, isSoft, moveRect, resizeFromCorner, normaliseAreas, migrateReplayCrop, swapGoalAreas, resizeRect, zoomOf, zoomRect, MIN_BOX_W } from './crop'
 
 describe('clampRect', () => {
     it('should lock the aspect: the box is as tall as it is wide in frame fractions', () => {
@@ -112,10 +112,17 @@ describe('isSoft', () => {
 describe('defaultGoalAreas', () => {
     it('should put a 40 % box at each side, inside the frame', () => {
         const a = defaultGoalAreas()
-        expect(a.left.w).toBeCloseTo(0.4)
-        expect(a.left.x + a.left.w / 2).toBeLessThan(0.5)
-        expect(a.right.x + a.right.w / 2).toBeGreaterThan(0.5)
-        for (const r of [a.left, a.right]) expect(clampRect(r)).toEqual(r)
+        expect(a.team1!.w).toBeCloseTo(0.4)
+        expect(a.team1!.x + a.team1!.w / 2).toBeLessThan(0.5)
+        expect(a.team2!.x + a.team2!.w / 2).toBeGreaterThan(0.5)
+        for (const r of [a.team1!, a.team2!]) expect(clampRect(r)).toEqual(r)
+    })
+})
+
+describe('swapGoalAreas', () => {
+    it('should exchange which box belongs to which team', () => {
+        const a = defaultGoalAreas()
+        expect(swapGoalAreas(a)).toEqual({ team1: a.team2, team2: a.team1 })
     })
 })
 
@@ -139,13 +146,44 @@ describe('cropTransform', () => {
 })
 
 describe('normaliseAreas', () => {
-    it('should accept valid areas and clamp them', () => {
-        const a = normaliseAreas({ left: { x: 0.1, y: 0.1, w: 0.3, h: 0.9 }, right: { x: 0.6, y: 0.2, w: 0.4, h: 0.4 } })
-        expect(a?.left.h).toBe(0.3)
+    it('should accept team areas and clamp them', () => {
+        const a = normaliseAreas({ team1: { x: 0.1, y: 0.1, w: 0.3, h: 0.9 }, team2: { x: 0.6, y: 0.2, w: 0.4, h: 0.4 } })
+        expect(a?.team1?.h).toBe(0.3)
+        expect(a?.team2?.w).toBe(0.4)
+    })
+    it('should accept a single area', () => {
+        const a = normaliseAreas({ team2: { x: 0.6, y: 0.2, w: 0.4, h: 0.4 } })
+        expect(a?.team1).toBeUndefined()
+        expect(a?.team2).toBeDefined()
+    })
+    it('should migrate left / right: the box the first team attacked becomes the second team\'s goal', () => {
+        const left = { x: 0.04, y: 0.3, w: 0.4, h: 0.4 }
+        const right = { x: 0.56, y: 0.3, w: 0.4, h: 0.4 }
+        expect(normaliseAreas({ left, right }, true)).toEqual({ team1: right, team2: left })
+        expect(normaliseAreas({ left, right }, false)).toEqual({ team1: left, team2: right })
+        expect(normaliseAreas({ left, right })).toEqual({ team1: right, team2: left })
     })
     it('should reject anything else', () => {
         expect(normaliseAreas(null)).toBeNull()
         expect(normaliseAreas({ left: 1 })).toBeNull()
+        expect(normaliseAreas({ team1: 1 })).toBeNull()
         expect(normaliseAreas('x')).toBeNull()
+    })
+})
+
+describe('migrateReplayCrop', () => {
+    it('should turn left / right into the team whose goal it was', () => {
+        expect(migrateReplayCrop('left', true)).toBe('team2')
+        expect(migrateReplayCrop('right', true)).toBe('team1')
+        expect(migrateReplayCrop('left', false)).toBe('team1')
+        expect(migrateReplayCrop('right', false)).toBe('team2')
+    })
+    it('should keep everything else as it is', () => {
+        expect(migrateReplayCrop('full', true)).toBe('full')
+        expect(migrateReplayCrop('team1', true)).toBe('team1')
+        expect(migrateReplayCrop(undefined, true)).toBeUndefined()
+        const box = { x: 0, y: 0, w: 0.5, h: 0.5 }
+        expect(migrateReplayCrop(box, true)).toBe(box)
+        expect(migrateReplayCrop('nonsense', true)).toBeUndefined()
     })
 })

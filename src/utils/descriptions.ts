@@ -21,18 +21,23 @@ function compose(blocks: string[][]): string {
     return blocks.filter((b) => b.length > 0).map((b) => b.join('\n')).join('\n\n')
 }
 
+/** The scorers under a Goalscorers heading (nothing when nobody scored). */
+function scorersBlock(lines: string[]): string[] {
+    return lines.length > 0 ? ['Goalscorers', ...lines] : []
+}
+
 export function highlightsDescription(a: DescriptionArgs): string {
     const linked = linkedEvents(a.events)
-    const { scoreLine, lines } = goalscorers(linked, a.teams)
+    const { scoreLine, lines } = goalscorers(linked, a.teams, a.cumulativeOffsets)
     const chapters = highlightChapterLines(linked, a.cumulativeOffsets, a.before, a.after, a.teams.map((t) => t.name), a.replay, a.introSec)
-    return compose([scoreLine ? [scoreLine] : [], chapters, lines])
+    return compose([scoreLine ? [scoreLine] : [], chapters, scorersBlock(lines)])
 }
 
 export function fullMatchDescription(a: DescriptionArgs): string {
     const linked = linkedEvents(a.events)
-    const { scoreLine, lines } = goalscorers(linked, a.teams)
+    const { scoreLine, lines } = goalscorers(linked, a.teams, a.cumulativeOffsets)
     const start = kickOffSec(linked, a.cumulativeOffsets)
     const end = finalWhistleSec(linked, a.cumulativeOffsets)
     const chapters = matchChapterLines(linked, a.cumulativeOffsets, start, end, a.before, a.teams.map((t) => t.name), a.introSec)
-    return compose([scoreLine ? [scoreLine] : [], chapters, lines])
+    return compose([scoreLine ? [scoreLine] : [], chapters, scorersBlock(lines)])
 }

@@ -31,6 +31,13 @@
   border: 0; border-radius: 3px; background: transparent; color: var(--muted); cursor: pointer; font-size: 15px;
 }
 .btn-icon:hover:not(:disabled) { background: var(--sunk); color: var(--ink); }
+/* Close (✕) of sheets, panels and dialogs: 20 px icon, 44 px hit area, on every pointer. */
+.close-btn {
+  display: inline-grid; place-items: center; flex: none; width: 44px; height: 44px; padding: 0; margin: -8px -10px -8px 0;
+  border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.close-btn:hover { background: var(--sunk); color: var(--ink); }
+.close-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .btn-quiet:disabled, .btn-primary:disabled, .btn-icon:disabled, .row-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .field {
@@ -108,6 +115,7 @@
 }
 .file-pill:hover { border-color: color-mix(in srgb, var(--ink) 45%, var(--line)); }
 .file-pill[aria-current="true"] { border-color: var(--ink); color: var(--ink); box-shadow: inset 0 -2px 0 var(--accent); }
+.file-pill__num { flex: none; color: var(--muted); }
 .file-pill__name { max-width: 22ch; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 .file-pill__dur { font-size: 11px; color: var(--muted); }
 .file-pill__tools { display: inline-flex; gap: 0; }
@@ -243,6 +251,8 @@
 .event-row .team-dot { cursor: default; }
 /* Kick off / Final whistle rows: a flag in the dot column, label in caps, a faint band across the log. */
 .event-row--marker { background: color-mix(in srgb, var(--start) 7%, transparent); }
+.event-row--half_time { background: color-mix(in srgb, #f59e0b 9%, transparent); }
+.event-row--half_time .marker-flag { color: #f59e0b; }
 .event-row--final_whistle { background: color-mix(in srgb, var(--ink) 6%, transparent); }
 .event-row--marker .event-row__label { font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; font-size: 12px; }
 .marker-flag { width: 10px; font-size: 12px; line-height: 1; text-align: center; overflow: visible; color: var(--start); }
@@ -265,8 +275,8 @@
 .shell--phone .clip-summary { padding-bottom: 96px; }
 
 /* ---------- match strip (the pitch: files laid end to end, chalk lines between them) ---------- */
-.match-strip { display: grid; grid-template-columns: 96px minmax(0, 1fr); background: var(--panel); border-top: 1px solid var(--line); min-width: 0; }
-.shell--phone .match-strip { height: 48px; border-bottom: 1px solid var(--line); grid-template-columns: 88px minmax(0, 1fr); }
+.match-strip { display: grid; grid-template-columns: minmax(96px, auto) minmax(0, 1fr); background: var(--panel); border-top: 1px solid var(--line); min-width: 0; }
+.shell--phone .match-strip { height: 48px; border-bottom: 1px solid var(--line); grid-template-columns: minmax(88px, auto) minmax(0, 1fr); }
 .strip-label {
   display: flex; flex-direction: column; justify-content: center; gap: 1px; padding: 0 12px;
   border-right: 1px solid var(--line); font-size: 11px; color: var(--muted);
@@ -301,6 +311,9 @@
   content: ""; position: absolute; top: 2px; left: 0; width: 9px; height: 7px;
   background: var(--start); clip-path: polygon(0 0, 100% 50%, 0 100%);
 }
+/* Half time: a pennant in amber. */
+.strip-flag--half_time { border-left-color: #f59e0b; }
+.strip-flag--half_time::after { background: #f59e0b; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 25% 50%); }
 /* Final whistle: a chequered flag. */
 .strip-flag--final_whistle { border-left-color: var(--ink); }
 .strip-flag--final_whistle::after {
@@ -447,7 +460,11 @@
 .player-container .video-js .vjs-play-progress::before { color: var(--accent); }
 .player-container .video-js .vjs-load-progress { background: rgb(255 255 255 / 0.18); }
 .player-container .video-js .vjs-load-progress div { background: rgb(255 255 255 / 0.12); }
-.player-container .video-js .vjs-time-control { font-family: var(--font-mono); font-size: 12px; }
+/* Running times keep one width per project (--clock-w is set by AppShell): tabular figures, a reserved box. */
+.clock { display: inline-block; min-width: var(--clock-w, 6ch); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.scrub-bubble.clock { text-align: center; }
+.player-container .video-js .vjs-time-control { font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+.player-container .video-js .vjs-current-time-display, .player-container .video-js .vjs-duration-display { display: inline-block; min-width: var(--clock-w-file, 5ch); text-align: center; }
 /* Elapsed time: current / duration (video.js shows the remaining time by default). */
 .player-container .video-js .vjs-current-time,
 .player-container .video-js .vjs-time-divider,
@@ -663,7 +680,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   position: absolute; bottom: 100%; transform: translateX(-50%); margin-bottom: 2px; padding: 0;
   border: none; background: none; font-size: 12px; line-height: 1; cursor: pointer; z-index: 2; text-shadow: 0 0 2px #000;
 }
-.timeline-marker--kick_off, .timeline-marker--final_whistle { font-size: 13px; }
+.timeline-marker--kick_off, .timeline-marker--half_time, .timeline-marker--final_whistle { font-size: 13px; }
 
 /* Touch: every gesture on the video belongs to the player (taps, double taps, pinch, pan, scrubbing);
    swipes on the picture never scroll or zoom the page. */
@@ -891,25 +908,25 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   box-shadow: 0 0 0 1px rgb(0 0 0 / 0.7), inset 0 0 0 1px rgb(0 0 0 / 0.5); background: color-mix(in srgb, var(--tone) 14%, transparent);
   touch-action: none; -webkit-tap-highlight-color: transparent;
 }
-.frame-box--left { --tone: #3aa0e8; }
-.frame-box--right { --tone: #f0a82b; }
+.frame-box--team1 { --tone: #3aa0e8; }
+.frame-box--team2 { --tone: #f0a82b; }
 .frame-box--event { --tone: #3fc98a; }
 .frame-box:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 .frame-box__tag {
-  position: absolute; top: 0; left: 0; padding: 1px 7px; font: 700 12px/18px var(--font-display); color: #0a0d0b; background: var(--tone); border-bottom-right-radius: 3px; pointer-events: none;
+  position: absolute; top: 0; left: 22px; padding: 1px 7px; font: 700 12px/18px var(--font-display); color: #0a0d0b; background: var(--tone); border-bottom-right-radius: 3px; pointer-events: none;
 }
-.frame-box__handle { position: absolute; width: 44px; height: 44px; touch-action: none; }
+.frame-box__handle { position: absolute; width: 28px; height: 28px; touch-action: none; }
 .frame-box__handle--tl { left: 0; top: 0; cursor: nwse-resize; }
 .frame-box__handle--tr { right: 0; top: 0; cursor: nesw-resize; }
 .frame-box__handle--bl { left: 0; bottom: 0; cursor: nesw-resize; }
 .frame-box__handle--br { right: 0; bottom: 0; cursor: nwse-resize; }
 .frame-box__handle::after {
-  content: ""; position: absolute; width: 18px; height: 18px; background: var(--tone); border: 2px solid #0a0d0b; border-radius: 50%;
+  content: ""; position: absolute; box-sizing: border-box; width: 12px; height: 12px; background: var(--tone); border: 2px solid #0a0d0b; border-radius: 50%;
 }
-.frame-box__handle--tl::after { left: 2px; top: 2px; }
-.frame-box__handle--tr::after { right: 2px; top: 2px; }
-.frame-box__handle--bl::after { left: 2px; bottom: 2px; }
-.frame-box__handle--br::after { right: 2px; bottom: 2px; }
+.frame-box__handle--tl::after { left: 3px; top: 3px; }
+.frame-box__handle--tr::after { right: 3px; top: 3px; }
+.frame-box__handle--bl::after { left: 3px; bottom: 3px; }
+.frame-box__handle--br::after { right: 3px; bottom: 3px; }
 /* Desktop: the corner dots show on hover or focus; touch screens always show them. */
 @media (hover: hover) and (pointer: fine) {
   .frame-box__handle::after { opacity: 0; transition: opacity 0.12s; }

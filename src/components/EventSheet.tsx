@@ -1,6 +1,7 @@
+import { teamBackground } from '../utils/teamColor'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { selectMatchStartSec, useAppState } from '../state'
-import type { MatchEvent, Team } from '../types'
+import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
+import type { MarkerType, MatchEvent, Team } from '../types'
 import { optionForEvent, personEdit, typeChangePatch } from '../utils/eventEdit'
 import { PICKER_OPTIONS, isMarker } from '../utils/eventTypes'
 import { watchFromSec } from '../utils/markers'
@@ -30,6 +31,7 @@ interface EventSheetBodyProps {
 function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
     const offset = useAppState((s) => s.cumulativeOffsets[e.sourceFileIndex ?? 0] ?? 0)
     const matchStartSec = useAppState(selectMatchStartSec)
+    const clockLong = useAppState(selectClockLong)
     const multiFile = useAppState((s) => s.files.length > 1)
     const option = optionForEvent(e)
     const marker = isMarker(e)
@@ -77,7 +79,7 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
     const pool = useMemo(() => roster?.roster ?? teams.flatMap((t) => t.roster), [roster, teams])
     const suggestions = person.trim() && person.trim() !== e.scorer ? filterRoster(pool, person) : pool
     const personLabel = option.personLabel ?? 'Scorer'
-    const clock = formatEventClock(offset + e.matchTimeSec, e.matchTimeSec, matchStartSec)
+    const clock = formatEventClock(offset + e.matchTimeSec, e.matchTimeSec, matchStartSec, clockLong)
 
     return (
         <ColumnPanel label="Edit event" onClose={close} className="event-sheet">
@@ -98,7 +100,7 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
                             onClick={() => {
                                 if (o.id === option.id) return
                                 // Kick off / Final whistle: single instance, so the store moves an existing one.
-                                if (o.marker) useAppState.getState().placeMarker(e.id, o.type as 'kick_off' | 'final_whistle')
+                                if (o.marker) useAppState.getState().placeMarker(e.id, o.type as MarkerType)
                                 else update(typeChangePatch(e, o))
                             }}>{o.label}</button>
                     ))}
@@ -112,7 +114,7 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
                         {teams.map((t) => (
                             <button key={t.name} type="button" className="chip" aria-pressed={e.team === t.name}
                                 onClick={() => { if (e.team !== t.name) update({ team: t.name }) }}>
-                                <span className="team-dot" style={{ background: t.color }} />{t.name}
+                                <span className="team-dot" style={{ background: teamBackground(t.color) }} />{t.name}
                             </button>
                         ))}
                         <button type="button" className="chip" aria-label="No team" aria-pressed={!e.team}

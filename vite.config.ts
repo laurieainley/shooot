@@ -37,7 +37,7 @@ export default defineConfig({
           // Separate vendor chunks for better caching
           vendor: ['react', 'react-dom'],
           media: ['mediabunny'],
-          video: ['video.js', 'videojs-hotkeys'],
+          video: ['video.js'],
           state: ['zustand']
         }
       }

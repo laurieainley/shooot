@@ -20,17 +20,20 @@ export type EventType =
     | 'goal' | 'own_goal'
     | 'penalty_awarded' | 'penalty_missed'
     | 'highlight' | 'foul' | 'save'
-    | 'kick_off' | 'final_whistle'   // match markers: never scored, never highlights
+    | 'kick_off' | 'half_time' | 'final_whistle'   // match markers: never scored, never highlights
 
-export type MarkerType = Extract<EventType, 'kick_off' | 'final_whistle'>
+export type MarkerType = Extract<EventType, 'kick_off' | 'half_time' | 'final_whistle'>
 
 /** A rectangle of the video frame as fractions (0-1). Crops have the frame's aspect, so h === w. */
 export type CropRect = { x: number; y: number; w: number; h: number }
 
-export type GoalAreas = { left: CropRect; right: CropRect }
+/** Where each team's goal is in the picture: the goal that team defends at kick-off (before any Half time marker). */
+export type GoalAreas = { team1?: CropRect; team2?: CropRect }
+
+export type GoalTeam = 'team1' | 'team2'
 
 /** How an event's replay is framed: a goal area, the whole frame or a custom box (undefined = automatic). */
-export type ReplayCrop = CropRect | 'left' | 'right' | 'full'
+export type ReplayCrop = CropRect | GoalTeam | 'full'
 
 export type MatchEvent = {
     id: string
@@ -44,7 +47,7 @@ export type MatchEvent = {
     scorer?: string          // own goal: player from the other team
     notes?: string
     replay?: boolean         // explicit replay override; undefined = default for the type
-    replayCrop?: ReplayCrop  // replay framing; undefined = the scoring team's attacking goal area
+    replayCrop?: ReplayCrop  // replay framing; undefined = automatic, by event type (utils/attack.ts)
     /** Migrated kick-off: time on the whole timeline, until loaded files cover it (see utils/matchClock.ts). */
     globalTimeSec?: number
 }

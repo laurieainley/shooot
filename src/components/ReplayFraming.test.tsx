@@ -18,7 +18,7 @@ function setup(event: Partial<MatchEvent> = {}, areas = true): void {
     useFrameAt.mockReset()
     useFrameAt.mockReturnValue(READY)
     useAppState.setState({
-        files: [file], cumulativeOffsets: [0], teams, goalAreas: areas ? defaultGoalAreas() : null, whitesAttackLeft: true,
+        files: [file], cumulativeOffsets: [0], teams, goalAreas: areas ? defaultGoalAreas() : null,
         events: [{ id: 'a', matchTimeSec: 95, sourceFileIndex: 0, type: 'goal', team: 'Whites', ...event }],
         undoStack: [], redoStack: [], picker: null, panel: 'event', editingEventId: 'a',
     })
@@ -33,18 +33,18 @@ describe('Replay framing', () => {
         expect(screen.queryByRole('group', { name: 'Replay framing' })).not.toBeInTheDocument()
     })
 
-    it('should default to Auto, framed on the scoring team\'s goal', () => {
+    it('should default to Auto, framed on the goal the scoring team attacks', () => {
         setup()
         expect(choice('Auto')).toHaveAttribute('aria-pressed', 'true')
-        // Whites attack left: the box shown is the left goal area
+        // Whites score at the goal Colours defend: Colours' goal
         const box = screen.getByRole('group', { name: 'Replay framing box' })
-        expect(box.style.left).toBe(`${defaultGoalAreas().left.x * 100}%`)
+        expect(box.style.left).toBe(`${defaultGoalAreas().team2!.x * 100}%`)
     })
 
-    it('should store Left, Right and Full frame, and Auto clears the choice', async () => {
+    it('should store either team\'s goal and Full frame, and Auto clears the choice', async () => {
         setup()
-        await userEvent.click(choice('Right goal'))
-        expect(ev().replayCrop).toBe('right')
+        await userEvent.click(choice("Colours' goal"))
+        expect(ev().replayCrop).toBe('team2')
         await userEvent.click(choice('Full frame'))
         expect(ev().replayCrop).toBe('full')
         expect(screen.queryByRole('group', { name: 'Replay framing box' })).not.toBeInTheDocument()
@@ -52,10 +52,10 @@ describe('Replay framing', () => {
         expect(ev().replayCrop).toBeUndefined()
     })
 
-    it('should disable Left / Right without goal areas and say where to set them', () => {
+    it('should disable the team goals without goal areas and say where to set them', () => {
         setup({}, false)
-        expect(choice('Left goal')).toBeDisabled()
-        expect(choice('Right goal')).toBeDisabled()
+        expect(choice("Whites' goal")).toBeDisabled()
+        expect(choice("Colours' goal")).toBeDisabled()
         expect(choice('Custom')).toBeEnabled()
         expect(screen.getByText(/Mark the goals in Match setup/)).toBeInTheDocument()
     })
@@ -63,11 +63,11 @@ describe('Replay framing', () => {
     it('should make Custom from the current framing', async () => {
         setup()
         await userEvent.click(choice('Custom'))
-        expect(ev().replayCrop).toEqual(defaultGoalAreas().left)
+        expect(ev().replayCrop).toEqual(defaultGoalAreas().team2!)
     })
 
     it('should turn a dragged box into a custom crop in one undo step', () => {
-        setup()
+        setup({ team: 'Colours' })
         const box = screen.getByRole('group', { name: 'Replay framing box' })
         const area = box.parentElement!
         area.getBoundingClientRect = () => ({ width: 1000, height: 500, left: 0, top: 0, right: 1000, bottom: 500, x: 0, y: 0, toJSON: () => ({}) })
@@ -77,7 +77,7 @@ describe('Replay framing', () => {
         expect(ev().replayCrop).toBeUndefined() // still a draft
         fireEvent.pointerUp(box, { pointerId: 1 })
         const crop = ev().replayCrop as { x: number; w: number }
-        expect(crop.x).toBeCloseTo(defaultGoalAreas().left.x + 0.1)
+        expect(crop.x).toBeCloseTo(defaultGoalAreas().team1!.x + 0.1)
         expect(crop.w).toBeCloseTo(0.4)
         expect(useAppState.getState().undoStack).toHaveLength(1)
         expect(choice('Custom')).toHaveAttribute('aria-pressed', 'true')

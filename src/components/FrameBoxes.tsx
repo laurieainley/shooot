@@ -8,7 +8,7 @@ export interface FrameBox {
     label: string
     short: string
     rect: CropRect
-    tone: 'left' | 'right' | 'event'
+    tone: 'team1' | 'team2' | 'event'
 }
 
 interface FrameBoxesProps {
@@ -36,7 +36,7 @@ const CORNERS: { corner: Corner; label: string }[] = [
 
 /**
  * A still frame with draggable, resizable boxes (aspect locked to the frame's). Drag the body to move, drag the
- * corner handles (44 px targets, any of the four; the opposite corner stays put) or pinch with two fingers to resize; arrow keys move, +/- resize.
+ * corner handles (28 px targets around small dots, any of the four; the opposite corner stays put) or pinch with two fingers to resize; arrow keys move, +/- resize.
  */
 export function FrameBoxes({ state, boxes, onChange, onCommit, emptyText }: FrameBoxesProps) {
     const area = useRef<HTMLDivElement | null>(null)

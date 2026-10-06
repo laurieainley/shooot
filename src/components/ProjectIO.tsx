@@ -17,9 +17,9 @@ export function ProjectIO({ menu = false }: ProjectIOProps) {
 
     const onExport = (): void => {
         const st = useAppState.getState()
-        const { teams, goalAreas, whitesAttackLeft } = st
+        const { teams, goalAreas } = st
         const matchStartTimeSec = selectMatchStartSec(st) // kept for older versions of the app
-        const blob = new Blob([JSON.stringify({ events, goals: events, teams, matchStartTimeSec, goalAreas, whitesAttackLeft }, null, 2)], { type: 'application/json' })
+        const blob = new Blob([JSON.stringify({ events, goals: events, teams, matchStartTimeSec, goalAreas }, null, 2)], { type: 'application/json' })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
@@ -36,13 +36,13 @@ export function ProjectIO({ menu = false }: ProjectIOProps) {
             const data = JSON.parse(await file.text())
             const st = useAppState.getState()
             const imported = Array.isArray(data.events) ? data.events : Array.isArray(data.goals) ? data.goals : null
+            const left = typeof data.whitesAttackLeft === 'boolean' ? data.whitesAttackLeft : true
             const start = typeof data.matchStartTimeSec === 'number' ? data.matchStartTimeSec : 0
             // Older projects kept kick-off as a start time: it becomes a Kick off event.
-            if (imported) st.setEvents(withMigratedKickOff(imported.map((e: unknown) => migrateEvent(e as Parameters<typeof migrateEvent>[0])), start))
+            if (imported) st.setEvents(withMigratedKickOff(imported.map((e: unknown) => migrateEvent(e as Parameters<typeof migrateEvent>[0], left)), start))
             else if (start > 0) st.setEvents(withMigratedKickOff(st.events, start))
             if (Array.isArray(data.teams) && data.teams.length === 2) st.setTeams(data.teams)
-            if ('goalAreas' in data) st.setGoalAreas(normaliseAreas(data.goalAreas))
-            if (typeof data.whitesAttackLeft === 'boolean') st.setWhitesAttackLeft(data.whitesAttackLeft)
+            if ('goalAreas' in data) st.setGoalAreas(normaliseAreas(data.goalAreas, left))
             setMessage(imported ? `Imported ${imported.length} events` : 'Imported')
         } catch {
             setMessage('Could not read that file as a project (JSON).')

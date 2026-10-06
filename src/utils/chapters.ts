@@ -93,13 +93,17 @@ export function matchChapterLines(
     lengthBeforeGoalSec: number, teamOrder?: string[], offsetSec = 0,
 ): string[] {
     const inMatch = events
-        .filter((e) => !isMarker(e))
+        .filter((e) => !isMarker(e) || e.type === 'half_time')
         .filter((e) => { const t = absTime(e, cumulativeOffsets); return t >= kickOffSec && (finalWhistleSec === null || t <= finalWhistleSec) })
         .sort((a, b) => absTime(a, cumulativeOffsets) - absTime(b, cumulativeOffsets))
     const teams = scoreTeams(events.filter((e) => !isMarker(e)), teamOrder)
     const running: Record<string, number> = {}
     const lines = ['00:00 Kick off']
     for (const e of inMatch) {
+        if (e.type === 'half_time') {
+            lines.push(`${secondsToStamp(Math.max(0, Math.floor(absTime(e, cumulativeOffsets) - kickOffSec)) + offsetSec)} ${eventLabel(e)}`)
+            continue
+        }
         const at = Math.max(0, Math.floor(absTime(e, cumulativeOffsets) - kickOffSec - lengthBeforeGoalSec)) + offsetSec
         lines.push(`${secondsToStamp(at)} ${chapterLabel(e, teams, running)}`)
     }

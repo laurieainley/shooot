@@ -1,4 +1,4 @@
-import type { CropRect, GoalAreas } from '../types'
+import type { CropRect, GoalAreas, ReplayCrop } from '../types'
 
 /** Smallest box the editors allow (a goal area of 20 % of the frame width). */
 export const MIN_BOX_W = 0.2
@@ -67,12 +67,17 @@ export const isSoft = (r: CropRect): boolean => r.w < SOFT_BELOW_W - 1e-9
 export const FULL_FRAME: CropRect = { x: 0, y: 0, w: 1, h: 1 }
 export const isFullFrame = (r: CropRect): boolean => r.w >= 1 - 1e-6
 
-/** Goal mouths are usually low in the picture; the default boxes sit at each end of the field. */
+/** Goal mouths are usually low in the picture; the default boxes sit at each end of the field (team 1 on the left). */
 export function defaultGoalAreas(): GoalAreas {
     return {
-        left: clampRect({ x: 0.04, y: 0.28, w: DEFAULT_BOX_W, h: DEFAULT_BOX_W }),
-        right: clampRect({ x: 1 - 0.04 - DEFAULT_BOX_W, y: 0.28, w: DEFAULT_BOX_W, h: DEFAULT_BOX_W }),
+        team1: clampRect({ x: 0.04, y: 0.28, w: DEFAULT_BOX_W, h: DEFAULT_BOX_W }),
+        team2: clampRect({ x: 1 - 0.04 - DEFAULT_BOX_W, y: 0.28, w: DEFAULT_BOX_W, h: DEFAULT_BOX_W }),
     }
+}
+
+/** The two boxes trade owners (the camera shows the other goal as each team's own). */
+export function swapGoalAreas(a: GoalAreas): GoalAreas {
+    return { team1: a.team2, team2: a.team1 }
 }
 
 /** Source rectangle in pixels for drawImage. */
@@ -99,9 +104,28 @@ const isRectLike = (v: unknown): v is CropRect => {
     return typeof r.x === 'number' && typeof r.y === 'number' && typeof r.w === 'number' && typeof r.h === 'number'
 }
 
-/** Goal areas from persisted / imported data: clamped, or null when they are not two rectangles. */
-export function normaliseAreas(v: unknown): GoalAreas | null {
+/**
+ * Goal areas from persisted / imported data: clamped, or null when there is no rectangle. Older projects stored
+ * `left` / `right` plus a flag for the direction the first team attacked in: that box is the second team's goal.
+ */
+export function normaliseAreas(v: unknown, whitesAttackLeft = true): GoalAreas | null {
     if (!v || typeof v !== 'object') return null
-    const { left, right } = v as { left?: unknown; right?: unknown }
-    return isRectLike(left) && isRectLike(right) ? { left: clampRect(left), right: clampRect(right) } : null
+    const o = v as { left?: unknown; right?: unknown; team1?: unknown; team2?: unknown }
+    if (isRectLike(o.left) && isRectLike(o.right)) {
+        const left = clampRect(o.left)
+        const right = clampRect(o.right)
+        return whitesAttackLeft ? { team1: right, team2: left } : { team1: left, team2: right }
+    }
+    const out: GoalAreas = {}
+    if (isRectLike(o.team1)) out.team1 = clampRect(o.team1)
+    if (isRectLike(o.team2)) out.team2 = clampRect(o.team2)
+    return out.team1 || out.team2 ? out : null
+}
+
+/** A stored replay framing: legacy 'left' / 'right' become the team that defended that goal. */
+export function migrateReplayCrop(c: unknown, whitesAttackLeft = true): ReplayCrop | undefined {
+    if (c === 'left') return whitesAttackLeft ? 'team2' : 'team1'
+    if (c === 'right') return whitesAttackLeft ? 'team1' : 'team2'
+    if (c === 'team1' || c === 'team2' || c === 'full') return c
+    return isRectLike(c) ? c : undefined
 }
