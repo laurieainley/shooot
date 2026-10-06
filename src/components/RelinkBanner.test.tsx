@@ -12,7 +12,7 @@ vi.mock('../files/handleStore', () => ({
     loadHandles: vi.fn(async () => store.handles),
     reopenHandles: (hs: { name: string }[]) => reopenHandles(hs),
 }))
-const addPickedFiles = vi.fn(async (_f: File[]): Promise<string | null> => null)
+const addPickedFiles = vi.fn<(f: File[]) => Promise<string | null>>(async () => null)
 vi.mock('./addFiles', () => ({ addPickedFiles: (f: File[]) => addPickedFiles(f) }))
 
 import { RelinkBanner } from './RelinkBanner'
