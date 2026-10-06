@@ -11,6 +11,7 @@ import { Player } from './Player'
 import { PreviewControls } from './PreviewControls'
 import { Chevron, TopBar } from './TopBar'
 import { useKeyboardInset } from './useKeyboardInset'
+import { usePanelSlot } from './panelSlot'
 import { COARSE_QUERY, useLayout, useMediaQuery } from './useMediaQuery'
 import { RenderChip } from './RenderChip'
 import { useWakeLock } from './useWakeLock'
@@ -24,6 +25,7 @@ import { useRenderJobs } from '../renderJobs'
  */
 export function AppShell() {
     const layout = useLayout()
+    const setSlot = usePanelSlot((s) => s.setEl)
     useKeyboardInset()
     const hasFiles = useAppState((s) => s.files.length > 0)
     const isPreviewMode = useAppState((s) => s.isPreviewMode)
@@ -72,6 +74,7 @@ export function AppShell() {
                     <EventLog />
                     <ClipSummary compact={layout !== 'phone' && (layout !== 'desktop' || coarse)} />
                     {showFab && <Fab />}
+                    <div ref={setSlot} className="panel-slot" />
                 </aside>
             </main>
             {layout === 'desktop' && !coarse && <KeyHints />}

@@ -391,7 +391,9 @@ export function Player() {
 
     // Immersive (CSS) fullscreen: Esc leaves it, as it would real fullscreen; unloading the player ends it.
     const immersive = useAppState((s) => s.immersive)
-    useEffect(() => () => useAppState.getState().setImmersive(false), [])
+    useEffect(() => () => { useAppState.getState().setImmersive(false); useAppState.getState().setPlayerFullscreen(false) }, [])
+    // Fullscreen has no event list to edit from: leaving the edit panel open would only be hidden behind the picture.
+    useEffect(() => { if (isFullscreen || immersive) { const st = useAppState.getState(); if (st.panel === 'event') st.closePanel() } }, [isFullscreen, immersive])
     useEffect(() => {
         if (!immersive) return
         const onKey = (e: KeyboardEvent): void => {
@@ -406,7 +408,9 @@ export function Player() {
         const sync = (): void => {
             const d = document as Document & { webkitFullscreenElement?: Element | null }
             const el = d.fullscreenElement ?? d.webkitFullscreenElement ?? null
-            setIsFullscreen(el !== null && el === containerRef.current)
+            const full = el !== null && el === containerRef.current
+            setIsFullscreen(full)
+            useAppState.getState().setPlayerFullscreen(full)
         }
         const events = ['fullscreenchange', 'webkitfullscreenchange'] as const
         for (const e of events) document.addEventListener(e, sync)

@@ -148,6 +148,12 @@ describe('AppShell', () => {
         })
     })
 
+    it('should offer a slot in the rail / stack for the touch add and edit panels', () => {
+        setWidth(true)
+        const { container } = render(<AppShell />)
+        expect(container.querySelector('.rail > .panel-slot')).toBeInTheDocument()
+    })
+
     describe('rotating', () => {
         it('should keep the very same player element when the layout changes, so fullscreen survives a rotation', () => {
             setWidth(false)

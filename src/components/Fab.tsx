@@ -2,7 +2,7 @@ import { useAppState } from '../state'
 
 /** Touch: a thumb-sized button that captures the playhead and opens the picker. No event exists until a type is chosen. */
 export function Fab() {
-    const pickerOpen = useAppState((s) => s.picker !== null)
+    const pickerOpen = useAppState((s) => s.picker !== null || s.panel === 'event')
     const hasFiles = useAppState((s) => s.files.length > 0)
     if (pickerOpen || !hasFiles) return null
     return (
