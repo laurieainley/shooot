@@ -12,6 +12,8 @@ export const SAFE_Y = 54
 export const CARD_SEC = 4
 /** Event captions stay on screen for 5 s. */
 export const CAPTION_SEC = 5
+/** ...starting this long after the marked moment, so the caption does not cover the action itself. */
+export const CAPTION_DELAY_SEC = 1
 const CARD_FADE = 0.5
 const OVERLAY_FADE = 0.3
 
@@ -169,7 +171,7 @@ export function captionLayout(spec: CaptionSpec, t: number, hasLogo: boolean, du
 /** Design-space rows of the REPLAY tag. */
 export const REPLAY_ROWS: [number, number] = [SAFE_Y - 8, SAFE_Y + k(64) + 14]
 
-/** Small "REPLAY" tag, top right (broadcast convention; captions are top left), for the length of a slowed replay. */
+/** Small "REPLAY" tag, top right, shown instantly for the length of a slowed replay (broadcast convention; captions are top left), for the length of a slowed replay. */
 export function replayTagLayout(t: number, duration: number): DrawOp[] {
     const w = k(150)
     const h = k(64)
@@ -181,6 +183,8 @@ export function replayTagLayout(t: number, duration: number): DrawOp[] {
         { kind: 'rect', x, y, w: bar, h, fill: ORANGE },
         { kind: 'text', text: 'REPLAY', x: x + bar + (w - bar) / 2, y: y + h / 2 + k(4), size: k(48), color: WHITE, align: 'center', baseline: 'middle' },
     ]
-    const m = motion(t, duration)
-    return withMotion(ops, m.alpha, 0)
+    // Appears and disappears instantly (no fade or slide), unlike the captions.
+    void t
+    void duration
+    return ops.map((o) => (o.kind === 'cardBackground' ? o : { ...o, alpha: 1 }))
 }

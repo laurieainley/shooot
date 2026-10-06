@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { BUG_ROWS, CAPTION_ROWS, CAPTION_SEC, captionLayout, cardFade, cardLayout, replayTagLayout, scoreBugLayout, estimateTextWidth, type DrawOp, type RectOp, type TextOp } from './layout'
+import { BUG_ROWS, CAPTION_DELAY_SEC, CAPTION_ROWS, CAPTION_SEC, captionLayout, cardFade, cardLayout, replayTagLayout, scoreBugLayout, estimateTextWidth, type DrawOp, type RectOp, type TextOp } from './layout'
 import { NAVY, ORANGE } from './teamStyle'
 import type { BugSpec, CaptionSpec, CardSpec } from './types'
 
@@ -124,6 +124,7 @@ describe('captionLayout', () => {
 
     it('should be on screen for 5 s, sliding and fading in and out over 0.3 s', () => {
         expect(CAPTION_SEC).toBe(5)
+        expect(CAPTION_DELAY_SEC).toBe(1)
         expect(alphaAt(goal, 0)).toBe(0)
         expect(alphaAt(goal, 0.15)).toBeGreaterThan(0)
         expect(alphaAt(goal, 0.15)).toBeLessThan(1)
@@ -175,6 +176,14 @@ describe('replayTagLayout', () => {
         const box = ops.find((o) => o.kind === 'rect')!
         expect(box.kind === 'rect' && box.x + box.w).toBeLessThanOrEqual(1824)
         expect(box.kind === 'rect' && box.y).toBeGreaterThanOrEqual(54)
+    })
+
+    it('should appear instantly, without fading or sliding, for its whole length', () => {
+        for (const t of [0, 0.05, 0.15, 3, 5.95]) {
+            for (const o of replayTagLayout(t, 6)) expect(o.kind === 'cardBackground' ? 1 : o.alpha ?? 1).toBe(1)
+        }
+        const x = (t: number): number => Math.min(...replayTagLayout(t, 6).filter((o): o is RectOp => o.kind === 'rect').map((o) => o.x))
+        expect(x(0)).toBe(x(3))
     })
 
     it('should be scaled up like the captions (≥ 26 px text on a 768×432 reel)', () => {

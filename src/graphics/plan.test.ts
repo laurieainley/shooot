@@ -52,14 +52,14 @@ describe('buildGraphicsSpec', () => {
         expect(spec.outro).toBeUndefined()
     })
 
-    it('should put a caption with the score after it on the clip containing each goal, for 5 s', () => {
+    it('should put a caption with the score after it on the clip containing each goal, for 5 s starting 1 s after the event', () => {
         const spec = build([ev('a', 20, { team: "Ryan's Rovers", scorer: 'Sam' }), ev('b', 55, { team: 'Walford Town', scorer: 'Alex', pen: true })])
         const bug = (text: string) => ({ left: 'RR', right: 'WT', leftColour: '#f0f0f0', rightColour: '#ec5fa4', text })
         expect(spec.overlays).toEqual([
-            // 4 s left in the clip: the caption starts at the goal and carries on over the start of its replay (slowed 2×)
-            expect.objectContaining({ kind: 'caption', cutIndex: 0, startSec: 20, durationSec: 4, anchored: false, clock: { offsetSec: 0, rate: 1, totalSec: 5 }, spec: { label: 'GOAL', person: 'SAM', stripe: '#f0f0f0', bug: bug('1–0') } }),
-            expect.objectContaining({ kind: 'caption', cutIndex: 1, startSec: 16, durationSec: 0.5, clock: { offsetSec: 4, rate: 2, totalSec: 5 }, fromCutStart: true }),
-            expect.objectContaining({ kind: 'caption', cutIndex: 2, startSec: 55, durationSec: 5, spec: expect.objectContaining({ label: 'GOAL (PEN)', person: 'ALEX', stripe: '#ec5fa4', bug: bug('1–1') }) }),
+            // starts 1 s after the goal; 3 s left in the clip, then it carries on over the start of its replay (slowed 2×)
+            expect.objectContaining({ kind: 'caption', cutIndex: 0, startSec: 21, durationSec: 3, anchored: false, clock: { offsetSec: 0, rate: 1, totalSec: 5 }, spec: { label: 'GOAL', person: 'SAM', stripe: '#f0f0f0', bug: bug('1–0') } }),
+            expect.objectContaining({ kind: 'caption', cutIndex: 1, startSec: 16, durationSec: 1, clock: { offsetSec: 3, rate: 2, totalSec: 5 }, fromCutStart: true }),
+            expect.objectContaining({ kind: 'caption', cutIndex: 2, startSec: 56, durationSec: 5, spec: expect.objectContaining({ label: 'GOAL (PEN)', person: 'ALEX', stripe: '#ec5fa4', bug: bug('1–1') }) }),
         ])
     })
 
@@ -73,14 +73,14 @@ describe('buildGraphicsSpec', () => {
         expect(spec.overlays.at(-1)).toMatchObject({ cutIndex: 2, spec: { label: 'HIGHLIGHT', person: 'JO', note: 'NUTMEG ON THE WING', stripe: '#f28c28', bug: { text: '0–1' } } })
     })
 
-    it('should start a caption at its event and end it with its clip when no replay follows', () => {
+    it('should start a caption 1 s after its event and end it with its clip when no replay follows', () => {
         const spec = build([ev('a', 61, { team: "Ryan's Rovers" })])
-        expect(spec.overlays).toEqual([expect.objectContaining({ cutIndex: 2, startSec: 61, durationSec: 3 })])
+        expect(spec.overlays).toEqual([expect.objectContaining({ cutIndex: 2, startSec: 62, durationSec: 2 })])
     })
 
     it('should shorten a caption that the next one interrupts', () => {
         const spec = build([ev('a', 52, { team: "Ryan's Rovers" }), ev('b', 53.5, { team: 'Walford Town' })])
-        expect(spec.overlays.map((o) => [o.startSec, o.durationSec])).toEqual([[52, 1.5], [53.5, 5]])
+        expect(spec.overlays.map((o) => [o.startSec, o.durationSec])).toEqual([[53, 1.5], [54.5, 5]])
     })
 
     it('should skip captions when turned off, and for unlinked, unwanted or marker events', () => {
@@ -106,7 +106,7 @@ describe('buildGraphicsSpec — score always on screen', () => {
     it('should cover every cut, replays included, updating at each goal and hiding under captions', () => {
         const spec = build([ev('a', 20, { team: "Ryan's Rovers" }), ev('b', 60, { team: 'Walford Town' })], ON)
         const [c0, c1, c2] = bugs(spec)
-        expect(c0).toMatchObject({ cutIndex: 0, startSec: 10, durationSec: 14, fadeIn: false, fadeOut: false, hide: [[20, 24]] })
+        expect(c0).toMatchObject({ cutIndex: 0, startSec: 10, durationSec: 14, fadeIn: false, fadeOut: false, hide: [[21, 24]] })
         // a caption carried on over a replay starts with the replay's real first frame: the bug stays drawn under it
         // (the anchored caption repeats the same bug row), so there is never a frame with neither
         expect(c1).toMatchObject({ cutIndex: 1, hide: [] })

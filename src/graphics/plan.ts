@@ -4,7 +4,7 @@ import { eventLabel, eventSummary, isScoring, shortNote } from '../utils/eventTy
 import { linkedEvents } from '../utils/relink'
 import { finalScore, formatScore, scoreAt, scoresAfter, type Score } from '../utils/score'
 import type { ScoreBugWindow } from '../utils/scoreBug'
-import { CAPTION_SEC } from './layout'
+import { CAPTION_DELAY_SEC, CAPTION_SEC } from './layout'
 import { ORANGE, teamBadge } from './teamStyle'
 import type { BugScore, BugSpec, CaptionClock, CaptionSpec, CardSpec, GraphicsSpec, OverlaySpec } from './types'
 
@@ -75,17 +75,21 @@ export function buildGraphicsSpec(args: {
             const note = upper(shortNote(e.notes, 60))
             if (note) cs.note = note
             if (both) cs.bug = bugFor(teams, after.get(e.id) ?? scoreAt(events, teams, cumulativeOffsets, globalOf(src, t)))
-            // From the event itself; what the clip cannot hold carries on over the start of its replay.
-            const first = Math.min(CAPTION_SEC, cut.endSec - t)
+            // Starts 1 s after the event; what the clip cannot hold carries on over the start of its replay.
+            const start = t + CAPTION_DELAY_SEC
+            const first = Math.max(0, Math.min(CAPTION_SEC, cut.endSec - start))
             const label = `Caption: ${eventSummary(e)}`
             const clock = (offsetSec: number, rate: number): CaptionClock => ({ offsetSec, rate, totalSec: CAPTION_SEC })
-            const part: CaptionOverlay[] = [{ kind: 'caption', cutIndex, startSec: t, durationSec: first, spec: cs, anchored: alwaysBug, clock: clock(0, 1), label }]
+            const part: CaptionOverlay[] = []
+            if (first > 0.05) part.push({ kind: 'caption', cutIndex, startSec: start, durationSec: first, spec: cs, anchored: alwaysBug, clock: clock(0, 1), label })
             const next = cuts[cutIndex + 1]
-            const rest = CAPTION_SEC - first
+            const rest = CAPTION_SEC - (first > 0.05 ? first : 0)
             if (rest > 0.05 && next && (next.speed ?? 1) < 1) {
                 const speed = next.speed ?? 1
-                part.push({ kind: 'caption', cutIndex: cutIndex + 1, startSec: next.startSec, durationSec: Math.min(next.endSec - next.startSec, rest * speed), spec: cs, anchored: alwaysBug, clock: clock(first, 1 / speed), fromCutStart: true, label })
+                const offset = CAPTION_SEC - rest
+                part.push({ kind: 'caption', cutIndex: cutIndex + 1, startSec: next.startSec, durationSec: Math.min(next.endSec - next.startSec, rest * speed), spec: cs, anchored: alwaysBug, clock: clock(offset, 1 / speed), fromCutStart: true, label })
             }
+            if (part.length === 0) continue
             parts.push(part)
         }
         parts.sort((x, y) => x[0].cutIndex - y[0].cutIndex || x[0].startSec - y[0].startSec)
