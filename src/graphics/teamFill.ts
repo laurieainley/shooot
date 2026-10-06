@@ -1,7 +1,9 @@
 // Team colours as the graphics paint them: a solid colour, or for 'multi' (the multicolour swatch) diagonal stripes.
-export const MULTI = 'multi'
-/** Bright, distinct stripes: red, orange, teal, blue, yellow. */
-export const MULTI_COLOURS: readonly string[] = ['#e63946', '#f4a261', '#2a9d8f', '#457b9d', '#f1fa8c']
+import { MULTI_COLOR, MULTI_STRIPES } from '../utils/teamColor'
+
+export const MULTI = MULTI_COLOR
+/** The same bright stripes the UI swatches use. */
+export const MULTI_COLOURS: readonly string[] = MULTI_STRIPES
 /** Dark outline for initials drawn white over the stripes. */
 export const MULTI_OUTLINE = '#0b1730'
 
