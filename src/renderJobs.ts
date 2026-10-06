@@ -7,6 +7,7 @@ import type { Cut, RenderFn, RenderGraphics, RenderSource } from './render/types
 import type { JobKind } from './render/renderJob'
 import type { RenderQuality } from './utils/renderSources'
 import { formatRenderProgress } from './utils/renderSources'
+import { recoverFromStaleChunk } from './staleBuildRecovery'
 
 export type RenderRequest = {
     cuts: Cut[]
@@ -158,7 +159,17 @@ let instance: StoreApi<RenderJobsState> | null = null
 export function renderJobs(): StoreApi<RenderJobsState> {
     if (!instance) {
         defaultDeps ??= {
-            render: async (...args) => (await import('./render')).renderReel(...args),
+            render: async (...args) => {
+                let engine: typeof import('./render')
+                try {
+                    engine = await import('./render')
+                } catch (e) {
+                    // This tab is running an older build whose engine file is gone after a deploy.
+                    if (recoverFromStaleChunk(e)) throw new Error('A new version of Shooot is available — reloading…')
+                    throw e
+                }
+                return engine.renderReel(...args)
+            },
             download: clickDownload,
             notify: (job, ms) => { void import('./components/notify').then((n) => { if (ms >= 20_000) n.notifyIfHidden('Render finished', `${job.result?.file.name ?? 'Your video'} is ready`) }) },
             now: () => Date.now(),
