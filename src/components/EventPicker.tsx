@@ -1,12 +1,12 @@
 import { teamBackground } from '../utils/teamColor'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { useAppState } from '../state'
+import { selectClockLong, useAppState } from '../state'
 import { nearbyMark } from '../utils/duplicates'
 import { PICKER_GROUPS, PICKER_OPTIONS, controlLabel, eventIcon, EVENT_META, type PickerOption } from '../utils/eventTypes'
 import { SKIP, initialPickerState, pickerReducer, touchPickerState, scorerCandidates, type PickerInput, type PickerState } from '../utils/eventPicker'
 import { teamShortcuts } from '../utils/roster'
-import { formatHMS } from '../utils/timeline'
+import { formatClock } from '../utils/timeline'
 import type { MatchEvent } from '../types'
 import { panelPlacement, usePanelSlot } from './panelSlot'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
@@ -17,6 +17,7 @@ const startState = (pending: boolean): PickerState => (pending ? touchPickerStat
 
 export function EventPicker() {
     const picker = useAppState((s) => s.picker)
+    const clockLong = useAppState(selectClockLong)
     const storedEvent = useAppState((s) => s.events.find((e) => e.id === s.picker?.eventId))
     const teams = useAppState((s) => s.teams)
     const events = useAppState((s) => s.events)
@@ -103,7 +104,7 @@ export function EventPicker() {
     const names = teams.map((t) => t.name)
     const shortcuts = teamShortcuts(names)
     const candidates = scorerCandidates(state, { teams })
-    const title = `${formatHMS(event.matchTimeSec)} ${eventIcon(event)}`
+    const title = `${formatClock(event.matchTimeSec, clockLong)} ${eventIcon(event)}`
     const { option } = state
     const canSkip = (state.step === 'team' && option.teamOptional) || (state.step === 'scorer' && option.personOptional)
     const personLabel = option.personLabel ?? 'Scorer'

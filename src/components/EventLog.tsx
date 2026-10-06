@@ -1,7 +1,7 @@
 import { teamBackground } from '../utils/teamColor'
 import { shouldHandleShortcut } from '../utils/shortcuts'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { selectMatchStartSec, useAppState } from '../state'
+import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import type { MatchEvent, Team } from '../types'
 import { controlLabel, eventIcon, isMarker, shortNote } from '../utils/eventTypes'
 import { watchFromSec } from '../utils/markers'
@@ -26,6 +26,7 @@ export function EventLog() {
     const teams = useAppState((s) => s.teams)
     const offsets = useAppState((s) => s.cumulativeOffsets)
     const matchStartTimeSec = useAppState(selectMatchStartSec)
+    const clockLong = useAppState(selectClockLong)
     const canUndo = useAppState((s) => s.undoStack.length > 0)
     const canRedo = useAppState((s) => s.redoStack.length > 0)
     const coarse = useMediaQuery(COARSE_QUERY)
@@ -141,7 +142,7 @@ export function EventLog() {
                             event={e}
                             teams={teams}
                             selected={e.id === selectedId}
-                            clock={formatEventClock((offsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec, e.matchTimeSec, matchStartTimeSec)}
+                            clock={formatEventClock((offsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec, e.matchTimeSec, matchStartTimeSec, clockLong)}
                             score={scores.get(e.id)}
                             fileTag={files.length > 1 ? `V${(e.sourceFileIndex ?? 0) + 1}` : null}
                             editing={editing?.id === e.id ? editing.field : null}
@@ -218,7 +219,7 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, o
                     />
                 </span>
             ) : (
-                <span className="tc text-[13px]" onDoubleClick={(ev) => { stop(ev); onEdit('time') }} title="Double-click to edit time (in file)">{clock}</span>
+                <span className="tc clock text-[13px]" onDoubleClick={(ev) => { stop(ev); onEdit('time') }} title="Double-click to edit time (in file)">{clock}</span>
             )}
 
             <span
@@ -290,7 +291,7 @@ function MarkerRow({ event: e, selected, clock, fileTag, editing, onSelect, onWa
                         onCommit={(t) => { update(e.id, { matchTimeSec: t }); useAppState.getState().sortEvents(); onEdit(null); restoreFocus() }} />
                 </span>
             ) : (
-                <span className="tc text-[13px]" onDoubleClick={(ev) => { stop(ev); onEdit('time') }} title="Double-click to edit time (in file)">{clock}</span>
+                <span className="tc clock text-[13px]" onDoubleClick={(ev) => { stop(ev); onEdit('time') }} title="Double-click to edit time (in file)">{clock}</span>
             )}
             <span className="marker-flag" aria-hidden="true">{eventIcon(e)}</span>
             <span className="event-row__label truncate text-[13px]">{controlLabel(e)}</span>

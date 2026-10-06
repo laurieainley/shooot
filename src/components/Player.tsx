@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import videojs from 'video.js'
 import 'video.js/dist/video-js.css'
-import { selectMatchStartSec, useAppState } from '../state'
+import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import { shortcutFor, shouldHandleShortcut } from '../utils/shortcuts'
 import { runShortcut, type ShortcutPlayer } from './playerShortcuts'
 import { FullscreenControls } from './FullscreenControls'
@@ -14,9 +14,12 @@ import { ZoomChip } from './ZoomChip'
 import { RenderChip } from './RenderChip'
 import { useTouchScrub } from './useTouchScrub'
 import { PlayIndicator } from './PlayIndicator'
-import { formatEventClock } from '../utils/timeline'
+import { formatClock, formatEventClock } from '../utils/timeline'
 import { playerOptions } from '../utils/playerOptions'
 import { shouldAdvance } from '../utils/preview'
+
+// video.js shows "0:05 / 24:00"; every time on screen uses the project's fixed width format instead.
+videojs.setFormatTime((seconds: number, guide: number) => formatClock(seconds, selectClockLong(useAppState.getState()) || guide >= 3600))
 
 export function Player() {
     const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -48,6 +51,7 @@ export function Player() {
     const scrub = useTouchScrub(containerRef, playerRef)
     // The scrub bubble speaks match time (from kick-off), like the strip label and the event log.
     const matchStartSec = useAppState(selectMatchStartSec)
+    const clockLong = useAppState(selectClockLong)
     const fileOffset = useAppState((s) => s.cumulativeOffsets[s.currentFileIndex] ?? 0)
 
     // Every player shortcut, wherever focus is (see utils/shortcuts.ts); the event log's own keys stop propagation first.
@@ -339,7 +343,7 @@ export function Player() {
             <PlayIndicator visible={paused && !scrub} />
             <ZoomChip zoom={zoomPan.zoom} onReset={zoomPan.reset} />
             {(isFullscreen || immersive) && <RenderChip variant="overlay" />}
-            {scrub && <div className="scrub-bubble tc" style={{ left: scrub.leftPx }}>{formatEventClock(fileOffset + scrub.timeSec, scrub.timeSec, matchStartSec)}</div>}
+            {scrub && <div className="scrub-bubble tc clock" style={{ left: scrub.leftPx }}>{formatEventClock(fileOffset + scrub.timeSec, scrub.timeSec, matchStartSec, clockLong)}</div>}
             <FullscreenControls playerRef={playerRef} isFullscreen={isFullscreen || immersive} />
             <EventPicker />
             <TimelineMarkers host={progressHost} durationSec={durationSec} />

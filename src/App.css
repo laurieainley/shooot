@@ -274,8 +274,8 @@
 .shell--phone .clip-summary { padding-bottom: 96px; }
 
 /* ---------- match strip (the pitch: files laid end to end, chalk lines between them) ---------- */
-.match-strip { display: grid; grid-template-columns: 96px minmax(0, 1fr); background: var(--panel); border-top: 1px solid var(--line); min-width: 0; }
-.shell--phone .match-strip { height: 48px; border-bottom: 1px solid var(--line); grid-template-columns: 88px minmax(0, 1fr); }
+.match-strip { display: grid; grid-template-columns: minmax(96px, auto) minmax(0, 1fr); background: var(--panel); border-top: 1px solid var(--line); min-width: 0; }
+.shell--phone .match-strip { height: 48px; border-bottom: 1px solid var(--line); grid-template-columns: minmax(88px, auto) minmax(0, 1fr); }
 .strip-label {
   display: flex; flex-direction: column; justify-content: center; gap: 1px; padding: 0 12px;
   border-right: 1px solid var(--line); font-size: 11px; color: var(--muted);
@@ -459,7 +459,11 @@
 .player-container .video-js .vjs-play-progress::before { color: var(--accent); }
 .player-container .video-js .vjs-load-progress { background: rgb(255 255 255 / 0.18); }
 .player-container .video-js .vjs-load-progress div { background: rgb(255 255 255 / 0.12); }
-.player-container .video-js .vjs-time-control { font-family: var(--font-mono); font-size: 12px; }
+/* Running times keep one width per project (--clock-w is set by AppShell): tabular figures, a reserved box. */
+.clock { display: inline-block; min-width: var(--clock-w, 6ch); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.scrub-bubble.clock { text-align: center; }
+.player-container .video-js .vjs-time-control { font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+.player-container .video-js .vjs-current-time-display, .player-container .video-js .vjs-duration-display { display: inline-block; min-width: var(--clock-w-file, 5ch); text-align: center; }
 /* Elapsed time: current / duration (video.js shows the remaining time by default). */
 .player-container .video-js .vjs-current-time,
 .player-container .video-js .vjs-time-divider,

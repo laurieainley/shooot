@@ -1,6 +1,6 @@
 import { teamBackground } from '../utils/teamColor'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { selectMatchStartSec, useAppState } from '../state'
+import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import type { MarkerType, MatchEvent, Team } from '../types'
 import { optionForEvent, personEdit, typeChangePatch } from '../utils/eventEdit'
 import { PICKER_OPTIONS, isMarker } from '../utils/eventTypes'
@@ -31,6 +31,7 @@ interface EventSheetBodyProps {
 function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
     const offset = useAppState((s) => s.cumulativeOffsets[e.sourceFileIndex ?? 0] ?? 0)
     const matchStartSec = useAppState(selectMatchStartSec)
+    const clockLong = useAppState(selectClockLong)
     const multiFile = useAppState((s) => s.files.length > 1)
     const option = optionForEvent(e)
     const marker = isMarker(e)
@@ -78,7 +79,7 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
     const pool = useMemo(() => roster?.roster ?? teams.flatMap((t) => t.roster), [roster, teams])
     const suggestions = person.trim() && person.trim() !== e.scorer ? filterRoster(pool, person) : pool
     const personLabel = option.personLabel ?? 'Scorer'
-    const clock = formatEventClock(offset + e.matchTimeSec, e.matchTimeSec, matchStartSec)
+    const clock = formatEventClock(offset + e.matchTimeSec, e.matchTimeSec, matchStartSec, clockLong)
 
     return (
         <ColumnPanel label="Edit event" onClose={close} className="event-sheet">

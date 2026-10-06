@@ -1,7 +1,7 @@
 import { useMemo, useRef, type PointerEvent as ReactPointerEvent } from 'react'
-import { selectMatchStartSec, useAppState } from '../state'
+import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import { buildMatchStrip, globalToFileTime } from '../utils/matchStrip'
-import { formatEventClock, formatHMS } from '../utils/timeline'
+import { formatClock, formatEventClock } from '../utils/timeline'
 
 /** Whole-match overview: every file end to end, clip spans, event dots, kick-off / final-whistle flags and playhead. Click or drag to jump. */
 export function MatchStrip() {
@@ -10,6 +10,7 @@ export function MatchStrip() {
     const events = useAppState((s) => s.events)
     const teams = useAppState((s) => s.teams)
     const matchStartSec = useAppState(selectMatchStartSec)
+    const clockLong = useAppState(selectClockLong)
     const currentFileIndex = useAppState((s) => s.currentFileIndex)
     const currentTimeSec = useAppState((s) => s.currentTimeInFileSec)
     const before = useAppState((s) => s.lengthBeforeGoalSec)
@@ -44,7 +45,7 @@ export function MatchStrip() {
                     </>
                 ) : (
                     <>
-                        <span className="strip-label__clock tc">{formatEventClock(absNow, currentTimeSec, matchStartSec)}</span>
+                        <span className="strip-label__clock tc clock">{formatEventClock(absNow, currentTimeSec, matchStartSec, clockLong)}</span>
                         <span className="tc">{files.length > 0 ? `V${currentFileIndex + 1}/${files.length}` : '—'}</span>
                     </>
                 )}
@@ -56,7 +57,7 @@ export function MatchStrip() {
                     aria-valuemin={0}
                     aria-valuemax={Math.round(strip.totalSec)}
                     aria-valuenow={Math.round(absNow)}
-                    aria-valuetext={formatHMS(absNow)}
+                    aria-valuetext={formatClock(absNow, clockLong)}
                     className="strip-track"
                     onPointerDown={(ev) => {
                         if ((ev.target as HTMLElement).closest('button')) return

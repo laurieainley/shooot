@@ -4,7 +4,7 @@ import type { GoalAreas, MarkerType, MatchEvent, Team, VideoSourceFile } from '.
 import { replayOptionsFor } from './utils/attack'
 import { normaliseAreas } from './utils/crop'
 import { migrateEvent } from './utils/eventTypes'
-import { computeCumulativeOffsets } from './utils/timeline'
+import { computeCumulativeOffsets, isLongTimeline } from './utils/timeline'
 import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/highlights'
 import { relinkEvents as relinkByKey, linkedEvents } from './utils/relink'
 import { kickOffSec, resolveGlobalEvents, withMigratedKickOff } from './utils/matchClock'
@@ -138,6 +138,11 @@ type AppState = {
 /** Kick-off on the whole timeline (0 when not marked): match clocks, Home, chapters and the full match start there. */
 export function selectMatchStartSec(s: Pick<AppState, 'events' | 'cumulativeOffsets'>): number {
     return kickOffSec(s.events, s.cumulativeOffsets)
+}
+
+/** The loaded footage is an hour or more: running times then all read h:mm:ss (see utils/timeline.ts). */
+export function selectClockLong(s: Pick<AppState, 'files'>): boolean {
+    return isLongTimeline(s.files.reduce((sum, f) => sum + (f.durationSec ?? 0), 0))
 }
 
 /** The heading on the title card. */
