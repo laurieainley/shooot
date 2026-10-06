@@ -7,10 +7,10 @@ import { watchFromSec } from '../utils/markers'
 import { wantsReplay } from '../utils/replays'
 import { filterRoster, rosterTeamFor } from '../utils/roster'
 import { formatEventClock } from '../utils/timeline'
-import { Sheet } from './Sheet'
+import { ColumnPanel } from './ColumnPanel'
 
 /**
- * Touch editing of an existing event (tap a row in the event log): type, team, person, note, time nudge,
+ * Touch editing of an existing event (tap a row in the event log; it replaces the events column rather than covering the picture): type, team, person, note, time nudge,
  * replay, delete. Every change is applied at once (one undo step each); typed text is saved on Enter, when
  * the field loses focus and when the sheet closes. Desktop keeps inline editing in the log.
  */
@@ -79,7 +79,7 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
     const clock = formatEventClock(offset + e.matchTimeSec, e.matchTimeSec, matchStartSec)
 
     return (
-        <Sheet label="Edit event" onClose={close} className="event-sheet">
+        <ColumnPanel label="Edit event" onClose={close} className="event-sheet">
             <p className="event-sheet__when">
                 <span className="tc">{clock}</span>
                 {multiFile && <span className="tag">V{(e.sourceFileIndex ?? 0) + 1}</span>}
@@ -174,6 +174,6 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
                 {!e.unlinked && <button type="button" className="btn-quiet" onClick={watch}>Watch</button>}
                 <button type="button" className="btn-primary" onClick={close}>Done</button>
             </div>
-        </Sheet>
+        </ColumnPanel>
     )
 }

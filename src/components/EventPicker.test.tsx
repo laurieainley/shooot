@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import { useAppState } from '../state'
 import { EventPicker } from './EventPicker'
 import { setCoarsePointer } from '../test/pointer'
@@ -127,13 +127,13 @@ describe('EventPicker on touch', () => {
             files: [vf('a.mp4')], events: [], cumulativeOffsets: [0], currentFileIndex: 0, undoStack: [], redoStack: [], picker: null,
             teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }],
         })
-        act(() => s().markEvent(100))
+        act(() => s().markEvent(100, { deferred: true }))
     })
     afterEach(() => setCoarsePointer(false))
 
     it('should close and keep the event with Done', async () => {
         render(<EventPicker />)
-        fireEvent.click(screen.getByRole('option', { name: /^goal ⏎/i }))
+        fireEvent.click(screen.getByRole('option', { name: /^goal$/i }))
         fireEvent.click(screen.getByRole('button', { name: 'Done' }))
         expect(s().picker).toBeNull()
         expect(s().events[0]).toMatchObject({ type: 'goal', matchTimeSec: 100 })
@@ -141,7 +141,7 @@ describe('EventPicker on touch', () => {
 
     it('should keep the typed note on Done', () => {
         render(<EventPicker />)
-        fireEvent.click(screen.getByRole('option', { name: /^foul/i }))
+        fireEvent.click(screen.getByRole('option', { name: /^foul$/i }))
         fireEvent.click(screen.getByRole('option', { name: /colours/i }))
         fireEvent.click(screen.getByRole('button', { name: /skip/i }))
         fireEvent.change(screen.getByRole('textbox', { name: 'Note' }), { target: { value: 'late tackle' } })
@@ -150,11 +150,61 @@ describe('EventPicker on touch', () => {
         expect(s().events[0]).toMatchObject({ type: 'foul', team: 'Colours', notes: 'late tackle' })
     })
 
-    it('should delete the just-created event with Cancel', () => {
+    it('should have nothing preselected and create no event until a type is chosen', () => {
+        render(<EventPicker />)
+        expect(s().events).toEqual([])
+        expect(screen.getAllByRole('option').every((o) => o.getAttribute('aria-selected') !== 'true')).toBe(true)
+    })
+
+    it('should create nothing when closed with Cancel before choosing a type', () => {
         render(<EventPicker />)
         fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
         expect(s().picker).toBeNull()
         expect(s().events).toEqual([])
+        expect(s().undoStack).toEqual([])
+    })
+
+    it('should create nothing on Escape before choosing a type', () => {
+        render(<EventPicker />)
+        press('Escape')
+        expect(s().picker).toBeNull()
+        expect(s().events).toEqual([])
+    })
+
+    it('should create the event when a type is tapped, then move to the team step', () => {
+        render(<EventPicker />)
+        fireEvent.click(screen.getByRole('option', { name: /^penalty goal/i }))
+        expect(s().events).toHaveLength(1)
+        expect(s().events[0]).toMatchObject({ type: 'goal', pen: true, matchTimeSec: 100 })
+        expect(screen.getByRole('option', { name: /whites/i })).toBeInTheDocument()
+    })
+
+    it('should delete the event created from this mark with Cancel after choosing a type', () => {
+        render(<EventPicker />)
+        fireEvent.click(screen.getByRole('option', { name: /^goal/i }))
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+        expect(s().picker).toBeNull()
+        expect(s().events).toEqual([])
+    })
+
+    it('should place a Kick off marker straight from the list', () => {
+        render(<EventPicker />)
+        fireEvent.click(screen.getByRole('option', { name: /^kick off/i }))
+        expect(s().events[0]).toMatchObject({ type: 'kick_off', matchTimeSec: 100 })
+        expect(s().picker).toBeNull()
+    })
+
+    it('should not preselect the first team either', () => {
+        render(<EventPicker />)
+        fireEvent.click(screen.getByRole('option', { name: /^goal$/i }))
+        expect(screen.getAllByRole('option').every((o) => o.getAttribute('aria-selected') !== 'true')).toBe(true)
+    })
+
+    it('should group the types: Goals, Penalties, Other, Match', () => {
+        render(<EventPicker />)
+        const groups = screen.getAllByRole('group')
+        expect(groups.map((g) => g.getAttribute('aria-label'))).toEqual(['Goals', 'Penalties', 'Other', 'Match'])
+        expect(within(groups[0]).getAllByRole('option').map((o) => o.textContent)).toEqual(['⚽Goal', '⚽Penalty goal', '⚽Own goal'])
     })
 
     it('should hide the keyboard hint', () => {

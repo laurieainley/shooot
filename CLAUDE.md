@@ -72,7 +72,7 @@ src/
     addFiles.ts     # addPickedFiles(): attach full MP4s to loaded proxies, probe + append the rest
     FilePills.tsx   # File pills (reorder, remove, badges) + AddFilesButton
     EmptyPlayer.tsx # Drop zone shown in the player cell before any file is loaded
-    EventPicker.tsx           # G → type → team → scorer picker (popover / mobile sheet)
+    EventPicker.tsx           # G → type → team → scorer picker (popover; touch: grouped list in the events column)
     MatchSetup.tsx            # Teams, colours, rosters, match start
     TimelineMarkers.tsx       # Event / match-start markers portalled into the scrubber
     ChaptersCopy.tsx          # Copy YouTube / highlight chapters
@@ -127,6 +127,22 @@ src/
 | **0** | Reset zoom |
 
 Global: **L** focuses the event log (then ↑/↓ select, ⏎ watch, ⌫ delete, R replay, E scorer, T team, G mark, Esc back to the video); **⌘Z / ⇧⌘Z** undo / redo.
+
+### Layouts, touch and tablets
+
+`useLayout()` picks one of four layouts: `desktop` (edit bay: player + strip left, events rail right; also a touch tablet on its side),
+`landscape` (phone on its side, compact top bar), `tablet` (touch tablet held upright: player, strip, then the events in their own scroll
+region, no page scroll) and `phone` (stacked, page scrolls). **`AppShell` renders one tree for all of them** (CSS arranges it, the bay
+wrappers are `display: contents` when stacked): the player must never remount on rotation or resize, or the browser leaves fullscreen
+with the removed element. The orientation is never locked.
+
+- Touch ＋ captures the time but creates **no event** until a type is chosen (`markEvent(t, { deferred: true })` → `picker.pending` →
+  `commitPending()`); closing creates nothing. Desktop G / "+ Event" still create immediately.
+- Touch add / edit panels render into the `panel-slot` in the rail (`ColumnPanel`, `EventPicker` via `panelPlacement()`): they replace
+  the events column / area and never cover the picture. In fullscreen the picker is a compact right-hand overlay.
+- Selecting a row (or tapping it on touch, which opens the editor) never seeks or plays; **Watch** (row button, editor, ⏎) does.
+- Controls say "Penalty goal" (`controlLabel`); outputs (chapters, descriptions, captions) keep "Goal (pen)" (`eventLabel`).
+- Graphics need WebCodecs (`utils/capabilities.ts`); without it they are disabled with a message and the plain reel still renders.
 
 ## Coding Practices
 

@@ -13,6 +13,7 @@ import { useZoomPan, type ZoomPan } from './useZoomPan'
 import { ZoomChip } from './ZoomChip'
 import { RenderChip } from './RenderChip'
 import { useTouchScrub } from './useTouchScrub'
+import { PlayIndicator } from './PlayIndicator'
 import { formatEventClock } from '../utils/timeline'
 import { playerOptions } from '../utils/playerOptions'
 import { shouldAdvance } from '../utils/preview'
@@ -28,6 +29,7 @@ export function Player() {
     const setCurrentFileIndex = useAppState((s) => s.setCurrentFileIndex)
     const [isFullscreen, setIsFullscreen] = useState(false)
     const [durationSec, setDurationSec] = useState(0)
+    const [paused, setPaused] = useState(true)
     const [progressHost, setProgressHost] = useState<HTMLElement | null>(null)
     const [speedIndicator, setSpeedIndicator] = useState<number | null>(null)
     const speedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -221,6 +223,17 @@ export function Player() {
         }
     }, [files, currentFileIndex])
 
+    // Paused indicator: follows the player's own state (play / pause / ended / a new source).
+    useEffect(() => {
+        const p = playerRef.current
+        if (!p) return
+        const sync = (): void => setPaused(p.paused() !== false)
+        const evts = ['play', 'playing', 'pause', 'ended', 'loadstart', 'emptied']
+        sync()
+        p.on(evts, sync)
+        return () => p.off(evts, sync)
+    }, [])
+
     // Listen for seekToGoal events
     useEffect(() => {
         const handleSeekToGoal = (event: CustomEvent) => {
@@ -378,7 +391,9 @@ export function Player() {
 
     // Immersive (CSS) fullscreen: Esc leaves it, as it would real fullscreen; unloading the player ends it.
     const immersive = useAppState((s) => s.immersive)
-    useEffect(() => () => useAppState.getState().setImmersive(false), [])
+    useEffect(() => () => { useAppState.getState().setImmersive(false); useAppState.getState().setPlayerFullscreen(false) }, [])
+    // Fullscreen has no event list to edit from: leaving the edit panel open would only be hidden behind the picture.
+    useEffect(() => { if (isFullscreen || immersive) { const st = useAppState.getState(); if (st.panel === 'event') st.closePanel() } }, [isFullscreen, immersive])
     useEffect(() => {
         if (!immersive) return
         const onKey = (e: KeyboardEvent): void => {
@@ -393,7 +408,9 @@ export function Player() {
         const sync = (): void => {
             const d = document as Document & { webkitFullscreenElement?: Element | null }
             const el = d.fullscreenElement ?? d.webkitFullscreenElement ?? null
-            setIsFullscreen(el !== null && el === containerRef.current)
+            const full = el !== null && el === containerRef.current
+            setIsFullscreen(full)
+            useAppState.getState().setPlayerFullscreen(full)
         }
         const events = ['fullscreenchange', 'webkitfullscreenchange'] as const
         for (const e of events) document.addEventListener(e, sync)
@@ -414,6 +431,7 @@ export function Player() {
                     {speedIndicator.toFixed(2)}x
                 </div>
             )}
+            <PlayIndicator visible={paused && !scrub} />
             <ZoomChip zoom={zoomPan.zoom} onReset={zoomPan.reset} />
             {(isFullscreen || immersive) && <RenderChip variant="overlay" />}
             {scrub && <div className="scrub-bubble tc" style={{ left: scrub.leftPx }}>{formatEventClock(fileOffset + scrub.timeSec, scrub.timeSec, matchStartSec)}</div>}

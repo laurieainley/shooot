@@ -49,9 +49,9 @@ describe('AppShell', () => {
         expect(screen.queryByText('mark')).not.toBeInTheDocument()
         expect(screen.getByRole('region', { name: 'Events' })).toBeInTheDocument()
         await userEvent.click(screen.getByRole('button', { name: 'Mark event' }))
-        const [e] = useAppState.getState().events
-        expect(e).toMatchObject({ matchTimeSec: 12, type: 'goal' })
-        expect(useAppState.getState().picker).toEqual({ eventId: e.id })
+        // The time is captured, but no event exists until a type is chosen
+        expect(useAppState.getState().events).toEqual([])
+        expect(useAppState.getState().picker?.pending).toEqual({ matchTimeSec: 12, sourceFileIndex: 0 })
         expect(screen.queryByRole('button', { name: 'Mark event' })).not.toBeInTheDocument()
     })
 
@@ -137,7 +137,7 @@ describe('AppShell', () => {
             const fab = screen.getByRole('button', { name: 'Mark event' })
             expect(container.querySelector('.stage')).not.toContainElement(fab)
             await userEvent.click(fab)
-            expect(useAppState.getState().events).toHaveLength(1)
+            expect(useAppState.getState().picker?.pending).toBeDefined()
         })
 
         it('should float the preview bar over the picture rather than stacking it below', () => {
@@ -145,6 +145,34 @@ describe('AppShell', () => {
             useAppState.setState({ isPreviewMode: true, previewSegments: [], previewSteps: [{ sourceIndex: 0, startSec: 0, endSec: 10, speed: 1, gain: 1, replay: false, clipIndex: 0 }], currentPreviewSegment: 0 })
             const { container } = render(<AppShell />)
             expect(container.querySelector('.stage')).toContainElement(screen.getByRole('group', { name: 'Preview' }))
+        })
+    })
+
+    it('should offer a slot in the rail / stack for the touch add and edit panels', () => {
+        setWidth(true)
+        const { container } = render(<AppShell />)
+        expect(container.querySelector('.rail > .panel-slot')).toBeInTheDocument()
+    })
+
+    describe('rotating', () => {
+        it('should keep the very same player element when the layout changes, so fullscreen survives a rotation', () => {
+            setWidth(false)
+            const { container } = render(<AppShell />)
+            const player = screen.getByTestId('player')
+            const stage = container.querySelector('.stage')
+            act(() => setMedia({ desktop: false, coarse: true, landscape: true }))
+            expect(container.firstElementChild).toHaveClass('shell--landscape')
+            expect(screen.getByTestId('player')).toBe(player)
+            expect(container.querySelector('.stage')).toBe(stage)
+            act(() => setMedia({ desktop: true, coarse: true, tablet: true, portrait: true }))
+            expect(container.firstElementChild).toHaveClass('shell--tablet')
+            expect(screen.getByTestId('player')).toBe(player)
+            act(() => setMedia({ desktop: true, coarse: true, tablet: true }))
+            expect(container.firstElementChild).toHaveClass('shell--desktop')
+            expect(screen.getByTestId('player')).toBe(player)
+            act(() => setWidth(false))
+            expect(container.firstElementChild).toHaveClass('shell--phone')
+            expect(screen.getByTestId('player')).toBe(player)
         })
     })
 

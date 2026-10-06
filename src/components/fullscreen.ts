@@ -10,26 +10,15 @@ export type FullscreenPlayer = {
 
 type WebkitDocument = Document & { webkitFullscreenElement?: Element | null; webkitExitFullscreen?: () => void }
 type WebkitElement = HTMLElement & { webkitRequestFullscreen?: () => void }
-type LockableOrientation = ScreenOrientation & { lock?: (o: string) => Promise<void>; unlock?: () => void }
+type LockableOrientation = ScreenOrientation & { unlock?: () => void }
 
 function docFullscreenElement(): Element | null {
     const d = document as WebkitDocument
     return d.fullscreenElement ?? d.webkitFullscreenElement ?? null
 }
 
-function isTouchScreen(): boolean {
-    return typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches
-}
-
-// Phones: watching a match is a landscape job. Browsers may refuse (iOS, not installed as an app); that's fine.
-function lockLandscape(): void {
-    if (!isTouchScreen()) return
-    try {
-        const o = screen.orientation as LockableOrientation | undefined
-        void o?.lock?.('landscape')?.catch(() => undefined)
-    } catch { /* not supported */ }
-}
-
+// The orientation is never locked: forcing landscape from a portrait page made some browsers leave fullscreen
+// the moment the rotation finished. Fullscreen opens as the device is held and stays when it is turned.
 function unlockOrientation(): void {
     try { (screen.orientation as LockableOrientation | undefined)?.unlock?.() } catch { /* not supported */ }
 }
@@ -65,8 +54,7 @@ export function patchPlayerFullscreen(
         try {
             if (typeof el.requestFullscreen === 'function') {
                 const pending = el.requestFullscreen({ navigationUI: 'hide' })
-                if (pending && typeof pending.then === 'function') pending.then(lockLandscape, fallBack)
-                else lockLandscape()
+                if (pending && typeof pending.then === 'function') pending.then(undefined, fallBack)
                 return
             }
             if (typeof el.webkitRequestFullscreen === 'function') { el.webkitRequestFullscreen(); return }

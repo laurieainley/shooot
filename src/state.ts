@@ -80,11 +80,16 @@ type AppState = {
     prevPreviewSegment: () => void
     // Teams, rosters and the event picker
     teams: Team[]
-    picker: { eventId: string } | null
+    /**
+     * The event the picker is editing. `pending` (touch ＋): the time was captured but no event exists yet; it is
+     * created (one undo step) by `commitPending` when a type is chosen, and closing the picker creates nothing.
+     */
+    picker: { eventId: string; pending?: { matchTimeSec: number; sourceFileIndex: number } } | null
     setTeams: (teams: Team[]) => void
     renameTeam: (index: number, name: string) => void
     addToRoster: (team: string, name: string) => void
-    markEvent: (timeInFileSec: number) => void
+    markEvent: (timeInFileSec: number, opts?: { deferred?: boolean }) => void
+    commitPending: () => void
     openPicker: (eventId: string) => void
     closePicker: () => void
     /** Landscape phones: the top bar folded away for more picture. */
@@ -93,6 +98,9 @@ type AppState = {
     /** CSS full-viewport player (fullscreen fallback when the Fullscreen API is missing or refused). */
     immersive: boolean
     setImmersive: (on: boolean) => void
+    /** The player container is in real or CSS fullscreen (panels then become a compact overlay on the picture). */
+    playerFullscreen: boolean
+    setPlayerFullscreen: (on: boolean) => void
     panel: Panel | null
     /** The event the touch edit sheet (panel 'event') is editing. */
     editingEventId: string | null
@@ -136,7 +144,7 @@ export const useAppState = create<AppState>()(
             const follow = (events: MatchEvent[]): Pick<AppState, 'picker' | 'panel'> => {
                 const { picker: p, panel, editingEventId } = get()
                 return {
-                    picker: p && events.some((e) => e.id === p.eventId) ? p : null,
+                    picker: p && (p.pending || events.some((e) => e.id === p.eventId)) ? p : null,
                     panel: panel === 'event' && !events.some((e) => e.id === editingEventId) ? null : panel,
                 }
             }
@@ -151,6 +159,7 @@ export const useAppState = create<AppState>()(
             panel: null,
             editingEventId: null,
             immersive: false,
+            playerFullscreen: false,
             barCollapsed: false,
             opening: null,
             graphics: { cards: true, lowerThirds: true, replayTag: false, scoreBug: false },
@@ -366,10 +375,23 @@ export const useAppState = create<AppState>()(
                         ? { ...t, roster: [...t.roster, name] }
                         : t),
             }),
-            markEvent: (timeInFileSec) => {
+            markEvent: (timeInFileSec, opts) => {
                 const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-                get().addEvent({ id, matchTimeSec: Math.floor(timeInFileSec), sourceFileIndex: get().currentFileIndex, type: 'goal' })
+                const matchTimeSec = Math.floor(timeInFileSec)
+                const sourceFileIndex = get().currentFileIndex
+                if (opts?.deferred) {
+                    set({ picker: { eventId: id, pending: { matchTimeSec, sourceFileIndex } }, panel: null })
+                    return
+                }
+                get().addEvent({ id, matchTimeSec, sourceFileIndex, type: 'goal' })
                 set({ picker: { eventId: id }, panel: null })
+            },
+            commitPending: () => {
+                const pending = get().picker?.pending
+                const picker = get().picker
+                if (!picker || !pending) return
+                get().addEvent({ id: picker.eventId, ...pending, type: 'goal' })
+                set({ picker: { eventId: picker.eventId } })
             },
             openPicker: (eventId) => set({ picker: { eventId }, panel: null }),
             closePicker: () => set({ picker: null }),
@@ -392,6 +414,7 @@ export const useAppState = create<AppState>()(
                 }),
             }),
             setImmersive: (on) => set({ immersive: on }),
+            setPlayerFullscreen: (on) => { if (get().playerFullscreen !== on) set({ playerFullscreen: on }) },
             setBarCollapsed: (collapsed) => set({ barCollapsed: collapsed }),
             editEvent: (id) => {
                 if (get().events.some((e) => e.id === id)) set({ panel: 'event', editingEventId: id, picker: null })

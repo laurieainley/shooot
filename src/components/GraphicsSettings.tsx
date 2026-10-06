@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { selectMatchStartSec, useAppState } from '../state'
 import type { GraphicsSettings as Settings } from '../graphics/plan'
+import { graphicsSupport } from '../utils/capabilities'
 import { estimateReencode, reelSummary } from '../utils/reel'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 
@@ -27,6 +28,7 @@ export function GraphicsSettings() {
     const replaySpeed = useAppState((s) => s.replaySpeed)
     const measured = useAppState((s) => s.reencodeSecPerSec)
     const phone = useMediaQuery(COARSE_QUERY)
+    const support = useMemo(() => graphicsSupport(globalThis as unknown as Record<string, unknown>), [])
 
     const reelSec = useMemo(() => reelSummary({
         events, cumulativeOffsets, durationsSec: files.map((f) => f.durationSec ?? Infinity), matchStartSec, adjustTimestampsByOffset: adjust,
@@ -35,16 +37,17 @@ export function GraphicsSettings() {
 
     return (
         <div className="flex flex-col">
+            {!support.ok && <p role="note" className="export-note">{support.message}</p>}
             {OPTIONS.map((o) => (
                 <label key={o.key} className="toggle-row">
-                    <input type="checkbox" checked={!!graphics[o.key]} onChange={(e) => setGraphics({ [o.key]: e.target.checked })} />
+                    <input type="checkbox" disabled={!support.ok} checked={support.ok && !!graphics[o.key]} onChange={(e) => setGraphics({ [o.key]: e.target.checked })} />
                     <span className="toggle-row__text">
                         {o.label}
                         <span className="toggle-row__hint">{o.hint}</span>
                     </span>
                 </label>
             ))}
-            {graphics.scoreBug && (
+            {support.ok && graphics.scoreBug && (
                 <p role="note" className="export-note">
                     Re-encodes the whole reel, {estimateReencode(reelSec, measured, phone)} on this device (plain reels are copied, not re-encoded).
                 </p>

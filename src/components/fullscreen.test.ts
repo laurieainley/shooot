@@ -77,9 +77,9 @@ describe('patchPlayerFullscreen across orientation changes', () => {
         expect(container.requestFullscreen).toHaveBeenCalledTimes(2)
     })
 
-    it('should try to lock landscape after entering on a touch screen, ignoring refusals', async () => {
+    it('should never force the orientation: fullscreen opens as the device is held, and survives rotating', async () => {
         setCoarsePointer(true)
-        const lock = vi.fn(() => Promise.reject(new Error('not allowed')))
+        const lock = vi.fn(() => Promise.resolve())
         Object.defineProperty(screen, 'orientation', { configurable: true, value: { lock, unlock: vi.fn() } })
         const container = document.createElement('div')
         container.requestFullscreen = vi.fn(() => Promise.resolve())
@@ -87,7 +87,7 @@ describe('patchPlayerFullscreen across orientation changes', () => {
         patchPlayerFullscreen(player, () => container)
         player.requestFullscreen()
         await new Promise((r) => setTimeout(r, 0))
-        expect(lock).toHaveBeenCalledWith('landscape')
+        expect(lock).not.toHaveBeenCalled()
     })
 
     it('should not lock the orientation with a mouse', async () => {

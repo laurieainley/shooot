@@ -87,6 +87,43 @@ describe('teams and picker', () => {
         expect(s().picker).toBeNull()
     })
 
+    describe('deferred marking (touch ＋)', () => {
+        it('should capture the time and file but create no event until commitPending', () => {
+            s().markEvent(42.9, { deferred: true })
+            expect(s().events).toEqual([])
+            expect(s().undoStack).toEqual([])
+            const picker = s().picker!
+            expect(picker.pending).toEqual({ matchTimeSec: 42, sourceFileIndex: 0 })
+            s().commitPending()
+            expect(s().events).toHaveLength(1)
+            expect(s().events[0]).toMatchObject({ id: picker.eventId, matchTimeSec: 42, sourceFileIndex: 0, type: 'goal' })
+            expect(s().picker).toEqual({ eventId: picker.eventId })
+            expect(s().undoStack).toHaveLength(1)
+        })
+
+        it('should create nothing when the picker closes without a choice', () => {
+            s().markEvent(10, { deferred: true })
+            s().closePicker()
+            expect(s().events).toEqual([])
+            expect(s().picker).toBeNull()
+            expect(s().undoStack).toEqual([])
+        })
+
+        it('should survive unrelated store changes while pending and close when a panel opens', () => {
+            s().markEvent(10, { deferred: true })
+            s().addEvent({ id: 'other', matchTimeSec: 1, sourceFileIndex: 0, type: 'goal' })
+            expect(s().picker?.pending).toBeDefined()
+            s().openPanel('menu')
+            expect(s().picker).toBeNull()
+            expect(s().events).toHaveLength(1)
+        })
+
+        it('should do nothing on commitPending without a pending mark', () => {
+            s().commitPending()
+            expect(s().events).toEqual([])
+        })
+    })
+
     it('should rename a team and update its events', () => {
         s().setTeams([{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }])
         s().addEvent({ id: 'e', matchTimeSec: 1, sourceFileIndex: 0, type: 'goal', team: 'Whites' })

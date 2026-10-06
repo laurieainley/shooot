@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { selectMatchStartSec, useAppState } from '../state'
 import type { MatchEvent, Team } from '../types'
-import { eventIcon, eventLabel, isMarker, shortNote } from '../utils/eventTypes'
+import { controlLabel, eventIcon, isMarker, shortNote } from '../utils/eventTypes'
 import { watchFromSec } from '../utils/markers'
 import { wantsReplay } from '../utils/replays'
 import { filterRoster, rosterTeamFor } from '../utils/roster'
@@ -35,8 +35,8 @@ export function EventLog() {
     const selectedIndex = events.findIndex((e) => e.id === selectedId)
     const scores = useMemo(() => scoresAfter(events, teams, offsets), [events, teams, offsets])
 
-    // A freshly marked event (picker open on it) becomes the selection, so the log shows where it landed.
-    const pickerEventId = useAppState((s) => s.picker?.eventId)
+    // A freshly marked event (picker open on it, once it exists) becomes the selection, so the log shows where it landed.
+    const pickerEventId = useAppState((s) => (s.picker?.pending ? undefined : s.picker?.eventId))
     useEffect(() => { if (pickerEventId) setSelectedId(pickerEventId) }, [pickerEventId])
 
     // Global L focuses the log (never while typing or while the event picker is open).
@@ -59,7 +59,8 @@ export function EventLog() {
         el?.scrollIntoView?.({ block: 'nearest' })
     }, [selectedId])
 
-    const seek = (e: MatchEvent): void => {
+    // Watch = seek to the clip start and play. Selecting a row never moves or starts the video.
+    const watch = (e: MatchEvent): void => {
         if (e.unlinked) return
         const st = useAppState.getState()
         st.seekToGoal(e.sourceFileIndex ?? 0, watchFromSec(e, st.lengthBeforeGoalSec))
@@ -87,7 +88,7 @@ export function EventLog() {
             case 'ArrowUp': move(-1); break
             case 'Home': if (events[0]) setSelectedId(events[0].id); break
             case 'End': if (events.length) setSelectedId(events[events.length - 1].id); break
-            case 'Enter': if (sel) seek(sel); break
+            case 'Enter': if (sel) watch(sel); break
             case 'Delete': case 'Backspace': remove(selectedIndex); break
             case 'r': case 'R': if (sel) toggleReplay(sel); break
             case 'e': case 'E': if (sel) setEditing({ id: sel.id, field: 'scorer' }); break
@@ -143,10 +144,10 @@ export function EventLog() {
                             editing={editing?.id === e.id ? editing.field : null}
                             onSelect={() => {
                                 setSelectedId(e.id)
-                                seek(e)
-                                // Touch: no double-click or keys, so a tap opens the edit sheet (desktop edits inline).
+                                // Touch: no double-click or keys, so a tap opens the editor (desktop edits inline).
                                 if (coarse) useAppState.getState().editEvent(e.id)
                             }}
+                            onWatch={() => { setSelectedId(e.id); watch(e) }}
                             onEdit={(field) => { setSelectedId(e.id); setEditing(field ? { id: e.id, field } : null) }}
                             onToggleReplay={() => toggleReplay(e)}
                             onRemove={() => remove(events.indexOf(e))}
@@ -169,6 +170,7 @@ interface EventRowProps {
     fileTag: string | null
     editing: Field | null
     onSelect: () => void
+    onWatch: () => void
     onEdit: (field: Field | null) => void
     onToggleReplay: () => void
     onRemove: () => void
@@ -177,16 +179,16 @@ interface EventRowProps {
     touch?: boolean
 }
 
-function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, onSelect, onEdit, onToggleReplay, onRemove, restoreFocus, touch = false }: EventRowProps) {
+function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, onSelect, onWatch, onEdit, onToggleReplay, onRemove, restoreFocus, touch = false }: EventRowProps) {
     const team = teams.find((t) => t.name === e.team)
     const replay = wantsReplay(e)
-    const label = `${eventLabel(e)}${e.scorer ? ` · ${e.scorer}` : ''}`
+    const label = `${controlLabel(e)}${e.scorer ? ` · ${e.scorer}` : ''}`
     const note = shortNote(e.notes)
     const stop = (ev: React.SyntheticEvent): void => ev.stopPropagation()
     const done = (): void => { onEdit(null); restoreFocus() }
     const update = useAppState((s) => s.updateEvent)
 
-    if (isMarker(e)) return <MarkerRow event={e} selected={selected} clock={clock} fileTag={fileTag} editing={editing} onSelect={onSelect} onEdit={onEdit} onRemove={onRemove} restoreFocus={restoreFocus} touch={touch} />
+    if (isMarker(e)) return <MarkerRow event={e} selected={selected} clock={clock} fileTag={fileTag} editing={editing} onSelect={onSelect} onWatch={onWatch} onEdit={onEdit} onRemove={onRemove} restoreFocus={restoreFocus} touch={touch} />
 
     return (
         <li
@@ -252,6 +254,7 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, o
                 {e.unlinked
                     ? <span className="tag tag-warn" title={e.sourceFileKey}>file missing</span>
                     : fileTag && <span className="tag">{fileTag}</span>}
+                <WatchButton onWatch={onWatch} disabled={e.unlinked} />
                 <button type="button" aria-label="Replay" aria-pressed={replay} title={replay ? 'Slow-mo replay on (R)' : 'Slow-mo replay off (R)'}
                     tabIndex={-1} onClick={(ev) => { stop(ev); onToggleReplay() }} className="row-btn replay-btn">↻</button>
                 {!touch && (
@@ -263,10 +266,10 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, o
     )
 }
 
-type MarkerRowProps = Pick<EventRowProps, 'event' | 'selected' | 'clock' | 'fileTag' | 'editing' | 'onSelect' | 'onEdit' | 'onRemove' | 'restoreFocus' | 'touch'>
+type MarkerRowProps = Pick<EventRowProps, 'event' | 'selected' | 'clock' | 'fileTag' | 'editing' | 'onSelect' | 'onWatch' | 'onEdit' | 'onRemove' | 'restoreFocus' | 'touch'>
 
 /** Kick off / Final whistle: a flag, the label and the time — no team, person, score or replay. */
-function MarkerRow({ event: e, selected, clock, fileTag, editing, onSelect, onEdit, onRemove, restoreFocus, touch = false }: MarkerRowProps) {
+function MarkerRow({ event: e, selected, clock, fileTag, editing, onSelect, onWatch, onEdit, onRemove, restoreFocus, touch = false }: MarkerRowProps) {
     const stop = (ev: React.SyntheticEvent): void => ev.stopPropagation()
     const update = useAppState((s) => s.updateEvent)
     return (
@@ -281,15 +284,31 @@ function MarkerRow({ event: e, selected, clock, fileTag, editing, onSelect, onEd
                 <span className="tc text-[13px]" onDoubleClick={(ev) => { stop(ev); onEdit('time') }} title="Double-click to edit time (in file)">{clock}</span>
             )}
             <span className="marker-flag" aria-hidden="true">{eventIcon(e)}</span>
-            <span className="event-row__label truncate text-[13px]">{eventLabel(e)}</span>
+            <span className="event-row__label truncate text-[13px]">{controlLabel(e)}</span>
             <span className="flex items-center gap-1.5">
                 {e.unlinked ? <span className="tag tag-warn" title={e.sourceFileKey}>file missing</span> : fileTag && <span className="tag">{fileTag}</span>}
+                <WatchButton onWatch={onWatch} disabled={e.unlinked} />
                 {!touch && (
                     <button type="button" aria-label="Delete event" title="Delete (⌫)" tabIndex={-1}
                         onClick={(ev) => { stop(ev); onRemove() }} className="row-btn delete-btn">×</button>
                 )}
             </span>
         </li>
+    )
+}
+
+interface WatchButtonProps {
+    onWatch: () => void
+    disabled?: boolean
+}
+
+/** Row action: seek to the clip start and play (selecting a row never does). */
+function WatchButton({ onWatch, disabled = false }: WatchButtonProps) {
+    return (
+        <button type="button" aria-label="Watch" title="Watch the clip (⏎)" tabIndex={-1} disabled={disabled}
+            onClick={(ev) => { ev.stopPropagation(); onWatch() }} className="row-btn watch-btn">
+            <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor" /></svg>
+        </button>
     )
 }
 

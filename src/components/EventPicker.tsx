@@ -1,42 +1,66 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useAppState } from '../state'
 import { nearbyMark } from '../utils/duplicates'
-import { PICKER_OPTIONS, eventIcon, eventLabel } from '../utils/eventTypes'
-import { SKIP, initialPickerState, pickerReducer, scorerCandidates, type PickerInput, type PickerState } from '../utils/eventPicker'
+import { PICKER_GROUPS, PICKER_OPTIONS, controlLabel, eventIcon, EVENT_META, type PickerOption } from '../utils/eventTypes'
+import { SKIP, initialPickerState, pickerReducer, touchPickerState, scorerCandidates, type PickerInput, type PickerState } from '../utils/eventPicker'
 import { teamShortcuts } from '../utils/roster'
 import { formatHMS } from '../utils/timeline'
+import type { MatchEvent } from '../types'
+import { panelPlacement, usePanelSlot } from './panelSlot'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 
 const HANDLED = new Set(['Enter', 'Escape', 'ArrowUp', 'ArrowDown', 'Backspace', 'Tab'])
 
+const startState = (pending: boolean): PickerState => (pending ? touchPickerState : initialPickerState)
+
 export function EventPicker() {
     const picker = useAppState((s) => s.picker)
-    const event = useAppState((s) => s.events.find((e) => e.id === s.picker?.eventId))
+    const storedEvent = useAppState((s) => s.events.find((e) => e.id === s.picker?.eventId))
     const teams = useAppState((s) => s.teams)
     const events = useAppState((s) => s.events)
+    const fullscreen = useAppState((s) => s.playerFullscreen || s.immersive)
+    const slot = usePanelSlot((s) => s.el)
     const coarse = useMediaQuery(COARSE_QUERY)
+    const placement = panelPlacement(coarse, fullscreen)
+    // A touch mark has no event until a type is chosen: show it as a draft.
+    const pending = picker?.pending
+    const event: MatchEvent | undefined = useMemo(
+        () => storedEvent ?? (picker && pending ? { id: picker.eventId, ...pending, type: 'goal' } : undefined),
+        [storedEvent, picker, pending],
+    )
     // Duplicate-mark guard: a second mark within 3 s is usually a double G / double tap.
-    const near = useMemo(() => (picker ? nearbyMark(events, picker.eventId) : null), [events, picker])
-    const [state, setState] = useState<PickerState>(initialPickerState)
+    const near = useMemo(() => (picker ? nearbyMark(events, picker.eventId, undefined, pending) : null), [events, picker, pending])
+    const [state, setState] = useState<PickerState>(() => startState(!!pending))
     const stateRef = useRef(state)
     stateRef.current = state
 
-    useEffect(() => { setState(initialPickerState) }, [picker?.eventId])
+    useEffect(() => { setState(startState(!!useAppState.getState().picker?.pending)) }, [picker?.eventId])
 
     const dispatch = (input: PickerInput): void => {
         const store = useAppState.getState()
-        const id = store.picker?.eventId
-        if (!id) return
+        const current = store.picker
+        if (!current) return
+        const id = current.eventId
         const { state: next, effects } = pickerReducer(stateRef.current, input, { teams: store.teams })
         stateRef.current = next
         setState(next)
+        // The first real choice creates the event (one undo step); closing without one creates nothing.
+        if (current.pending && effects.some((fx) => fx.kind === 'update' || fx.kind === 'marker')) store.commitPending()
         for (const fx of effects) {
             if (fx.kind === 'update') store.updateEvent(id, fx.patch)
-            else if (fx.kind === 'remove') store.removeEvent(id)
+            else if (fx.kind === 'remove') { if (useAppState.getState().events.some((e) => e.id === id)) store.removeEvent(id) }
             else if (fx.kind === 'addToRoster') store.addToRoster(fx.team, fx.name)
             else if (fx.kind === 'marker') store.placeMarker(id, fx.type)
             else useAppState.getState().closePicker()
         }
+    }
+
+    const cancel = (): void => {
+        const store = useAppState.getState()
+        const id = store.picker?.eventId
+        if (id && store.events.some((e) => e.id === id)) store.removeEvent(id)
+        else store.closePicker()
     }
 
     // The scorer field takes focus and then unmounts; give focus back (normally the
@@ -87,18 +111,42 @@ export function EventPicker() {
     const hint = state.step === 'type' ? 'Esc to finish · ⌫ cancel'
         : state.step === 'text' ? '⏎ save · Esc to finish'
         : canSkip ? 'Tab skip · Esc to finish' : 'Esc to finish'
+    const prompt = state.step === 'type' ? 'What happened?' : state.step === 'team' ? 'Which team?' : state.step === 'scorer' ? personLabel : textLabel
+    const highlightedId = state.highlighted >= 0 ? PICKER_OPTIONS[state.highlighted]?.id : undefined
 
-    return (
-        <div className="event-picker" role="dialog" aria-label="Event details">
-            <div className="event-picker__title">{title}{state.team ? ` · ${state.team}` : ''}{event.scorer ? ` · ${event.scorer}` : ''}</div>
+    const ui = (
+        <div className={`event-picker event-picker--${placement}`} role="dialog" aria-label="Event details">
+            <div className="event-picker__head">
+                <div className="event-picker__title">{title}{state.team ? ` · ${state.team}` : ''}{event.scorer ? ` · ${event.scorer}` : ''}</div>
+                {coarse && <div className="event-picker__prompt">{prompt}</div>}
+            </div>
+            <div className="event-picker__body">
             {near && state.step === 'type' && (
                 <p role="alert" className="event-picker__warn">
-                    {eventLabel(near.event)} already marked {near.deltaSec === 0 ? 'at this second' : `${Math.abs(near.deltaSec)} s ${near.deltaSec < 0 ? 'earlier' : 'later'}`}
+                    {controlLabel(near.event)} already marked {near.deltaSec === 0 ? 'at this second' : `${Math.abs(near.deltaSec)} s ${near.deltaSec < 0 ? 'earlier' : 'later'}`}
                     {' · '}{coarse ? 'Cancel' : <kbd>⌫</kbd>} if this was a double tap
                 </p>
             )}
 
-            {state.step === 'type' && (
+            {state.step === 'type' && (coarse ? (
+                <div role="listbox" aria-label="Event type" className="event-picker__groups">
+                    {PICKER_GROUPS.map((g) => (
+                        <div key={g.label} role="group" aria-label={g.label} className="event-picker__group">
+                            <div className="event-picker__group-title" aria-hidden="true">{g.label}</div>
+                            {g.ids.map((id) => {
+                                const o = PICKER_OPTIONS.find((x) => x.id === id) as PickerOption
+                                return (
+                                    <div key={o.id} role="option" aria-selected={o.id === highlightedId} tabIndex={-1}
+                                        className="event-picker__item event-picker__item--type" onClick={() => dispatch({ kind: 'choose', value: o.id })}>
+                                        <span className="event-picker__icon" aria-hidden="true">{EVENT_META[o.type].icon}</span>
+                                        <span>{o.label}</span>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    ))}
+                </div>
+            ) : (
                 <ul role="listbox" className="event-picker__list">
                     {PICKER_OPTIONS.map((o, i) => (
                         <li key={o.id} role="option" aria-selected={i === state.highlighted}
@@ -108,39 +156,42 @@ export function EventPicker() {
                         </li>
                     ))}
                 </ul>
-            )}
+            ))}
 
             {state.step === 'team' && (
-                <ul role="listbox" className="event-picker__list">
+                <ul role="listbox" className="event-picker__list event-picker__list--teams">
                     {names.map((n, i) => (
-                        <li key={n} role="option" aria-selected={i === state.highlighted}
+                        <li key={n} role="option" aria-selected={!coarse && i === state.highlighted}
                             className="event-picker__item" onClick={() => dispatch({ kind: 'choose', value: n })}>
+                            {coarse && <span className="team-dot" style={{ background: teams[i].color }} />}
                             <span>{n}</span>{' '}
-                            <kbd>{shortcuts[i].toUpperCase()}</kbd>
+                            {!coarse && <kbd>{shortcuts[i].toUpperCase()}</kbd>}
                         </li>
                     ))}
                 </ul>
             )}
 
             {state.step === 'scorer' && (
-                <div>
+                <div className="event-picker__person">
                     <input
-                        autoFocus
+                        autoFocus={!coarse}
                         aria-label={personLabel}
                         className="event-picker__input"
-                        placeholder={`${personLabel} — type to filter, Enter to pick`}
+                        placeholder={coarse ? `Search or type ${personLabel.toLowerCase()}` : `${personLabel} — type to filter, Enter to pick`}
                         value={state.query}
+                        enterKeyHint="done"
+                        autoComplete="off"
                         onChange={(e) => dispatch({ kind: 'text', value: e.target.value })}
                     />
                     <ul role="listbox" className="event-picker__list">
                         {candidates.map((n, i) => (
-                            <li key={n} role="option" aria-selected={i === state.highlighted}
+                            <li key={n} role="option" aria-selected={!coarse && i === state.highlighted}
                                 className="event-picker__item" onClick={() => dispatch({ kind: 'choose', value: n })}>
                                 <span>{n}</span>
                             </li>
                         ))}
                         {state.query.trim() && candidates.length === 0 && (
-                            <li role="option" aria-selected className="event-picker__item"
+                            <li role="option" aria-selected={!coarse} className="event-picker__item"
                                 onClick={() => dispatch({ kind: 'choose', value: state.query.trim() })}>
                                 <span>+ add “{state.query.trim()}”</span>
                             </li>
@@ -167,15 +218,24 @@ export function EventPicker() {
                     Skip{!coarse && <kbd>Tab</kbd>}
                 </button>
             )}
+            </div>
 
             {coarse ? (
                 <div className="event-picker__actions">
-                    <button type="button" className="btn-quiet" onClick={() => useAppState.getState().removeEvent(event.id)}>Cancel</button>
-                    <button type="button" className="btn-primary" onClick={() => dispatch({ kind: 'key', key: 'Escape' })}>Done</button>
+                    <button type="button" className="btn-quiet" onClick={cancel}>Cancel</button>
+                    {!(pending && state.step === 'type') && (
+                        <button type="button" className="btn-primary" onClick={() => dispatch({ kind: 'key', key: 'Escape' })}>Done</button>
+                    )}
                 </div>
             ) : (
                 <div className="event-picker__hint">{hint}</div>
             )}
         </div>
     )
+    return inSlot(placement, slot, ui)
+}
+
+/** Column panels render into the rail / stack slot (replacing the event list); everything else stays in the player. */
+function inSlot(placement: string, slot: HTMLElement | null, ui: ReactNode): ReactNode {
+    return placement === 'column' && slot ? createPortal(ui, slot) : ui
 }

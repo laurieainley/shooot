@@ -25,3 +25,12 @@ describe('nearbyMark', () => {
         expect(nearbyMark([ev('a', 100)], 'zz')).toBeNull()
     })
 })
+
+describe('nearbyMark with a draft (touch mark not created yet)', () => {
+    it('should compare a pending mark against existing events', () => {
+        const events = [{ id: 'a', matchTimeSec: 98, sourceFileIndex: 0, type: 'goal' as const }]
+        expect(nearbyMark(events, 'new', 3, { matchTimeSec: 100, sourceFileIndex: 0 })).toMatchObject({ deltaSec: -2 })
+        expect(nearbyMark(events, 'new', 3, { matchTimeSec: 100, sourceFileIndex: 1 })).toBeNull()
+        expect(nearbyMark(events, 'new')).toBeNull()
+    })
+})
