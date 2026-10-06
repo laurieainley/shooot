@@ -48,6 +48,17 @@ export function RenderStatus({ kind }: RenderStatusProps) {
     if (!job) return null
     const canShare = job.result != null && typeof navigator.canShare === 'function' && navigator.canShare({ files: [job.result.file] })
     const skipped = job.report ? [...new Map(job.report.skipped.map((g) => [`${g.label}|${g.reason}`, g])).values()] : []
+    if (job.phase === 'running' && job.notice) {
+        return (
+            <div className="render-busy" role="alertdialog" aria-label="Different frame sizes">
+                <p className="m-0">{job.notice}</p>
+                <span className="flex flex-wrap items-center gap-2">
+                    <button type="button" className="btn-primary" onClick={() => jobs.answerNotice(true)}>Render</button>
+                    <button type="button" className="btn-quiet" onClick={() => jobs.answerNotice(false)}>Cancel</button>
+                </span>
+            </div>
+        )
+    }
     return (
         <>
             {job.phase === 'running' && (

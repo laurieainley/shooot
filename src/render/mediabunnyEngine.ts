@@ -6,7 +6,10 @@ import {
 import { cropLabels, cropOverlayFor } from './cropOverlay'
 import { fileSource } from './fileSource'
 import { openGraphicsSession, type GraphicsSession, type OutItem } from './graphicsSession'
-import { craToBla, lengthSize } from './nal'
+import { hasInbandParams, planJoin, profileOf, type JoinPlan } from './joinParams'
+import { craToBla, lengthSize, withInbandParams } from './nal'
+import { clipPartSeconds, replayPartAfter } from './captionJoin'
+import { mixedSizeNotice } from './outputSize'
 import { overlayRegions } from './overlayRegions'
 import { encodeReplayAudio } from './replayAudio'
 import { makeSilentAudio, type SilentAudio } from './silentAudio'
@@ -83,6 +86,8 @@ function assertCompatible(sources: OpenSource[], used: Set<number>): void {
         const a = sources[i].audio
         return a ? `${a.codec}/${a.sampleRate}/${a.numberOfChannels}` : 'none'
     }))
+    const vp = new Set([...used].map((i) => `${sources[i].video.codec}/${profileOf(sources[i].config.codec)}`))
+    if (vc.size === 1 && vp.size > 1) throw new Error('Clips use different video profiles (e.g. 8-bit and 10-bit) and cannot be joined without re-encoding')
     if (vc.size > 1) throw new Error('Clips use different video codecs (e.g. HEVC and H.264) and cannot be joined without re-encoding')
     if (ac.size > 1) throw new Error('Clips use different audio formats and cannot be joined without re-encoding')
 }
@@ -144,7 +149,8 @@ export const renderReel: RenderFn = async (cuts, sources, opts) => {
 
 type GraphicsRun = { graphics: RenderGraphics; report: GraphicsReport }
 
-async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOptions, run: GraphicsRun | null): Promise<File | Blob> {
+async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOptions, runIn: GraphicsRun | null): Promise<File | Blob> {
+    let run = runIn
     const { onProgress, signal } = opts
     const outputName = opts.outputName ?? OUTPUT_NAME
     if (cuts.length === 0) throw new Error('Nothing to render')
@@ -157,7 +163,18 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
         assertCompatible(opened, used)
 
         const first = opened[cuts[0].sourceIndex]
-        const skip = (labels: string[], reason: string): void => { run?.report.skipped.push(...labels.map((label) => ({ label, reason }))) }
+        // Mixed frame sizes: the output is the first file's size, the others are re-encoded scaled to cover it, so a
+        // graphics session is needed even without graphics. Ask first: this is slower than a copy.
+        const odd = [...used].filter((i) => opened[i].video.codedWidth !== first.video.codedWidth || opened[i].video.codedHeight !== first.video.codedHeight)
+        if (odd.length > 0) {
+            run ??= { graphics: { overlays: [] }, report: { applied: [], skipped: [] } }
+            const notice = mixedSizeNotice(odd.map((i) => ({
+                name: sources[i].name, width: opened[i].video.codedWidth, height: opened[i].video.codedHeight,
+                seconds: cuts.filter((c) => c.sourceIndex === i).reduce((a, c) => a + Math.max(0, Math.min(c.endSec, opened[i].endSec) - c.startSec), 0),
+            })), first.video.codedWidth, first.video.codedHeight)
+            if (opts.confirmMixedSizes && !(await opts.confirmMixedSizes(notice))) throw new DOMException('Render cancelled', 'AbortError')
+        }
+        const skip = (labels: string[], reason: string): void => { run?.report.skipped.push(...labels.filter(Boolean).map((label) => ({ label, reason }))) }
 
         // Graphics: one encoder for the reel, a sample entry that covers it and every clip, or none at all.
         let session: GraphicsSession | null = null
@@ -165,6 +182,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             try {
                 session = await openGraphicsSession([...used].map((i) => opened[i]), first)
             } catch (e) {
+                if (odd.length > 0) throw new Error(`Clips have different frame sizes and cannot be scaled in this browser: ${errorText(e)}`)
                 skip([...graphicLabels(run.graphics), ...cropLabels(cuts)], errorText(e))
             }
         }
@@ -191,7 +209,12 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                 return null
             }
         }
-        const vConfig = session ? session.entry : first.config
+        // Plain stream-copy of several files: each key frame carries its own file's parameter sets and the sample entry
+        // is the SPS that covers them all (a single set for the whole track mis-decodes every other file's footage).
+        const usedList = [...used]
+        const join: JoinPlan | null = !session && usedList.length > 1 ? planJoin(usedList.map((i) => opened[i].config.description), first.video.codec === 'hevc') : null
+        const joinParams = new Map(usedList.map((i, k) => [opened[i], join?.params[k]] as const))
+        const vConfig = session ? session.entry : join ? opened[usedList[join.entry]].config : first.config
         const aConfig = first.audio ? (await first.audio.getDecoderConfig())! : null
         const hasAudio = !!first.audio?.codec
 
@@ -274,6 +297,23 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             cursor += length
         }
 
+        // Real extent of a cut (key frame before its start, whole GOPs), for overlays that follow it across a join.
+        const extentOf = async (ci: number): Promise<{ cutStart: number; realEnd: number } | null> => {
+            const c = cuts[ci]
+            const s = opened[c.sourceIndex]
+            const sink = new EncodedPacketSink(s.video)
+            const k = await sink.getKeyPacket(c.startSec) ?? await sink.getFirstKeyPacket()
+            if (!k) return null
+            const kEnd = await sink.getKeyPacket(Math.min(c.endSec, s.endSec))
+            const stop = kEnd && kEnd.timestamp > k.timestamp ? await sink.getNextKeyPacket(kEnd) : await sink.getNextKeyPacket(k)
+            return { cutStart: k.timestamp, realEnd: stop ? stop.timestamp : s.endSec }
+        }
+        /** How much of a carried-on caption its clip part shows: up to the clip's real end. */
+        const clipShown = async (o: RenderOverlay, ci: number): Promise<number> => {
+            const ext = await extentOf(ci)
+            return clipPartSeconds(o.startSec, o.durationSec, ext?.realEnd ?? o.startSec + o.durationSec, o.follows?.totalSec ?? 5)
+        }
+
         const renderCut = async (ci: number, cut: Cut): Promise<void> => {
             if (signal?.aborted) throw new DOMException('Render cancelled', 'AbortError')
             const src = opened[cut.sourceIndex]
@@ -308,20 +348,36 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             let items: AsyncIterable<OutItem> | OutItem[]
             // Overlays tied to the cut follow its real extent (key frame before the requested start, whole GOPs).
             const realEnd = kStop ? kStop.timestamp : src.endSec
-            let overlays = overlaysByCut.get(ci)?.map((o): RenderOverlay => {
-                const length = Math.max(1e-3, realEnd - cutStart)
-                if (o.anchor === 'fromCutStart') return { ...o, startSec: cutStart }
-                if (o.anchor === 'wholeCut') {
-                    const shift = cutStart - o.startSec
-                    return { ...o, startSec: cutStart, durationSec: length + 1, paint: (ctx, t) => o.paint(ctx, t + shift) }
+            const planned = overlaysByCut.get(ci)
+            let overlays: RenderOverlay[] | undefined
+            if (planned) {
+                overlays = []
+                for (const o of planned) {
+                    const length = Math.max(1e-3, realEnd - cutStart)
+                    if (o.anchor === 'fromCutStart') {
+                        // The replay part of a caption carried on from the clip: it continues from where the clip part really ended.
+                        const prev = o.follows ? overlaysByCut.get(ci - 1)?.find((x) => x.anchor === 'toCutEnd' && x.label === o.label) : undefined
+                        if (o.follows && prev) {
+                            const after = replayPartAfter({ shownSec: await clipShown({ ...prev, follows: o.follows }, ci - 1), plannedOffsetSec: o.follows.offsetSec, totalSec: o.follows.totalSec, rate: o.follows.rate, replaySec: length })
+                            if (after) overlays.push({ ...o, startSec: cutStart, durationSec: after.durationSec, paint: (ctx, t) => o.paint(ctx, t + after.paintShiftSec) })
+                            continue
+                        }
+                        overlays.push({ ...o, startSec: cutStart })
+                    } else if (o.anchor === 'toCutEnd') {
+                        overlays.push({ ...o, durationSec: await clipShown(o, ci) })
+                    } else if (o.anchor === 'wholeCut') {
+                        const shift = cutStart - o.startSec
+                        overlays.push({ ...o, startSec: cutStart, durationSec: length + 1, paint: (ctx, t) => o.paint(ctx, t + shift) })
+                    } else if (o.anchor === 'stretchToCut') {
+                        const k = o.durationSec / length
+                        overlays.push({ ...o, startSec: cutStart, durationSec: length + 1, paint: (ctx, t) => o.paint(ctx, Math.min(o.durationSec, t * k)) })
+                    } else overlays.push(o)
                 }
-                if (o.anchor === 'stretchToCut') {
-                    const k = o.durationSec / length
-                    return { ...o, startSec: cutStart, durationSec: length + 1, paint: (ctx, t) => o.paint(ctx, Math.min(o.durationSec, t * k)) }
-                }
-                return o
-            })
+            }
             if (session && cut.crop) overlays = [...(overlays ?? []), cropOverlayFor(cut, ci, cutStart, realEnd)]
+            // Footage of another frame size: every picture is re-encoded (the whole cut is one window that draws nothing).
+            const rescale = !!session && session.rescales(src)
+            if (rescale) overlays = [...(overlays ?? []), { label: '', cutIndex: ci, startSec: cutStart, durationSec: Math.max(1e-3, realEnd - cutStart) + 1, paint: () => undefined, rows: () => [0, 0] }]
             if (session && overlays) {
                 // Overlays: the cut is streamed; only the stretches around overlay windows are read into memory,
                 // their GOPs re-encoded with the overlay drawn in, and handed on (see overlayRegions).
@@ -339,8 +395,10 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                     if (mine.length === 0) { for (const p of buf) yield { packet: p, generated: false, splice: false }; return }
                     onProgress({ cutIndex: ci, cutCount: cuts.length, fraction: Math.min(1, (done + Math.max(0, start - cut.startSec)) / total), stage: 'Graphics' })
                     const r = await sess.overlayCut(src, buf, end, mine)
-                    report.applied.push(...r.applied)
-                    report.skipped.push(...r.skipped)
+                    // Scaled footage must not be copied unscaled into a file of another size: that is a failure.
+                    if (rescale && r.skipped.length > 0) throw new Error(`${sources[cut.sourceIndex].name}: ${r.skipped[0].reason}`)
+                    report.applied.push(...r.applied.filter(Boolean))
+                    report.skipped.push(...r.skipped.filter((g) => g.label))
                     yield* r.items
                 }
                 items = (async function* () {
@@ -377,7 +435,11 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                     // previous clip and ffmpeg reorders/drops frames at the join ("non monotonically increasing dts").
                     const spliceHere = splice || p.timestamp === cutStart
                     if (session) data = session.footageKey(src, data, spliceHere)
-                    else if (spliceHere) data = blaAtCutStart(src, p) ?? data
+                    else {
+                        if (spliceHere) data = blaAtCutStart(src, p) ?? data
+                        const params = joinParams.get(src)
+                        if (params && !hasInbandParams(data, src.video.codec === 'hevc', src.nalLength)) data = withInbandParams(data, params, src.video.codec === 'hevc', src.nalLength)
+                    }
                 }
                 const q = data === p.data ? p : new EncodedPacket(data, p.type, p.timestamp, p.duration)
                 await addVideo(q.clone({ timestamp: cursor + rel, duration: p.duration / speed }))

@@ -1,6 +1,7 @@
 // Match graphics as draw-op lists in a 1920×1080 design space (paint.ts scales them to the output size).
 // Visual language from the user's cards: navy ground, orange headings, Bebas Neue, team-colour shields.
 import type { Box } from './paint'
+import { MULTI_OUTLINE } from './teamFill'
 import { BLUE, NAVY, NAVY_DARK, ORANGE, WHITE, type TeamBadge } from './teamStyle'
 import type { BugSpec, CaptionSpec, CardSpec } from './types'
 
@@ -23,6 +24,8 @@ export type RectOp = { kind: 'rect'; x: number; y: number; w: number; h: number;
 export type TextOp = {
     kind: 'text'; text: string; x: number; y: number; size: number; color: string
     align: 'left' | 'center' | 'right'; baseline: 'alphabetic' | 'middle'; maxWidth?: number
+    /** Dark outline drawn under the text (white initials over a multicolour shield). */
+    outline?: string
 } & Alpha
 export type ShieldOp = { kind: 'shield'; cx: number; cy: number; w: number; h: number; fill: string; stroke: string; lineWidth: number; box?: Box } & Alpha
 /** The league logo, `h` tall, width from its aspect ratio; x is its centre (`center`) or left edge. */
@@ -45,7 +48,7 @@ function team(t: TeamBadge, cx: number): DrawOp[] {
     const cy = 600
     return [
         { kind: 'shield', cx, cy, w: 250, h: 290, fill: t.colour, stroke: WHITE, lineWidth: 8, box: { x: SAFE_X, y: SAFE_Y, w: DESIGN_W - 2 * SAFE_X, h: 1060 - SAFE_Y } },
-        { kind: 'text', text: t.initials, x: cx, y: cy - 10, size: 120, color: t.ink, align: 'center', baseline: 'middle', maxWidth: 210 },
+        { kind: 'text', text: t.initials, x: cx, y: cy - 10, size: 120, color: t.ink, align: 'center', baseline: 'middle', maxWidth: 210, ...(t.colour === 'multi' ? { outline: MULTI_OUTLINE } : {}) },
         { kind: 'text', text: t.name, x: cx, y: 845, size: 68, color: WHITE, align: 'center', baseline: 'alphabetic', maxWidth: Math.min(720, 2 * Math.min(cx - SAFE_X, 960 - Math.abs(cx - 960)) - 40) },
         { kind: 'rect', x: cx - 60, y: 868, w: 120, h: 8, fill: t.colour },
     ]
@@ -77,8 +80,8 @@ function motion(t: number, duration: number): { alpha: number; dx: number } {
     return { alpha: p, dx: -60 * (1 - p) }
 }
 
-/** Captions, the score bug and the REPLAY tag are drawn 1.4× the original design so they read on a phone. */
-export const OVERLAY_SCALE = 1.4
+/** Captions, the score bug and the REPLAY tag are drawn 1.05× the original design (1.4×, then 25 % smaller). */
+export const OVERLAY_SCALE = 1.05
 const k = (v: number): number => Math.round(v * OVERLAY_SCALE)
 
 const BUG_H = k(64)

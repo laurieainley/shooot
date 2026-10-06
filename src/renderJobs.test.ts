@@ -79,4 +79,42 @@ describe('render job manager', () => {
         expect(store.getState().job?.result?.file.name).toBe('full-match.mp4')
         expect(deps.revokeUrl).toHaveBeenCalled()
     })
+
+    describe('mixed frame sizes notice', () => {
+        it('should hold the render on the notice until it is confirmed', async () => {
+            let answer: boolean | null = null
+            const { store } = setup(async (_c, _s, o) => { answer = await o.confirmMixedSizes!('B.MP4 is 3840×2160'); return gate.promise })
+            const done = store.getState().start({ kind: 'highlights', quality: 'full' }, async () => req())
+            await vi.waitFor(() => expect(store.getState().job?.notice).toBe('B.MP4 is 3840×2160'))
+            expect(answer).toBeNull()
+            store.getState().answerNotice(true)
+            await vi.waitFor(() => expect(answer).toBe(true))
+            expect(store.getState().job?.notice).toBeNull()
+            gate.resolve(new Blob(['x']))
+            await done
+            expect(store.getState().job?.phase).toBe('done')
+        })
+
+        it('should cancel the render when the notice is declined', async () => {
+            const { store } = setup(async (_c, _s, o) => {
+                if (!(await o.confirmMixedSizes!('notice'))) throw new DOMException('Render cancelled', 'AbortError')
+                return gate.promise
+            })
+            const done = store.getState().start({ kind: 'highlights', quality: 'full' }, async () => req())
+            await vi.waitFor(() => expect(store.getState().job?.notice).toBe('notice'))
+            store.getState().answerNotice(false)
+            await done
+            expect(store.getState().job).toBeNull()
+        })
+
+        it('should decline a pending notice when the render is cancelled', async () => {
+            let answer: boolean | null = null
+            const { store } = setup(async (_c, _s, o) => { answer = await o.confirmMixedSizes!('notice'); throw new DOMException('Render cancelled', 'AbortError') })
+            const done = store.getState().start({ kind: 'highlights', quality: 'full' }, async () => req())
+            await vi.waitFor(() => expect(store.getState().job?.notice).toBe('notice'))
+            store.getState().cancel()
+            await done
+            expect(answer).toBe(false)
+        })
+    })
 })

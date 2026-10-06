@@ -72,4 +72,16 @@ describe('score bug painter', () => {
         expect(cap.anchor).toBe('fromCutStart')
         expect(toRenderGraphics(spec, { logo: null }).overlays[1].anchor).toBe('stretchToCut')
     })
+
+    it('should anchor a caption that carries on into its replay to the end of its clip, and tell the engine the clock of a carried-on part', () => {
+        const cap = { kind: 'caption' as const, spec: { label: 'GOAL', stripe: '#fff' }, label: 'c' }
+        const [clip, replay] = toRenderGraphics({ overlays: [
+            { ...cap, cutIndex: 0, startSec: 21, durationSec: 3, clock: { offsetSec: 0, rate: 1, totalSec: 5 }, toCutEnd: true },
+            { ...cap, cutIndex: 1, startSec: 16, durationSec: 1, clock: { offsetSec: 3, rate: 2, totalSec: 5 }, fromCutStart: true },
+        ] }, { logo: null }).overlays
+        expect(clip.anchor).toBe('toCutEnd')
+        expect(clip.follows).toBeUndefined()
+        expect(replay.anchor).toBe('fromCutStart')
+        expect(replay.follows).toEqual({ offsetSec: 3, rate: 2, totalSec: 5 })
+    })
 })

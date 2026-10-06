@@ -47,9 +47,15 @@ export type RenderOverlay = {
      * Cuts start at the key frame at/before their requested start and end with whole GOPs. 'fromCutStart': the overlay
      * starts with the cut's first frame (a caption carried on over a replay). 'wholeCut': it covers every frame of the cut
      * (a score bug window running through it); `paint` still gets time from `startSec` (negative before it). 'stretchToCut': it covers
-     * every frame of the cut and its own timeline is stretched over them (REPLAY tag: fades at the real edges).
+     * every frame of the cut and its own timeline is stretched over them (REPLAY tag: fades at the real edges). 'toCutEnd': starts at `startSec` and lasts to the cut's real end.
      */
-    anchor?: 'fromCutStart' | 'wholeCut' | 'stretchToCut'
+    anchor?: 'fromCutStart' | 'toCutEnd' | 'wholeCut' | 'stretchToCut'
+    /**
+     * 'toCutEnd': the overlay runs on to the cut's real end (a caption that carries on into the replay). On the
+     * overlay of the next cut, `follows` gives the caption clock it was planned with, so the engine can carry it on
+     * from where the previous part really ended.
+     */
+    follows?: { offsetSec: number; rate: number; totalSec: number }
     /** Replaces the picture with this part of the frame (fractions), scaled to the full frame, before anything is drawn. */
     crop?: { x: number; y: number; w: number; h: number }
 }
@@ -64,6 +70,11 @@ export type RenderOptions = {
     /** Optional match graphics. Any that cannot be made are left out (never failing the render) and reported. */
     graphics?: RenderGraphics
     onGraphics?: (report: GraphicsReport) => void
+    /**
+     * Called before anything is rendered when some used files have another frame size than the first: they will be
+     * re-encoded scaled to cover it. Resolve false to cancel the render.
+     */
+    confirmMixedSizes?: (notice: string) => Promise<boolean>
     /** Output file name (default highlights.mp4). */
     outputName?: string
     /**

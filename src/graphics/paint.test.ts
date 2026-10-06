@@ -78,3 +78,47 @@ describe('paintOps text', () => {
         expect(calls[0]).toMatchObject({ y: 321, baseline: 'alphabetic' })
     })
 })
+
+describe('multicolour team fill', () => {
+    function recorder() {
+        const fills: string[] = []
+        const log: string[] = []
+        const ctx = {
+            canvas: { width: 1920, height: 1080 }, textBaseline: 'alphabetic', textAlign: 'left', globalAlpha: 1, lineWidth: 1, strokeStyle: '', font: '', lineJoin: 'miter',
+            set fillStyle(v: string) { fills.push(v) },
+            save() { log.push('save') }, restore() { log.push('restore') }, setTransform() {},
+            measureText: () => ({ width: 10, actualBoundingBoxAscent: 20, actualBoundingBoxDescent: 0 }),
+            fillText(t: string) { log.push(`fillText:${t}`) }, strokeText(t: string) { log.push(`strokeText:${t}`) },
+            fillRect() { log.push('fillRect') }, drawImage() {}, beginPath() {}, moveTo() {}, lineTo() {}, closePath() {}, rect() {},
+            clip() { log.push('clip') }, fill() { log.push('fill') }, stroke() { log.push('stroke') },
+        }
+        return { ctx: ctx as unknown as OffscreenCanvasRenderingContext2D, fills, log }
+    }
+
+    it('should clip and fill a multi shield with every stripe colour, then stroke it', () => {
+        const r = recorder()
+        paintOps(r.ctx, [{ kind: 'shield', cx: 500, cy: 500, w: 250, h: 290, fill: 'multi', stroke: '#fff', lineWidth: 8 }], { logo: null })
+        expect(r.log).toContain('clip')
+        for (const c of ['#e63946', '#f4a261', '#2a9d8f', '#457b9d', '#f1fa8c']) expect(r.fills).toContain(c)
+        expect(r.log.at(-2)).toBe('stroke')
+    })
+
+    it('should fill a multi bar as stripes and a plain bar as one colour', () => {
+        const multi = recorder()
+        paintOps(multi.ctx, [{ kind: 'rect', x: 0, y: 0, w: 10, h: 70, fill: 'multi' }], { logo: null })
+        expect(multi.log).toContain('clip')
+        expect(multi.log).not.toContain('fillRect')
+        const solid = recorder()
+        paintOps(solid.ctx, [{ kind: 'rect', x: 0, y: 0, w: 10, h: 70, fill: '#ff0000' }], { logo: null })
+        expect(solid.log).toContain('fillRect')
+        expect(solid.fills).toEqual(['#ff0000'])
+    })
+
+    it('should draw an outline under text that asks for one', () => {
+        const r = recorder()
+        paintOps(r.ctx, [{ kind: 'text', text: 'WH', x: 0, y: 0, size: 100, color: '#fff', align: 'center', baseline: 'middle', outline: '#000' }], { logo: null })
+        const stroke = r.log.indexOf('strokeText:WH')
+        expect(stroke).toBeGreaterThan(-1)
+        expect(stroke).toBeLessThan(r.log.indexOf('fillText:WH'))
+    })
+})

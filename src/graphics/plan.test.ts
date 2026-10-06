@@ -18,19 +18,20 @@ const build = (events: MatchEvent[], settings = ALL, c = cuts) =>
     buildGraphicsSpec({ events, teams, cuts: c, cumulativeOffsets: [0], settings, matchday: 'Matchday 3' })
 
 describe('wantsLowerThird', () => {
-    it('should cover goals, own goals, penalties and highlights with a note', () => {
+    it('should cover goals, own goals, penalties and every highlight', () => {
         expect(wantsLowerThird({ type: 'goal' })).toBe(true)
         expect(wantsLowerThird({ type: 'goal', pen: true })).toBe(true)
         expect(wantsLowerThird({ type: 'own_goal' })).toBe(true)
         expect(wantsLowerThird({ type: 'penalty_missed' })).toBe(true)
         expect(wantsLowerThird({ type: 'highlight', notes: 'Nutmeg' })).toBe(true)
+        expect(wantsLowerThird({ type: 'highlight' })).toBe(true)
+        expect(wantsLowerThird({ type: 'highlight', notes: '  ' })).toBe(true)
     })
 
-    it('should skip saves, fouls, awarded penalties and highlights without a note', () => {
+    it('should skip saves, fouls and awarded penalties', () => {
         expect(wantsLowerThird({ type: 'save' })).toBe(false)
         expect(wantsLowerThird({ type: 'foul', notes: 'late' })).toBe(false)
         expect(wantsLowerThird({ type: 'penalty_awarded' })).toBe(false)
-        expect(wantsLowerThird({ type: 'highlight', notes: '  ' })).toBe(false)
     })
 })
 
@@ -57,7 +58,7 @@ describe('buildGraphicsSpec', () => {
         const bug = (text: string) => ({ left: 'RR', right: 'WT', leftColour: '#f0f0f0', rightColour: '#ec5fa4', text })
         expect(spec.overlays).toEqual([
             // starts 1 s after the goal; 3 s left in the clip, then it carries on over the start of its replay (slowed 2×)
-            expect.objectContaining({ kind: 'caption', cutIndex: 0, startSec: 21, durationSec: 3, clock: { offsetSec: 0, rate: 1, totalSec: 5 }, spec: { label: 'GOAL', person: 'SAM', stripe: '#f0f0f0', bug: bug('1–0') } }),
+            expect.objectContaining({ kind: 'caption', cutIndex: 0, startSec: 21, durationSec: 3, toCutEnd: true, clock: { offsetSec: 0, rate: 1, totalSec: 5 }, spec: { label: 'GOAL', person: 'SAM', stripe: '#f0f0f0', bug: bug('1–0') } }),
             expect.objectContaining({ kind: 'caption', cutIndex: 1, startSec: 16, durationSec: 1, clock: { offsetSec: 3, rate: 2, totalSec: 5 }, fromCutStart: true }),
             expect.objectContaining({ kind: 'caption', cutIndex: 2, startSec: 56, durationSec: 5, spec: expect.objectContaining({ label: 'GOAL (PEN)', person: 'ALEX', stripe: '#ec5fa4', bug: bug('1–1') }) }),
         ])
@@ -70,7 +71,24 @@ describe('buildGraphicsSpec', () => {
 
     it('should show the current score on a highlight caption, and use orange without a team', () => {
         const spec = build([ev('g', 20, { team: 'Walford Town' }), ev('h', 52, { type: 'highlight', scorer: 'Jo', notes: 'nutmeg on the wing' })], { ...ALL })
-        expect(spec.overlays.at(-1)).toMatchObject({ cutIndex: 2, spec: { label: 'HIGHLIGHT', person: 'JO', note: 'NUTMEG ON THE WING', stripe: '#f28c28', bug: { text: '0–1' } } })
+        expect(spec.overlays.at(-1)).toMatchObject({ cutIndex: 2, startSec: 50, spec: { label: 'HIGHLIGHT', person: 'JO', note: 'NUTMEG ON THE WING', stripe: '#f28c28', bug: { text: '0–1' } } })
+    })
+
+    it('should show a highlight caption at the start of its clip for 5 s, with the note', () => {
+        const spec = build([ev('h', 55, { type: 'highlight', scorer: 'Jo', notes: 'nutmeg on the wing' })])
+        expect(spec.overlays).toEqual([expect.objectContaining({
+            kind: 'caption', cutIndex: 2, startSec: 50, durationSec: 5, fromCutStart: true,
+            clock: { offsetSec: 0, rate: 1, totalSec: 5 }, spec: expect.objectContaining({ label: 'HIGHLIGHT', person: 'JO', note: 'NUTMEG ON THE WING' }),
+        })])
+    })
+
+    it('should caption a highlight without a note with just HIGHLIGHT', () => {
+        const spec = build([ev('h', 55, { type: 'highlight' })])
+        const cap = spec.overlays[0]
+        expect(cap).toMatchObject({ kind: 'caption', startSec: 50 })
+        expect(cap.kind === 'caption' && cap.spec.label).toBe('HIGHLIGHT')
+        expect(cap.kind === 'caption' && 'note' in cap.spec).toBe(false)
+        expect(cap.kind === 'caption' && 'person' in cap.spec).toBe(false)
     })
 
     it('should start a caption 1 s after its event and end it with its clip when no replay follows', () => {

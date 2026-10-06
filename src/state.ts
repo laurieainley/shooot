@@ -12,7 +12,7 @@ import { parseGoProName } from './utils/gopro'
 import { buildPreviewPlan, type PreviewStep } from './utils/preview'
 import { normaliseGraphics, type GraphicsSettings } from './graphics/plan'
 
-const DEFAULT_GRAPHICS: GraphicsSettings = { cards: true, lowerThirds: true, replayTag: false }
+const DEFAULT_GRAPHICS: GraphicsSettings = { cards: true, lowerThirds: true, replayTag: true }
 import type { FullMatchSettings } from './utils/exportPlans'
 
 /** Links events to the loaded files: migrated whole-timeline times are placed first, then file keys matched. */
@@ -417,7 +417,7 @@ export const useAppState = create<AppState>()(
             openPicker: (eventId) => set({ picker: { eventId }, panel: null }),
             closePicker: () => set({ picker: null }),
             setGraphics: (partial) => set({ graphics: normaliseGraphics({ ...get().graphics, ...partial }, get().graphics) }),
-            fullMatch: { cards: true, scoreBug: 'periodic', intervalMin: 5 },
+            fullMatch: { cards: true, scoreBug: 'goals', intervalMin: 5 },
             exportTab: 'highlights',
             setExportTab: (tab) => set({ exportTab: tab }),
             setFullMatch: (partial) => set({ fullMatch: { ...get().fullMatch, ...partial } }),
@@ -497,7 +497,7 @@ export const useAppState = create<AppState>()(
                 goalAreas: state.goalAreas,
                 barCollapsed: state.barCollapsed,
             }),
-            version: 12,
+            version: 13,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -553,6 +553,13 @@ export const useAppState = create<AppState>()(
                 if (version < 12) {
                     state.goalAreas = normaliseAreas(state.goalAreas, state.whitesAttackLeft ?? true)
                     delete state.whitesAttackLeft
+                }
+
+                // New defaults the user asked for (v13): replay tag on, full-match score bug after goals — applied once
+                // to saved settings, since a saved value can't tell "never chose" from "chose off".
+                if (version < 13) {
+                    if (state.graphics) state.graphics = { ...state.graphics, replayTag: true }
+                    if (state.fullMatch) state.fullMatch = { ...state.fullMatch, scoreBug: 'goals' }
                 }
 
                 return state

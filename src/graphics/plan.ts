@@ -22,10 +22,9 @@ export function normaliseGraphics(v: unknown, fallback: GraphicsSettings): Graph
     return { cards: pick('cards'), lowerThirds: pick('lowerThirds'), replayTag: pick('replayTag') }
 }
 
-/** Captions go on goals (incl. penalties and own goals), missed penalties and highlights with a note. */
+/** Captions go on goals (incl. penalties and own goals), missed penalties and highlights (with or without a note). */
 export function wantsLowerThird(e: Pick<MatchEvent, 'type' | 'notes' | 'pen'>): boolean {
-    if (isScoring(e) || e.type === 'penalty_missed') return true
-    return e.type === 'highlight' && !!e.notes?.trim()
+    return isScoring(e) || e.type === 'penalty_missed' || e.type === 'highlight'
 }
 
 const upper = (s: string | undefined): string | undefined => (s?.trim() ? s.trim().toUpperCase() : undefined)
@@ -79,16 +78,20 @@ export function buildGraphicsSpec(args: {
             const note = upper(shortNote(e.notes, 60))
             if (note) cs.note = note
             if (both) cs.bug = bugFor(teams, after.get(e.id) ?? scoreAt(events, teams, cumulativeOffsets, globalOf(src, t)))
-            // Starts 1 s after the event; what the clip cannot hold carries on over the start of its replay.
-            const start = t + CAPTION_DELAY_SEC
+            // Goals etc.: 1 s after the event; what the clip cannot hold carries on over the start of its replay.
+            // Highlights: from the start of their clip (the moment itself is the whole point of the clip).
+            const atClipStart = e.type === 'highlight'
+            const start = atClipStart ? cut.startSec : t + CAPTION_DELAY_SEC
             const first = Math.max(0, Math.min(CAPTION_SEC, cut.endSec - start))
             const label = `Caption: ${eventSummary(e)}`
             const clock = (offsetSec: number, rate: number): CaptionClock => ({ offsetSec, rate, totalSec: CAPTION_SEC })
             const part: CaptionOverlay[] = []
-            if (first > 0.05) part.push({ kind: 'caption', cutIndex, startSec: start, durationSec: first, spec: cs, clock: clock(0, 1), label })
             const next = cuts[cutIndex + 1]
             const rest = CAPTION_SEC - (first > 0.05 ? first : 0)
-            if (rest > 0.05 && next && (next.speed ?? 1) < 1) {
+            const carriesOn = rest > 0.05 && !!next && (next.speed ?? 1) < 1
+            // A caption that carries on into the replay stays up to the clip's real end (whole GOPs), so the join has no gap.
+            if (first > 0.05) part.push({ kind: 'caption', cutIndex, startSec: start, durationSec: first, spec: cs, clock: clock(0, 1), label, ...(atClipStart ? { fromCutStart: true } : {}), ...(carriesOn && !atClipStart ? { toCutEnd: true } : {}) })
+            if (carriesOn && next) {
                 const speed = next.speed ?? 1
                 const offset = CAPTION_SEC - rest
                 part.push({ kind: 'caption', cutIndex: cutIndex + 1, startSec: next.startSec, durationSec: Math.min(next.endSec - next.startSec, rest * speed), spec: cs, clock: clock(offset, 1 / speed), fromCutStart: true, label })
