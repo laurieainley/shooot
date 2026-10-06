@@ -24,6 +24,14 @@ export type EventType =
 
 export type MarkerType = Extract<EventType, 'kick_off' | 'final_whistle'>
 
+/** A rectangle of the video frame as fractions (0-1). Crops have the frame's aspect, so h === w. */
+export type CropRect = { x: number; y: number; w: number; h: number }
+
+export type GoalAreas = { left: CropRect; right: CropRect }
+
+/** How an event's replay is framed: a goal area, the whole frame or a custom box (undefined = automatic). */
+export type ReplayCrop = CropRect | 'left' | 'right' | 'full'
+
 export type MatchEvent = {
     id: string
     matchTimeSec: number
@@ -36,6 +44,7 @@ export type MatchEvent = {
     scorer?: string          // own goal: player from the other team
     notes?: string
     replay?: boolean         // explicit replay override; undefined = default for the type
+    replayCrop?: ReplayCrop  // replay framing; undefined = the scoring team's attacking goal area
     /** Migrated kick-off: time on the whole timeline, until loaded files cover it (see utils/matchClock.ts). */
     globalTimeSec?: number
 }
