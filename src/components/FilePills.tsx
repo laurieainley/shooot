@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useAppState } from '../state'
-import { FILE_INPUT_ACCEPT } from '../utils/fileAccept'
+import { acceptAttr } from '../utils/fileAccept'
+import { notePicked, openMediaPicker } from './pickerStatus'
 import { fileBadges } from '../utils/fileBadges'
 import { formatHMS } from '../utils/timeline'
 import { addPickedFiles } from './addFiles'
@@ -27,15 +28,16 @@ export function AddFilesButton({ label = '+ files', className = 'file-add', onEr
                         return
                     } catch { /* fall back to the plain input */ }
                 }
-                inputRef.current?.click()
+                if (inputRef.current) openMediaPicker(inputRef.current)
             }}>{label}</button>
             <input
                 ref={inputRef}
                 type="file"
                 multiple
-                accept={FILE_INPUT_ACCEPT}
+                accept={acceptAttr()}
                 onChange={async (evt) => {
                     const picked = Array.from(evt.target.files ?? [])
+                    notePicked(picked)
                     evt.target.value = ''
                     onError?.(await addPickedFiles(picked))
                 }}

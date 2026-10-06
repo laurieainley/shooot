@@ -1,6 +1,7 @@
 import './App.css'
 import { useEffect } from 'react'
 import { AppShell } from './components/AppShell'
+import { ReceiveProject } from './components/ReceiveProject'
 import { useAppState } from './state'
 
 const DEFAULT_VIDEO_URL = '/default-video.mp4'
@@ -62,7 +63,7 @@ function App() {
         return () => { cancelled = true }
     }, [])
 
-    return <AppShell />
+    return <><AppShell /><ReceiveProject /></>
 }
 
 export default App

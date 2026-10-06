@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useAppState } from '../state'
 import { filePicker, loadHandles, reopenHandles, type StoredHandle } from '../files/handleStore'
-import { FILE_INPUT_ACCEPT } from '../utils/fileAccept'
+import { acceptAttr } from '../utils/fileAccept'
+import { notePicked, openMediaPicker } from './pickerStatus'
 import { addPickedFiles } from './addFiles'
+import { OpeningStatus } from './OpeningStatus'
 
 /**
  * After a reload the videos are gone but the events are not. Desktop Chrome / Edge: the remembered file handles reopen
@@ -37,10 +39,11 @@ export function RelinkBanner() {
             }
         }
         setMessage('Pick the same videos: events find their files by name.')
-        inputRef.current?.click()
+        if (inputRef.current) openMediaPicker(inputRef.current)
     }
     const onPick = async (evt: ChangeEvent<HTMLInputElement>): Promise<void> => {
         const picked = Array.from(evt.target.files ?? [])
+        notePicked(picked)
         evt.target.value = ''
         if (picked.length > 0) setMessage(await addPickedFiles(picked))
     }
@@ -54,7 +57,8 @@ export function RelinkBanner() {
                 <span className="block text-muted">{oneClick ? 'Reopen the match’s files in one click.' : 'Browsers forget picked files on reload.'}</span>
             </p>
             <button type="button" className="btn-primary" onClick={() => void relink()}>Relink files</button>
-            <input ref={inputRef} type="file" multiple accept={FILE_INPUT_ACCEPT} aria-label="Videos to relink" className="hidden" onChange={(e) => void onPick(e)} />
+            <input ref={inputRef} type="file" multiple accept={acceptAttr()} aria-label="Videos to relink" className="hidden" onChange={(e) => void onPick(e)} />
+            <OpeningStatus />
             {message && <p role="status" className="relink-banner__msg">{message}</p>}
         </div>
     )

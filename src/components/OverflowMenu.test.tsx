@@ -28,7 +28,7 @@ describe('OverflowMenu', () => {
         expect(screen.queryByRole('menu')).not.toBeInTheDocument()
         await open()
         const items = screen.getAllByRole('menuitem').map((b) => b.textContent)
-        expect(items).toEqual(['New match…', 'Files', 'Match setup', 'Advanced settings', 'Paste list', 'Export project', 'Import project'])
+        expect(items).toEqual(['New match…', 'Files', 'Match setup', 'Advanced settings', 'Paste list', 'Send project to another device', 'Export project', 'Import project'])
     })
 
     it.each([['Files', 'files'], ['Match setup', 'match'], ['Advanced settings', 'settings'], ['Paste list', 'paste']] as const)(
@@ -67,5 +67,15 @@ describe('OverflowMenu', () => {
         await userEvent.click(screen.getByRole('button', { name: /keep/i }))
         expect(s().events).toHaveLength(2)
         expect(screen.queryByText(/clear 2 events/i)).not.toBeInTheDocument()
+    })
+})
+
+describe('OverflowMenu send project', () => {
+    it('should open the send sheet from the menu', async () => {
+        useAppState.setState({ files: [], events: two, panel: null })
+        render(<OverflowMenu />)
+        await userEvent.click(screen.getByRole('button', { name: 'Menu' }))
+        await userEvent.click(screen.getByRole('menuitem', { name: 'Send project to another device' }))
+        expect(useAppState.getState().panel).toBe('send')
     })
 })

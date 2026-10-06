@@ -1,6 +1,7 @@
 import { useRef, type ChangeEvent } from 'react'
 import { useAppState } from '../state'
-import { FILE_INPUT_ACCEPT } from '../utils/fileAccept'
+import { acceptAttr } from '../utils/fileAccept'
+import { notePicked, openMediaPicker } from './pickerStatus'
 import { resolveRenderSources } from '../utils/renderSources'
 
 interface MissingFullFilesProps {
@@ -14,6 +15,7 @@ export function MissingFullFiles({ missing, onChange, onPreviewInstead }: Missin
     const pickRef = useRef<HTMLInputElement | null>(null)
     const onPick = (evt: ChangeEvent<HTMLInputElement>): void => {
         const picked = Array.from(evt.target.files ?? [])
+        notePicked(picked)
         evt.target.value = ''
         const unmatched = useAppState.getState().attachFullFiles(picked)
         const still = resolveRenderSources(useAppState.getState().files, 'full').missing
@@ -25,10 +27,10 @@ export function MissingFullFiles({ missing, onChange, onPreviewInstead }: Missin
             <p className="mb-1">Full-quality files needed for:</p>
             <ul className="mb-2 list-disc pl-4">{missing.map((m) => <li key={m}>{m}</li>)}</ul>
             <div className="flex gap-2">
-                <button onClick={() => pickRef.current?.click()} className="btn-primary">Pick full files</button>
+                <button onClick={() => openMediaPicker(pickRef.current!)} className="btn-primary">Pick full files</button>
                 <button onClick={onPreviewInstead} className="btn-quiet">Render preview instead</button>
             </div>
-            <input ref={pickRef} type="file" multiple accept={FILE_INPUT_ACCEPT} onChange={onPick} className="hidden" />
+            <input ref={pickRef} type="file" multiple accept={acceptAttr()} onChange={onPick} className="hidden" />
         </div>
     )
 }
