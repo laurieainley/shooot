@@ -19,7 +19,7 @@ function relinkEvents(events: MatchEvent[], files: VideoSourceFile[]): MatchEven
 }
 
 /** Menus and sheets; at most one is open, and never together with the event picker. */
-export type Panel = 'menu' | 'files' | 'match' | 'settings' | 'paste' | 'export' | 'event'
+export type Panel = 'menu' | 'files' | 'match' | 'settings' | 'paste' | 'export' | 'event' | 'send'
 
 type AppState = {
     files: VideoSourceFile[]
@@ -49,6 +49,11 @@ type AppState = {
     /** Progress text while picked files are being opened, e.g. "Opening GX010226.MP4 (11.9 GB)…". */
     opening: string | null
     setOpening: (label: string | null) => void
+    /** iPadOS: the picker is open or is still copying the chosen files (no `change` yet). */
+    pickerWait: boolean
+    /** Note shown after a pick (iPad large-file hint). */
+    pickerNotice: string | null
+    setPicker: (partial: { wait?: boolean; notice?: string | null }) => void
     attachFullFiles: (files: File[]) => string[]
     setCurrentTimeInFile: (t: number) => void
     setCurrentFileIndex: (idx: number) => void
@@ -239,6 +244,12 @@ export const useAppState = create<AppState>()(
                 get().setFiles([...files.slice(0, index), ...replacement, ...files.slice(index + 1)])
             },
             setOpening: (label) => set({ opening: label }),
+            pickerWait: false,
+            pickerNotice: null,
+            setPicker: ({ wait, notice }) => set({
+                ...(wait !== undefined ? { pickerWait: wait } : {}),
+                ...(notice !== undefined ? { pickerNotice: notice } : {}),
+            }),
             setCurrentTimeInFile: (t) => set({ currentTimeInFileSec: t }),
             setCurrentFileIndex: (idx) => set({ currentFileIndex: Math.max(0, Math.min(idx, get().files.length - 1)) }),
             setAdjustTimestampsByOffset: (adjust) => set({ adjustTimestampsByOffset: adjust }),

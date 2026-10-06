@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 import { useAppState } from '../state'
 import type { VideoSourceFile } from '../types'
-import { FILE_INPUT_ACCEPT } from '../utils/fileAccept'
+import { acceptAttr } from '../utils/fileAccept'
+import { notePicked, openMediaPicker } from './pickerStatus'
 import { fileBadges } from '../utils/fileBadges'
 import { formatHMS } from '../utils/timeline'
 import { replacePickedFile } from './addFiles'
@@ -65,10 +66,11 @@ function FileRow({ file: f, index: i, count, current, onPlay, onError }: FileRow
             <span className="file-row__tools">
                 <button type="button" aria-label={`Move ${f.name} earlier`} onClick={() => moveFile(i, i - 1)} disabled={i === 0} className="row-btn">↑</button>
                 <button type="button" aria-label={`Move ${f.name} later`} onClick={() => moveFile(i, i + 1)} disabled={i === count - 1} className="row-btn">↓</button>
-                <button type="button" onClick={() => replaceRef.current?.click()} disabled={busy} className="btn-quiet file-row__replace">Replace…</button>
-                <input ref={replaceRef} type="file" accept={FILE_INPUT_ACCEPT} aria-label={`Replace ${f.name} with`} className="hidden"
+                <button type="button" onClick={() => replaceRef.current && openMediaPicker(replaceRef.current)} disabled={busy} className="btn-quiet file-row__replace">Replace…</button>
+                <input ref={replaceRef} type="file" accept={acceptAttr()} aria-label={`Replace ${f.name} with`} className="hidden"
                     onChange={async (evt) => {
                         const picked = Array.from(evt.target.files ?? [])
+                        notePicked(picked)
                         evt.target.value = ''
                         onError(await replacePickedFile(i, picked))
                     }} />
