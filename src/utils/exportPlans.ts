@@ -32,7 +32,6 @@ export type ExportState = {
     fullMatch: FullMatchSettings
     /** Replay zoom: where the goals are in the picture and which way the first team attacks in the first half. */
     goalAreas?: GoalAreas | null
-    whitesAttackLeft?: boolean
 }
 
 export type ExportPlan = {

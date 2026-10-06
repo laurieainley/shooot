@@ -1,11 +1,11 @@
-import type { MatchEvent, Team } from '../types'
+import type { MarkerType, MatchEvent, Team } from '../types'
 import { EVENT_META, eventIcon, eventLabel, isMarker, shortNote } from './eventTypes'
 import { linkedEvents } from './relink'
 import { formatHMS } from './timeline'
 
 export type Marker = {
     id: string
-    kind: 'event' | 'kick_off' | 'final_whistle'
+    kind: 'event' | MarkerType
     leftPct: number
     icon: string
     color: string

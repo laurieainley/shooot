@@ -147,10 +147,20 @@ describe('teams and picker', () => {
 
     it('should migrate v8 legacy event types and persist teams (v9+)', () => {
         const opts = useAppState.persist.getOptions()
-        expect(opts.version).toBe(11)
+        expect(opts.version).toBe(12)
         const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
         expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
         expect(opts.partialize!(s())).toHaveProperty('teams')
+    })
+
+    it('should migrate left / right goal areas and replay framing to teams (v12)', () => {
+        const left = { x: 0.04, y: 0.3, w: 0.4, h: 0.4 }
+        const right = { x: 0.56, y: 0.3, w: 0.4, h: 0.4 }
+        const old = { events: [{ id: 'a', matchTimeSec: 1, type: 'goal', replayCrop: 'right' }], goalAreas: { left, right }, whitesAttackLeft: true }
+        const migrated = useAppState.persist.getOptions().migrate!(old, 11) as { events: MatchEvent[]; goalAreas: unknown; whitesAttackLeft?: boolean }
+        expect(migrated.goalAreas).toEqual({ team1: right, team2: left })
+        expect(migrated.events[0].replayCrop).toBe('team1')
+        expect(migrated).not.toHaveProperty('whitesAttackLeft')
     })
 })
 
@@ -457,48 +467,44 @@ describe('kick-off migration', () => {
 })
 
 describe('goal areas and replay framing', () => {
-    const areas = { left: { x: 0.04, y: 0.3, w: 0.4, h: 0.4 }, right: { x: 0.56, y: 0.3, w: 0.4, h: 0.4 } }
+    const areas = { team1: { x: 0.04, y: 0.3, w: 0.4, h: 0.4 }, team2: { x: 0.56, y: 0.3, w: 0.4, h: 0.4 } }
     beforeEach(() => {
         useAppState.setState({
             files: [], events: [], cumulativeOffsets: [], undoStack: [], redoStack: [], currentFileIndex: 0, isPreviewMode: false,
             adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
-            replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5, goalAreas: null, whitesAttackLeft: true,
+            replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5, goalAreas: null,
         })
         s().setFiles([vf('a.mp4')])
         s().addEvent({ id: 'g', matchTimeSec: 50, sourceFileIndex: 0, type: 'goal', team: 'Colours' })
     })
 
-    it('should store goal areas clamped to the frame, and the attacking direction', () => {
-        s().setGoalAreas({ left: { x: 0.9, y: 0.3, w: 0.4, h: 0.9 }, right: areas.right })
-        expect(s().goalAreas?.left).toEqual({ x: 0.6, y: 0.3, w: 0.4, h: 0.4 })
-        s().setWhitesAttackLeft(false)
-        expect(s().whitesAttackLeft).toBe(false)
+    it('should store goal areas clamped to the frame', () => {
+        s().setGoalAreas({ team1: { x: 0.9, y: 0.3, w: 0.4, h: 0.9 }, team2: areas.team2 })
+        expect(s().goalAreas?.team1).toEqual({ x: 0.6, y: 0.3, w: 0.4, h: 0.4 })
         s().setGoalAreas(null)
         expect(s().goalAreas).toBeNull()
     })
 
-    it('should crop the preview replay to the scoring team\'s attacking goal', () => {
+    it('should crop the preview replay to the goal the scoring team attacks', () => {
         s().setGoalAreas(areas)
         s().startPreview()
-        expect(s().previewSteps.map((p) => p.crop ?? null)).toEqual([null, areas.right]) // Colours attack right
+        expect(s().previewSteps.map((p) => p.crop ?? null)).toEqual([null, areas.team1]) // Colours attack the goal Whites defend
     })
 
-    it('should follow the attacking direction and an event\'s own framing', () => {
+    it('should swap ends after Half time and follow an event\'s own framing', () => {
         s().setGoalAreas(areas)
-        s().setWhitesAttackLeft(false)
+        s().addEvent({ id: 'h', matchTimeSec: 20, sourceFileIndex: 0, type: 'half_time' })
         s().startPreview()
-        expect(s().previewSteps[1].crop).toEqual(areas.left)
+        expect(s().previewSteps[1].crop).toEqual(areas.team2)
         s().exitPreview()
         s().updateEvent('g', { replayCrop: 'full' })
         s().startPreview()
         expect(s().previewSteps[1].crop).toBeUndefined()
     })
 
-    it('should forget the goal areas for a new match (the camera moves) but keep the direction', () => {
+    it('should forget the goal areas for a new match (the camera moves)', () => {
         s().setGoalAreas(areas)
-        s().setWhitesAttackLeft(false)
         s().newMatch()
         expect(s().goalAreas).toBeNull()
-        expect(s().whitesAttackLeft).toBe(false)
     })
 })

@@ -5,7 +5,7 @@ import type { CropRect } from '../types'
 import { FrameBoxes, type FrameBox } from './FrameBoxes'
 
 const ready = { status: 'ready' as const, frame: { src: 'data:image/jpeg;base64,AA==', aspect: 16 / 9 } }
-const box = (rect: CropRect): FrameBox => ({ id: 'left', label: 'Left goal', short: 'L', rect, tone: 'left' })
+const box = (rect: CropRect): FrameBox => ({ id: 'left', label: 'Left goal', short: 'L', rect, tone: 'team1' })
 
 function setup(rect: CropRect = { x: 0.1, y: 0.2, w: 0.4, h: 0.4 }) {
     const onChange = vi.fn<(id: string, r: CropRect) => void>()
@@ -75,8 +75,8 @@ describe('FrameBoxes', () => {
     it('should draw the box that was last pressed above the other', () => {
         const rects = [{ x: 0.1, y: 0.2, w: 0.4, h: 0.4 }, { x: 0.3, y: 0.2, w: 0.4, h: 0.4 }]
         render(<FrameBoxes state={ready} boxes={[
-            { id: 'left', label: 'Left goal', short: 'L', rect: rects[0], tone: 'left' },
-            { id: 'right', label: 'Right goal', short: 'R', rect: rects[1], tone: 'right' },
+            { id: 'left', label: 'Left goal', short: 'L', rect: rects[0], tone: 'team1' },
+            { id: 'right', label: 'Right goal', short: 'R', rect: rects[1], tone: 'team2' },
         ]} onChange={() => {}} emptyText="none" />)
         const left = screen.getByRole('group', { name: 'Left goal box' })
         const right = screen.getByRole('group', { name: 'Right goal box' })

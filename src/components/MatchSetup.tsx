@@ -63,7 +63,7 @@ export function MatchSetup({ onClose }: MatchSetupProps) {
                 <p className="m-0 mt-2 text-[12px] text-muted">Teams and rosters are remembered for next time.</p>
                 <p className="match-setup__kickoff">
                     <span className="kickoff-flag" aria-hidden="true" />
-                    <span>Kick off and Final whistle are events: mark them from ＋ (keys <kbd>K</kbd> and <kbd>W</kbd>). The match clock starts at Kick off.</span>
+                    <span>Kick off, Half time and Final whistle are events: mark them from ＋ (keys <kbd>K</kbd>, <kbd>T</kbd> and <kbd>W</kbd>). The match clock starts at Kick off.</span>
                 </p>
                 <GoalAreasSetup />
                 <MatchGraphicsSetup />

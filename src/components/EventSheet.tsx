@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { selectMatchStartSec, useAppState } from '../state'
-import type { MatchEvent, Team } from '../types'
+import type { MarkerType, MatchEvent, Team } from '../types'
 import { optionForEvent, personEdit, typeChangePatch } from '../utils/eventEdit'
 import { PICKER_OPTIONS, isMarker } from '../utils/eventTypes'
 import { watchFromSec } from '../utils/markers'
@@ -98,7 +98,7 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
                             onClick={() => {
                                 if (o.id === option.id) return
                                 // Kick off / Final whistle: single instance, so the store moves an existing one.
-                                if (o.marker) useAppState.getState().placeMarker(e.id, o.type as 'kick_off' | 'final_whistle')
+                                if (o.marker) useAppState.getState().placeMarker(e.id, o.type as MarkerType)
                                 else update(typeChangePatch(e, o))
                             }}>{o.label}</button>
                     ))}

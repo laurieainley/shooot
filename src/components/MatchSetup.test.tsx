@@ -38,7 +38,7 @@ describe('MatchSetup', () => {
         render(<MatchSetup onClose={() => {}} />)
         expect(screen.queryByLabelText('Match start')).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: /use current time/i })).not.toBeInTheDocument()
-        expect(screen.getByText(/Kick off and Final whistle/i)).toBeInTheDocument()
+        expect(screen.getByText(/Kick off, Half time and Final whistle/i)).toBeInTheDocument()
     })
 
     it('should say that teams and rosters are remembered', () => {

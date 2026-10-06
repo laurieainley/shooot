@@ -14,6 +14,11 @@ export function kickOffSec(events: MatchEvent[], offsets: number[]): number {
     return markerGlobalSec(events, offsets, 'kick_off') ?? 0
 }
 
+/** Half time on the whole timeline, or null when it is not marked (no halves are assumed then). */
+export function halfTimeSec(events: MatchEvent[], offsets: number[]): number | null {
+    return markerGlobalSec(events, offsets, 'half_time')
+}
+
 /** Final whistle on the whole timeline, or null when it is not marked. */
 export function finalWhistleSec(events: MatchEvent[], offsets: number[]): number | null {
     return markerGlobalSec(events, offsets, 'final_whistle')

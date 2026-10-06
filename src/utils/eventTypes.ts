@@ -1,3 +1,4 @@
+import { migrateReplayCrop } from './crop'
 import type { EventType, MarkerType, MatchEvent } from '../types'
 
 export type EventMeta = {
@@ -5,7 +6,7 @@ export type EventMeta = {
     icon: string
     color: string
     scoring: boolean
-    /** Kick off / Final whistle: one each, no details, never in the highlights. */
+    /** Kick off / Half time / Final whistle: one each, no details, never in the highlights. */
     marker?: boolean
 }
 
@@ -18,6 +19,7 @@ export const EVENT_META: Record<EventType, EventMeta> = {
     foul:            { label: 'Foul',            icon: '🟨', color: '#f4a261', scoring: false },
     save:            { label: 'Save',            icon: '🧤', color: '#4cc9f0', scoring: false },
     kick_off:        { label: 'Kick off',        icon: '⚑', color: '#22c55e', scoring: false, marker: true },
+    half_time:       { label: 'Half time',       icon: '⏸', color: '#f59e0b', scoring: false, marker: true },
     final_whistle:   { label: 'Final whistle',   icon: '🏁', color: '#e5e5e5', scoring: false, marker: true },
 }
 
@@ -53,8 +55,9 @@ export const PICKER_OPTIONS: PickerOption[] = [
     { ...OPTIONAL_ALL, id: 'highlight', type: 'highlight',       key: 'h', label: 'Highlight',       personLabel: 'Who', askText: 'prompt', textLabel: 'What happened' },
     { ...OPTIONAL_ALL, id: 'foul',      type: 'foul',            key: 'f', label: 'Foul',            personLabel: 'Committed by', textLabel: 'Note' },
     { ...SCORER, id: 'save',            type: 'save',            key: 's', label: 'Save',            personLabel: 'Goalkeeper', personOptional: true },
-    // Type-step keys: K and W never clash with team shortcuts, which only apply in the team step.
+    // Type-step keys: K, T and W never clash with team shortcuts, which only apply in the team step.
     { ...MARKER, id: 'kick_off',        type: 'kick_off',        key: 'k', label: 'Kick off',        marker: true },
+    { ...MARKER, id: 'half_time',       type: 'half_time',       key: 't', label: 'Half time',       marker: true },
     { ...MARKER, id: 'final_whistle',   type: 'final_whistle',   key: 'w', label: 'Final whistle',   marker: true },
 ]
 
@@ -63,7 +66,7 @@ export const PICKER_GROUPS: { label: string; ids: PickerOptionId[] }[] = [
     { label: 'Goals', ids: ['goal', 'goal_pen', 'own_goal'] },
     { label: 'Penalties', ids: ['penalty_awarded', 'penalty_missed'] },
     { label: 'Other', ids: ['save', 'foul', 'highlight'] },
-    { label: 'Match', ids: ['kick_off', 'final_whistle'] },
+    { label: 'Match', ids: ['kick_off', 'half_time', 'final_whistle'] },
 ]
 
 export function optionForKey(key: string): PickerOption | undefined {
@@ -111,8 +114,11 @@ export function isMarker<T extends Pick<MatchEvent, 'type'>>(e: T): e is T & { t
 
 const LEGACY_TYPES: Record<string, EventType> = { moment: 'highlight', card: 'foul' }
 
-export function migrateEvent(raw: Omit<MatchEvent, 'type'> & { type?: string }): MatchEvent {
+/** `whitesAttackLeft`: the old direction flag, needed only to turn a stored 'left' / 'right' replay framing into a team's goal. */
+export function migrateEvent(raw: Omit<MatchEvent, 'type' | 'replayCrop'> & { type?: string; replayCrop?: unknown }, whitesAttackLeft = true): MatchEvent {
     const t = raw.type ?? 'goal'
     const type = (LEGACY_TYPES[t] ?? (t in EVENT_META ? t : 'highlight')) as EventType
-    return { ...raw, type }
+    const { replayCrop, ...rest } = raw
+    const crop = migrateReplayCrop(replayCrop, whitesAttackLeft)
+    return { ...rest, type, ...(crop !== undefined ? { replayCrop: crop } : {}) }
 }

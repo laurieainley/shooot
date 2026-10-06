@@ -274,7 +274,7 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, o
 
 type MarkerRowProps = Pick<EventRowProps, 'event' | 'selected' | 'clock' | 'fileTag' | 'editing' | 'onSelect' | 'onWatch' | 'onEdit' | 'onRemove' | 'restoreFocus' | 'touch'>
 
-/** Kick off / Final whistle: a flag, the label and the time — no team, person, score or replay. */
+/** Kick off / Half time / Final whistle: a flag, the label and the time — no team, person, score or replay. */
 function MarkerRow({ event: e, selected, clock, fileTag, editing, onSelect, onWatch, onEdit, onRemove, restoreFocus, touch = false }: MarkerRowProps) {
     const stop = (ev: React.SyntheticEvent): void => ev.stopPropagation()
     const update = useAppState((s) => s.updateEvent)

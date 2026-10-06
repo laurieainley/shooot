@@ -130,11 +130,9 @@ type AppState = {
     matchdayLabel: string | null
     setMatchdayLabel: (label: string | null) => void
     setTeamInitials: (index: number, initials: string) => void
-    /** Replay zoom: the two goal mouths in the picture (null = not set) and which way the first team attacks in the first half. */
+    /** Replay zoom: where each team's goal is in the picture (null = not set). */
     goalAreas: GoalAreas | null
-    whitesAttackLeft: boolean
     setGoalAreas: (areas: GoalAreas | null) => void
-    setWhitesAttackLeft: (left: boolean) => void
 }
 
 /** Kick-off on the whole timeline (0 when not marked): match clocks, Home, chapters and the full match start there. */
@@ -176,7 +174,6 @@ export const useAppState = create<AppState>()(
             graphics: DEFAULT_GRAPHICS,
             matchdayLabel: null,
             goalAreas: null,
-            whitesAttackLeft: true,
             cumulativeOffsets: [],
             currentTimeInFileSec: 0,
             currentFileIndex: 0,
@@ -420,7 +417,6 @@ export const useAppState = create<AppState>()(
             setExportTab: (tab) => set({ exportTab: tab }),
             setFullMatch: (partial) => set({ fullMatch: { ...get().fullMatch, ...partial } }),
             setGoalAreas: (areas) => set({ goalAreas: areas ? normaliseAreas(areas) : null }),
-            setWhitesAttackLeft: (left) => set({ whitesAttackLeft: left }),
             setMatchdayLabel: (label) => set({ matchdayLabel: label?.trim() ? label : null }),
             setTeamInitials: (index, initials) => set({
                 teams: get().teams.map((t, i) => {
@@ -494,10 +490,9 @@ export const useAppState = create<AppState>()(
                 fullMatch: state.fullMatch,
                 matchdayLabel: state.matchdayLabel,
                 goalAreas: state.goalAreas,
-                whitesAttackLeft: state.whitesAttackLeft,
                 barCollapsed: state.barCollapsed,
             }),
-            version: 11,
+            version: 12,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -521,7 +516,7 @@ export const useAppState = create<AppState>()(
 
                 // Ensure every event has a current type (legacy moment/card → highlight/foul) (v9)
                 if (state.events) {
-                    state.events = (state.events as any[]).map((e: any) => migrateEvent(e))
+                    state.events = (state.events as any[]).map((e: any) => migrateEvent(e, state.whitesAttackLeft ?? true))
                 }
 
                 // Match setup's start time became the Kick off event (v10).
@@ -547,6 +542,12 @@ export const useAppState = create<AppState>()(
                 if (version < 11) {
                     if ('graphics' in state) state.graphics = normaliseGraphics(state.graphics, DEFAULT_GRAPHICS)
                     delete state.reencodeSecPerSec
+                }
+
+                // Goal areas belong to teams, not to left / right (v12): the box the first team attacked is the second team's goal.
+                if (version < 12) {
+                    state.goalAreas = normaliseAreas(state.goalAreas, state.whitesAttackLeft ?? true)
+                    delete state.whitesAttackLeft
                 }
 
                 return state
