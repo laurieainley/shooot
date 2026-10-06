@@ -1,6 +1,6 @@
-import { useRef, type KeyboardEvent, type PointerEvent } from 'react'
+import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import type { CropRect } from '../types'
-import { clampRect, moveRect, resizeRect } from '../utils/crop'
+import { clampRect, moveRect, resizeFromCorner, resizeRect, type Corner } from '../utils/crop'
 import type { Frame, FrameState } from './frameGrab'
 
 export interface FrameBox {
@@ -23,19 +23,27 @@ interface FrameBoxesProps {
 
 type Gesture =
     | { kind: 'move'; start: CropRect; x: number; y: number }
-    | { kind: 'resize'; start: CropRect; x: number }
+    | { kind: 'resize'; start: CropRect; x: number; y: number; corner: Corner }
     | { kind: 'pinch'; start: CropRect; dist: number }
 
 const STEP = 0.01
+const CORNERS: { corner: Corner; label: string }[] = [
+    { corner: 'tl', label: 'top left' },
+    { corner: 'tr', label: 'top right' },
+    { corner: 'bl', label: 'bottom left' },
+    { corner: 'br', label: 'bottom right' },
+]
 
 /**
  * A still frame with draggable, resizable boxes (aspect locked to the frame's). Drag the body to move, drag the
- * corner handle (44 px target) or pinch with two fingers to resize; arrow keys move, +/- resize.
+ * corner handles (44 px targets, any of the four; the opposite corner stays put) or pinch with two fingers to resize; arrow keys move, +/- resize.
  */
 export function FrameBoxes({ state, boxes, onChange, onCommit, emptyText }: FrameBoxesProps) {
     const area = useRef<HTMLDivElement | null>(null)
     const gestures = useRef(new Map<string, { g: Gesture; pointers: Map<number, { x: number; y: number }> }>())
     const frame: Frame | null = state.frame
+    // The box last pressed / focused is drawn on top of the others.
+    const [selected, setSelected] = useState<string | null>(null)
 
     const size = (): { w: number; h: number } => {
         const r = area.current?.getBoundingClientRect()
@@ -46,7 +54,8 @@ export function FrameBoxes({ state, boxes, onChange, onCommit, emptyText }: Fram
         return Math.hypot(a.x - b.x, a.y - b.y) || 1
     }
 
-    const down = (box: FrameBox, kind: 'move' | 'resize') => (e: PointerEvent<HTMLElement>): void => {
+    const down = (box: FrameBox, kind: 'move' | 'resize', corner: Corner = 'br') => (e: PointerEvent<HTMLElement>): void => {
+        setSelected(box.id)
         e.stopPropagation()
         e.preventDefault()
         e.currentTarget.setPointerCapture?.(e.pointerId)
@@ -59,7 +68,7 @@ export function FrameBoxes({ state, boxes, onChange, onCommit, emptyText }: Fram
         }
         gestures.current.set(box.id, {
             pointers,
-            g: kind === 'resize' ? { kind: 'resize', start: box.rect, x: e.clientX } : { kind: 'move', start: box.rect, x: e.clientX, y: e.clientY },
+            g: kind === 'resize' ? { kind: 'resize', start: box.rect, x: e.clientX, y: e.clientY, corner } : { kind: 'move', start: box.rect, x: e.clientX, y: e.clientY },
         })
     }
     const move = (box: FrameBox) => (e: PointerEvent<HTMLElement>): void => {
@@ -74,7 +83,7 @@ export function FrameBoxes({ state, boxes, onChange, onCommit, emptyText }: Fram
             const cy = g.start.y + g.start.h / 2
             onChange(box.id, clampRect({ x: cx - nw / 2, y: cy - nw / 2, w: nw, h: nw }))
         } else if (g.kind === 'move') onChange(box.id, moveRect(g.start, (e.clientX - g.x) / w, (e.clientY - g.y) / h))
-        else if (g.kind === 'resize') onChange(box.id, resizeRect(g.start, g.start.w + (e.clientX - g.x) / w))
+        else if (g.kind === 'resize') onChange(box.id, resizeFromCorner(g.start, g.corner, (e.clientX - g.x) / w, (e.clientY - g.y) / h))
     }
     const up = (box: FrameBox) => (e: PointerEvent<HTMLElement>): void => {
         const cur = gestures.current.get(box.id)
@@ -116,23 +125,27 @@ export function FrameBoxes({ state, boxes, onChange, onCommit, emptyText }: Fram
                     tabIndex={0}
                     aria-label={`${b.label} box`}
                     className={`frame-box frame-box--${b.tone}`}
-                    style={{ left: `${b.rect.x * 100}%`, top: `${b.rect.y * 100}%`, width: `${b.rect.w * 100}%`, height: `${b.rect.h * 100}%` }}
+                    style={{ zIndex: b.id === selected ? 2 : 1, left: `${b.rect.x * 100}%`, top: `${b.rect.y * 100}%`, width: `${b.rect.w * 100}%`, height: `${b.rect.h * 100}%` }}
                     onPointerDown={down(b, 'move')}
                     onPointerMove={move(b)}
                     onPointerUp={up(b)}
                     onPointerCancel={up(b)}
+                    onFocus={() => setSelected(b.id)}
                     onKeyDown={key(b)}
                 >
                     <span className="frame-box__tag">{b.short}</span>
-                    <span
-                        role="button"
-                        aria-label={`Resize ${b.label} box`}
-                        className="frame-box__handle"
-                        onPointerDown={down(b, 'resize')}
-                        onPointerMove={move(b)}
-                        onPointerUp={up(b)}
-                        onPointerCancel={up(b)}
-                    />
+                    {CORNERS.map(({ corner, label }) => (
+                        <span
+                            key={corner}
+                            role="button"
+                            aria-label={`Resize ${b.label} box, ${label}`}
+                            className={`frame-box__handle frame-box__handle--${corner}`}
+                            onPointerDown={down(b, 'resize', corner)}
+                            onPointerMove={move(b)}
+                            onPointerUp={up(b)}
+                            onPointerCancel={up(b)}
+                        />
+                    ))}
                 </div>
             ))}
         </div>

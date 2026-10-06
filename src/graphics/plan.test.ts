@@ -7,7 +7,7 @@ const teams: Team[] = [
     { name: "Ryan's Rovers", color: '#f0f0f0', roster: [] },
     { name: 'Walford Town', color: '#ec5fa4', roster: [], initials: 'WT' },
 ]
-const ALL: GraphicsSettings = { cards: true, lowerThirds: true, replayTag: false, scoreBug: false }
+const ALL: GraphicsSettings = { cards: true, lowerThirds: true, replayTag: false }
 const ev = (id: string, t: number, extra: Partial<MatchEvent>): MatchEvent => ({ id, matchTimeSec: t, sourceFileIndex: 0, type: 'goal', ...extra })
 const cuts: Cut[] = [
     { sourceIndex: 0, startSec: 10, endSec: 24 },
@@ -57,7 +57,7 @@ describe('buildGraphicsSpec', () => {
         const bug = (text: string) => ({ left: 'RR', right: 'WT', leftColour: '#f0f0f0', rightColour: '#ec5fa4', text })
         expect(spec.overlays).toEqual([
             // starts 1 s after the goal; 3 s left in the clip, then it carries on over the start of its replay (slowed 2×)
-            expect.objectContaining({ kind: 'caption', cutIndex: 0, startSec: 21, durationSec: 3, anchored: false, clock: { offsetSec: 0, rate: 1, totalSec: 5 }, spec: { label: 'GOAL', person: 'SAM', stripe: '#f0f0f0', bug: bug('1–0') } }),
+            expect.objectContaining({ kind: 'caption', cutIndex: 0, startSec: 21, durationSec: 3, clock: { offsetSec: 0, rate: 1, totalSec: 5 }, spec: { label: 'GOAL', person: 'SAM', stripe: '#f0f0f0', bug: bug('1–0') } }),
             expect.objectContaining({ kind: 'caption', cutIndex: 1, startSec: 16, durationSec: 1, clock: { offsetSec: 3, rate: 2, totalSec: 5 }, fromCutStart: true }),
             expect.objectContaining({ kind: 'caption', cutIndex: 2, startSec: 56, durationSec: 5, spec: expect.objectContaining({ label: 'GOAL (PEN)', person: 'ALEX', stripe: '#ec5fa4', bug: bug('1–1') }) }),
         ])
@@ -94,32 +94,8 @@ describe('buildGraphicsSpec', () => {
     })
 
     it('should tag replays when asked', () => {
-        const spec = build([], { cards: false, lowerThirds: false, replayTag: true, scoreBug: false })
+        const spec = build([], { cards: false, lowerThirds: false, replayTag: true })
         expect(spec.overlays).toEqual([expect.objectContaining({ kind: 'replayTag', cutIndex: 1, startSec: 16, durationSec: 5 })])
-    })
-})
-
-describe('buildGraphicsSpec — score always on screen', () => {
-    const ON: GraphicsSettings = { ...ALL, scoreBug: true }
-    const bugs = (spec: ReturnType<typeof build>) => spec.overlays.filter((o) => o.kind === 'scoreBug')
-
-    it('should cover every cut, replays included, updating at each goal and hiding under captions', () => {
-        const spec = build([ev('a', 20, { team: "Ryan's Rovers" }), ev('b', 60, { team: 'Walford Town' })], ON)
-        const [c0, c1, c2] = bugs(spec)
-        expect(c0).toMatchObject({ cutIndex: 0, startSec: 10, durationSec: 14, fadeIn: false, fadeOut: false, hide: [[21, 24]] })
-        // a caption carried on over a replay starts with the replay's real first frame: the bug stays drawn under it
-        // (the anchored caption repeats the same bug row), so there is never a frame with neither
-        expect(c1).toMatchObject({ cutIndex: 1, hide: [] })
-        expect(c0.kind === 'scoreBug' && c0.scores.map((x) => [x.fromSec, x.bug.text])).toEqual([[10, '0–0'], [20, '1–0']])
-        // the replay of the first goal shows the score after it throughout
-        expect(c1.kind === 'scoreBug' && c1.scores.map((x) => [x.fromSec, x.bug.text])).toEqual([[16, '1–0']])
-        expect(c2.kind === 'scoreBug' && c2.scores.map((x) => [x.fromSec, x.bug.text])).toEqual([[50, '1–0'], [60, '1–1']])
-        expect(spec.overlays.filter((o) => o.kind === 'caption').every((o) => o.kind === 'caption' && o.anchored)).toBe(true)
-    })
-
-    it('should draw nothing without two teams', () => {
-        const spec = buildGraphicsSpec({ events: [], teams: teams.slice(0, 1), cuts, cumulativeOffsets: [0], settings: ON, matchday: '' })
-        expect(spec.overlays.filter((o) => o.kind === 'scoreBug')).toEqual([])
     })
 })
 

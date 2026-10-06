@@ -10,7 +10,9 @@ import { relinkEvents as relinkByKey, linkedEvents } from './utils/relink'
 import { kickOffSec, resolveGlobalEvents, withMigratedKickOff } from './utils/matchClock'
 import { parseGoProName } from './utils/gopro'
 import { buildPreviewPlan, type PreviewStep } from './utils/preview'
-import type { GraphicsSettings } from './graphics/plan'
+import { normaliseGraphics, type GraphicsSettings } from './graphics/plan'
+
+const DEFAULT_GRAPHICS: GraphicsSettings = { cards: true, lowerThirds: true, replayTag: false }
 import type { FullMatchSettings } from './utils/exportPlans'
 
 /** Links events to the loaded files: migrated whole-timeline times are placed first, then file keys matched. */
@@ -118,15 +120,12 @@ type AppState = {
     // Match graphics (title/full-time cards, lower thirds)
     graphics: GraphicsSettings
     setGraphics: (partial: Partial<GraphicsSettings>) => void
-    /** Measured render seconds per second of video for whole-reel re-encodes on this device (null = not yet). */
-    reencodeSecPerSec: number | null
     /** Export full match: VS / FT cards and the score bug (off / after goals / periodic every n minutes). */
     fullMatch: FullMatchSettings
     /** Which half of the Export panel is showing. */
     exportTab: 'highlights' | 'fullMatch'
     setExportTab: (tab: 'highlights' | 'fullMatch') => void
     setFullMatch: (partial: Partial<FullMatchSettings>) => void
-    noteReencodeSpeed: (secPerSec: number) => void
     /** Matchday heading on the title card; null = "MATCH". */
     matchdayLabel: string | null
     setMatchdayLabel: (label: string | null) => void
@@ -174,7 +173,7 @@ export const useAppState = create<AppState>()(
             playerFullscreen: false,
             barCollapsed: false,
             opening: null,
-            graphics: { cards: true, lowerThirds: true, replayTag: false, scoreBug: false },
+            graphics: DEFAULT_GRAPHICS,
             matchdayLabel: null,
             goalAreas: null,
             whitesAttackLeft: true,
@@ -415,13 +414,11 @@ export const useAppState = create<AppState>()(
             },
             openPicker: (eventId) => set({ picker: { eventId }, panel: null }),
             closePicker: () => set({ picker: null }),
-            setGraphics: (partial) => set({ graphics: { ...get().graphics, ...partial } }),
-            reencodeSecPerSec: null,
+            setGraphics: (partial) => set({ graphics: normaliseGraphics({ ...get().graphics, ...partial }, get().graphics) }),
             fullMatch: { cards: true, scoreBug: 'periodic', intervalMin: 5 },
             exportTab: 'highlights',
             setExportTab: (tab) => set({ exportTab: tab }),
             setFullMatch: (partial) => set({ fullMatch: { ...get().fullMatch, ...partial } }),
-            noteReencodeSpeed: (secPerSec) => { if (secPerSec > 0 && Number.isFinite(secPerSec)) set({ reencodeSecPerSec: secPerSec }) },
             setGoalAreas: (areas) => set({ goalAreas: areas ? normaliseAreas(areas) : null }),
             setWhitesAttackLeft: (left) => set({ whitesAttackLeft: left }),
             setMatchdayLabel: (label) => set({ matchdayLabel: label?.trim() ? label : null }),
@@ -494,14 +491,13 @@ export const useAppState = create<AppState>()(
                 replaySpeed: state.replaySpeed,
                 teams: state.teams,
                 graphics: state.graphics,
-                reencodeSecPerSec: state.reencodeSecPerSec,
                 fullMatch: state.fullMatch,
                 matchdayLabel: state.matchdayLabel,
                 goalAreas: state.goalAreas,
                 whitesAttackLeft: state.whitesAttackLeft,
                 barCollapsed: state.barCollapsed,
             }),
-            version: 10,
+            version: 11,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -545,6 +541,12 @@ export const useAppState = create<AppState>()(
                 if (version < 7) {
                     state.lengthBeforeGoalSec = state.lengthBeforeGoalSec ?? 10
                     state.lengthAfterGoalSec = state.lengthAfterGoalSec ?? 4
+                }
+
+                // The "score always on screen" option and its measured re-encode speed were removed (v11).
+                if (version < 11) {
+                    if ('graphics' in state) state.graphics = normaliseGraphics(state.graphics, DEFAULT_GRAPHICS)
+                    delete state.reencodeSecPerSec
                 }
 
                 return state

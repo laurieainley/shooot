@@ -13,14 +13,12 @@ function painter(o: OverlaySpec, assets: PaintAssets): Painter {
     const logo = !!assets.logo
     switch (o.kind) {
         case 'caption':
-            return (ctx, t) => paintOps(ctx, captionLayout(o.spec, o.clock.offsetSec + t * o.clock.rate, logo, o.clock.totalSec, measureWith(ctx), o.anchored), assets)
+            return (ctx, t) => paintOps(ctx, captionLayout(o.spec, o.clock.offsetSec + t * o.clock.rate, logo, o.clock.totalSec, measureWith(ctx)), assets)
         case 'replayTag':
             return (ctx, t) => paintOps(ctx, replayTagLayout(t, o.durationSec, measureWith(ctx)), assets)
         case 'scoreBug':
             return (ctx, t) => {
                 const at = o.startSec + t
-                // Under a caption the caption shows the score (the bug "expands" into it).
-                if (o.hide.some(([a, b]) => at >= a - 1e-6 && at < b)) return
                 let bug = o.scores[0]?.bug
                 for (const s of o.scores) if (s.fromSec <= at + 1e-6) bug = s.bug
                 if (bug) paintOps(ctx, scoreBugLayout(bug, t, o.durationSec, logo, { in: o.fadeIn, out: o.fadeOut }, measureWith(ctx)), assets)

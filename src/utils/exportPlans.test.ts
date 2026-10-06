@@ -12,7 +12,7 @@ const events: MatchEvent[] = [
 const state = (extra: Partial<ExportState> = {}): ExportState => ({
     files: [file('GX010001.MP4'), file('GX020001.MP4')], events, cumulativeOffsets: [0, 100], adjustTimestampsByOffset: false,
     lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5,
-    graphics: { cards: true, lowerThirds: true, replayTag: false, scoreBug: false },
+    graphics: { cards: true, lowerThirds: true, replayTag: false },
     teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }],
     matchdayLabel: null, fullMatch: { cards: true, scoreBug: 'periodic', intervalMin: 5 },
     ...extra,
@@ -50,14 +50,14 @@ describe('fullMatchExport', () => {
 })
 
 describe('highlightsExport', () => {
-    it('should plan the reel as before, stream copied unless the score is always on', () => {
+    it('should plan the reel stream copied, ignoring a legacy score-always-on setting', () => {
         const p = highlightsExport(state(), 'full')
         expect(p.outputName).toBe('highlights.mp4')
         expect(p.cuts.map((c) => [c.startSec, c.endSec, c.speed ?? 1])).toEqual([[50, 64, 1], [56, 61, 0.5]])
         expect(p.resumable).toBe(false)
-        const bug = highlightsExport(state({ graphics: { cards: true, lowerThirds: true, replayTag: false, scoreBug: true } }), 'full')
-        expect(bug.resumable).toBe(true)
-        expect(bug.spec?.overlays.some((o) => o.kind === 'scoreBug')).toBe(true)
+        const legacy = highlightsExport(state({ graphics: { cards: true, lowerThirds: true, replayTag: false, scoreBug: true } as never }), 'full')
+        expect(legacy.resumable).toBe(false)
+        expect(legacy.spec?.overlays.some((o) => o.kind === 'scoreBug')).toBe(false)
     })
 })
 

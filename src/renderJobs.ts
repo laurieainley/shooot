@@ -15,8 +15,6 @@ export type RenderRequest = {
     outputName: string
     /** Save progress so the render can carry on after a reload. */
     resumable?: { signature: string; kind: JobKind }
-    /** Seconds of video re-encoded in full (score always on screen), to measure this device's speed. */
-    reencodeSec?: number
 }
 
 export type JobPhase = 'running' | 'done' | 'failed'
@@ -44,8 +42,6 @@ export type RenderJobDeps = {
     now: () => number
     createUrl: (file: File) => string
     revokeUrl: (url: string) => void
-    /** A whole-reel re-encode finished: seconds of render per second of video on this device. */
-    onReencodeSpeed?: (secPerSec: number) => void
 }
 
 export type RenderJobsState = {
@@ -99,7 +95,6 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                     const elapsed = deps.now() - startedAt
                     const downloaded = deps.download(url, file.name)
                     patch(id, { phase: 'done', fraction: 1, status: `Done in ${Math.max(1, Math.round(elapsed / 1000))} s`, result: { file, url, downloaded }, finishedAt: deps.now() })
-                    if (req.reencodeSec && req.reencodeSec > 0) deps.onReencodeSpeed?.(elapsed / 1000 / req.reencodeSec)
                     deps.notify(get().job!, elapsed)
                 } catch (e) {
                     if (e instanceof DOMException && e.name === 'AbortError') {
@@ -153,7 +148,6 @@ export function renderJobs(): StoreApi<RenderJobsState> {
             now: () => Date.now(),
             createUrl: (f) => URL.createObjectURL(f),
             revokeUrl: (u) => URL.revokeObjectURL(u),
-            onReencodeSpeed: (v) => { void import('./state').then((s) => s.useAppState.getState().noteReencodeSpeed(v)) },
         }
         instance = createRenderJobs(defaultDeps)
     }

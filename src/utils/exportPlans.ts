@@ -48,8 +48,6 @@ export type ExportPlan = {
     bytes: number
     /** Long renders save progress so they can resume after a reload. */
     resumable: boolean
-    /** Every frame is re-encoded (score always on screen). */
-    reencodeAll: boolean
     signature: string
 }
 
@@ -57,14 +55,14 @@ const matchday = (s: ExportState): string => s.matchdayLabel?.trim() || 'MATCH'
 const nonEmpty = (spec: GraphicsSpec): GraphicsSpec | undefined => (spec.intro || spec.outro || spec.overlays.length > 0 ? spec : undefined)
 const cardsSec = (spec: GraphicsSpec | undefined): number => (spec?.intro ? CARD_SEC : 0) + (spec?.outro ? CARD_SEC : 0)
 
-function finish(kind: 'highlights' | 'fullMatch', quality: RenderQuality, s: ExportState, cuts: Cut[], spec: GraphicsSpec | undefined, base: string, resumable: boolean, reencodeAll: boolean): ExportPlan {
+function finish(kind: 'highlights' | 'fullMatch', quality: RenderQuality, s: ExportState, cuts: Cut[], spec: GraphicsSpec | undefined, base: string, resumable: boolean): ExportPlan {
     const { sources, missing } = resolveRenderSources(s.files, quality)
     const durations = s.files.map((f) => f.durationSec ?? 0)
     const seconds = cuts.reduce((sum, c) => sum + (c.endSec - c.startSec) / (c.speed ?? 1), 0) + cardsSec(spec)
     const bytes = estimateBytes(cuts.map((c) => ({ ...c })), sources.map((x) => x.file.size), durations)
     const outputName = `${base}${quality === 'preview' ? '-preview' : ''}.mp4`
     const signature = jobSignature({ kind, quality, cuts, sources: sources.map((x) => [x.name, x.file.size]), spec: spec ?? null })
-    return { cuts, sources, missing, spec, outputName, seconds, bytes, resumable, reencodeAll, signature }
+    return { cuts, sources, missing, spec, outputName, seconds, bytes, resumable, signature }
 }
 
 export function highlightsExport(s: ExportState, quality: RenderQuality): ExportPlan {
@@ -72,8 +70,7 @@ export function highlightsExport(s: ExportState, quality: RenderQuality): Export
     const segments = mergeOverlappingGoalSegments(linked, s.cumulativeOffsets, kickOffSec(linked, s.cumulativeOffsets), s.adjustTimestampsByOffset, s.lengthBeforeGoalSec, s.lengthAfterGoalSec)
     const cuts = buildRenderPlan(segments, s.files.map((f) => f.durationSec ?? Infinity), replayOptionsFor({ ...s, events: linked }))
     const spec = nonEmpty(buildGraphicsSpec({ events: linked, teams: s.teams, cuts, cumulativeOffsets: s.cumulativeOffsets, settings: s.graphics, matchday: matchday(s) }))
-    const reencodeAll = !!spec?.overlays.some((o) => o.kind === 'scoreBug')
-    return finish('highlights', quality, s, cuts, spec, 'highlights', reencodeAll, reencodeAll)
+    return finish('highlights', quality, s, cuts, spec, 'highlights', false)
 }
 
 export function fullMatchExport(s: ExportState, quality: RenderQuality): ExportPlan {
@@ -86,5 +83,5 @@ export function fullMatchExport(s: ExportState, quality: RenderQuality): ExportP
         mode: s.fullMatch.scoreBug, intervalMin: s.fullMatch.intervalMin, gapsSec: recordingGaps(s.files, s.cumulativeOffsets),
     })
     const spec = nonEmpty(fullMatchGraphicsSpec({ events: linked, teams: s.teams, cuts, cumulativeOffsets: s.cumulativeOffsets, cards: s.fullMatch.cards, matchday: matchday(s), windows }))
-    return finish('fullMatch', quality, s, cuts, spec, 'full-match', true, false)
+    return finish('fullMatch', quality, s, cuts, spec, 'full-match', true)
 }

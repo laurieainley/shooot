@@ -147,7 +147,7 @@ describe('teams and picker', () => {
 
     it('should migrate v8 legacy event types and persist teams (v9+)', () => {
         const opts = useAppState.persist.getOptions()
-        expect(opts.version).toBe(10)
+        expect(opts.version).toBe(11)
         const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
         expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
         expect(opts.partialize!(s())).toHaveProperty('teams')
@@ -354,17 +354,22 @@ describe('preview', () => {
 
 describe('match graphics settings', () => {
     beforeEach(() => {
-        useAppState.setState({ graphics: { cards: true, lowerThirds: true, replayTag: false, scoreBug: false }, matchdayLabel: null })
+        useAppState.setState({ graphics: { cards: true, lowerThirds: true, replayTag: false }, matchdayLabel: null })
     })
 
     it('should default to cards and lower thirds on, replay tag off', () => {
-        expect(s().graphics).toEqual({ cards: true, lowerThirds: true, replayTag: false, scoreBug: false })
+        expect(s().graphics).toEqual({ cards: true, lowerThirds: true, replayTag: false })
+    })
+
+    it('should ignore a legacy score-always-on field when graphics are set', () => {
+        s().setGraphics({ cards: false, scoreBug: true } as never)
+        expect(s().graphics).toEqual({ cards: false, lowerThirds: true, replayTag: false })
     })
 
     it('should toggle one graphic at a time', () => {
         s().setGraphics({ replayTag: true })
         s().setGraphics({ cards: false })
-        expect(s().graphics).toEqual({ cards: false, lowerThirds: true, replayTag: true, scoreBug: false })
+        expect(s().graphics).toEqual({ cards: false, lowerThirds: true, replayTag: true })
     })
 
     it('should head the card MATCH until a matchday is typed', () => {
@@ -426,6 +431,12 @@ describe('match markers (kick off / final whistle)', () => {
 
 describe('kick-off migration', () => {
     const migrate = (persisted: unknown, version: number) => useAppState.persist.getOptions().migrate!(persisted, version) as Record<string, unknown>
+
+    it('should drop the removed score-always-on setting and re-encode speed from stored data (v11)', () => {
+        const out = migrate({ graphics: { cards: false, lowerThirds: true, replayTag: true, scoreBug: true }, reencodeSecPerSec: 0.7 }, 10)
+        expect(out.graphics).toEqual({ cards: false, lowerThirds: true, replayTag: true })
+        expect(out).not.toHaveProperty('reencodeSecPerSec')
+    })
 
     it('should turn a stored match start into a Kick off event and drop the field', () => {
         const out = migrate({ events: [{ id: 'g', matchTimeSec: 700, sourceFileIndex: 1, type: 'goal' }], matchStartTimeSec: 610 }, 9)

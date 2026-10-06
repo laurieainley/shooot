@@ -27,13 +27,3 @@ export function formatReelLength(seconds: number): string {
     const s = Math.max(0, Math.round(seconds))
     return `${Math.floor(s / 60)}:${`${s % 60}`.padStart(2, '0')}`
 }
-
-/** Guessed render seconds per second of reel for a whole-reel re-encode until this device has measured one. */
-export const REENCODE_GUESS = { desktop: 0.6, phone: 2.5 }
-
-/** "about 40 s" / "about 3 min": how long re-encoding `reelSec` of video takes on this device. */
-export function estimateReencode(reelSec: number, measuredSecPerSec: number | null, phone: boolean): string {
-    const rate = measuredSecPerSec ?? (phone ? REENCODE_GUESS.phone : REENCODE_GUESS.desktop)
-    const sec = Math.max(1, Math.round(reelSec * rate))
-    return sec < 90 ? `about ${sec} s` : `about ${Math.round(sec / 60)} min`
-}

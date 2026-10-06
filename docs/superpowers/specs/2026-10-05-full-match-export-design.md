@@ -66,6 +66,6 @@ Own goals: Ade (for Whites)
 
 ## 8. Score bug (user: "Yes")
 
-- **Highlights:** Export → Graphics toggle **Score always on screen** (default off). When on, a compact top-left score bug (`WH 1–0 CO`, team colours) is drawn on every frame of the reel, so the whole reel is re-encoded through the graphics session (decode → paint → encode) instead of stream-copied. The bug updates at each goal; while an event caption (section 7) is showing it expands into the caption rather than drawing twice. Show an estimate before rendering ("re-encodes the whole reel, about N s on this device").
+- **Highlights:** the Export → Graphics toggle "Score always on screen" (whole-reel re-encode) was removed; highlights keep the top-left event captions (section 7), which carry the score. Old stored/project data with the field is ignored.
 - **Full match:** Export full match → **Score bug** setting: Off / After goals / Periodic (default **Periodic**). Periodic = 10 s after each goal, 8 s at Kick off and at the first frame after any half-time gap (if present), and 5 s every 5 minutes (interval adjustable 2–15 min). Each appearance is an overlay window re-encoded like a caption (GOP-aligned), so the match stays stream-copied otherwise.
 - Pure planner `scoreBugWindows(events, teams, kickOff, finalWhistle, mode, intervalMin) → { startSec, durationSec, score }[]` with unit tests (merging overlapping windows, never inside cards, clamped to the match span).

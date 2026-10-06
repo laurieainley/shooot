@@ -27,10 +27,10 @@ export type OverlaySpec =
      * `clock`: a caption split over two cuts (its clip, then the start of the replay) runs one 5 s timeline:
      * caption time = offsetSec + t × rate (rate 1 / speed on a slowed replay), out of totalSec.
      */
-    | OverlayTiming & { kind: 'caption'; spec: CaptionSpec; anchored: boolean; clock: CaptionClock; fromCutStart?: boolean }
+    | OverlayTiming & { kind: 'caption'; spec: CaptionSpec; clock: CaptionClock; fromCutStart?: boolean }
     | OverlayTiming & { kind: 'replayTag' }
     /** Score bug; `scores` in time order; hidden during `hide` windows (a caption shows the score then). */
-    | OverlayTiming & { kind: 'scoreBug'; scores: BugScore[]; fadeIn: boolean; fadeOut: boolean; hide: [number, number][] }
+    | OverlayTiming & { kind: 'scoreBug'; scores: BugScore[]; fadeIn: boolean; fadeOut: boolean }
 
 export type CaptionClock = { offsetSec: number; rate: number; totalSec: number }
 

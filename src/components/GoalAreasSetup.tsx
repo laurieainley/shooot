@@ -26,7 +26,7 @@ export function GoalAreasSetup() {
     return (
         <section className="goal-areas" aria-label="Goal areas">
             <h3 className="export-section__title">Goal areas</h3>
-            <p className="goal-areas__hint">Replays zoom to the goal the scoring team attacks. Drag each box over its goal mouth, drag the corner to resize.</p>
+            <p className="goal-areas__hint">Replays zoom to the goal the scoring team attacks. Drag each box over its goal mouth, drag any corner to resize.</p>
             <FrameBoxes
                 state={frame}
                 boxes={boxes}

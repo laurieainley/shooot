@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { clampRect, cropPixels, cropTransform, defaultGoalAreas, isSoft, moveRect, normaliseAreas, resizeRect, zoomOf, zoomRect, MIN_BOX_W } from './crop'
+import { clampRect, cropPixels, cropTransform, defaultGoalAreas, isSoft, moveRect, resizeFromCorner, normaliseAreas, resizeRect, zoomOf, zoomRect, MIN_BOX_W } from './crop'
 
 describe('clampRect', () => {
     it('should lock the aspect: the box is as tall as it is wide in frame fractions', () => {
@@ -40,6 +40,48 @@ describe('resizeRect', () => {
         const r = resizeRect({ x: 0.7, y: 0.7, w: 0.2, h: 0.2 }, 0.5)
         expect(r.x + r.w).toBeLessThanOrEqual(1 + 1e-9)
         expect(r.y + r.h).toBeLessThanOrEqual(1 + 1e-9)
+    })
+})
+
+describe('resizeFromCorner', () => {
+    const r = { x: 0.3, y: 0.3, w: 0.4, h: 0.4 }
+    it('should keep the top-left corner fixed when dragging bottom-right', () => {
+        const n = resizeFromCorner(r, 'br', 0.1, 0.1)
+        expect(n.x).toBeCloseTo(0.3); expect(n.y).toBeCloseTo(0.3); expect(n.w).toBeCloseTo(0.5); expect(n.h).toBeCloseTo(0.5)
+    })
+    it('should keep the top-right corner fixed when dragging bottom-left', () => {
+        const n = resizeFromCorner(r, 'bl', -0.1, 0.1)
+        expect(n.w).toBeCloseTo(0.5)
+        expect(n.x + n.w).toBeCloseTo(0.7); expect(n.y).toBeCloseTo(0.3)
+    })
+    it('should keep the bottom-left corner fixed when dragging top-right', () => {
+        const n = resizeFromCorner(r, 'tr', 0.1, -0.1)
+        expect(n.w).toBeCloseTo(0.5)
+        expect(n.x).toBeCloseTo(0.3); expect(n.y + n.h).toBeCloseTo(0.7)
+    })
+    it('should keep the bottom-right corner fixed when dragging top-left', () => {
+        const n = resizeFromCorner(r, 'tl', -0.1, -0.1)
+        expect(n.w).toBeCloseTo(0.5)
+        expect(n.x + n.w).toBeCloseTo(0.7); expect(n.y + n.h).toBeCloseTo(0.7)
+    })
+    it('should shrink towards the opposite corner and stop at the minimum size', () => {
+        const n = resizeFromCorner(r, 'tl', 0.5, 0.5)
+        expect(n.w).toBeCloseTo(MIN_BOX_W)
+        expect(n.x + n.w).toBeCloseTo(0.7); expect(n.y + n.h).toBeCloseTo(0.7)
+    })
+    it('should stop at the frame edge for every corner, leaving the anchor fixed', () => {
+        const br = resizeFromCorner(r, 'br', 5, 5)
+        expect(br.x).toBeCloseTo(0.3); expect(br.x + br.w).toBeCloseTo(1); expect(br.y + br.h).toBeLessThanOrEqual(1 + 1e-9)
+        const tl = resizeFromCorner(r, 'tl', -5, -5)
+        expect(tl.x + tl.w).toBeCloseTo(0.7); expect(tl.x).toBeGreaterThanOrEqual(-1e-9); expect(tl.y).toBeGreaterThanOrEqual(-1e-9)
+        const tr = resizeFromCorner(r, 'tr', 5, -5)
+        expect(tr.x).toBeCloseTo(0.3); expect(tr.y + tr.h).toBeCloseTo(0.7); expect(tr.y).toBeGreaterThanOrEqual(-1e-9); expect(tr.x + tr.w).toBeLessThanOrEqual(1 + 1e-9)
+        const bl = resizeFromCorner(r, 'bl', -5, 5)
+        expect(bl.x + bl.w).toBeCloseTo(0.7); expect(bl.y).toBeCloseTo(0.3); expect(bl.x).toBeGreaterThanOrEqual(-1e-9); expect(bl.y + bl.h).toBeLessThanOrEqual(1 + 1e-9)
+    })
+    it('should keep the aspect lock', () => {
+        const n = resizeFromCorner(r, 'bl', -0.07, 0.02)
+        expect(n.h).toBeCloseTo(n.w)
     })
 })
 

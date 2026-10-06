@@ -46,7 +46,7 @@ export type RenderOverlay = {
     /**
      * Cuts start at the key frame at/before their requested start and end with whole GOPs. 'fromCutStart': the overlay
      * starts with the cut's first frame (a caption carried on over a replay). 'wholeCut': it covers every frame of the cut
-     * (score always on screen); `paint` still gets time from `startSec` (negative before it). 'stretchToCut': it covers
+     * (a score bug window running through it); `paint` still gets time from `startSec` (negative before it). 'stretchToCut': it covers
      * every frame of the cut and its own timeline is stretched over them (REPLAY tag: fades at the real edges).
      */
     anchor?: 'fromCutStart' | 'wholeCut' | 'stretchToCut'

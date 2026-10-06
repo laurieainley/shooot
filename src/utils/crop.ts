@@ -30,6 +30,25 @@ export function resizeRect(r: CropRect, w: number): CropRect {
     return clampRect({ x: r.x, y: r.y, w, h: w })
 }
 
+export type Corner = 'tl' | 'tr' | 'bl' | 'br'
+
+/**
+ * Drag one corner by (dx, dy) as fractions of the frame: the opposite corner stays put, the aspect stays locked
+ * (the larger pull along either axis wins) and the box stops at the minimum size or the frame edge.
+ */
+export function resizeFromCorner(r: CropRect, corner: Corner, dx: number, dy: number): CropRect {
+    const left = corner === 'tl' || corner === 'bl'
+    const top = corner === 'tl' || corner === 'tr'
+    const pullX = (left ? -1 : 1) * num(dx, 0)
+    const pullY = (top ? -1 : 1) * num(dy, 0)
+    const pull = Math.abs(pullX) >= Math.abs(pullY) ? pullX : pullY
+    const ax = left ? r.x + r.w : r.x
+    const ay = top ? r.y + r.h : r.y
+    const room = Math.min(left ? ax : 1 - ax, top ? ay : 1 - ay)
+    const w = Math.max(MIN_BOX_W, Math.min(room, r.w + pull))
+    return { x: left ? ax - w : ax, y: top ? ay - w : ay, w, h: w }
+}
+
 export const zoomOf = (r: CropRect): number => 1 / r.w
 
 /** The box of a given zoom (1× = whole frame) around the centre of `r`. */

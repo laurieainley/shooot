@@ -122,7 +122,7 @@ function bugRow(bug: BugSpec, hasLogo: boolean, measure: MeasureText): { ops: Dr
     return { ops, right }
 }
 
-/** The score bug on its own: still when always on screen, or sliding / fading in and out over 0.3 s when it comes and goes. */
+/** The score bug on its own: still while a window runs through the whole cut, or sliding / fading in and out over 0.3 s when it comes and goes. */
 export function scoreBugLayout(bug: BugSpec, t: number, duration: number, hasLogo: boolean, fade: boolean | { in: boolean; out: boolean }, measure: MeasureText = estimateTextWidth): DrawOp[] {
     const { ops } = bugRow(bug, hasLogo, measure)
     const f = typeof fade === 'boolean' ? { in: fade, out: fade } : fade
@@ -134,10 +134,9 @@ export function scoreBugLayout(bug: BugSpec, t: number, duration: number, hasLog
 
 /**
  * Event caption, top-left (TV score-bug convention): the score bug row with the event line beneath
- * (`GOAL · SAM TAYLOR`, optional note). 5 s, sliding and fading in and out over 0.3 s. `anchored`: the score bug is
- * already on screen, so its row stays still and only the event line animates.
+ * (`GOAL · SAM TAYLOR`, optional note). 5 s, sliding and fading in and out over 0.3 s.
  */
-export function captionLayout(spec: CaptionSpec, t: number, hasLogo: boolean, duration = CAPTION_SEC, measure: MeasureText = estimateTextWidth, anchored = false): DrawOp[] {
+export function captionLayout(spec: CaptionSpec, t: number, hasLogo: boolean, duration = CAPTION_SEC, measure: MeasureText = estimateTextWidth): DrawOp[] {
     const bug = spec.bug ? bugRow(spec.bug, hasLogo, measure) : null
     const top = bug ? SAFE_Y + BUG_H + ACCENT_H : SAFE_Y
     const stripeW = k(10)
@@ -165,7 +164,7 @@ export function captionLayout(spec: CaptionSpec, t: number, hasLogo: boolean, du
         event.push({ kind: 'text', text: spec.note, x: textX, y: top + EVENT_H + NOTE_H / 2, size: noteSize, color: '#c9d6ea', align: 'left', baseline: 'middle', maxWidth: Math.max(80, right - pad - textX) })
     }
     const m = motion(t, duration)
-    const bugOps = bug ? (anchored ? bug.ops.map((o) => (o.kind === 'cardBackground' ? o : { ...o, alpha: 1 })) : withMotion(bug.ops, m.alpha, m.dx)) : []
+    const bugOps = bug ? withMotion(bug.ops, m.alpha, m.dx) : []
     return [...bugOps, ...withMotion(event, m.alpha, m.dx)]
 }
 
