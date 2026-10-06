@@ -58,6 +58,14 @@ export const PICKER_OPTIONS: PickerOption[] = [
     { ...MARKER, id: 'final_whistle',   type: 'final_whistle',   key: 'w', label: 'Final whistle',   marker: true },
 ]
 
+/** The touch type list: grouped, in this order (Save · Foul · Highlight differs from the keyboard order above). */
+export const PICKER_GROUPS: { label: string; ids: PickerOptionId[] }[] = [
+    { label: 'Goals', ids: ['goal', 'goal_pen', 'own_goal'] },
+    { label: 'Penalties', ids: ['penalty_awarded', 'penalty_missed'] },
+    { label: 'Other', ids: ['save', 'foul', 'highlight'] },
+    { label: 'Match', ids: ['kick_off', 'final_whistle'] },
+]
+
 export function optionForKey(key: string): PickerOption | undefined {
     const k = key.toLowerCase()
     return PICKER_OPTIONS.find((o) => o.key === k)

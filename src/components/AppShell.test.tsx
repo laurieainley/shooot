@@ -49,9 +49,9 @@ describe('AppShell', () => {
         expect(screen.queryByText('mark')).not.toBeInTheDocument()
         expect(screen.getByRole('region', { name: 'Events' })).toBeInTheDocument()
         await userEvent.click(screen.getByRole('button', { name: 'Mark event' }))
-        const [e] = useAppState.getState().events
-        expect(e).toMatchObject({ matchTimeSec: 12, type: 'goal' })
-        expect(useAppState.getState().picker).toEqual({ eventId: e.id })
+        // The time is captured, but no event exists until a type is chosen
+        expect(useAppState.getState().events).toEqual([])
+        expect(useAppState.getState().picker?.pending).toEqual({ matchTimeSec: 12, sourceFileIndex: 0 })
         expect(screen.queryByRole('button', { name: 'Mark event' })).not.toBeInTheDocument()
     })
 
@@ -137,7 +137,7 @@ describe('AppShell', () => {
             const fab = screen.getByRole('button', { name: 'Mark event' })
             expect(container.querySelector('.stage')).not.toContainElement(fab)
             await userEvent.click(fab)
-            expect(useAppState.getState().events).toHaveLength(1)
+            expect(useAppState.getState().picker?.pending).toBeDefined()
         })
 
         it('should float the preview bar over the picture rather than stacking it below', () => {

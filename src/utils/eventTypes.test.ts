@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { isMarker } from './eventTypes'
-import { PICKER_OPTIONS, controlLabel, eventLabel, eventIcon, isScoring, migrateEvent, optionForKey, EVENT_META, shortNote, eventSummary } from './eventTypes'
+import { PICKER_GROUPS, PICKER_OPTIONS, controlLabel, eventLabel, eventIcon, isScoring, migrateEvent, optionForKey, EVENT_META, shortNote, eventSummary } from './eventTypes'
 import type { MatchEvent } from '../types'
 
 const ev = (extra: Partial<MatchEvent>): MatchEvent => ({ id: 'e', matchTimeSec: 1, type: 'goal', ...extra })
@@ -137,5 +137,14 @@ describe('match markers', () => {
 
     it('should keep marker types when migrating', () => {
         expect(migrateEvent({ id: 'k', matchTimeSec: 5, type: 'kick_off' }).type).toBe('kick_off')
+    })
+})
+
+describe('PICKER_GROUPS', () => {
+    it('should list every picker option exactly once, in the touch order', () => {
+        const ids = PICKER_GROUPS.flatMap((g) => g.ids)
+        expect([...ids].sort()).toEqual(PICKER_OPTIONS.map((o) => o.id).sort())
+        expect(ids).toEqual(['goal', 'goal_pen', 'own_goal', 'penalty_awarded', 'penalty_missed', 'save', 'foul', 'highlight', 'kick_off', 'final_whistle'])
+        expect(PICKER_GROUPS.map((g) => g.label)).toEqual(['Goals', 'Penalties', 'Other', 'Match'])
     })
 })

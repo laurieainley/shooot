@@ -91,8 +91,8 @@ describe('FullscreenControls', () => {
         const { getByRole, queryByRole } = render(<FullscreenControls playerRef={{ current: player }} isFullscreen />)
         expect(queryByRole('button', { name: 'Event' })).toBeNull()
         fireEvent.click(getByRole('button', { name: 'Mark event' }))
-        expect(useAppState.getState().events[0]).toMatchObject({ matchTimeSec: 20, type: 'goal' })
-        expect(useAppState.getState().picker).not.toBeNull()
+        expect(useAppState.getState().events).toEqual([])
+        expect(useAppState.getState().picker?.pending).toEqual({ matchTimeSec: 20, sourceFileIndex: 0 })
         expect(queryByRole('button', { name: 'Mark event' })).toBeNull()
     })
 

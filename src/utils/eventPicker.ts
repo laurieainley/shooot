@@ -35,6 +35,9 @@ type Result = { state: PickerState; effects: PickerEffect[] }
 
 export const initialPickerState: PickerState = { step: 'type', highlighted: 0, query: '', option: PICKER_OPTIONS[0] }
 
+/** Touch start: nothing preselected (the first tap is the choice); Enter does nothing until an arrow moves in. */
+export const touchPickerState: PickerState = { ...initialPickerState, highlighted: -1 }
+
 const CLOSE: PickerEffect = { kind: 'close' }
 
 function hasTeams(ctx: PickerContext): boolean {
@@ -127,8 +130,8 @@ export function pickerReducer(state: PickerState, input: PickerInput, ctx: Picke
         const n = PICKER_OPTIONS.length
         if (k === 'Backspace') return { state, effects: [{ kind: 'remove' }, CLOSE] }
         if (k === 'ArrowDown') return { state: { ...state, highlighted: wrap(state.highlighted + 1, n) }, effects: [] }
-        if (k === 'ArrowUp') return { state: { ...state, highlighted: wrap(state.highlighted - 1, n) }, effects: [] }
-        if (k === 'Enter') return chooseOption(state, PICKER_OPTIONS[state.highlighted], ctx)
+        if (k === 'ArrowUp') return { state: { ...state, highlighted: state.highlighted < 0 ? n - 1 : wrap(state.highlighted - 1, n) }, effects: [] }
+        if (k === 'Enter') return state.highlighted < 0 ? none : chooseOption(state, PICKER_OPTIONS[state.highlighted], ctx)
         const option = k.length === 1 ? optionForKey(k) : undefined
         return option ? chooseOption(state, option, ctx) : none
     }

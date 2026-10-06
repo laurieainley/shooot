@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pickerReducer, initialPickerState, scorerCandidates, SKIP, type PickerState, type PickerInput, type PickerContext } from './eventPicker'
+import { pickerReducer, initialPickerState, touchPickerState, scorerCandidates, SKIP, type PickerState, type PickerInput, type PickerContext } from './eventPicker'
 import type { Team } from '../types'
 import { PICKER_OPTIONS } from './eventTypes'
 
@@ -222,5 +222,31 @@ describe('pickerReducer — per-type details', () => {
         const r = run([key('o'), key('c'), choose('Sam Taylor')])
         expect(updates(r.effects).at(-1)).toEqual({ scorer: 'Sam Taylor' })
         expect(r.effects).not.toContainEqual(expect.objectContaining({ kind: 'addToRoster' }))
+    })
+})
+
+describe('pickerReducer — touch start (nothing preselected)', () => {
+    it('should start with no highlighted option', () => {
+        expect(touchPickerState.highlighted).toBe(-1)
+        expect(touchPickerState.step).toBe('type')
+    })
+
+    it('should do nothing on Enter while nothing is highlighted', () => {
+        const r = pickerReducer(touchPickerState, key('Enter'), ctx)
+        expect(r.effects).toEqual([])
+        expect(r.state).toBe(touchPickerState)
+    })
+
+    it('should enter the list from the top with ArrowDown and from the bottom with ArrowUp', () => {
+        expect(pickerReducer(touchPickerState, key('ArrowDown'), ctx).state.highlighted).toBe(0)
+        expect(pickerReducer(touchPickerState, key('ArrowUp'), ctx).state.highlighted).toBe(PICKER_OPTIONS.length - 1)
+    })
+
+    it('should emit no effect until a type is chosen, then update the event', () => {
+        const none = pickerReducer(touchPickerState, key('Escape'), ctx)
+        expect(none.effects).toEqual([{ kind: 'close' }])
+        const chosen = pickerReducer(touchPickerState, { kind: 'choose', value: 'goal' }, ctx)
+        expect(chosen.effects[0]).toMatchObject({ kind: 'update' })
+        expect(chosen.state.step).toBe('team')
     })
 })

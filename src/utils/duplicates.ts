@@ -6,8 +6,10 @@ export const DUPLICATE_WINDOW_SEC = 3
  * Another mark close to this one in the same file — usually an accidental double G / double tap.
  * `deltaSec` is negative when the other mark is earlier.
  */
-export function nearbyMark(events: MatchEvent[], id: string, windowSec = DUPLICATE_WINDOW_SEC): { event: MatchEvent; deltaSec: number } | null {
-    const me = events.find((e) => e.id === id)
+export function nearbyMark(
+    events: MatchEvent[], id: string, windowSec = DUPLICATE_WINDOW_SEC, draft?: Pick<MatchEvent, 'matchTimeSec' | 'sourceFileIndex'>,
+): { event: MatchEvent; deltaSec: number } | null {
+    const me = events.find((e) => e.id === id) ?? draft
     if (!me) return null
     let best: { event: MatchEvent; deltaSec: number } | null = null
     for (const e of events) {
