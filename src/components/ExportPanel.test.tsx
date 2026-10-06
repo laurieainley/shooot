@@ -3,12 +3,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
-import { resetRenderJobs } from '../renderJobs'
+import { renderJobs, resetRenderJobs, type RenderJob } from '../renderJobs'
 import type { VideoSourceFile } from '../types'
 
 const renderReel = vi.fn()
 vi.mock('../render', () => ({ renderReel: (...a: unknown[]) => renderReel(...a) }))
-vi.mock('../graphics/assets', () => ({ loadGraphicsFont: vi.fn(async () => true), loadLogo: vi.fn(async () => null) }))
+vi.mock('../graphics/assets', () => ({ ensureGraphicsFonts: vi.fn(async () => true), loadLogo: vi.fn(async () => null) }))
 vi.mock('../graphics/logoStore', () => ({ loadCustomLogo: vi.fn(async () => null) }))
 
 import { ExportPanel } from './ExportPanel'
@@ -94,5 +94,42 @@ describe('ExportPanel', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Export' }))
         await userEvent.keyboard('{Escape}')
         expect(screen.queryByRole('dialog', { name: 'Export' })).not.toBeInTheDocument()
+    })
+
+    describe('Export button state', () => {
+        const running: RenderJob = { id: 1, kind: 'highlights', quality: 'full', phase: 'running', startedAt: 0, fraction: 0.3, status: '', report: null, result: null, error: null, finishedAt: null }
+
+        it('should look idle with the panel closed and no render', () => {
+            render(<ExportPanel />)
+            const btn = screen.getByRole('button', { name: 'Export' })
+            expect(btn).toHaveAttribute('aria-expanded', 'false')
+            expect(btn).toHaveAttribute('data-state', 'idle')
+        })
+
+        it('should look pressed (on) while the panel is open, and idle again when it closes', async () => {
+            render(<ExportPanel />)
+            const btn = screen.getByRole('button', { name: 'Export' })
+            await userEvent.click(btn)
+            expect(btn).toHaveAttribute('aria-expanded', 'true')
+            expect(btn).toHaveAttribute('data-state', 'open')
+            await userEvent.click(btn)
+            expect(btn).toHaveAttribute('data-state', 'idle')
+        })
+
+        it('should look different again while a render runs, with the panel closed or open', async () => {
+            renderJobs().setState({ job: running })
+            render(<ExportPanel />)
+            const btn = screen.getByRole('button', { name: 'Export' })
+            expect(btn).toHaveAttribute('data-state', 'rendering')
+            await userEvent.click(btn)
+            expect(btn).toHaveAttribute('data-state', 'rendering-open')
+            expect(btn).toHaveAttribute('aria-expanded', 'true')
+        })
+
+        it('should go back to idle when the render has finished', () => {
+            renderJobs().setState({ job: { ...running, phase: 'done', finishedAt: Date.now() } })
+            render(<ExportPanel />)
+            expect(screen.getByRole('button', { name: 'Export' })).toHaveAttribute('data-state', 'idle')
+        })
     })
 })

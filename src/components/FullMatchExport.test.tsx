@@ -8,7 +8,7 @@ import { setCoarsePointer } from '../test/pointer'
 
 const renderReel = vi.fn()
 vi.mock('../render', () => ({ renderReel: (...a: unknown[]) => renderReel(...a) }))
-vi.mock('../graphics/assets', () => ({ loadGraphicsFont: vi.fn(async () => true), loadLogo: vi.fn(async () => null) }))
+vi.mock('../graphics/assets', () => ({ ensureGraphicsFonts: vi.fn(async () => true), loadLogo: vi.fn(async () => null) }))
 vi.mock('../graphics/logoStore', () => ({ loadCustomLogo: vi.fn(async () => null) }))
 const saved = { job: null as unknown }
 vi.mock('../render/renderJob', () => ({ loadJob: vi.fn(async () => saved.job), discardJob: vi.fn(async () => { saved.job = null }) }))

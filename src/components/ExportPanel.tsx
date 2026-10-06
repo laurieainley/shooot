@@ -1,5 +1,6 @@
 import { useRef, type KeyboardEvent, type ReactNode } from 'react'
 import { useAppState } from '../state'
+import { useRenderJobs } from '../renderJobs'
 import { DescriptionCopy } from './DescriptionCopy'
 import { FloatingPanel } from './FloatingPanel'
 import { FullMatchExport } from './FullMatchExport'
@@ -31,6 +32,8 @@ const TABS = [
 export function ExportPanel() {
     const open = useAppState((s) => s.panel === 'export')
     const tab = useAppState((s) => s.exportTab)
+    const rendering = useRenderJobs((s) => s.job?.phase === 'running')
+    const state = rendering ? (open ? 'rendering-open' : 'rendering') : open ? 'open' : 'idle'
     const setOpen = (next: boolean): void => { const st = useAppState.getState(); if (next) st.openPanel('export'); else st.closePanel() }
     const anchorRef = useRef<HTMLButtonElement | null>(null)
     const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
@@ -46,7 +49,8 @@ export function ExportPanel() {
 
     return (
         <>
-            <button ref={anchorRef} type="button" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen(!open)} className="btn-primary">
+            <button ref={anchorRef} type="button" aria-expanded={open} aria-haspopup="dialog" data-state={state}
+                title={rendering ? 'A render is running — open to see it' : undefined} onClick={() => setOpen(!open)} className="btn-primary export-btn">
                 Export
             </button>
             {open && (
