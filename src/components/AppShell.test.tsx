@@ -148,6 +148,28 @@ describe('AppShell', () => {
         })
     })
 
+    describe('rotating', () => {
+        it('should keep the very same player element when the layout changes, so fullscreen survives a rotation', () => {
+            setWidth(false)
+            const { container } = render(<AppShell />)
+            const player = screen.getByTestId('player')
+            const stage = container.querySelector('.stage')
+            act(() => setMedia({ desktop: false, coarse: true, landscape: true }))
+            expect(container.firstElementChild).toHaveClass('shell--landscape')
+            expect(screen.getByTestId('player')).toBe(player)
+            expect(container.querySelector('.stage')).toBe(stage)
+            act(() => setMedia({ desktop: true, coarse: true, tablet: true, portrait: true }))
+            expect(container.firstElementChild).toHaveClass('shell--tablet')
+            expect(screen.getByTestId('player')).toBe(player)
+            act(() => setMedia({ desktop: true, coarse: true, tablet: true }))
+            expect(container.firstElementChild).toHaveClass('shell--desktop')
+            expect(screen.getByTestId('player')).toBe(player)
+            act(() => setWidth(false))
+            expect(container.firstElementChild).toHaveClass('shell--phone')
+            expect(screen.getByTestId('player')).toBe(player)
+        })
+    })
+
     describe('top bar out of the way', () => {
         it('should collapse the top bar in landscape and bring it back from the handle', async () => {
             setLandscape()

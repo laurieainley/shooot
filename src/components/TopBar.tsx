@@ -39,7 +39,7 @@ export function TopBar({ layout }: TopBarProps) {
     return (
         <header className={`top-bar${hidden ? ' top-bar--hidden' : ''}`}>
             <span className="brand" aria-label="Shooot">SHOOOT</span>
-            {layout === 'desktop' ? (
+            {layout === 'desktop' || layout === 'tablet' ? (
                 <>
                     <div className="top-bar__files"><FilePills /></div>
                     <ScoreBadge />

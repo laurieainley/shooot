@@ -11,7 +11,7 @@ import { Player } from './Player'
 import { PreviewControls } from './PreviewControls'
 import { Chevron, TopBar } from './TopBar'
 import { useKeyboardInset } from './useKeyboardInset'
-import { useLayout } from './useMediaQuery'
+import { COARSE_QUERY, useLayout, useMediaQuery } from './useMediaQuery'
 import { RenderChip } from './RenderChip'
 import { useWakeLock } from './useWakeLock'
 import { useRenderJobs } from '../renderJobs'
@@ -27,7 +27,8 @@ export function AppShell() {
     useKeyboardInset()
     const hasFiles = useAppState((s) => s.files.length > 0)
     const isPreviewMode = useAppState((s) => s.isPreviewMode)
-    const sideBySide = layout !== 'phone'
+    const coarse = useMediaQuery(COARSE_QUERY)
+    const sideBySide = layout === 'desktop' || layout === 'landscape'
     const collapsed = useAppState((s) => s.barCollapsed) && layout === 'landscape'
     // A render keeps the screen on for its whole life (not just while the Export panel is open)…
     const rendering = useRenderJobs((s) => s.job?.phase === 'running')
@@ -49,6 +50,10 @@ export function AppShell() {
         </div>
     )
 
+    // One tree for every layout (CSS arranges it): the player must never remount when the phone is turned or the
+    // window is resized, or the browser drops fullscreen with the removed element. Phone / tablet: the wrappers
+    // below are `display: contents`, so the stage, strip and log are laid out as one column.
+    const showFab = layout !== 'desktop' || coarse
     return (
         <div className={`shell shell--${layout}${collapsed ? ' shell--bar-collapsed' : ''}`}>
             {collapsed ? (
@@ -57,31 +62,19 @@ export function AppShell() {
                     <Chevron />
                 </button>
             ) : <TopBar layout={layout} />}
-            {sideBySide ? (
-                <>
-                    <main className="bay">
-                        <div className="bay__left">
-                            {stage}
-                            <MatchStrip />
-                        </div>
-                        <aside className="rail" aria-label="Event rail">
-                            <EventLog />
-                            <ClipSummary compact={layout === 'landscape'} />
-                            {layout === 'landscape' && <Fab />}
-                        </aside>
-                    </main>
-                    {layout === 'desktop' && <KeyHints />}
-                </>
-            ) : (
-                <main className="stack">
+            <main className={sideBySide ? 'bay' : 'stack'}>
+                <div className="bay__left">
                     {stage}
-                    {isPreviewMode && <div className="preview-bar preview-bar--inline"><PreviewControls /></div>}
+                    {!sideBySide && isPreviewMode && <div className="preview-bar preview-bar--inline"><PreviewControls /></div>}
                     <MatchStrip />
+                </div>
+                <aside className="rail" aria-label={sideBySide ? 'Event rail' : undefined}>
                     <EventLog />
-                    <ClipSummary />
-                    <Fab />
-                </main>
-            )}
+                    <ClipSummary compact={layout !== 'phone' && (layout !== 'desktop' || coarse)} />
+                    {showFab && <Fab />}
+                </aside>
+            </main>
+            {layout === 'desktop' && !coarse && <KeyHints />}
             <Panels />
         </div>
     )
