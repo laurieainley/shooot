@@ -6,7 +6,8 @@ import {
 import { cropLabels, cropOverlayFor } from './cropOverlay'
 import { fileSource } from './fileSource'
 import { openGraphicsSession, type GraphicsSession, type OutItem } from './graphicsSession'
-import { craToBla, lengthSize } from './nal'
+import { hasInbandParams, planJoin, profileOf, type JoinPlan } from './joinParams'
+import { craToBla, lengthSize, withInbandParams } from './nal'
 import { overlayRegions } from './overlayRegions'
 import { encodeReplayAudio } from './replayAudio'
 import { makeSilentAudio, type SilentAudio } from './silentAudio'
@@ -83,6 +84,8 @@ function assertCompatible(sources: OpenSource[], used: Set<number>): void {
         const a = sources[i].audio
         return a ? `${a.codec}/${a.sampleRate}/${a.numberOfChannels}` : 'none'
     }))
+    const vp = new Set([...used].map((i) => `${sources[i].video.codec}/${profileOf(sources[i].config.codec)}`))
+    if (vc.size === 1 && vp.size > 1) throw new Error('Clips use different video profiles (e.g. 8-bit and 10-bit) and cannot be joined without re-encoding')
     if (vc.size > 1) throw new Error('Clips use different video codecs (e.g. HEVC and H.264) and cannot be joined without re-encoding')
     if (ac.size > 1) throw new Error('Clips use different audio formats and cannot be joined without re-encoding')
 }
@@ -191,7 +194,12 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                 return null
             }
         }
-        const vConfig = session ? session.entry : first.config
+        // Plain stream-copy of several files: each key frame carries its own file's parameter sets and the sample entry
+        // is the SPS that covers them all (a single set for the whole track mis-decodes every other file's footage).
+        const usedList = [...used]
+        const join: JoinPlan | null = !session && usedList.length > 1 ? planJoin(usedList.map((i) => opened[i].config.description), first.video.codec === 'hevc') : null
+        const joinParams = new Map(usedList.map((i, k) => [opened[i], join?.params[k]] as const))
+        const vConfig = session ? session.entry : join ? opened[usedList[join.entry]].config : first.config
         const aConfig = first.audio ? (await first.audio.getDecoderConfig())! : null
         const hasAudio = !!first.audio?.codec
 
@@ -377,7 +385,11 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                     // previous clip and ffmpeg reorders/drops frames at the join ("non monotonically increasing dts").
                     const spliceHere = splice || p.timestamp === cutStart
                     if (session) data = session.footageKey(src, data, spliceHere)
-                    else if (spliceHere) data = blaAtCutStart(src, p) ?? data
+                    else {
+                        if (spliceHere) data = blaAtCutStart(src, p) ?? data
+                        const params = joinParams.get(src)
+                        if (params && !hasInbandParams(data, src.video.codec === 'hevc', src.nalLength)) data = withInbandParams(data, params, src.video.codec === 'hevc', src.nalLength)
+                    }
                 }
                 const q = data === p.data ? p : new EncodedPacket(data, p.type, p.timestamp, p.duration)
                 await addVideo(q.clone({ timestamp: cursor + rel, duration: p.duration / speed }))
