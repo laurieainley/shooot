@@ -1,6 +1,7 @@
 import { ALL_FORMATS, Input } from 'mediabunny'
 import { fileSource } from '../render/fileSource'
 import { isAcceptedVideo } from './fileAccept'
+import { codecStringVariants } from './codecSupport'
 
 export type ProbedMetadata = {
     durationSec?: number
@@ -55,9 +56,12 @@ export async function probeVideoFile(file: File): Promise<ProbedMetadata> {
     try {
         const info = await readTrackInfo(file)
         if (!info.codec) return { accepted: false, playable: false, error: `${file.name}: no H.264/HEVC video track` }
+        // canPlayType is only a hint (browsers disagree on hev1/hvc1 spellings and some answer '' for codecs they
+        // play); actually loading the file decides. Log the hint for diagnosis.
         const v = document.createElement('video')
-        const canPlay = info.codecString ? v.canPlayType(`video/mp4; codecs="${info.codecString}"`) !== '' : true
-        const playable = canPlay && (await loadsInVideoElement(file))
+        const hinted = !info.codecString || codecStringVariants(info.codecString).some((c) => v.canPlayType(`video/mp4; codecs="${c}"`) !== '')
+        const playable = await loadsInVideoElement(file)
+        if (playable !== hinted) console.info(`[probe] ${file.name}: canPlayType=${hinted}, loads=${playable}`)
         return {
             ...info,
             accepted: true,
