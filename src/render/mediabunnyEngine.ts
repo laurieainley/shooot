@@ -3,6 +3,7 @@ import {
     EncodedVideoPacketSource, Input, Mp4OutputFormat, Output, StreamTarget,
     type InputAudioTrack, type InputVideoTrack, type StreamTargetChunk, type Target,
 } from 'mediabunny'
+import { cropLabels, cropOverlayFor } from './cropOverlay'
 import { fileSource } from './fileSource'
 import { openGraphicsSession, type GraphicsSession, type OutItem } from './graphicsSession'
 import { craToBla, lengthSize } from './nal'
@@ -122,19 +123,21 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message : Stri
 const isAbort = (e: unknown): boolean => e instanceof DOMException && e.name === 'AbortError'
 
 export const renderReel: RenderFn = async (cuts, sources, opts) => {
-    const g = opts.graphics
-    if (!hasGraphics(g)) return renderOnce(cuts, sources, opts, null)
+    // Replay crops are drawn by the graphics session too: they make the render a graphics render even without any graphics.
+    const crops = cropLabels(cuts)
+    const g = opts.graphics ?? (crops.length > 0 ? { overlays: [] } : undefined)
+    if (!hasGraphics(g) && crops.length === 0) return renderOnce(cuts, sources, opts, null)
     const report: GraphicsReport = { applied: [], skipped: [] }
     try {
-        const out = await renderOnce(cuts, sources, opts, { graphics: g, report })
+        const out = await renderOnce(cuts, sources, opts, { graphics: g ?? { overlays: [] }, report })
         opts.onGraphics?.(report)
         return out
     } catch (e) {
         if (isAbort(e)) throw e
-        // Graphics must never cost the reel: render it again without them and say why.
+        // Graphics (and crops) must never cost the reel: render it again without them and say why.
         console.warn('Graphics failed, rendering without them', e)
-        const out = await renderOnce(cuts, sources, opts, null)
-        opts.onGraphics?.({ applied: [], skipped: graphicLabels(g).map((label) => ({ label, reason: errorText(e) })) })
+        const out = await renderOnce(cuts.map(({ crop, cropLabel, ...c }) => { void crop; void cropLabel; return c }), sources, opts, null)
+        opts.onGraphics?.({ applied: [], skipped: [...(g ? graphicLabels(g) : []), ...crops].map((label) => ({ label, reason: errorText(e) })) })
         return out
     }
 }
@@ -162,7 +165,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             try {
                 session = await openGraphicsSession([...used].map((i) => opened[i]), first)
             } catch (e) {
-                skip(graphicLabels(run.graphics), errorText(e))
+                skip([...graphicLabels(run.graphics), ...cropLabels(cuts)], errorText(e))
             }
         }
         const overlaysByCut = new Map<number, RenderOverlay[]>()
@@ -305,7 +308,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             let items: AsyncIterable<OutItem> | OutItem[]
             // Overlays tied to the cut follow its real extent (key frame before the requested start, whole GOPs).
             const realEnd = kStop ? kStop.timestamp : src.endSec
-            const overlays = overlaysByCut.get(ci)?.map((o): RenderOverlay => {
+            let overlays = overlaysByCut.get(ci)?.map((o): RenderOverlay => {
                 const length = Math.max(1e-3, realEnd - cutStart)
                 if (o.anchor === 'fromCutStart') return { ...o, startSec: cutStart }
                 if (o.anchor === 'wholeCut') {
@@ -318,6 +321,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                 }
                 return o
             })
+            if (session && cut.crop) overlays = [...(overlays ?? []), cropOverlayFor(cut, ci, cutStart, realEnd)]
             if (session && overlays) {
                 // Overlays: the cut is streamed; only the stretches around overlay windows are read into memory,
                 // their GOPs re-encoded with the overlay drawn in, and handed on (see overlayRegions).
