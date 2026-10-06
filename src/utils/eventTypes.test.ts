@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { isMarker } from './eventTypes'
-import { PICKER_GROUPS, PICKER_OPTIONS, controlLabel, eventLabel, eventIcon, isScoring, migrateEvent, optionForKey, EVENT_META, shortNote, eventSummary } from './eventTypes'
+import { PICKER_GROUPS, PICKER_OPTIONS, controlLabel, eventLabel, eventIcon, isScoring, migrateEvent, optionForKey, EVENT_META, shortNote, eventSummary, assistOf, controlSummary } from './eventTypes'
 import type { MatchEvent } from '../types'
 
 const ev = (extra: Partial<MatchEvent>): MatchEvent => ({ id: 'e', matchTimeSec: 1, type: 'goal', ...extra })
@@ -150,5 +150,25 @@ describe('PICKER_GROUPS', () => {
         expect([...ids].sort()).toEqual(PICKER_OPTIONS.map((o) => o.id).sort())
         expect(ids).toEqual(['goal', 'goal_pen', 'own_goal', 'penalty_awarded', 'penalty_missed', 'save', 'foul', 'highlight', 'kick_off', 'half_time', 'final_whistle'])
         expect(PICKER_GROUPS.map((g) => g.label)).toEqual(['Goals', 'Penalties', 'Other', 'Match'])
+    })
+})
+
+describe('assist text', () => {
+    it('should only count an assist on a normal goal', () => {
+        expect(assistOf({ type: 'goal', assist: ' Jo ' })).toBe('Jo')
+        expect(assistOf({ type: 'goal', pen: true, assist: 'Jo' })).toBeUndefined()
+        expect(assistOf({ type: 'own_goal', assist: 'Jo' })).toBeUndefined()
+        expect(assistOf({ type: 'goal', assist: '  ' })).toBeUndefined()
+    })
+    it('should give a full and a short row text', () => {
+        expect(controlSummary({ type: 'goal', scorer: 'Sam', assist: 'Jo' })).toEqual({ full: 'Goal · Sam (assist Jo)', short: 'Goal · Sam, Jo' })
+        expect(controlSummary({ type: 'goal', scorer: 'Sam' })).toEqual({ full: 'Goal · Sam', short: 'Goal · Sam' })
+        expect(controlSummary({ type: 'goal', pen: true, scorer: 'Sam', assist: 'Jo' }).full).toBe('Penalty goal · Sam')
+    })
+    it('should carry the assist in the one-line summary', () => {
+        expect(eventSummary({ type: 'goal', scorer: 'Sam', assist: 'Jo' })).toBe('Goal · Sam (assist Jo)')
+    })
+    it('should ask for an assist on the normal goal option only', () => {
+        expect(PICKER_OPTIONS.filter((o) => o.askAssist).map((o) => o.id)).toEqual(['goal'])
     })
 })

@@ -10,6 +10,8 @@ export type BugSpec = { left: string; right: string; leftColour: string; rightCo
 export type CaptionSpec = {
     label: string
     person?: string
+    /** Goals: shown as a smaller `ASSIST: JO` line under the event line. */
+    assist?: string
     note?: string
     /** Team colour stripe (orange when the event has no team). */
     stripe: string

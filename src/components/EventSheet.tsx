@@ -2,7 +2,7 @@ import { teamBackground } from '../utils/teamColor'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import type { MarkerType, MatchEvent, Team } from '../types'
-import { optionForEvent, personEdit, typeChangePatch } from '../utils/eventEdit'
+import { assistEdit, optionForEvent, personEdit, typeChangePatch } from '../utils/eventEdit'
 import { PICKER_OPTIONS, isMarker } from '../utils/eventTypes'
 import { watchFromSec } from '../utils/markers'
 import { wantsReplay } from '../utils/replays'
@@ -36,12 +36,14 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
     const option = optionForEvent(e)
     const marker = isMarker(e)
     const [person, setPerson] = useState(e.scorer ?? '')
+    const [assist, setAssist] = useState(e.assist ?? '')
     const [note, setNote] = useState(e.notes ?? '')
     // Drafts follow the event when it changes underneath (a type without a person clears it, undo…).
     useEffect(() => setPerson(e.scorer ?? ''), [e.scorer])
+    useEffect(() => setAssist(e.assist ?? ''), [e.assist])
     useEffect(() => setNote(e.notes ?? ''), [e.notes])
-    const latest = useRef({ person, note })
-    latest.current = { person, note }
+    const latest = useRef({ person, assist, note })
+    latest.current = { person, assist, note }
 
     const update = (patch: Partial<MatchEvent>): void => useAppState.getState().updateEvent(e.id, patch)
     // Read the event from the store: a blur can land after Delete or another change.
@@ -50,8 +52,18 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
         const cur = current()
         if (!cur || name.trim() === (cur.scorer ?? '')) return
         const { patch, addToRoster } = personEdit(useAppState.getState().teams, cur, name)
+        // The new scorer cannot also be the assist.
+        if (patch.scorer && patch.scorer.toLowerCase() === (cur.assist ?? '').trim().toLowerCase()) patch.assist = undefined
         if (addToRoster) useAppState.getState().addToRoster(addToRoster.team, addToRoster.name)
         useAppState.getState().updateEvent(cur.id, patch)
+    }
+    const saveAssist = (name: string): void => {
+        const cur = current()
+        if (!cur || name.trim() === (cur.assist ?? '')) return
+        const { patch, addToRoster } = assistEdit(useAppState.getState().teams, cur, name)
+        if (addToRoster) useAppState.getState().addToRoster(addToRoster.team, addToRoster.name)
+        useAppState.getState().updateEvent(cur.id, patch)
+        if (patch.assist === undefined) setAssist('')
     }
     const saveNote = (text: string): void => {
         const cur = current()
@@ -59,8 +71,9 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
         if (cur && clean !== (cur.notes ?? '')) useAppState.getState().updateEvent(cur.id, { notes: clean || undefined })
     }
     const close = (): void => {
-        const { person: p, note: n } = latest.current
+        const { person: p, assist: a, note: n } = latest.current
         if (option.askScorer) savePerson(p)
+        if (option.askAssist) saveAssist(a)
         if (!marker) saveNote(n)
         useAppState.getState().closePanel()
     }
@@ -79,6 +92,8 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
     const pool = useMemo(() => roster?.roster ?? teams.flatMap((t) => t.roster), [roster, teams])
     const suggestions = person.trim() && person.trim() !== e.scorer ? filterRoster(pool, person) : pool
     const personLabel = option.personLabel ?? 'Scorer'
+    const assistPool = pool.filter((n) => n.toLowerCase() !== (e.scorer ?? '').trim().toLowerCase())
+    const assistSuggestions = assist.trim() && assist.trim() !== e.assist ? filterRoster(assistPool, assist) : assistPool
     const clock = formatEventClock(offset + e.matchTimeSec, e.matchTimeSec, matchStartSec, clockLong)
 
     return (
@@ -143,6 +158,32 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
                                 <button key={n} type="button" className="chip" aria-pressed={e.scorer === n}
                                     onMouseDown={(ev) => ev.preventDefault()}
                                     onClick={() => { setPerson(n); savePerson(n) }}>{n}</button>
+                            ))}
+                        </div>
+                    )}
+                </fieldset>
+            )}
+
+            {option.askAssist && (
+                <fieldset className="event-sheet__group">
+                    <legend>Assist</legend>
+                    <input
+                        aria-label="Assist"
+                        className="field event-sheet__input"
+                        value={assist}
+                        placeholder="Assist (optional)"
+                        enterKeyHint="done"
+                        autoComplete="off"
+                        onChange={(ev) => setAssist(ev.target.value)}
+                        onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); saveAssist(assist); ev.currentTarget.blur() } }}
+                        onBlur={() => saveAssist(latest.current.assist)}
+                    />
+                    {assistSuggestions.length > 0 && (
+                        <div className="chips">
+                            {assistSuggestions.map((n) => (
+                                <button key={n} type="button" className="chip" aria-pressed={e.assist === n}
+                                    onMouseDown={(ev) => ev.preventDefault()}
+                                    onClick={() => { const next = e.assist === n ? '' : n; setAssist(next); saveAssist(next) }}>{n}</button>
                             ))}
                         </div>
                     )}

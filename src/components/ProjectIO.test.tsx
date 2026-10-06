@@ -40,6 +40,22 @@ describe('ProjectIO', () => {
         expect(selectMatchStartSec(useAppState.getState())).toBe(30)
     })
 
+    it('should export and import the assist of a goal', async () => {
+        useAppState.setState({ events: [{ id: 'a', matchTimeSec: 10, type: 'goal', team: 'Whites', scorer: 'Sam', assist: 'Jo' }] })
+        const createObjectURL = vi.fn((b: Blob) => { void b; return 'blob:x' })
+        Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() })
+        const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+        const { container } = render(<ProjectIO />)
+        await userEvent.click(screen.getByRole('button', { name: /export project/i }))
+        const json = await (createObjectURL.mock.calls[0][0] as Blob).text()
+        click.mockRestore()
+        expect(JSON.parse(json).events[0].assist).toBe('Jo')
+        useAppState.setState({ events: [] })
+        const input = container.querySelector('input[type="file"]') as HTMLInputElement
+        fireEvent.change(input, { target: { files: [new File([json], 'p.json', { type: 'application/json' })] } })
+        await waitFor(() => expect(useAppState.getState().events[0]).toMatchObject({ id: 'a', scorer: 'Sam', assist: 'Jo' }))
+    })
+
     it('should round-trip team goal areas and replay framing', async () => {
         const { container } = render(<ProjectIO />)
         const input = container.querySelector('input[type="file"]') as HTMLInputElement

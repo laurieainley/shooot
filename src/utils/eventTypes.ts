@@ -34,6 +34,7 @@ export type PickerOption = {
     askTeam: boolean
     teamOptional: boolean       // team step shows Skip
     askScorer: boolean          // person step (stored in `scorer`)
+    askAssist?: boolean         // optional assist step after the scorer (normal goals only; stored in `assist`)
     personLabel?: string
     personOptional: boolean     // person step shows Skip
     askText: 'prompt' | 'optional' | false // free-text step (stored in `notes`)
@@ -47,7 +48,7 @@ const MARKER: Base = { pen: false, askTeam: false, teamOptional: false, askScore
 const OPTIONAL_ALL: Base = { pen: false, askTeam: true, teamOptional: true, askScorer: true, personOptional: true, askText: 'optional' }
 
 export const PICKER_OPTIONS: PickerOption[] = [
-    { ...SCORER, id: 'goal',            type: 'goal',            key: 'g', label: 'Goal',            personLabel: 'Scorer' },
+    { ...SCORER, id: 'goal',            type: 'goal',            key: 'g', label: 'Goal',            personLabel: 'Scorer', askAssist: true },
     { ...SCORER, id: 'goal_pen',        type: 'goal',            key: 'p', label: 'Penalty goal',     personLabel: 'Penalty taker', pen: true },
     { ...SCORER, id: 'own_goal',        type: 'own_goal',        key: 'o', label: 'Own goal',        personLabel: 'Own goal by' },
     { ...SCORER, id: 'penalty_awarded', type: 'penalty_awarded', key: 'a', label: 'Penalty awarded', askScorer: false },
@@ -94,9 +95,22 @@ export function shortNote(notes: string | undefined, max = 40): string {
 }
 
 /** One-line description: `Highlight · Sam — nutmeg on the wing`. */
-export function eventSummary(e: Pick<MatchEvent, 'type' | 'pen' | 'scorer' | 'notes'>): string {
+export function eventSummary(e: Pick<MatchEvent, 'type' | 'pen' | 'scorer' | 'assist' | 'notes'>): string {
     const note = shortNote(e.notes)
-    return `${eventLabel(e)}${e.scorer ? ` · ${e.scorer}` : ''}${note ? ` — ${note}` : ''}`
+    return `${eventLabel(e)}${e.scorer ? ` · ${e.scorer}` : ''}${assistOf(e) ? ` (assist ${assistOf(e)})` : ''}${note ? ` — ${note}` : ''}`
+}
+
+/** The assist of an event, only where one can exist: a normal goal (not a penalty, not an own goal). */
+export function assistOf(e: Pick<MatchEvent, 'type' | 'pen' | 'assist'>): string | undefined {
+    const name = e.assist?.trim()
+    return e.type === 'goal' && !e.pen && name ? name : undefined
+}
+
+/** Event-log row text: `Goal · Sam (assist Jo)` in full, `Goal · Sam, Jo` short (for narrow rows). */
+export function controlSummary(e: Pick<MatchEvent, 'type' | 'pen' | 'scorer' | 'assist'>): { full: string; short: string } {
+    const base = `${controlLabel(e)}${e.scorer ? ` · ${e.scorer}` : ''}`
+    const assist = assistOf(e)
+    return assist ? { full: `${base} (assist ${assist})`, short: `${base}, ${assist}` } : { full: base, short: base }
 }
 
 export function eventIcon(e: Pick<MatchEvent, 'type'>): string {

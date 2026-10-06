@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { MatchEvent, Team } from '../types'
 import { PICKER_OPTIONS } from './eventTypes'
-import { optionForEvent, personEdit, typeChangePatch } from './eventEdit'
+import { assistEdit, optionForEvent, personEdit, typeChangePatch } from './eventEdit'
 
 const teams: Team[] = [
     { name: 'Whites', color: '#fff', roster: ['Sam Taylor', 'Priya'] },
@@ -57,5 +57,23 @@ describe('personEdit', () => {
 
     it('should not add to any roster when the event has no team', () => {
         expect(personEdit(teams, ev({}), 'Kim')).toEqual({ patch: { scorer: 'Kim' } })
+    })
+})
+
+describe('assist edits', () => {
+    const t: Team[] = [{ name: 'Whites', color: '#fff', roster: ['Sam', 'Jo'] }, { name: 'Colours', color: '#f00', roster: ['Alex'] }]
+    it('should drop the assist when the type is no longer a normal goal', () => {
+        expect(typeChangePatch(ev({ scorer: 'Sam', assist: 'Jo' }), opt('goal_pen'))).toEqual({ type: 'goal', pen: true, assist: undefined })
+        expect(typeChangePatch(ev({ scorer: 'Sam', assist: 'Jo' }), opt('own_goal')).assist).toBeUndefined()
+        expect('assist' in typeChangePatch(ev({ scorer: 'Sam', assist: 'Jo' }), opt('own_goal'))).toBe(true)
+        expect('assist' in typeChangePatch(ev({ scorer: 'Sam' }), opt('goal'))).toBe(false)
+        expect('assist' in typeChangePatch(ev({ assist: 'Jo' }), opt('goal'))).toBe(false)
+    })
+    it('should trim, clear, and add a new name to the scoring team roster', () => {
+        const goal = { team: 'Whites', type: 'goal' as const, scorer: 'Sam' }
+        expect(assistEdit(t, goal, ' Jo ')).toEqual({ patch: { assist: 'Jo' } })
+        expect(assistEdit(t, goal, '  ')).toEqual({ patch: { assist: undefined } })
+        expect(assistEdit(t, goal, 'Newbie')).toEqual({ patch: { assist: 'Newbie' }, addToRoster: { team: 'Whites', name: 'Newbie' } })
+        expect(assistEdit(t, goal, 'sam')).toEqual({ patch: { assist: undefined } })
     })
 })

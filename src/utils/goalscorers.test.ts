@@ -65,3 +65,28 @@ describe('goalscorersText', () => {
         expect(goalscorersText([kick(0), at(60, { team: 'Whites', scorer: 'Sam' })], teams)).toBe("Whites 1–0 Colours\n\nSam: 1 ('2)")
     })
 })
+
+describe('goalscorers assists', () => {
+    const events = [
+        kick(0),
+        at(12 * 60, { team: 'Whites', scorer: 'Sam', assist: 'Jo' }),
+        at(30 * 60, { team: 'Colours', scorer: 'Priya', assist: 'Alex' }),
+        at(43 * 60, { team: 'Whites', scorer: 'Sam', assist: 'Jo' }),
+        at(50 * 60, { team: 'Whites', scorer: 'Jo', assist: 'Sam' }),
+        at(55 * 60, { team: 'Whites', scorer: 'Sam', pen: true, assist: 'Zed' }),
+        at(56 * 60, { team: 'Whites', scorer: 'Ade', type: 'own_goal', assist: 'Zed' }),
+    ]
+    it('should list assists sorted like scorers (most first, ties alphabetical), never for pens or own goals', () => {
+        expect(goalscorers(events, teams).assists).toEqual(["Jo: 2 ('13, '44)", "Alex: 1 ('31)", "Sam: 1 ('51)"])
+    })
+    it('should leave assists out when there are none', () => {
+        expect('assists' in goalscorers([kick(0), at(60, { team: 'Whites', scorer: 'Sam' })], teams)).toBe(false)
+    })
+    it('should add an Assists section after the scorers in the copy text', () => {
+        const text = goalscorersText(events, teams)
+        expect(text).toContain("Own goals: Ade ('57, for Whites)\n\nAssists\nJo: 2 ('13, '44)\nAlex: 1 ('31)\nSam: 1 ('51)")
+    })
+    it('should not add the section without assists', () => {
+        expect(goalscorersText([kick(0), at(60, { team: 'Whites', scorer: 'Sam' })], teams)).not.toContain('Assists')
+    })
+})

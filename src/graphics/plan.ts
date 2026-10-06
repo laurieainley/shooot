@@ -1,6 +1,6 @@
 import type { MatchEvent, Team } from '../types'
 import type { Cut } from '../render/types'
-import { eventLabel, eventSummary, isScoring, shortNote } from '../utils/eventTypes'
+import { assistOf, eventLabel, eventSummary, isScoring, shortNote } from '../utils/eventTypes'
 import { linkedEvents } from '../utils/relink'
 import { finalScore, formatScore, scoreAt, scoresAfter, type Score } from '../utils/score'
 import type { ScoreBugWindow } from '../utils/scoreBug'
@@ -75,6 +75,8 @@ export function buildGraphicsSpec(args: {
             const cs: CaptionSpec = { label: eventLabel(e).toUpperCase(), stripe: team?.color ?? ORANGE }
             const person = upper(e.scorer)
             if (person) cs.person = person
+            const assist = upper(assistOf(e))
+            if (assist) cs.assist = assist
             const note = upper(shortNote(e.notes, 60))
             if (note) cs.note = note
             if (both) cs.bug = bugFor(teams, after.get(e.id) ?? scoreAt(events, teams, cumulativeOffsets, globalOf(src, t)))

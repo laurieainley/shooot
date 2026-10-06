@@ -16,6 +16,14 @@ const payload = (over: Partial<TransferPayload> = {}): TransferPayload => ({
     ...over,
 })
 
+describe('assist in transfers', () => {
+    it('should round trip an assist through a transfer link', async () => {
+        const withAssist = [{ ...events[0], assist: 'Zoë Ñandú' }, events[1]]
+        const decoded = await decodeProject(await encodeProject(buildTransferPayload(payload({ events: withAssist }))))
+        expect(decoded.events[0].assist).toBe('Zoë Ñandú')
+    })
+})
+
 describe('encodeProject / decodeProject', () => {
     it('should round trip including unicode names', async () => {
         const p = payload()

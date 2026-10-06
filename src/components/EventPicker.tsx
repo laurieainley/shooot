@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { selectClockLong, useAppState } from '../state'
 import { nearbyMark } from '../utils/duplicates'
-import { PICKER_GROUPS, PICKER_OPTIONS, controlLabel, eventIcon, EVENT_META, type PickerOption } from '../utils/eventTypes'
+import { PICKER_GROUPS, PICKER_OPTIONS, assistOf, controlLabel, eventIcon, EVENT_META, type PickerOption } from '../utils/eventTypes'
 import { SKIP, initialPickerState, pickerReducer, touchPickerState, scorerCandidates, type PickerInput, type PickerState } from '../utils/eventPicker'
 import { teamShortcuts } from '../utils/roster'
 import { formatClock } from '../utils/timeline'
@@ -83,7 +83,7 @@ export function EventPicker() {
             if (e.metaKey || e.ctrlKey || e.altKey) return
             e.stopImmediatePropagation()
             const step = stateRef.current.step
-            const inText = step === 'scorer' || step === 'text'
+            const inText = step === 'scorer' || step === 'assist' || step === 'text'
             const isLetter = e.key.length === 1
             const caretKey = step === 'text' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')
             if (HANDLED.has(e.key) && !(inText && e.key === 'Backspace') && !caretKey) {
@@ -106,20 +106,20 @@ export function EventPicker() {
     const candidates = scorerCandidates(state, { teams })
     const title = `${formatClock(event.matchTimeSec, clockLong)} ${eventIcon(event)}`
     const { option } = state
-    const canSkip = (state.step === 'team' && option.teamOptional) || (state.step === 'scorer' && option.personOptional)
-    const personLabel = option.personLabel ?? 'Scorer'
+    const canSkip = (state.step === 'team' && option.teamOptional) || (state.step === 'scorer' && option.personOptional) || state.step === 'assist'
+    const personLabel = state.step === 'assist' ? 'Assist' : option.personLabel ?? 'Scorer'
     const textLabel = option.textLabel ?? 'Note'
     const textPlaceholder = option.askText === 'prompt' ? `${textLabel}? e.g. nutmeg on the wing` : `${textLabel} (optional)`
     const hint = state.step === 'type' ? 'Esc to finish · ⌫ cancel'
         : state.step === 'text' ? '⏎ save · Esc to finish'
         : canSkip ? 'Tab skip · Esc to finish' : 'Esc to finish'
-    const prompt = state.step === 'type' ? 'What happened?' : state.step === 'team' ? 'Which team?' : state.step === 'scorer' ? personLabel : textLabel
+    const prompt = state.step === 'type' ? 'What happened?' : state.step === 'team' ? 'Which team?' : state.step === 'scorer' || state.step === 'assist' ? personLabel : textLabel
     const highlightedId = state.highlighted >= 0 ? PICKER_OPTIONS[state.highlighted]?.id : undefined
 
     const ui = (
         <div className={`event-picker event-picker--${placement}`} role="dialog" aria-label="Event details">
             <div className="event-picker__head">
-                <div className="event-picker__title">{title}{state.team ? ` · ${state.team}` : ''}{event.scorer ? ` · ${event.scorer}` : ''}</div>
+                <div className="event-picker__title">{title}{state.team ? ` · ${state.team}` : ''}{event.scorer ? ` · ${event.scorer}` : ''}{assistOf(event) ? ` (assist ${assistOf(event)})` : ''}</div>
                 {coarse && <div className="event-picker__prompt">{prompt}</div>}
             </div>
             <div className="event-picker__body">
@@ -173,13 +173,13 @@ export function EventPicker() {
                 </ul>
             )}
 
-            {state.step === 'scorer' && (
+            {(state.step === 'scorer' || state.step === 'assist') && (
                 <div className="event-picker__person">
                     <input
                         autoFocus={!coarse}
                         aria-label={personLabel}
                         className="event-picker__input"
-                        placeholder={coarse ? `Search or type ${personLabel.toLowerCase()}` : `${personLabel} — type to filter, Enter to pick`}
+                        placeholder={coarse ? `Search or type ${personLabel.toLowerCase()}` : state.step === 'assist' ? 'Assist (optional) — type to filter, Enter to pick, Tab to skip' : `${personLabel} — type to filter, Enter to pick`}
                         value={state.query}
                         enterKeyHint="done"
                         autoComplete="off"

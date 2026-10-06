@@ -29,6 +29,21 @@ function setup(events: MatchEvent[], extra: Partial<ReturnType<typeof useAppStat
 }
 
 describe('EventLog rows', () => {
+    it('should show the assist in full with the full text in the title, and a short form for narrow rows', () => {
+        setup([{ id: 'a', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites', scorer: 'Sam', assist: 'Jo' }, kickOff(0)])
+        render(<EventLog />)
+        const [row] = rows()
+        expect(within(row).getByText('(assist Jo)', { exact: false })).toBeInTheDocument()
+        expect(row.querySelector('.event-row__assist-short')).toHaveTextContent(', Jo')
+        expect(row.querySelector('.event-row__label')).toHaveAttribute('title', expect.stringContaining('Goal · Sam (assist Jo)'))
+    })
+
+    it('should not show an assist on a penalty goal', () => {
+        setup([{ id: 'a', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', pen: true, team: 'Whites', scorer: 'Sam', assist: 'Jo' }, kickOff(0)])
+        render(<EventLog />)
+        expect(rows()[0]).not.toHaveTextContent('assist')
+    })
+
     it('should show the match clock, label with scorer and the team colour dot', () => {
         setup([{ id: 'a', matchTimeSec: 1521, sourceFileIndex: 0, type: 'goal', pen: true, team: 'Colours', scorer: 'Jo' }, kickOff(100)])
         render(<EventLog />)

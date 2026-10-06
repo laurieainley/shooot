@@ -3,7 +3,7 @@ import { shouldHandleShortcut } from '../utils/shortcuts'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import type { MatchEvent, Team } from '../types'
-import { controlLabel, eventIcon, isMarker, shortNote } from '../utils/eventTypes'
+import { assistOf, controlSummary, controlLabel, eventIcon, isMarker, shortNote } from '../utils/eventTypes'
 import { watchFromSec } from '../utils/markers'
 import { wantsReplay } from '../utils/replays'
 import { filterRoster, rosterTeamFor } from '../utils/roster'
@@ -188,7 +188,10 @@ interface EventRowProps {
 function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, onSelect, onWatch, onEdit, onToggleReplay, onFraming, onRemove, restoreFocus, touch = false }: EventRowProps) {
     const team = teams.find((t) => t.name === e.team)
     const replay = wantsReplay(e)
-    const label = `${controlLabel(e)}${e.scorer ? ` · ${e.scorer}` : ''}`
+    const summary = controlSummary(e)
+    const label = summary.full
+    const assist = assistOf(e)
+    const base = `${controlLabel(e)}${e.scorer ? ` · ${e.scorer}` : ''}`
     const note = shortNote(e.notes)
     const stop = (ev: React.SyntheticEvent): void => ev.stopPropagation()
     const done = (): void => { onEdit(null); restoreFocus() }
@@ -247,7 +250,13 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, o
                 <NoteEdit event={e} onDone={done} />
             ) : (
                 <span className="event-row__label truncate text-[13px]" title={`${label}${e.team ? ` – ${e.team}` : ''}${e.notes ? ` — ${e.notes}` : ''}`}>
-                    <span onDoubleClick={(ev) => { stop(ev); onEdit('scorer') }}>{label}</span>
+                    <span onDoubleClick={(ev) => { stop(ev); onEdit('scorer') }}>
+                        {base}
+                        {assist && <>
+                            <span className="event-row__assist"> (assist {assist})</span>
+                            <span className="event-row__assist-short" aria-hidden="true">, {assist}</span>
+                        </>}
+                    </span>
                     {note && <>
                         <span className="text-muted"> — </span>
                         <span className="text-muted" onDoubleClick={(ev) => { stop(ev); onEdit('notes') }}>{note}</span>

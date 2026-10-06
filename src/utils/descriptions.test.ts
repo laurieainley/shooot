@@ -59,3 +59,15 @@ describe('fullMatchDescription', () => {
         expect(lines[3]).toBe('02:14 Goal 1-0 (Whites) Sam')
     })
 })
+
+describe('descriptions with assists', () => {
+    const withAssist = events.map((e) => (e.id === 'a' ? { ...e, assist: 'Jo' } : e))
+    const tail = ['Goalscorers', "Priya: 1 ('10)", "Sam: 1 ('3)", '', 'Assists', "Jo: 1 ('3)"]
+    it('should list assists under the Goalscorers section in both descriptions', () => {
+        expect(highlightsDescription({ ...base, events: withAssist, introSec: 0 }).split('\n').slice(-6)).toEqual(tail)
+        expect(fullMatchDescription({ ...base, events: withAssist, introSec: 0 }).split('\n').slice(-6)).toEqual(tail)
+    })
+    it('should carry the assist in the chapter', () => {
+        expect(highlightsDescription({ ...base, events: withAssist, introSec: 0 })).toContain('00:00 Goal 1-0 (Whites) Sam, assist Jo')
+    })
+})
