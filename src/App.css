@@ -907,6 +907,6 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .replay-framing__warn { margin: 0; font-size: 14px; color: var(--danger); }
 .chip:disabled { opacity: 0.4; cursor: not-allowed; }
 @media (pointer: coarse) {
-  .goal-areas__hint, .goal-areas__label, .frame-boxes__empty { font-size: 14px; }
+  .goal-areas__hint, .goal-areas__label, .frame-boxes__empty, .frame-box__tag { font-size: 14px; }
   .goal-areas .btn-quiet { min-height: 44px; }
 }

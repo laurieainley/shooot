@@ -42,6 +42,18 @@ describe('GoalAreasSetup', () => {
         expect(useAppState.getState().goalAreas!.right).toEqual(defaultGoalAreas().right)
     })
 
+    it('should warn about a box under 35 % of the frame width', () => {
+        useAppState.setState({ goalAreas: { left: { x: 0.1, y: 0.2, w: 0.3, h: 0.3 }, right: defaultGoalAreas().right } })
+        render(<GoalAreasSetup />)
+        expect(screen.getByText(/look soft/)).toBeInTheDocument()
+    })
+
+    it('should not warn for the default boxes', () => {
+        useAppState.setState({ goalAreas: defaultGoalAreas() })
+        render(<GoalAreasSetup />)
+        expect(screen.queryByText(/look soft/)).not.toBeInTheDocument()
+    })
+
     it('should reset and remove the boxes', async () => {
         useAppState.setState({ goalAreas: { left: { x: 0.5, y: 0.5, w: 0.3, h: 0.3 }, right: { x: 0.1, y: 0.1, w: 0.3, h: 0.3 } } })
         render(<GoalAreasSetup />)

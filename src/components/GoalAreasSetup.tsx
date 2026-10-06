@@ -1,6 +1,6 @@
 import { useAppState } from '../state'
 import type { CropRect, GoalAreas } from '../types'
-import { defaultGoalAreas } from '../utils/crop'
+import { defaultGoalAreas, isSoft } from '../utils/crop'
 import { FrameBoxes, type FrameBox } from './FrameBoxes'
 import { useFrameAt } from './frameGrab'
 
@@ -33,6 +33,9 @@ export function GoalAreasSetup() {
                 onChange={change}
                 emptyText={first ? 'No picture available for this video here.' : 'Load a video to set the goal areas.'}
             />
+            {areas && (isSoft(areas.left) || isSoft(areas.right)) && (
+                <p className="replay-framing__warn" role="status">A very small box zooms in a lot: replays will look soft on 1080p footage.</p>
+            )}
             <div className="goal-areas__row">
                 {!areas
                     ? <button type="button" className="btn-quiet" disabled={!frame.frame} onClick={() => setAreas(defaultGoalAreas())}>Set goal areas</button>
