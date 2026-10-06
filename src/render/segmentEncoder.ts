@@ -26,7 +26,10 @@ const FALLBACKS = {
 
 /** Codec strings to try: the footage's own (same profile/level), then common ones. */
 export function encoderCandidates(footageCodec: string, hevc: boolean): string[] {
-    return [...new Set([footageCodec, ...(hevc ? FALLBACKS.hevc : FALLBACKS.avc)])]
+    // Footage level first, in the plain constraint form too (a hardware encoder may accept one spelling only); the SPS an
+    // encoder gives may still say a lower level, which the sample entry's raised level covers (see raiseEntry).
+    const plain = hevc && /^(hvc1|hev1)\.[^.]+\.[^.]+\.[LH]\d+\./.test(footageCodec) ? footageCodec.replace(/\.[^.]+$/, '.B0') : footageCodec
+    return [...new Set([footageCodec, plain, ...(hevc ? FALLBACKS.hevc : FALLBACKS.avc)])]
 }
 
 function encoderConfig(t: EncoderTarget, codec: string, latencyMode: LatencyMode, bitrate = t.bitrate): VideoEncoderConfig {

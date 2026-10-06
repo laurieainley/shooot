@@ -10,6 +10,12 @@ describe('encoderCandidates', () => {
         expect(new Set(c).size).toBe(c.length)
         expect(encoderCandidates('avc1.64001e', false)[0]).toBe('avc1.64001e')
     })
+
+    it('should ask for the footage level (plain B0 form too) before falling back to lower levels', () => {
+        const c = encoderCandidates('hvc1.1.6.L180.90', true)
+        expect(c.slice(0, 2)).toEqual(['hvc1.1.6.L180.90', 'hvc1.1.6.L180.B0'])
+        expect(c.indexOf('hvc1.1.6.L180.B0')).toBeLessThan(c.indexOf('hvc1.1.6.L150.B0'))
+    })
 })
 
 describe('probeEncoders', () => {

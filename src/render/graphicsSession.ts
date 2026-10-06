@@ -4,7 +4,7 @@
 import { EncodedPacket, type InputVideoTrack } from 'mediabunny'
 import { ensureGraphicsFonts } from '../graphics/assets'
 import { frameDuration, presentationRanks } from './frameGrid'
-import { covers, craToBla, paramSets, pickSampleEntry, spsLimits, spsOf, withInbandParams, type SpsLimits } from './nal'
+import { covers, craToBla, paramSets, pickSampleEntry, raiseEntry, raisedLimits, spsLimits, spsOf, withInbandParams, type SpsLimits } from './nal'
 import { overlaySpans, type Gop, type ReencodeSpan } from './overlayWindow'
 import { cropPixels } from '../utils/crop'
 import { coverRect } from './outputSize'
@@ -367,10 +367,15 @@ export async function openGraphicsSession(sources: GraphicsSource[], first: Grap
         const idx = pickSampleEntry(all)
         if (idx === -1) { reason = 'the encoder and the footage need different decoder sizes'; continue }
         const copied = sources.filter((s) => !rescaled.has(s))
-        const entry: VideoDecoderConfig = idx < copied.length
+        const base: VideoDecoderConfig = idx < copied.length
             ? copied[idx].config
             : { codec: setup.output.codec, description: setup.output.description, codedWidth: width, codedHeight: height, colorSpace }
-        return new GraphicsSession({ hevc, entry, frameSec, width, height, colorSpace, setup, entryLimits: all[idx], footageParams, rescaled })
+        // The sample entry declares the highest level/tier of any SPS in the track (AVFoundation configures its decoder from it:
+        // a card encoded at level 5.0 would otherwise hide level 6.0 footage).
+        const entry = raiseEntry(base, hevc, all[idx], all)
+        const entryLimits = raisedLimits(all[idx], all)
+        if (!all.every((l) => covers(entryLimits, l))) { reason = 'no single decoder setup covers the encoder and the footage'; continue }
+        return new GraphicsSession({ hevc, entry, frameSec, width, height, colorSpace, setup, entryLimits, footageParams, rescaled })
     }
     throw new Error(reason)
 }
