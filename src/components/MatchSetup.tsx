@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAppState } from '../state'
 import { parseRoster } from '../utils/roster'
+import { GoalAreasSetup } from './GoalAreasSetup'
 import { MatchGraphicsSetup } from './MatchGraphicsSetup'
 import { Sheet } from './Sheet'
 
@@ -64,6 +65,7 @@ export function MatchSetup({ onClose }: MatchSetupProps) {
                     <span className="kickoff-flag" aria-hidden="true" />
                     <span>Kick off and Final whistle are events: mark them from ＋ (keys <kbd>K</kbd> and <kbd>W</kbd>). The match clock starts at Kick off.</span>
                 </p>
+                <GoalAreasSetup />
                 <MatchGraphicsSetup />
         </Sheet>
     )
