@@ -228,7 +228,7 @@ export function Player() {
         const p = playerRef.current
         if (!p) return
         const sync = (): void => setPaused(p.paused() !== false)
-        const evts = 'play playing pause ended loadstart emptied'
+        const evts = ['play', 'playing', 'pause', 'ended', 'loadstart', 'emptied']
         sync()
         p.on(evts, sync)
         return () => p.off(evts, sync)
