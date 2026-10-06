@@ -1,62 +1,101 @@
 import { describe, it, expect } from 'vitest'
-import { attackingSide, replayCropResolver, type AttackContext } from './attack'
+import { replayCropResolver, replayGoalFor, teamGoalLabel, type AttackContext } from './attack'
 import { defaultGoalAreas } from './crop'
-import type { MatchEvent, Team } from '../types'
+import type { EventType, MatchEvent, Team } from '../types'
 
 const teams: Team[] = [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#c00', roster: [] }]
 const ev = (extra: Partial<MatchEvent>): MatchEvent => ({ id: 'e', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', ...extra })
 const ctx = (extra: Partial<AttackContext> = {}): AttackContext => ({
     events: [ev({ id: 'k', type: 'kick_off', matchTimeSec: 10 })],
-    teams, cumulativeOffsets: [0, 1000], whitesAttackLeft: true, areas: defaultGoalAreas(), ...extra,
+    teams, cumulativeOffsets: [0, 1000], areas: defaultGoalAreas(), ...extra,
 })
+const at = (type: EventType, team: string | undefined, timeSec = 100, half: number | null = null) => replayGoalFor({ type, team, timeSec }, teams, half)
 
-describe('attackingSide', () => {
-    it('should send the first team the way the toggle says and the other team the opposite way', () => {
-        expect(attackingSide(ev({ team: 'Whites' }), ctx())).toBe('left')
-        expect(attackingSide(ev({ team: 'Colours' }), ctx())).toBe('right')
-        expect(attackingSide(ev({ team: 'Whites' }), ctx({ whitesAttackLeft: false }))).toBe('right')
+describe('replayGoalFor', () => {
+    it('should zoom a goal to the goal the other team defends', () => {
+        expect(at('goal', 'Whites')).toBe('team2')
+        expect(at('goal', 'Colours')).toBe('team1')
     })
-    it('should be unknown without a team or with a team that is not in the match', () => {
-        expect(attackingSide(ev({}), ctx())).toBeNull()
-        expect(attackingSide(ev({ team: 'Strangers' }), ctx())).toBeNull()
+    it('should treat penalty goals, awarded and missed penalties like goals', () => {
+        for (const t of ['penalty_awarded', 'penalty_missed'] as const) {
+            expect(at(t, 'Whites')).toBe('team2')
+            expect(at(t, 'Colours')).toBe('team1')
+        }
     })
-    it('should not swap at half time when only one Kick off exists', () => {
-        expect(attackingSide(ev({ team: 'Whites', matchTimeSec: 5000 }), ctx())).toBe('left')
+    it('should send an own goal to the goal the credited team attacks', () => {
+        expect(at('own_goal', 'Whites')).toBe('team2')
+        expect(at('own_goal', 'Colours')).toBe('team1')
     })
-    it('should swap sides after a second Kick off (second half)', () => {
-        const events = [ev({ id: 'k1', type: 'kick_off', matchTimeSec: 10 }), ev({ id: 'k2', type: 'kick_off', matchTimeSec: 3000 })]
-        expect(attackingSide(ev({ team: 'Whites', matchTimeSec: 2999 }), ctx({ events }))).toBe('left')
-        expect(attackingSide(ev({ team: 'Whites', matchTimeSec: 3001 }), ctx({ events }))).toBe('right')
+    it('should send a save to the saving team\'s own goal', () => {
+        expect(at('save', 'Whites')).toBe('team1')
+        expect(at('save', 'Colours')).toBe('team2')
     })
-    it('should place events on the whole timeline through the file offsets', () => {
-        const events = [ev({ id: 'k1', type: 'kick_off', matchTimeSec: 10 }), ev({ id: 'k2', type: 'kick_off', matchTimeSec: 500, sourceFileIndex: 1 })]
-        expect(attackingSide(ev({ team: 'Whites', matchTimeSec: 900, sourceFileIndex: 0 }), ctx({ events }))).toBe('left')
-        expect(attackingSide(ev({ team: 'Whites', matchTimeSec: 10, sourceFileIndex: 1 }), ctx({ events }))).toBe('left') // 1010 < 1500
-        expect(attackingSide(ev({ team: 'Whites', matchTimeSec: 600, sourceFileIndex: 1 }), ctx({ events }))).toBe('right')
+    it('should use the full frame for fouls, highlights and markers', () => {
+        expect(at('foul', 'Whites')).toBe('full')
+        expect(at('highlight', 'Colours')).toBe('full')
+        expect(at('kick_off', undefined)).toBe('full')
+    })
+    it('should use the full frame without a known team', () => {
+        expect(at('goal', undefined)).toBe('full')
+        expect(at('goal', 'Strangers')).toBe('full')
+        expect(at('save', undefined)).toBe('full')
+    })
+    it('should swap the ends from Half time on, and not before', () => {
+        expect(at('goal', 'Whites', 2999, 3000)).toBe('team2')
+        expect(at('goal', 'Whites', 3000, 3000)).toBe('team1')
+        expect(at('save', 'Whites', 3500, 3000)).toBe('team2')
+        expect(at('goal', 'Colours', 3500, 3000)).toBe('team2')
+    })
+    it('should not assume halves without a Half time marker', () => {
+        expect(at('goal', 'Whites', 99999, null)).toBe('team2')
     })
 })
 
 describe('replayCropResolver', () => {
     const areas = defaultGoalAreas()
-    it('should default to the attacking goal area of the credited team', () => {
+    it('should default to the goal for the event type', () => {
         const crop = replayCropResolver(ctx())
-        expect(crop(ev({ team: 'Whites' }))).toEqual(areas.left)
-        expect(crop(ev({ team: 'Colours' }))).toEqual(areas.right)
+        expect(crop(ev({ team: 'Whites' }))).toEqual(areas.team2)
+        expect(crop(ev({ team: 'Colours' }))).toEqual(areas.team1)
+        expect(crop(ev({ team: 'Whites', type: 'save' }))).toEqual(areas.team1)
     })
-    it('should show the whole frame when the side is unknown or no areas are set', () => {
+    it('should swap ends after a Half time marker, also across files', () => {
+        const events = [ev({ id: 'h', type: 'half_time', matchTimeSec: 500, sourceFileIndex: 1 })]
+        const crop = replayCropResolver(ctx({ events }))
+        expect(crop(ev({ team: 'Whites', matchTimeSec: 900, sourceFileIndex: 0 }))).toEqual(areas.team2)
+        expect(crop(ev({ team: 'Whites', matchTimeSec: 10, sourceFileIndex: 1 }))).toEqual(areas.team2) // 1010 < 1500
+        expect(crop(ev({ team: 'Whites', matchTimeSec: 600, sourceFileIndex: 1 }))).toEqual(areas.team1)
+    })
+    it('should ignore a second Kick off (no halves are assumed from it)', () => {
+        const events = [ev({ id: 'k1', type: 'kick_off', matchTimeSec: 10 }), ev({ id: 'k2', type: 'kick_off', matchTimeSec: 3000 })]
+        expect(replayCropResolver(ctx({ events }))(ev({ team: 'Whites', matchTimeSec: 3001 }))).toEqual(areas.team2)
+    })
+    it('should show the whole frame when the goal is unknown or no areas are set', () => {
         expect(replayCropResolver(ctx())(ev({}))).toBeNull()
+        expect(replayCropResolver(ctx())(ev({ type: 'foul', team: 'Whites' }))).toBeNull()
         expect(replayCropResolver(ctx({ areas: null }))(ev({ team: 'Whites' }))).toBeNull()
     })
     it('should follow an explicit choice', () => {
         const crop = replayCropResolver(ctx())
-        expect(crop(ev({ team: 'Whites', replayCrop: 'right' }))).toEqual(areas.right)
+        expect(crop(ev({ team: 'Whites', replayCrop: 'team1' }))).toEqual(areas.team1)
         expect(crop(ev({ team: 'Whites', replayCrop: 'full' }))).toBeNull()
         expect(crop(ev({ replayCrop: { x: 0.2, y: 0.2, w: 0.5, h: 0.5 } }))).toEqual({ x: 0.2, y: 0.2, w: 0.5, h: 0.5 })
     })
-    it('should show the whole frame for Left / Right when no areas are set', () => {
-        expect(replayCropResolver(ctx({ areas: null }))(ev({ replayCrop: 'left' }))).toBeNull()
+    it('should show the whole frame for a team goal when no areas are set', () => {
+        expect(replayCropResolver(ctx({ areas: null }))(ev({ replayCrop: 'team1' }))).toBeNull()
     })
     it('should treat a custom box that covers the whole frame as no crop', () => {
         expect(replayCropResolver(ctx())(ev({ replayCrop: { x: 0, y: 0, w: 1, h: 1 } }))).toBeNull()
+    })
+})
+
+describe('teamGoalLabel', () => {
+    it('should name the goal after the team', () => {
+        expect(teamGoalLabel(teams, 'team1')).toBe("Whites' goal")
+        expect(teamGoalLabel([{ name: 'Reds', color: '', roster: [] }, { name: 'Blue', color: '', roster: [] }], 'team2')).toBe("Blue's goal")
+    })
+    it('should default to Team 1 / Team 2', () => {
+        expect(teamGoalLabel([], 'team1')).toBe("Team 1's goal")
+        expect(teamGoalLabel([{ name: ' ', color: '', roster: [] }, { name: '', color: '', roster: [] }], 'team2')).toBe("Team 2's goal")
     })
 })

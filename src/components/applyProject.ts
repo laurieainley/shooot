@@ -8,7 +8,8 @@ const num = (v: unknown, fallback: number): number => (typeof v === 'number' && 
 /** Loads a received project into the store. Events go through setEvents, so ⌘Z brings the previous ones back. */
 export function applyTransferPayload(p: TransferPayload): void {
     const st = useAppState.getState()
-    st.setEvents(p.events.map((e) => migrateEvent(e)))
+    const left = p.whitesAttackLeft ?? true
+    st.setEvents(p.events.map((e) => migrateEvent(e, left)))
     if (Array.isArray(p.teams) && p.teams.length === 2) st.setTeams(p.teams)
     st.setLengthBeforeGoal(num(p.lengthBeforeGoalSec, st.lengthBeforeGoalSec))
     st.setLengthAfterGoal(num(p.lengthAfterGoalSec, st.lengthAfterGoalSec))
@@ -17,7 +18,6 @@ export function applyTransferPayload(p: TransferPayload): void {
     if (p.graphics) st.setGraphics(p.graphics)
     if (p.fullMatch) st.setFullMatch(p.fullMatch)
     st.setMatchdayLabel(typeof p.matchdayLabel === 'string' ? p.matchdayLabel : null)
-    st.setGoalAreas(normaliseAreas(p.goalAreas))
-    if (typeof p.whitesAttackLeft === 'boolean') st.setWhitesAttackLeft(p.whitesAttackLeft)
+    st.setGoalAreas(normaliseAreas(p.goalAreas, left))
     if (typeof p.adjustTimestampsByOffset === 'boolean') st.setAdjustTimestampsByOffset(p.adjustTimestampsByOffset)
 }

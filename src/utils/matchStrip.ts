@@ -1,4 +1,5 @@
-import type { MatchEvent, Team } from '../types'
+import { teamBackground } from './teamColor'
+import type { MarkerType, MatchEvent, Team } from '../types'
 import { eventLabel, isMarker, shortNote } from './eventTypes'
 import { mergeOverlappingGoalSegments } from './highlights'
 import { linkedEvents } from './relink'
@@ -7,13 +8,13 @@ import { formatHMS } from './timeline'
 export type StripFile = { name: string; leftPct: number; widthPct: number }
 export type StripSpan = { leftPct: number; widthPct: number }
 export type StripEvent = { id: string; leftPct: number; color: string; title: string; kind: MatchEvent['type'] }
-export type StripFlag = { id: string; kind: 'kick_off' | 'final_whistle'; leftPct: number; title: string }
+export type StripFlag = { id: string; kind: MarkerType; leftPct: number; title: string }
 export type MatchStrip = {
     totalSec: number
     files: StripFile[]
     clips: StripSpan[]
     events: StripEvent[]
-    /** Kick off / Final whistle. */
+    /** Kick off / Half time / Final whistle. */
     flags: StripFlag[]
     playheadPct: number
 }
@@ -61,7 +62,7 @@ export function buildMatchStrip(args: {
         return {
             id: e.id,
             leftPct: pct(g),
-            color: team?.color ?? 'var(--muted)',
+            color: teamBackground(team?.color),
             title: `${formatHMS(g)} ${eventLabel(e)}${e.team ? ` – ${e.team}` : ''}${e.scorer ? ` (${e.scorer})` : ''}${note ? ` — ${note}` : ''}`,
             kind: e.type,
         }

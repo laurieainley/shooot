@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { AppShell } from './components/AppShell'
 import { ReceiveProject } from './components/ReceiveProject'
 import { useAppState } from './state'
+import { shouldHandleShortcut } from './utils/shortcuts'
 
 const DEFAULT_VIDEO_URL = '/default-video.mp4'
 const DEFAULT_VIDEO_NAME = 'TNF full match 19-03-26.mp4'
@@ -15,6 +16,7 @@ function App() {
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             const isMod = e.metaKey || e.ctrlKey
+            if (isMod && !shouldHandleShortcut(e.target, { modalOpen: false })) return // text fields keep their own undo
             if (isMod && e.key === 'z' && !e.shiftKey) {
                 e.preventDefault()
                 useAppState.getState().undo()

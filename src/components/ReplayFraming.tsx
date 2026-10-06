@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppState } from '../state'
 import type { CropRect, MatchEvent, ReplayCrop } from '../types'
-import { replayCropResolver } from '../utils/attack'
+import { replayCropResolver, teamGoalLabel } from '../utils/attack'
 import { FULL_FRAME, MAX_REPLAY_ZOOM, clampRect, isSoft, zoomOf, zoomRect } from '../utils/crop'
 import { FrameBoxes, type FrameBox } from './FrameBoxes'
 import { useFrameAt } from './frameGrab'
@@ -11,20 +11,18 @@ interface ReplayFramingProps {
     event: MatchEvent
 }
 
-const CHOICES: { id: 'auto' | 'left' | 'right' | 'full' | 'custom'; label: string }[] = [
-    { id: 'auto', label: 'Auto' }, { id: 'left', label: 'Left goal' }, { id: 'right', label: 'Right goal' },
-    { id: 'full', label: 'Full frame' }, { id: 'custom', label: 'Custom' },
-]
+type ChoiceId = 'auto' | 'team1' | 'team2' | 'full' | 'custom'
 
-const choiceOf = (c: ReplayCrop | undefined): (typeof CHOICES)[number]['id'] => (c === undefined ? 'auto' : typeof c === 'object' ? 'custom' : c)
+const choiceOf = (c: ReplayCrop | undefined): ChoiceId => (c === undefined ? 'auto' : typeof c === 'object' ? 'custom' : c)
 
 /**
- * Edit sheet, replay on: how the slow-mo replay is framed. Auto = the scoring team's attacking goal (Match setup);
- * Left / Right goal, the whole frame, or a custom box drawn on the event's own frame, with zoom 1-3× around its centre.
+ * Edit sheet, replay on: how the slow-mo replay is framed. Auto = the goal for the event's type (Match setup);
+ * either team's goal, the whole frame, or a custom box drawn on the event's own frame, with zoom 1-3× around its centre.
  */
 export function ReplayFraming({ event: e }: ReplayFramingProps) {
     const areas = useAppState((s) => s.goalAreas)
-    const resolverState = useAppState(useShallow((s) => ({ events: s.events, teams: s.teams, cumulativeOffsets: s.cumulativeOffsets, whitesAttackLeft: s.whitesAttackLeft, areas: s.goalAreas })))
+    const teams = useAppState((s) => s.teams)
+    const resolverState = useAppState(useShallow((s) => ({ events: s.events, teams: s.teams, cumulativeOffsets: s.cumulativeOffsets, areas: s.goalAreas })))
     const file = useAppState((s) => s.files[e.sourceFileIndex ?? 0])
     const frame = useFrameAt(e.unlinked ? null : file?.url, e.unlinked || !file ? null : e.matchTimeSec)
     const resolved = useMemo(() => replayCropResolver(resolverState)(e), [resolverState, e])
@@ -44,13 +42,17 @@ export function ReplayFraming({ event: e }: ReplayFramingProps) {
     }
     const zoom = shown ? Math.min(MAX_REPLAY_ZOOM, zoomOf(shown)) : 1
     const boxes: FrameBox[] = shown ? [{ id: 'crop', label: 'Replay framing', short: 'Replay', rect: shown, tone: 'event' }] : []
-    const needsAreas = (id: string): boolean => (id === 'left' || id === 'right') && !areas
+    const choices: { id: ChoiceId; label: string }[] = [
+        { id: 'auto', label: 'Auto' }, { id: 'team1', label: teamGoalLabel(teams, 'team1') }, { id: 'team2', label: teamGoalLabel(teams, 'team2') },
+        { id: 'full', label: 'Full frame' }, { id: 'custom', label: 'Custom' },
+    ]
+    const needsAreas = (id: ChoiceId): boolean => (id === 'team1' || id === 'team2') && !areas?.[id]
 
     return (
         <fieldset className="event-sheet__group replay-framing">
             <legend>Replay framing</legend>
             <div className="chips">
-                {CHOICES.map((c) => (
+                {choices.map((c) => (
                     <button
                         key={c.id}
                         type="button"

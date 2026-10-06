@@ -1,11 +1,12 @@
-import type { MatchEvent, Team } from '../types'
+import { solidTeamColor } from './teamColor'
+import type { MarkerType, MatchEvent, Team } from '../types'
 import { EVENT_META, eventIcon, eventLabel, isMarker, shortNote } from './eventTypes'
 import { linkedEvents } from './relink'
 import { formatHMS } from './timeline'
 
 export type Marker = {
     id: string
-    kind: 'event' | 'kick_off' | 'final_whistle'
+    kind: 'event' | MarkerType
     leftPct: number
     icon: string
     color: string
@@ -43,7 +44,7 @@ export function markersForFile(args: {
             kind: 'event',
             leftPct: pct(e.matchTimeSec),
             icon: eventIcon(e),
-            color: team?.color ?? EVENT_META[e.type].color,
+            color: solidTeamColor(team?.color, EVENT_META[e.type].color),
             title: `${formatHMS(e.matchTimeSec)} ${eventLabel(e)}${who}${note ? ` — ${note}` : ''}`,
         })
     }

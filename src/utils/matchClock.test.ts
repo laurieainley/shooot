@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { finalWhistleSec, kickOffSec, resolveGlobalEvents, withMigratedKickOff } from './matchClock'
+import { finalWhistleSec, kickOffSec, matchMinute, resolveGlobalEvents, withMigratedKickOff } from './matchClock'
 import type { MatchEvent } from '../types'
 
 const ev = (id: string, type: MatchEvent['type'], t: number, file = 0, extra: Partial<MatchEvent> = {}): MatchEvent =>
@@ -55,5 +55,17 @@ describe('resolveGlobalEvents', () => {
     it('should return the same array when nothing is pending', () => {
         const events = [ev('g', 'goal', 5)]
         expect(resolveGlobalEvents(events, files)).toBe(events)
+    })
+})
+
+describe('matchMinute', () => {
+    it('should count whole minutes since kick-off plus one', () => {
+        expect(matchMinute(100, 100)).toBe(1)
+        expect(matchMinute(100 + 59, 100)).toBe(1)
+        expect(matchMinute(100 + 12 * 60, 100)).toBe(13)
+        expect(matchMinute(100 + 43 * 60 + 30, 100)).toBe(44)
+    })
+    it('should never go below the first minute (before kick-off)', () => {
+        expect(matchMinute(10, 100)).toBe(1)
     })
 })

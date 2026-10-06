@@ -12,7 +12,7 @@ const payload = (over: Partial<TransferPayload> = {}): TransferPayload => ({
     lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5,
     graphics: { cards: true, lowerThirds: true, replayTag: false },
     fullMatch: { cards: true, scoreBug: 'periodic', intervalMin: 5 },
-    matchdayLabel: 'Matchday 3', goalAreas: null, whitesAttackLeft: true, adjustTimestampsByOffset: false,
+    matchdayLabel: 'Matchday 3', goalAreas: null, adjustTimestampsByOffset: false,
     ...over,
 })
 

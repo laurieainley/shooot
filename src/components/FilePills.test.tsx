@@ -28,4 +28,12 @@ describe('FilePills', () => {
         expect(useAppState.getState().files[0].fullFile?.name).toBe('GX010226.MP4')
         expect(Array.from(processVideoFiles.mock.calls[0][0] as File[])).toEqual([other])
     })
+
+    it('should number the pills in timeline order before the name', () => {
+        useAppState.setState({ files: [proxy, { ...proxy, id: 'q', name: 'GL010227.LRV' }], cumulativeOffsets: [0, 600] })
+        const { container } = render(<FilePills />)
+        const pills = Array.from(container.querySelectorAll('.file-pill'))
+        expect(pills.map((p) => p.querySelector('.file-pill__num')?.textContent)).toEqual(['1 ·', '2 ·'])
+        expect(pills[1].querySelector('.file-pill__name')?.textContent).toBe('GL010227.LRV')
+    })
 })

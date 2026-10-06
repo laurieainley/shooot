@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton'
 import { useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -37,7 +38,7 @@ export function Sheet({ label, onClose, children, className = '' }: SheetProps) 
                 className={`sheet ${className}`} onClick={(e) => e.stopPropagation()}>
                 <div className="floating__head">
                     <h2 className="floating__title">{label}</h2>
-                    <button type="button" aria-label="Close" className="btn-icon" onClick={onClose}>×</button>
+                    <CloseButton onClick={onClose} />
                 </div>
                 <div className="sheet__body">{children}</div>
             </div>

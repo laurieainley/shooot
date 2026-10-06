@@ -1,3 +1,4 @@
+import { teamBackground } from '../utils/teamColor'
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useAppState } from '../state'
 import { autoInitials } from '../graphics/teamStyle'
@@ -65,7 +66,7 @@ export function MatchGraphicsSetup() {
                 </label>
                 {teams.slice(0, 2).map((t, i) => (
                     <label key={i} className="graphics-setup__field">
-                        <span className="flex items-center gap-1.5"><span className="team-dot flex-none" style={{ background: t.color }} /><span className="truncate">{t.name || `Team ${i + 1}`} initials</span></span>
+                        <span className="flex items-center gap-1.5"><span className="team-dot flex-none" style={{ background: teamBackground(t.color) }} /><span className="truncate">{t.name || `Team ${i + 1}`} initials</span></span>
                         <input
                             aria-label={`${t.name} initials`}
                             value={t.initials ?? ''}

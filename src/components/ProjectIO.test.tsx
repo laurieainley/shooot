@@ -40,15 +40,25 @@ describe('ProjectIO', () => {
         expect(selectMatchStartSec(useAppState.getState())).toBe(30)
     })
 
-    it('should round-trip goal areas, the attacking direction and replay framing', async () => {
+    it('should round-trip team goal areas and replay framing', async () => {
         const { container } = render(<ProjectIO />)
         const input = container.querySelector('input[type="file"]') as HTMLInputElement
-        const areas = { left: { x: 0.04, y: 0.3, w: 0.4, h: 0.4 }, right: { x: 0.56, y: 0.3, w: 0.4, h: 0.4 } }
-        const json = JSON.stringify({ events: [{ id: 'x', matchTimeSec: 42, type: 'goal', replayCrop: 'left' }], goalAreas: areas, whitesAttackLeft: false })
+        const areas = { team1: { x: 0.04, y: 0.3, w: 0.4, h: 0.4 }, team2: { x: 0.56, y: 0.3, w: 0.4, h: 0.4 } }
+        const json = JSON.stringify({ events: [{ id: 'x', matchTimeSec: 42, type: 'goal', replayCrop: 'team2' }], goalAreas: areas })
         fireEvent.change(input, { target: { files: [new File([json], 'p.json')] } })
         await waitFor(() => expect(useAppState.getState().goalAreas).toEqual(areas))
-        expect(useAppState.getState().whitesAttackLeft).toBe(false)
-        expect(useAppState.getState().events[0].replayCrop).toBe('left')
+        expect(useAppState.getState().events[0].replayCrop).toBe('team2')
+    })
+
+    it('should migrate a project saved with left / right goal areas', async () => {
+        const { container } = render(<ProjectIO />)
+        const input = container.querySelector('input[type="file"]') as HTMLInputElement
+        const left = { x: 0.04, y: 0.3, w: 0.4, h: 0.4 }
+        const right = { x: 0.56, y: 0.3, w: 0.4, h: 0.4 }
+        const json = JSON.stringify({ events: [{ id: 'x', matchTimeSec: 42, type: 'goal', replayCrop: 'left' }], goalAreas: { left, right }, whitesAttackLeft: false })
+        fireEvent.change(input, { target: { files: [new File([json], 'p.json')] } })
+        await waitFor(() => expect(useAppState.getState().goalAreas).toEqual({ team1: left, team2: right }))
+        expect(useAppState.getState().events[0].replayCrop).toBe('team1')
     })
 
     it('should report a file that is not valid JSON', async () => {

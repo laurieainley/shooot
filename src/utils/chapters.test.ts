@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateYouTubeChapters, generateHighlightChapters } from './chapters'
+import { generateYouTubeChapters, generateHighlightChapters, matchChapterLines } from './chapters'
 import type { MatchEvent } from '../types'
 
 function goal(id: string, matchTimeSec: number, team?: string, scorer?: string, sourceFileIndex = 0): MatchEvent {
@@ -157,5 +157,17 @@ describe('chapters — match markers', () => {
     it('should leave them out of highlight chapters', () => {
         const text = generateHighlightChapters(events, [0], 10, 4, ['Whites', 'Colours'])
         expect(text.split('\n').filter((l) => /^\d\d:\d\d/.test(l))).toEqual(['00:00 Goal 1-0 (Whites)'])
+    })
+})
+
+describe('matchChapterLines — Half time', () => {
+    it('should add a Half time line at the marker, with no lead-in, and keep the other markers out', () => {
+        const events: MatchEvent[] = [
+            { id: 'k', matchTimeSec: 60, sourceFileIndex: 0, type: 'kick_off' },
+            { id: 'g', matchTimeSec: 200, sourceFileIndex: 0, type: 'goal', team: 'Whites' },
+            { id: 'h', matchTimeSec: 1560, sourceFileIndex: 0, type: 'half_time' },
+            { id: 'w', matchTimeSec: 3000, sourceFileIndex: 0, type: 'final_whistle' },
+        ]
+        expect(matchChapterLines(events, [0], 60, 3000, 10, ['Whites', 'Colours'])).toEqual(['00:00 Kick off', '02:10 Goal 1-0 (Whites)', '25:00 Half time'])
     })
 })

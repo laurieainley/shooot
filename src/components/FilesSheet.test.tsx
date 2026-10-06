@@ -29,6 +29,13 @@ describe('FilesSheet', () => {
         expect(row('a.mp4')).toHaveAttribute('aria-current', 'true')
     })
 
+    it('should number the files in timeline order before the name', () => {
+        render(<FilesSheet onClose={onClose} />)
+        expect(row('a.mp4').querySelector('.file-row__index')?.textContent).toBe('1 ·')
+        expect(row('b.mp4').querySelector('.file-row__index')?.textContent).toBe('2 ·')
+        expect(row('b.mp4').querySelector('.file-row__name')?.textContent).toBe('b.mp4')
+    })
+
     it('should switch to a file on tap and close', async () => {
         render(<FilesSheet onClose={onClose} />)
         await userEvent.click(within(row('b.mp4')).getByRole('button', { name: /play b\.mp4/i }))

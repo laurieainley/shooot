@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton'
 import { useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Sheet } from './Sheet'
@@ -42,7 +43,7 @@ function ColumnPanelBody({ label, onClose, children, className }: ColumnPanelPro
         <div ref={ref} role="dialog" aria-label={label} tabIndex={-1} className={`column-panel ${className}`}>
             <div className="column-panel__head floating__head">
                 <h2 className="floating__title">{label}</h2>
-                <button type="button" aria-label="Close" className="btn-icon" onClick={onClose}>×</button>
+                <CloseButton onClick={onClose} />
             </div>
             <div className="column-panel__body sheet__body">{children}</div>
         </div>

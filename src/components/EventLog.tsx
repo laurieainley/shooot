@@ -1,5 +1,7 @@
+import { teamBackground } from '../utils/teamColor'
+import { shouldHandleShortcut } from '../utils/shortcuts'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { selectMatchStartSec, useAppState } from '../state'
+import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import type { MatchEvent, Team } from '../types'
 import { controlLabel, eventIcon, isMarker, shortNote } from '../utils/eventTypes'
 import { watchFromSec } from '../utils/markers'
@@ -24,6 +26,7 @@ export function EventLog() {
     const teams = useAppState((s) => s.teams)
     const offsets = useAppState((s) => s.cumulativeOffsets)
     const matchStartTimeSec = useAppState(selectMatchStartSec)
+    const clockLong = useAppState(selectClockLong)
     const canUndo = useAppState((s) => s.undoStack.length > 0)
     const canRedo = useAppState((s) => s.redoStack.length > 0)
     const coarse = useMediaQuery(COARSE_QUERY)
@@ -44,7 +47,8 @@ export function EventLog() {
         const onKey = (e: KeyboardEvent): void => {
             if (e.key !== 'l' && e.key !== 'L') return
             if (e.metaKey || e.ctrlKey || e.altKey) return
-            if (useAppState.getState().picker || isTyping(document.activeElement)) return
+            const st = useAppState.getState()
+            if (!shouldHandleShortcut(e.target, { modalOpen: !!(st.picker || st.panel) })) return
             if (rootRef.current?.contains(document.activeElement)) return
             e.preventDefault()
             rootRef.current?.focus()
@@ -138,7 +142,7 @@ export function EventLog() {
                             event={e}
                             teams={teams}
                             selected={e.id === selectedId}
-                            clock={formatEventClock((offsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec, e.matchTimeSec, matchStartTimeSec)}
+                            clock={formatEventClock((offsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec, e.matchTimeSec, matchStartTimeSec, clockLong)}
                             score={scores.get(e.id)}
                             fileTag={files.length > 1 ? `V${(e.sourceFileIndex ?? 0) + 1}` : null}
                             editing={editing?.id === e.id ? editing.field : null}
@@ -215,13 +219,13 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, o
                     />
                 </span>
             ) : (
-                <span className="tc text-[13px]" onDoubleClick={(ev) => { stop(ev); onEdit('time') }} title="Double-click to edit time (in file)">{clock}</span>
+                <span className="tc clock text-[13px]" onDoubleClick={(ev) => { stop(ev); onEdit('time') }} title="Double-click to edit time (in file)">{clock}</span>
             )}
 
             <span
                 data-team-dot
                 className="team-dot"
-                style={{ background: team?.color ?? 'var(--muted)' }}
+                style={{ background: teamBackground(team?.color) }}
                 title={e.team ? `${e.team} · double-click to change` : 'No team · double-click to set'}
                 onDoubleClick={(ev) => { stop(ev); onEdit('team') }}
             />
@@ -233,7 +237,7 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, o
                             onClick={() => { update(e.id, { team: t.name }); done() }}
                             onKeyDown={(ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); done() } }}
                             className="btn-quiet flex items-center gap-1 px-1.5 py-0 text-[12px]">
-                            <span className="team-dot" style={{ background: t.color }} />{t.name}
+                            <span className="team-dot" style={{ background: teamBackground(t.color) }} />{t.name}
                         </button>
                     ))}
                 </span>
@@ -274,7 +278,7 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, o
 
 type MarkerRowProps = Pick<EventRowProps, 'event' | 'selected' | 'clock' | 'fileTag' | 'editing' | 'onSelect' | 'onWatch' | 'onEdit' | 'onRemove' | 'restoreFocus' | 'touch'>
 
-/** Kick off / Final whistle: a flag, the label and the time — no team, person, score or replay. */
+/** Kick off / Half time / Final whistle: a flag, the label and the time — no team, person, score or replay. */
 function MarkerRow({ event: e, selected, clock, fileTag, editing, onSelect, onWatch, onEdit, onRemove, restoreFocus, touch = false }: MarkerRowProps) {
     const stop = (ev: React.SyntheticEvent): void => ev.stopPropagation()
     const update = useAppState((s) => s.updateEvent)
@@ -287,7 +291,7 @@ function MarkerRow({ event: e, selected, clock, fileTag, editing, onSelect, onWa
                         onCommit={(t) => { update(e.id, { matchTimeSec: t }); useAppState.getState().sortEvents(); onEdit(null); restoreFocus() }} />
                 </span>
             ) : (
-                <span className="tc text-[13px]" onDoubleClick={(ev) => { stop(ev); onEdit('time') }} title="Double-click to edit time (in file)">{clock}</span>
+                <span className="tc clock text-[13px]" onDoubleClick={(ev) => { stop(ev); onEdit('time') }} title="Double-click to edit time (in file)">{clock}</span>
             )}
             <span className="marker-flag" aria-hidden="true">{eventIcon(e)}</span>
             <span className="event-row__label truncate text-[13px]">{controlLabel(e)}</span>

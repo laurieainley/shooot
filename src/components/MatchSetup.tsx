@@ -1,3 +1,4 @@
+import { MULTI_COLOR, isMultiColor, solidTeamColor, teamBackground } from '../utils/teamColor'
 import { useState } from 'react'
 import { useAppState } from '../state'
 import { parseRoster } from '../utils/roster'
@@ -23,7 +24,7 @@ export function MatchSetup({ onClose }: MatchSetupProps) {
         <Sheet label="Match setup" onClose={onClose}>
                 <div className="team-grid">
                     {teams.map((team, i) => (
-                        <div key={i} className="team-card" style={{ borderTopColor: team.color }}>
+                        <div key={i} className="team-card" style={{ borderTopColor: solidTeamColor(team.color, 'var(--accent)') }}>
                             <input
                                 aria-label={`Team ${i + 1} name`}
                                 value={names[i]}
@@ -44,6 +45,14 @@ export function MatchSetup({ onClose }: MatchSetupProps) {
                                         style={{ background: c }}
                                     />
                                 ))}
+                                <button
+                                    aria-label={`Team ${i + 1} colour multicolour`}
+                                    title="Multicolour"
+                                    onClick={() => setTeams(teams.map((t, j) => (j === i ? { ...t, color: MULTI_COLOR } : t)))}
+                                    aria-pressed={isMultiColor(team.color)}
+                                    className="swatch"
+                                    style={{ background: teamBackground(MULTI_COLOR) }}
+                                />
                             </div>
                             <textarea
                                 aria-label={`Team ${i + 1} roster`}
@@ -63,7 +72,7 @@ export function MatchSetup({ onClose }: MatchSetupProps) {
                 <p className="m-0 mt-2 text-[12px] text-muted">Teams and rosters are remembered for next time.</p>
                 <p className="match-setup__kickoff">
                     <span className="kickoff-flag" aria-hidden="true" />
-                    <span>Kick off and Final whistle are events: mark them from ＋ (keys <kbd>K</kbd> and <kbd>W</kbd>). The match clock starts at Kick off.</span>
+                    <span>Kick off, Half time and Final whistle are events: mark them from ＋ (keys <kbd>K</kbd>, <kbd>T</kbd> and <kbd>W</kbd>). The match clock starts at Kick off.</span>
                 </p>
                 <GoalAreasSetup />
                 <MatchGraphicsSetup />

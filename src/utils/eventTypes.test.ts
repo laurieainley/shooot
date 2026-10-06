@@ -10,7 +10,7 @@ describe('PICKER_OPTIONS', () => {
         expect(PICKER_OPTIONS[0].id).toBe('goal')
         const keys = PICKER_OPTIONS.map((o) => o.key)
         expect(new Set(keys).size).toBe(keys.length)
-        expect(keys).toEqual(['g', 'p', 'o', 'a', 'x', 'h', 'f', 's', 'k', 'w'])
+        expect(keys).toEqual(['g', 'p', 'o', 'a', 'x', 'h', 'f', 's', 'k', 't', 'w'])
     })
 })
 
@@ -119,10 +119,11 @@ describe('eventSummary', () => {
 describe('match markers', () => {
     it('should list Kick off (K) and Final whistle (W) after the normal types', () => {
         const ids = PICKER_OPTIONS.map((o) => o.id)
-        expect(ids.slice(-2)).toEqual(['kick_off', 'final_whistle'])
+        expect(ids.slice(-3)).toEqual(['kick_off', 'half_time', 'final_whistle'])
         expect(optionForKey('k')?.id).toBe('kick_off')
+        expect(optionForKey('t')?.id).toBe('half_time')
         expect(optionForKey('w')?.id).toBe('final_whistle')
-        for (const o of PICKER_OPTIONS.slice(-2)) expect(o).toMatchObject({ askTeam: false, askScorer: false, askText: false, marker: true })
+        for (const o of PICKER_OPTIONS.slice(-3)) expect(o).toMatchObject({ askTeam: false, askScorer: false, askText: false, marker: true })
     })
 
     it('should never score and be recognised as markers', () => {
@@ -130,6 +131,9 @@ describe('match markers', () => {
         expect(isScoring({ type: 'final_whistle' })).toBe(false)
         expect(isMarker({ type: 'kick_off' })).toBe(true)
         expect(isMarker({ type: 'final_whistle' })).toBe(true)
+        expect(isMarker({ type: 'half_time' })).toBe(true)
+        expect(isScoring({ type: 'half_time' })).toBe(false)
+        expect(eventLabel({ type: 'half_time' })).toBe('Half time')
         expect(isMarker({ type: 'goal' })).toBe(false)
         expect(eventLabel({ type: 'kick_off' })).toBe('Kick off')
         expect(eventLabel({ type: 'final_whistle' })).toBe('Final whistle')
@@ -144,7 +148,7 @@ describe('PICKER_GROUPS', () => {
     it('should list every picker option exactly once, in the touch order', () => {
         const ids = PICKER_GROUPS.flatMap((g) => g.ids)
         expect([...ids].sort()).toEqual(PICKER_OPTIONS.map((o) => o.id).sort())
-        expect(ids).toEqual(['goal', 'goal_pen', 'own_goal', 'penalty_awarded', 'penalty_missed', 'save', 'foul', 'highlight', 'kick_off', 'final_whistle'])
+        expect(ids).toEqual(['goal', 'goal_pen', 'own_goal', 'penalty_awarded', 'penalty_missed', 'save', 'foul', 'highlight', 'kick_off', 'half_time', 'final_whistle'])
         expect(PICKER_GROUPS.map((g) => g.label)).toEqual(['Goals', 'Penalties', 'Other', 'Match'])
     })
 })

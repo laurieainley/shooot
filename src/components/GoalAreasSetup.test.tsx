@@ -15,7 +15,7 @@ describe('GoalAreasSetup', () => {
     beforeEach(() => {
         useFrameAt.mockReset()
         useFrameAt.mockReturnValue(READY)
-        useAppState.setState({ files: [file], goalAreas: null, whitesAttackLeft: true, teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#c00', roster: [] }] })
+        useAppState.setState({ files: [file], goalAreas: null, teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#c00', roster: [] }] })
     })
 
     it('should grab the frame from the middle of the first file', () => {
@@ -25,25 +25,25 @@ describe('GoalAreasSetup', () => {
 
     it('should offer to set the goal areas and then show a box for each goal', async () => {
         render(<GoalAreasSetup />)
-        expect(screen.queryByRole('group', { name: 'Left goal box' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('group', { name: "Whites' goal box" })).not.toBeInTheDocument()
         await userEvent.click(screen.getByRole('button', { name: 'Set goal areas' }))
         expect(useAppState.getState().goalAreas).toEqual(defaultGoalAreas())
-        expect(screen.getByRole('group', { name: 'Left goal box' })).toBeInTheDocument()
-        expect(screen.getByRole('group', { name: 'Right goal box' })).toBeInTheDocument()
+        expect(screen.getByRole('group', { name: "Whites' goal box" })).toBeInTheDocument()
+        expect(screen.getByRole('group', { name: "Colours' goal box" })).toBeInTheDocument()
     })
 
     it('should store a moved box', async () => {
         useAppState.setState({ goalAreas: defaultGoalAreas() })
         render(<GoalAreasSetup />)
-        const left = screen.getByRole('group', { name: 'Left goal box' })
+        const left = screen.getByRole('group', { name: "Whites' goal box" })
         left.focus()
         await userEvent.keyboard('{ArrowDown}')
-        expect(useAppState.getState().goalAreas!.left.y).toBeCloseTo(defaultGoalAreas().left.y + 0.01)
-        expect(useAppState.getState().goalAreas!.right).toEqual(defaultGoalAreas().right)
+        expect(useAppState.getState().goalAreas!.team1!.y).toBeCloseTo(defaultGoalAreas().team1!.y + 0.01)
+        expect(useAppState.getState().goalAreas!.team2).toEqual(defaultGoalAreas().team2)
     })
 
     it('should warn about a box under 35 % of the frame width', () => {
-        useAppState.setState({ goalAreas: { left: { x: 0.1, y: 0.2, w: 0.3, h: 0.3 }, right: defaultGoalAreas().right } })
+        useAppState.setState({ goalAreas: { team1: { x: 0.1, y: 0.2, w: 0.3, h: 0.3 }, team2: defaultGoalAreas().team2 } })
         render(<GoalAreasSetup />)
         expect(screen.getByText(/look soft/)).toBeInTheDocument()
     })
@@ -55,7 +55,7 @@ describe('GoalAreasSetup', () => {
     })
 
     it('should reset and remove the boxes', async () => {
-        useAppState.setState({ goalAreas: { left: { x: 0.5, y: 0.5, w: 0.3, h: 0.3 }, right: { x: 0.1, y: 0.1, w: 0.3, h: 0.3 } } })
+        useAppState.setState({ goalAreas: { team1: { x: 0.5, y: 0.5, w: 0.3, h: 0.3 }, team2: { x: 0.1, y: 0.1, w: 0.3, h: 0.3 } } })
         render(<GoalAreasSetup />)
         await userEvent.click(screen.getByRole('button', { name: 'Reset boxes' }))
         expect(useAppState.getState().goalAreas).toEqual(defaultGoalAreas())
@@ -63,12 +63,29 @@ describe('GoalAreasSetup', () => {
         expect(useAppState.getState().goalAreas).toBeNull()
     })
 
-    it('should choose which way the first team attacks in the first half', async () => {
+    it('should swap which goal is whose', async () => {
+        useAppState.setState({ goalAreas: defaultGoalAreas() })
         render(<GoalAreasSetup />)
-        expect(screen.getByRole('button', { name: /Left goal/ })).toHaveAttribute('aria-pressed', 'true')
-        await userEvent.click(screen.getByRole('button', { name: /Right goal ▶/ }))
-        expect(useAppState.getState().whitesAttackLeft).toBe(false)
-        expect(screen.getByText(/Whites attack \(first half\)/)).toBeInTheDocument()
+        await userEvent.click(screen.getByRole('button', { name: 'Swap which goal is whose' }))
+        expect(useAppState.getState().goalAreas).toEqual({ team1: defaultGoalAreas().team2, team2: defaultGoalAreas().team1 })
+    })
+
+    it('should offer no swap before the boxes are set', () => {
+        render(<GoalAreasSetup />)
+        expect(screen.queryByRole('button', { name: 'Swap which goal is whose' })).not.toBeInTheDocument()
+    })
+
+    it('should name the boxes Team 1 / Team 2 without team names', async () => {
+        useAppState.setState({ goalAreas: defaultGoalAreas(), teams: [{ name: '', color: '#fff', roster: [] }, { name: '', color: '#c00', roster: [] }] })
+        render(<GoalAreasSetup />)
+        expect(screen.getByRole('group', { name: "Team 1's goal box" })).toBeInTheDocument()
+        expect(screen.getByRole('group', { name: "Team 2's goal box" })).toBeInTheDocument()
+    })
+
+    it('should not talk about left or right', () => {
+        useAppState.setState({ goalAreas: defaultGoalAreas() })
+        render(<GoalAreasSetup />)
+        expect(screen.queryByText(/second Kick off|attack \(first half\)/)).not.toBeInTheDocument()
     })
 
     it('should say what is missing without a video', () => {

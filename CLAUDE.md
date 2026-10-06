@@ -112,39 +112,32 @@ src/
 
 ### Keyboard shortcuts (Player)
 
+One window-level `keydown` handler (`Player.tsx`) runs every player shortcut wherever focus is: body, video, buttons,
+the match strip, the event log. `utils/shortcuts.ts` decides (`shortcutFor` = which action, `shouldHandleShortcut` = whether):
+shortcuts never run in text inputs / textareas / selects / range inputs / contenteditable / menus / tabs, and not while the
+event picker or a sheet / panel is open (those have their own keys). `components/playerShortcuts.ts` performs the actions.
+
 | Key | Action |
 |-----|--------|
-| **G** | Mark event (opens picker: ⏎/G goal, P pen, O own goal, A pen awarded, X pen missed, H highlight, F foul, S save, **K kick off, W final whistle**) |
-| **M** | Mute / unmute |
+| **Space** | Play / pause (also with a button focused: the key-up click is suppressed) |
+| **G** | Add an event at the current playback time (opens the picker) |
+| **M** | Mute |
 | **, / .** | Decrease / increase playback speed (0.25x steps) |
 | **/** | Reset playback speed to 1x |
-| **Home** | Jump to match start (press again for 0:00) |
-| **End** | Jump to end of current file |
-| **Left / Right** | Seek ±5 seconds |
-| **Shift + Left / Right** | Seek ±1 second |
-| **Up / Down** | Step one frame forward / back (pauses) |
+| **Home / End** | Jump to kick-off (or start) / end of current file |
+| **Left / Right** | Seek ±5 seconds (Shift: ±1 s) |
+| **Up / Down** | Step one frame |
 | **[ / ]** | Previous / next file |
-| **F** | Toggle fullscreen (the whole player container, so overlays and the picker stay visible) |
-| **Z** | Cycle zoom 1× → 1.5× → 2× (picture only; Shift+drag or two-finger drag pans, pinch zooms) |
-| **0** | Reset zoom |
+| **Z / 0** | Cycle zoom / reset zoom |
+| **F** | Toggle fullscreen |
+| **L** | Focus the event log |
+| **Cmd/Ctrl+Z, +Shift** | Undo / redo (not in text fields) |
 
-Global: **L** focuses the event log (then ↑/↓ select, ⏎ watch, ⌫ delete, R replay, E scorer, T team, G mark, Esc back to the video); **⌘Z / ⇧⌘Z** undo / redo.
-
-### Layouts, touch and tablets
-
-`useLayout()` picks one of four layouts: `desktop` (edit bay: player + strip left, events rail right; also a touch tablet on its side),
-`landscape` (phone on its side, compact top bar), `tablet` (touch tablet held upright: player, strip, then the events in their own scroll
-region, no page scroll) and `phone` (stacked, page scrolls). **`AppShell` renders one tree for all of them** (CSS arranges it, the bay
-wrappers are `display: contents` when stacked): the player must never remount on rotation or resize, or the browser leaves fullscreen
-with the removed element. The orientation is never locked.
-
-- Touch ＋ captures the time but creates **no event** until a type is chosen (`markEvent(t, { deferred: true })` → `picker.pending` →
-  `commitPending()`); closing creates nothing. Desktop G / "+ Event" still create immediately.
-- Touch add / edit panels render into the `panel-slot` in the rail (`ColumnPanel`, `EventPicker` via `panelPlacement()`): they replace
-  the events column / area and never cover the picture. In fullscreen the picker is a compact right-hand overlay.
-- Selecting a row (or tapping it on touch, which opens the editor) never seeks or plays; **Watch** (row button, editor, ⏎) does.
-- Controls say "Penalty goal" (`controlLabel`); outputs (chapters, descriptions, captions) keep "Goal (pen)" (`eventLabel`).
-- Graphics need WebCodecs (`utils/capabilities.ts`); without it they are disabled with a message and the plain reel still renders.
+**Precedence:** a focused control that owns a key wins. In the event log (focused) Up/Down/Home/End select rows, Enter
+watches, Delete removes, R toggles replay, E / T / N edit person / team / note, G adds an event; the log stops propagation
+for those, everything else (Space, Left/Right, [ ] ...) falls through to the global handler. video.js sliders and buttons
+keep their own arrow / Space handling (they stop propagation). In the picker's type step K / T / W place Kick off /
+Half time / Final whistle (picker keys only; not global).
 
 ## Coding Practices
 
