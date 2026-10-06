@@ -77,8 +77,8 @@ function motion(t: number, duration: number): { alpha: number; dx: number } {
     return { alpha: p, dx: -60 * (1 - p) }
 }
 
-/** Captions, the score bug and the REPLAY tag are drawn 1.4× the original design so they read on a phone. */
-export const OVERLAY_SCALE = 1.4
+/** Captions, the score bug and the REPLAY tag are drawn 1.05× the original design (1.4×, then 25 % smaller). */
+export const OVERLAY_SCALE = 1.05
 const k = (v: number): number => Math.round(v * OVERLAY_SCALE)
 
 const BUG_H = k(64)

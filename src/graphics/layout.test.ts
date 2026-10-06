@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { BUG_ROWS, CAPTION_DELAY_SEC, CAPTION_ROWS, CAPTION_SEC, captionLayout, cardFade, cardLayout, replayTagLayout, scoreBugLayout, estimateTextWidth, type DrawOp, type RectOp, type TextOp } from './layout'
+import { BUG_ROWS, OVERLAY_SCALE, CAPTION_DELAY_SEC, CAPTION_ROWS, CAPTION_SEC, captionLayout, cardFade, cardLayout, replayTagLayout, scoreBugLayout, estimateTextWidth, type DrawOp, type RectOp, type TextOp } from './layout'
 import { NAVY, ORANGE } from './teamStyle'
 import type { BugSpec, CaptionSpec, CardSpec } from './types'
 
@@ -100,15 +100,15 @@ describe('captionLayout', () => {
         for (const o of texts(ops)) if (o.align === 'left') expect(o.x + (o.maxWidth ?? estimateTextWidth(o.text, o.size))).toBeLessThan(tag.x)
     })
 
-    it('should be legible on a 768×432 reel: event line ≥ 30 px, score ≥ 26 px, note ≥ 20 px', () => {
+    it('should be legible on a 768×432 reel: event line ≥ 22 px, score ≥ 19 px, note ≥ 15 px (25 % smaller than the 1.4x design)', () => {
         const scale = 432 / 1080
         const ops = texts(captionLayout({ ...goal, note: 'TOP CORNER' }, 2.5, true))
         const size = (t: string): number => ops.find((o) => o.text === t)!.size * scale
-        expect(size('GOAL')).toBeGreaterThanOrEqual(30)
-        expect(size('SAM')).toBeGreaterThanOrEqual(30)
-        expect(size('1–0')).toBeGreaterThanOrEqual(26)
-        expect(size('RR')).toBeGreaterThanOrEqual(24)
-        expect(size('TOP CORNER')).toBeGreaterThanOrEqual(20)
+        expect(size('GOAL')).toBeGreaterThanOrEqual(22)
+        expect(size('SAM')).toBeGreaterThanOrEqual(22)
+        expect(size('1–0')).toBeGreaterThanOrEqual(19)
+        expect(size('RR')).toBeGreaterThanOrEqual(18)
+        expect(size('TOP CORNER')).toBeGreaterThanOrEqual(15)
     })
 
     it('should size the event panel from the measured text', () => {
@@ -152,9 +152,9 @@ describe('text centring in panels', () => {
 
     it('should centre the event line in its own row and the note in its own band', () => {
         const ops = captionLayout({ label: 'GOAL', person: 'SAM', note: 'TOP BINS', stripe: '#fff', bug }, 2.5, true)
-        const top = 54 + Math.round(64 * 1.4) + Math.round(4 * 1.4)
-        const eventH = Math.round(72 * 1.4)
-        const noteH = Math.round(50 * 1.4)
+        const top = 54 + Math.round(64 * OVERLAY_SCALE) + Math.round(4 * OVERLAY_SCALE)
+        const eventH = Math.round(72 * OVERLAY_SCALE)
+        const noteH = Math.round(50 * OVERLAY_SCALE)
         expect(texts(ops).find((o) => o.text === 'GOAL')!.y).toBe(top + eventH / 2)
         expect(texts(ops).find((o) => o.text === 'SAM')!.y).toBe(top + eventH / 2)
         expect(texts(ops).find((o) => o.text === 'TOP BINS')!.y).toBe(top + eventH + noteH / 2)
@@ -210,11 +210,20 @@ describe('replayTagLayout', () => {
         const narrow = replayTagLayout(1, 6).find((o): o is RectOp => o.kind === 'rect')!
         expect(box.w).toBeGreaterThan(narrow.w)
         expect(box.x + box.w).toBe(1824)
-        expect(box.w).toBeGreaterThanOrEqual(wide('REPLAY', 67))
+        expect(box.w).toBeGreaterThanOrEqual(wide('REPLAY', 50))
     })
 
-    it('should be scaled up like the captions (≥ 26 px text on a 768×432 reel)', () => {
+    it('should be scaled like the captions (≥ 19 px text on a 768×432 reel)', () => {
         const text = replayTagLayout(1, 6).find((o): o is TextOp => o.kind === 'text')!
-        expect(text.size * 432 / 1080).toBeGreaterThanOrEqual(26)
+        expect(text.size * 432 / 1080).toBeGreaterThanOrEqual(19)
+    })
+})
+
+describe('overlay size', () => {
+    it('should draw captions, score bug and REPLAY tag 25 % smaller than the 1.4x design', () => {
+        expect(OVERLAY_SCALE).toBeCloseTo(1.4 * 0.75, 5)
+        const [tag] = replayTagLayout(0, 5).filter((o): o is RectOp => o.kind === 'rect')
+        expect(tag.h).toBe(Math.round(64 * OVERLAY_SCALE))
+        expect(tag.h).toBeLessThan(Math.round(64 * 1.4))
     })
 })

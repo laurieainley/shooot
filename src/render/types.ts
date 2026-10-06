@@ -64,6 +64,11 @@ export type RenderOptions = {
     /** Optional match graphics. Any that cannot be made are left out (never failing the render) and reported. */
     graphics?: RenderGraphics
     onGraphics?: (report: GraphicsReport) => void
+    /**
+     * Called before anything is rendered when some used files have another frame size than the first: they will be
+     * re-encoded scaled to cover it. Resolve false to cancel the render.
+     */
+    confirmMixedSizes?: (notice: string) => Promise<boolean>
     /** Output file name (default highlights.mp4). */
     outputName?: string
     /**

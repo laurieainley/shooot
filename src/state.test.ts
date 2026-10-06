@@ -502,3 +502,11 @@ describe('goal areas and replay framing', () => {
         expect(s().whitesAttackLeft).toBe(false)
     })
 })
+
+describe('defaults', () => {
+    it('should default the REPLAY tag on and the full-match score bug to after goals', () => {
+        const initial = useAppState.getInitialState()
+        expect(initial.graphics.replayTag).toBe(true)
+        expect(initial.fullMatch.scoreBug).toBe('goals')
+    })
+})

@@ -8,6 +8,7 @@ import { fileSource } from './fileSource'
 import { openGraphicsSession, type GraphicsSession, type OutItem } from './graphicsSession'
 import { hasInbandParams, planJoin, profileOf, type JoinPlan } from './joinParams'
 import { craToBla, lengthSize, withInbandParams } from './nal'
+import { mixedSizeNotice } from './outputSize'
 import { overlayRegions } from './overlayRegions'
 import { encodeReplayAudio } from './replayAudio'
 import { makeSilentAudio, type SilentAudio } from './silentAudio'
@@ -147,7 +148,8 @@ export const renderReel: RenderFn = async (cuts, sources, opts) => {
 
 type GraphicsRun = { graphics: RenderGraphics; report: GraphicsReport }
 
-async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOptions, run: GraphicsRun | null): Promise<File | Blob> {
+async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOptions, runIn: GraphicsRun | null): Promise<File | Blob> {
+    let run = runIn
     const { onProgress, signal } = opts
     const outputName = opts.outputName ?? OUTPUT_NAME
     if (cuts.length === 0) throw new Error('Nothing to render')
@@ -160,7 +162,18 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
         assertCompatible(opened, used)
 
         const first = opened[cuts[0].sourceIndex]
-        const skip = (labels: string[], reason: string): void => { run?.report.skipped.push(...labels.map((label) => ({ label, reason }))) }
+        // Mixed frame sizes: the output is the first file's size, the others are re-encoded scaled to cover it, so a
+        // graphics session is needed even without graphics. Ask first: this is slower than a copy.
+        const odd = [...used].filter((i) => opened[i].video.codedWidth !== first.video.codedWidth || opened[i].video.codedHeight !== first.video.codedHeight)
+        if (odd.length > 0) {
+            run ??= { graphics: { overlays: [] }, report: { applied: [], skipped: [] } }
+            const notice = mixedSizeNotice(odd.map((i) => ({
+                name: sources[i].name, width: opened[i].video.codedWidth, height: opened[i].video.codedHeight,
+                seconds: cuts.filter((c) => c.sourceIndex === i).reduce((a, c) => a + Math.max(0, Math.min(c.endSec, opened[i].endSec) - c.startSec), 0),
+            })), first.video.codedWidth, first.video.codedHeight)
+            if (opts.confirmMixedSizes && !(await opts.confirmMixedSizes(notice))) throw new DOMException('Render cancelled', 'AbortError')
+        }
+        const skip = (labels: string[], reason: string): void => { run?.report.skipped.push(...labels.filter(Boolean).map((label) => ({ label, reason }))) }
 
         // Graphics: one encoder for the reel, a sample entry that covers it and every clip, or none at all.
         let session: GraphicsSession | null = null
@@ -168,6 +181,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             try {
                 session = await openGraphicsSession([...used].map((i) => opened[i]), first)
             } catch (e) {
+                if (odd.length > 0) throw new Error(`Clips have different frame sizes and cannot be scaled in this browser: ${errorText(e)}`)
                 skip([...graphicLabels(run.graphics), ...cropLabels(cuts)], errorText(e))
             }
         }
@@ -330,6 +344,9 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                 return o
             })
             if (session && cut.crop) overlays = [...(overlays ?? []), cropOverlayFor(cut, ci, cutStart, realEnd)]
+            // Footage of another frame size: every picture is re-encoded (the whole cut is one window that draws nothing).
+            const rescale = !!session && session.rescales(src)
+            if (rescale) overlays = [...(overlays ?? []), { label: '', cutIndex: ci, startSec: cutStart, durationSec: Math.max(1e-3, realEnd - cutStart) + 1, paint: () => undefined, rows: () => [0, 0] }]
             if (session && overlays) {
                 // Overlays: the cut is streamed; only the stretches around overlay windows are read into memory,
                 // their GOPs re-encoded with the overlay drawn in, and handed on (see overlayRegions).
@@ -347,8 +364,10 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                     if (mine.length === 0) { for (const p of buf) yield { packet: p, generated: false, splice: false }; return }
                     onProgress({ cutIndex: ci, cutCount: cuts.length, fraction: Math.min(1, (done + Math.max(0, start - cut.startSec)) / total), stage: 'Graphics' })
                     const r = await sess.overlayCut(src, buf, end, mine)
-                    report.applied.push(...r.applied)
-                    report.skipped.push(...r.skipped)
+                    // Scaled footage must not be copied unscaled into a file of another size: that is a failure.
+                    if (rescale && r.skipped.length > 0) throw new Error(`${sources[cut.sourceIndex].name}: ${r.skipped[0].reason}`)
+                    report.applied.push(...r.applied.filter(Boolean))
+                    report.skipped.push(...r.skipped.filter((g) => g.label))
                     yield* r.items
                 }
                 items = (async function* () {

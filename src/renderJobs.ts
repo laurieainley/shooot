@@ -30,6 +30,8 @@ export type RenderJob = {
     report: GraphicsReport | null
     result: { file: File; url: string; downloaded: boolean } | null
     error: string | null
+    /** Waiting for the user: footage of another frame size will be re-encoded (Render / Cancel). */
+    notice?: string | null
     finishedAt: number | null
 }
 
@@ -51,6 +53,8 @@ export type RenderJobsState = {
     running: () => boolean
     start: (what: { kind: JobKind; quality: RenderQuality }, prepare: () => Promise<RenderRequest>) => Promise<'started' | 'busy'>
     cancel: () => void
+    /** Answers the pending notice: true carries on, false cancels the render. */
+    answerNotice: (ok: boolean) => void
     /** Reports from preparing graphics (before the engine runs). */
     setReport: (report: GraphicsReport) => void
     clearConflict: () => void
@@ -60,6 +64,7 @@ export type RenderJobsState = {
 export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState> {
     let controller: AbortController | null = null
     let seq = 0
+    let pending: ((ok: boolean) => void) | null = null
     return createStore<RenderJobsState>()((set, get) => {
         const patch = (id: number, p: Partial<RenderJob>): void => {
             const job = get().job
@@ -77,13 +82,17 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                 const startedAt = deps.now()
                 controller = new AbortController()
                 const signal = controller.signal
-                set({ conflict: false, job: { id, kind, quality, phase: 'running', startedAt, fraction: 0, status: 'Preparing…', report: null, result: null, error: null, finishedAt: null } })
+                set({ conflict: false, job: { id, kind, quality, phase: 'running', startedAt, fraction: 0, status: 'Preparing…', report: null, result: null, error: null, notice: null, finishedAt: null } })
                 try {
                     const req = await prepare()
                     if (signal.aborted) throw new DOMException('Render cancelled', 'AbortError')
                     const out = await deps.render(req.cuts, req.sources, {
                         onProgress: (p) => patch(id, { fraction: p.fraction, status: formatRenderProgress(p) }),
                         signal,
+                        confirmMixedSizes: (notice) => new Promise<boolean>((resolve) => {
+                            pending = resolve
+                            patch(id, { notice, status: 'Waiting for you' })
+                        }),
                         outputName: req.outputName,
                         ...(req.resumable ? { resumable: req.resumable } : {}),
                         // Reports also come for replay crops, which are drawn even when there are no graphics.
@@ -107,7 +116,14 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                 }
                 return 'started'
             },
-            cancel: () => { controller?.abort(); set({ conflict: false }) },
+            cancel: () => { controller?.abort(); get().answerNotice(false); set({ conflict: false }) },
+            answerNotice: (ok) => {
+                const resolve = pending
+                pending = null
+                const job = get().job
+                if (job?.notice) set({ job: { ...job, notice: null, status: ok ? 'Preparing…' : job.status } })
+                resolve?.(ok)
+            },
             setReport: (report) => { const j = get().job; if (j) set({ job: { ...j, report } }) },
             clearConflict: () => set({ conflict: false }),
             downloadAgain: () => {

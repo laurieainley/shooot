@@ -12,7 +12,7 @@ import { parseGoProName } from './utils/gopro'
 import { buildPreviewPlan, type PreviewStep } from './utils/preview'
 import { normaliseGraphics, type GraphicsSettings } from './graphics/plan'
 
-const DEFAULT_GRAPHICS: GraphicsSettings = { cards: true, lowerThirds: true, replayTag: false }
+const DEFAULT_GRAPHICS: GraphicsSettings = { cards: true, lowerThirds: true, replayTag: true }
 import type { FullMatchSettings } from './utils/exportPlans'
 
 /** Links events to the loaded files: migrated whole-timeline times are placed first, then file keys matched. */
@@ -415,7 +415,7 @@ export const useAppState = create<AppState>()(
             openPicker: (eventId) => set({ picker: { eventId }, panel: null }),
             closePicker: () => set({ picker: null }),
             setGraphics: (partial) => set({ graphics: normaliseGraphics({ ...get().graphics, ...partial }, get().graphics) }),
-            fullMatch: { cards: true, scoreBug: 'periodic', intervalMin: 5 },
+            fullMatch: { cards: true, scoreBug: 'goals', intervalMin: 5 },
             exportTab: 'highlights',
             setExportTab: (tab) => set({ exportTab: tab }),
             setFullMatch: (partial) => set({ fullMatch: { ...get().fullMatch, ...partial } }),

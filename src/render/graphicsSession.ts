@@ -7,11 +7,14 @@ import { frameDuration, presentationRanks } from './frameGrid'
 import { covers, craToBla, paramSets, pickSampleEntry, spsLimits, spsOf, withInbandParams, type SpsLimits } from './nal'
 import { overlaySpans, type Gop, type ReencodeSpan } from './overlayWindow'
 import { cropPixels } from '../utils/crop'
+import { coverRect } from './outputSize'
 import { describeOutput, encodeSegment, i420Frame, probeEncoders, withBitrate, type EncoderSetup } from './segmentEncoder'
 import { applyOverlay, convertRange, fadeI420, i420Layout, isYuv420, matrixOf, prepareOverlay, rgbaToI420, targetColorSpace, type PlaneLayout, type PreparedOverlay, type YuvPlanes } from './yuvBlend'
 import type { RenderCard, RenderOverlay } from './types'
 
 export type GraphicsSource = { video: InputVideoTrack; config: VideoDecoderConfig; nalLength: number }
+
+/** Sources of a different frame size than the output: their footage is re-encoded scaled to cover it. */
 
 /** A packet for the output track. `splice`: a footage key the copy resumes at (leading pictures dropped). */
 export type OutItem = { packet: EncodedPacket; generated: boolean; splice: boolean }
@@ -41,10 +44,11 @@ export class GraphicsSession {
     private readonly setup: EncoderSetup
     private readonly entryLimits: SpsLimits
     private readonly footageParams: Map<GraphicsSource, Uint8Array[]>
+    private readonly rescaled: Set<GraphicsSource>
 
     constructor(o: {
         hevc: boolean; entry: VideoDecoderConfig; frameSec: number; width: number; height: number
-        colorSpace: VideoColorSpaceInit; setup: EncoderSetup; entryLimits: SpsLimits; footageParams: Map<GraphicsSource, Uint8Array[]>
+        colorSpace: VideoColorSpaceInit; setup: EncoderSetup; entryLimits: SpsLimits; footageParams: Map<GraphicsSource, Uint8Array[]>; rescaled: Set<GraphicsSource>
     }) {
         this.hevc = o.hevc
         this.entry = o.entry
@@ -55,6 +59,12 @@ export class GraphicsSession {
         this.setup = o.setup
         this.entryLimits = o.entryLimits
         this.footageParams = o.footageParams
+        this.rescaled = o.rescaled
+    }
+
+    /** True for footage of another size than the output: every frame of it is decoded, scaled to cover and re-encoded. */
+    rescales(src: GraphicsSource): boolean {
+        return this.rescaled.has(src)
     }
 
     /** A copied footage key frame with its own parameter sets in-band (and BLA when it is a splice point). */
@@ -185,7 +195,9 @@ export class GraphicsSession {
         const keyTimes = new Set(keyIdx.map((k) => packets[k].timestamp).filter(inSpan))
         // Footage-like bitrate: the bytes being replaced over their duration, with some headroom.
         const bytes = packets.slice(keyIdx[span.from], end).reduce((a, p) => a + p.data.byteLength, 0)
-        const bitrate = Math.max(1e6, (bytes * 8 * 1.3) / Math.max(this.frameSec, span.outEnd - span.outStart))
+        const fromBytes = Math.max(1e6, (bytes * 8 * 1.3) / Math.max(this.frameSec, span.outEnd - span.outStart))
+        // Rescaled footage is smaller than its source: cap at what the output size needs.
+        const bitrate = this.rescaled.has(src) ? Math.min(fromBytes, Math.max(8e6, (this.width * this.height) / (1920 * 1080) * 25e6)) : fromBytes
         const nearest = (us: number): EncodedPacket => {
             let best = wanted[0]
             for (const p of wanted) if (Math.abs(p.timestamp * 1e6 - us) < Math.abs(best.timestamp * 1e6 - us)) best = p
@@ -207,8 +219,8 @@ export class GraphicsSession {
                     if (Math.abs(src0.timestamp * 1e6 - frame.timestamp) > 2000 || !inSpan(src0.timestamp)) { frame.close(); return }
                     let out: VideoFrame
                     try {
-                        out = await this.paintFrame(frame, src0.timestamp, overlays, cache, () => {
-                            if (!canvas) { canvas = new OffscreenCanvas(frame.visibleRect!.width, frame.visibleRect!.height); ctx = canvas.getContext('2d', { willReadFrequently: true }) }
+                        out = await this.paintFrame(frame, src0.timestamp, overlays, cache, this.rescaled.has(src), () => {
+                            if (!canvas) { canvas = new OffscreenCanvas(this.width, this.height); ctx = canvas.getContext('2d', { willReadFrequently: true }) }
                             if (!ctx) throw new Error('no 2D canvas')
                             return ctx
                         })
@@ -231,7 +243,7 @@ export class GraphicsSession {
             if (encodedCount !== wanted.length || encoded.length !== wanted.length) throw new Error(`re-encoded ${encoded.length} of ${wanted.length} frames`)
             // Back onto the source's exact timestamps.
             const timed = encoded.map((p) => { const s = nearest(p.timestamp * 1e6); return p.clone({ timestamp: s.timestamp, duration: s.duration }) })
-            return this.finish(timed, description, src.nalLength)
+            return this.finish(timed, description, this.rescaled.has(src) ? this.setup.nalLength : src.nalLength)
         } finally {
             for (const f of queue) f.close()
             if (decoder.state !== 'closed') decoder.close()
@@ -241,15 +253,19 @@ export class GraphicsSession {
     private rasterCanvas: OffscreenCanvas | null = null
 
     /** Draws any decodable frame onto a canvas (optionally just a part of it, scaled up to the whole canvas) and returns its RGBA pixels. */
-    private rasterise(frame: VideoFrame, width: number, height: number, crop?: RenderOverlay['crop']): Uint8ClampedArray {
+    private rasterise(frame: VideoFrame, width: number, height: number, crop?: RenderOverlay['crop'], cover = false): Uint8ClampedArray {
         if (!this.rasterCanvas || this.rasterCanvas.width !== width || this.rasterCanvas.height !== height) {
             this.rasterCanvas = new OffscreenCanvas(width, height)
         }
-        const ctx = this.rasterCanvas.getContext('2d', crop ? undefined : { willReadFrequently: true })
+        const ctx = this.rasterCanvas.getContext('2d', crop || cover ? undefined : { willReadFrequently: true })
         if (!ctx) throw new Error('no 2D canvas to convert decoded frames')
         ctx.imageSmoothingEnabled = true
         ctx.imageSmoothingQuality = 'high'
-        if (crop) {
+        if (cover) {
+            const v = frame.visibleRect!
+            const { sx, sy, sw, sh } = coverRect(v.width, v.height, width, height, crop)
+            ctx.drawImage(frame, v.x + sx, v.y + sy, sw, sh, 0, 0, width, height)
+        } else if (crop) {
             const { sx, sy, sw, sh } = cropPixels(crop, width, height)
             ctx.drawImage(frame, sx, sy, sw, sh, 0, 0, width, height)
         } else {
@@ -259,10 +275,10 @@ export class GraphicsSession {
     }
 
     /** Copies a decoded frame's planes, blends the active overlays in, and returns a new frame for the encoder. */
-    private async paintFrame(frame: VideoFrame, t: number, overlays: RenderOverlay[], cache: OverlayCache, getCtx: () => OffscreenCanvasRenderingContext2D): Promise<VideoFrame> {
+    private async paintFrame(frame: VideoFrame, t: number, overlays: RenderOverlay[], cache: OverlayCache, rescale: boolean, getCtx: () => OffscreenCanvasRenderingContext2D): Promise<VideoFrame> {
         const rect = frame.visibleRect!
-        const W = rect.width
-        const H = rect.height
+        const W = rescale ? this.width : rect.width
+        const H = rescale ? this.height : rect.height
         const cs = this.colorSpace
         let buf: Uint8Array
         let layout: PlaneLayout[]
@@ -270,14 +286,14 @@ export class GraphicsSession {
         const active = overlays.filter((o) => t >= o.startSec - 1e-6 && t < o.startSec + o.durationSec)
         // A replay crop replaces the picture first (rasterised through a canvas), anything drawn goes over it.
         const crop = active.find((o) => o.crop)?.crop
-        if (isYuv420(frame.format) && !crop) {
+        if (isYuv420(frame.format) && !crop && !rescale) {
             format = frame.format
             buf = new Uint8Array(frame.allocationSize())
             layout = await frame.copyTo(buf)
         } else {
             // Some decoders (e.g. Android hardware, GPU-backed frames) hand back RGBA/BGRA or opaque frames:
             // rasterise through a canvas and convert to I420 in the footage's matrix and range.
-            const rgba = this.rasterise(frame, W, H, crop)
+            const rgba = this.rasterise(frame, W, H, crop, rescale)
             format = 'I420'
             buf = rgbaToI420(rgba, W, H, matrixOf(cs.matrix), cs.fullRange ?? false)
             layout = i420Layout(W, H)
@@ -287,7 +303,7 @@ export class GraphicsSession {
         // limited-range NV12 for full-range HEVC): bring the samples back to the footage's range.
         // (Rasterised frames were converted straight into the footage's range above.)
         const decodedFull = frame.colorSpace.fullRange ?? false
-        if (isYuv420(frame.format) && !crop && decodedFull !== (cs.fullRange ?? false)) convertRange(planes, cs.fullRange ?? false)
+        if (isYuv420(frame.format) && !crop && !rescale && decodedFull !== (cs.fullRange ?? false)) convertRange(planes, cs.fullRange ?? false)
         if (active.some((o) => o.rows(W, H)[1] > o.rows(W, H)[0])) {
             const ctx = getCtx()
             let y0 = H
@@ -328,9 +344,11 @@ export async function openGraphicsSession(sources: GraphicsSource[], first: Grap
     const height = first.video.codedHeight
     const footageParams = new Map<GraphicsSource, Uint8Array[]>()
     const limits: SpsLimits[] = []
+    const rescaled = new Set<GraphicsSource>()
     for (const s of sources) {
         if (!s.config.description) throw new Error('the video has no parameter sets in its sample entry')
-        if (s.video.codedWidth !== width || s.video.codedHeight !== height) throw new Error('the clips have different frame sizes')
+        // Another frame size: its footage is re-encoded to the output size, so its parameter sets never reach the file.
+        if (s.video.codedWidth !== width || s.video.codedHeight !== height) { rescaled.add(s); continue }
         if (s.nalLength !== first.nalLength) throw new Error('the clips use different NAL length sizes')
         const params = paramSets(s.config.description, hevc)
         const sps = spsOf(params, hevc)
@@ -348,10 +366,11 @@ export async function openGraphicsSession(sources: GraphicsSource[], first: Grap
         const all = [...limits, setup.limits]
         const idx = pickSampleEntry(all)
         if (idx === -1) { reason = 'the encoder and the footage need different decoder sizes'; continue }
-        const entry: VideoDecoderConfig = idx < sources.length
-            ? sources[idx].config
+        const copied = sources.filter((s) => !rescaled.has(s))
+        const entry: VideoDecoderConfig = idx < copied.length
+            ? copied[idx].config
             : { codec: setup.output.codec, description: setup.output.description, codedWidth: width, codedHeight: height, colorSpace }
-        return new GraphicsSession({ hevc, entry, frameSec, width, height, colorSpace, setup, entryLimits: all[idx], footageParams })
+        return new GraphicsSession({ hevc, entry, frameSec, width, height, colorSpace, setup, entryLimits: all[idx], footageParams, rescaled })
     }
     throw new Error(reason)
 }

@@ -50,4 +50,29 @@ describe('RenderStatus', () => {
         expect(await screen.findByText(/Rendering highlights · 0%/)).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
     })
+
+    it('should ask about re-encoding mixed frame sizes before rendering, and carry on when confirmed', async () => {
+        let answer: boolean | null = null
+        renderReel.mockImplementation(async (_c, _s, o: { confirmMixedSizes: (n: string) => Promise<boolean> }) => { answer = await o.confirmMixedSizes('B.MP4 is 3840×2160. It will be scaled to 1920×1080.'); return new Blob(['x']) })
+        const done = start('highlights')
+        render(<RenderStatus kind="highlights" />)
+        expect(await screen.findByText(/B\.MP4 is 3840×2160/)).toBeInTheDocument()
+        await userEvent.click(screen.getByRole('button', { name: 'Render' }))
+        await waitFor(() => expect(answer).toBe(true))
+        await done
+        expect(screen.queryByText(/B\.MP4 is 3840×2160/)).not.toBeInTheDocument()
+    })
+
+    it('should cancel the render when the mixed sizes notice is declined', async () => {
+        renderReel.mockImplementation(async (_c, _s, o: { confirmMixedSizes: (n: string) => Promise<boolean> }) => {
+            if (!(await o.confirmMixedSizes('B.MP4 is 3840×2160'))) throw new DOMException('Render cancelled', 'AbortError')
+            return new Blob(['x'])
+        })
+        const done = start('highlights')
+        render(<RenderStatus kind="highlights" />)
+        await screen.findByText(/B\.MP4 is 3840×2160/)
+        await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+        await done
+        expect(renderJobs().getState().job).toBeNull()
+    })
 })
