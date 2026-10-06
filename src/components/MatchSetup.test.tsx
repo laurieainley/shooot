@@ -26,6 +26,16 @@ describe('MatchSetup', () => {
         expect(s().events[0].team).toBe('Lights')
     })
 
+    it('should offer a multicolour swatch that stores \'multi\' and shows as stripes', async () => {
+        render(<MatchSetup onClose={() => {}} />)
+        const swatch = screen.getByRole('button', { name: 'Team 2 colour multicolour' })
+        expect(swatch).toHaveAttribute('aria-pressed', 'false')
+        await userEvent.click(swatch)
+        expect(s().teams[1].color).toBe('multi')
+        expect(screen.getByRole('button', { name: 'Team 2 colour multicolour' })).toHaveAttribute('aria-pressed', 'true')
+        expect(swatch.style.background).toMatch(/linear-gradient/)
+    })
+
     it('should parse a pasted roster on blur', () => {
         render(<MatchSetup onClose={() => {}} />)
         const roster = screen.getByLabelText('Team 2 roster')

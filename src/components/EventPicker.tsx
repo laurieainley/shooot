@@ -1,3 +1,4 @@
+import { teamBackground } from '../utils/teamColor'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppState } from '../state'
@@ -163,7 +164,7 @@ export function EventPicker() {
                     {names.map((n, i) => (
                         <li key={n} role="option" aria-selected={!coarse && i === state.highlighted}
                             className="event-picker__item" onClick={() => dispatch({ kind: 'choose', value: n })}>
-                            {coarse && <span className="team-dot" style={{ background: teams[i].color }} />}
+                            {coarse && <span className="team-dot" style={{ background: teamBackground(teams[i].color) }} />}
                             <span>{n}</span>{' '}
                             {!coarse && <kbd>{shortcuts[i].toUpperCase()}</kbd>}
                         </li>

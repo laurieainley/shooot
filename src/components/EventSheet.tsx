@@ -1,3 +1,4 @@
+import { teamBackground } from '../utils/teamColor'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { selectMatchStartSec, useAppState } from '../state'
 import type { MarkerType, MatchEvent, Team } from '../types'
@@ -112,7 +113,7 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
                         {teams.map((t) => (
                             <button key={t.name} type="button" className="chip" aria-pressed={e.team === t.name}
                                 onClick={() => { if (e.team !== t.name) update({ team: t.name }) }}>
-                                <span className="team-dot" style={{ background: t.color }} />{t.name}
+                                <span className="team-dot" style={{ background: teamBackground(t.color) }} />{t.name}
                             </button>
                         ))}
                         <button type="button" className="chip" aria-label="No team" aria-pressed={!e.team}

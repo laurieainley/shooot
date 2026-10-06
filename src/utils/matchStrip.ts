@@ -1,3 +1,4 @@
+import { teamBackground } from './teamColor'
 import type { MarkerType, MatchEvent, Team } from '../types'
 import { eventLabel, isMarker, shortNote } from './eventTypes'
 import { mergeOverlappingGoalSegments } from './highlights'
@@ -61,7 +62,7 @@ export function buildMatchStrip(args: {
         return {
             id: e.id,
             leftPct: pct(g),
-            color: team?.color ?? 'var(--muted)',
+            color: teamBackground(team?.color),
             title: `${formatHMS(g)} ${eventLabel(e)}${e.team ? ` – ${e.team}` : ''}${e.scorer ? ` (${e.scorer})` : ''}${note ? ` — ${note}` : ''}`,
             kind: e.type,
         }

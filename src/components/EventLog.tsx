@@ -1,3 +1,4 @@
+import { teamBackground } from '../utils/teamColor'
 import { shouldHandleShortcut } from '../utils/shortcuts'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { selectMatchStartSec, useAppState } from '../state'
@@ -223,7 +224,7 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, o
             <span
                 data-team-dot
                 className="team-dot"
-                style={{ background: team?.color ?? 'var(--muted)' }}
+                style={{ background: teamBackground(team?.color) }}
                 title={e.team ? `${e.team} · double-click to change` : 'No team · double-click to set'}
                 onDoubleClick={(ev) => { stop(ev); onEdit('team') }}
             />
@@ -235,7 +236,7 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, o
                             onClick={() => { update(e.id, { team: t.name }); done() }}
                             onKeyDown={(ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); done() } }}
                             className="btn-quiet flex items-center gap-1 px-1.5 py-0 text-[12px]">
-                            <span className="team-dot" style={{ background: t.color }} />{t.name}
+                            <span className="team-dot" style={{ background: teamBackground(t.color) }} />{t.name}
                         </button>
                     ))}
                 </span>
