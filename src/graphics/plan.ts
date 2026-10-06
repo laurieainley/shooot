@@ -6,15 +6,20 @@ import { finalScore, formatScore, scoreAt, scoresAfter, type Score } from '../ut
 import type { ScoreBugWindow } from '../utils/scoreBug'
 import { CAPTION_DELAY_SEC, CAPTION_SEC } from './layout'
 import { ORANGE, teamBadge } from './teamStyle'
-import type { BugScore, BugSpec, CaptionClock, CaptionSpec, CardSpec, GraphicsSpec, OverlaySpec } from './types'
+import type { BugSpec, CaptionClock, CaptionSpec, CardSpec, GraphicsSpec, OverlaySpec } from './types'
 
 export type GraphicsSettings = {
     cards: boolean
     /** Event captions (top-left, 5 s); the key predates the move from the bottom lower third. */
     lowerThirds: boolean
     replayTag: boolean
-    /** Highlights: score bug on every frame (re-encodes the whole reel). */
-    scoreBug: boolean
+}
+
+/** Settings from storage or an imported project: only the current switches, the rest (e.g. the removed "score always on screen") ignored. */
+export function normaliseGraphics(v: unknown, fallback: GraphicsSettings): GraphicsSettings {
+    const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>
+    const pick = (k: keyof GraphicsSettings): boolean => (typeof o[k] === 'boolean' ? (o[k] as boolean) : fallback[k])
+    return { cards: pick('cards'), lowerThirds: pick('lowerThirds'), replayTag: pick('replayTag') }
 }
 
 /** Captions go on goals (incl. penalties and own goals), missed penalties and highlights with a note. */
@@ -52,7 +57,6 @@ export function buildGraphicsSpec(args: {
     const events = linkedEvents(args.events)
     const spec: GraphicsSpec = { overlays: [] }
     const both = teams.length >= 2
-    const alwaysBug = !!settings.scoreBug && both
     const globalOf = (src: number, t: number): number => (cumulativeOffsets[src] ?? 0) + t
 
     if (settings.cards && both) Object.assign(spec, cards(teams, events, args.matchday))
@@ -81,13 +85,13 @@ export function buildGraphicsSpec(args: {
             const label = `Caption: ${eventSummary(e)}`
             const clock = (offsetSec: number, rate: number): CaptionClock => ({ offsetSec, rate, totalSec: CAPTION_SEC })
             const part: CaptionOverlay[] = []
-            if (first > 0.05) part.push({ kind: 'caption', cutIndex, startSec: start, durationSec: first, spec: cs, anchored: alwaysBug, clock: clock(0, 1), label })
+            if (first > 0.05) part.push({ kind: 'caption', cutIndex, startSec: start, durationSec: first, spec: cs, clock: clock(0, 1), label })
             const next = cuts[cutIndex + 1]
             const rest = CAPTION_SEC - (first > 0.05 ? first : 0)
             if (rest > 0.05 && next && (next.speed ?? 1) < 1) {
                 const speed = next.speed ?? 1
                 const offset = CAPTION_SEC - rest
-                part.push({ kind: 'caption', cutIndex: cutIndex + 1, startSec: next.startSec, durationSec: Math.min(next.endSec - next.startSec, rest * speed), spec: cs, anchored: alwaysBug, clock: clock(offset, 1 / speed), fromCutStart: true, label })
+                part.push({ kind: 'caption', cutIndex: cutIndex + 1, startSec: next.startSec, durationSec: Math.min(next.endSec - next.startSec, rest * speed), spec: cs, clock: clock(offset, 1 / speed), fromCutStart: true, label })
             }
             if (part.length === 0) continue
             parts.push(part)
@@ -106,25 +110,6 @@ export function buildGraphicsSpec(args: {
         captions.push(...parts.flat().filter((o) => o.durationSec > 0))
         captions.sort((x, y) => x.cutIndex - y.cutIndex || x.startSec - y.startSec)
         spec.overlays.push(...captions)
-    }
-
-    if (alwaysBug) {
-        cuts.forEach((c, cutIndex) => {
-            const scores: BugScore[] = []
-            if ((c.speed ?? 1) < 1) {
-                // A replay shows the score after the moment it replays, throughout.
-                scores.push({ fromSec: c.startSec, bug: bugFor(teams, scoreAt(events, teams, cumulativeOffsets, globalOf(c.sourceIndex, c.endSec))) })
-            } else {
-                scores.push({ fromSec: c.startSec, bug: bugFor(teams, scoreAt(events, teams, cumulativeOffsets, globalOf(c.sourceIndex, c.startSec))) })
-                for (const e of events) {
-                    if (!isScoring(e) || (e.sourceFileIndex ?? 0) !== c.sourceIndex || !(e.matchTimeSec > c.startSec && e.matchTimeSec < c.endSec)) continue
-                    scores.push({ fromSec: e.matchTimeSec, bug: bugFor(teams, scoreAt(events, teams, cumulativeOffsets, globalOf(c.sourceIndex, e.matchTimeSec))) })
-                }
-                scores.sort((x, y) => x.fromSec - y.fromSec)
-            }
-            const hide = captions.filter((o) => o.cutIndex === cutIndex && !o.fromCutStart).map((o): [number, number] => [o.startSec, o.startSec + o.durationSec])
-            spec.overlays.push({ kind: 'scoreBug', cutIndex, startSec: c.startSec, durationSec: c.endSec - c.startSec, scores, fadeIn: false, fadeOut: false, hide, label: 'Score bug' })
-        })
     }
 
     if (settings.replayTag) {
@@ -164,7 +149,7 @@ export function fullMatchGraphicsSpec(args: {
             spec.overlays.push({
                 kind: 'scoreBug', cutIndex, startSec: s0 - off, durationSec: s1 - s0,
                 scores: [{ fromSec: s0 - off, bug: bugFor(teams, w.score) }],
-                fadeIn: s0 - a < 0.05, fadeOut: b - s1 < 0.05, hide: [], label: 'Score bug',
+                fadeIn: s0 - a < 0.05, fadeOut: b - s1 < 0.05, label: 'Score bug',
             })
         })
     }

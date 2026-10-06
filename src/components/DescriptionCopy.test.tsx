@@ -11,7 +11,7 @@ describe('DescriptionCopy', () => {
         writeText = vi.fn(() => Promise.resolve())
         Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
         useAppState.setState({
-            cumulativeOffsets: [0], lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, graphics: { cards: false, lowerThirds: true, replayTag: false, scoreBug: false },
+            cumulativeOffsets: [0], lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, graphics: { cards: false, lowerThirds: true, replayTag: false },
             teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }],
             events: [
                 { id: 'k', matchTimeSec: 30, sourceFileIndex: 0, type: 'kick_off' },

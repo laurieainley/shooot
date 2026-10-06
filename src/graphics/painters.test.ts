@@ -8,7 +8,7 @@ const spec: GraphicsSpec = {
     intro: { heading: 'MATCHDAY 1', centre: 'VS', left: badge, right: badge },
     outro: { heading: 'FULL TIME', centre: '0 - 0', left: badge, right: badge },
     overlays: [
-        { kind: 'caption', cutIndex: 2, startSec: 20, durationSec: 5, spec: { label: 'GOAL', stripe: '#fff' }, anchored: false, clock: { offsetSec: 0, rate: 1, totalSec: 5 }, label: 'Caption: Goal' },
+        { kind: 'caption', cutIndex: 2, startSec: 20, durationSec: 5, spec: { label: 'GOAL', stripe: '#fff' }, clock: { offsetSec: 0, rate: 1, totalSec: 5 }, label: 'Caption: Goal' },
         { kind: 'replayTag', cutIndex: 3, startSec: 16, durationSec: 5, label: 'Replay tag' },
     ],
 }
@@ -57,7 +57,7 @@ describe('score bug painter', () => {
     const bug = (text: string) => ({ left: 'WH', right: 'CO', leftColour: '#fff', rightColour: '#f00', text })
     const [overlay] = toRenderGraphics({ overlays: [{
         kind: 'scoreBug', cutIndex: 0, startSec: 10, durationSec: 14, fadeIn: false, fadeOut: false, label: 'Score bug',
-        scores: [{ fromSec: 10, bug: bug('0–0') }, { fromSec: 20, bug: bug('1–0') }], hide: [[20, 24]],
+        scores: [{ fromSec: 10, bug: bug('0–0') }, { fromSec: 20, bug: bug('1–0') }],
     }] }, { logo: null }).overlays
 
     it('should draw the score in force at each moment', () => {
@@ -66,18 +66,10 @@ describe('score bug painter', () => {
         expect(r.drawn).toEqual(['WH', '0–0', 'CO'])
     })
 
-    it('should cover the whole cut when always on, and start a carried-on caption with its cut', () => {
+    it('should cover the whole cut when the window runs through it, and start a carried-on caption with its cut', () => {
         expect(overlay.anchor).toBe('wholeCut')
-        const [cap] = toRenderGraphics({ overlays: [{ kind: 'caption', cutIndex: 1, startSec: 16, durationSec: 0.5, spec: { label: 'GOAL', stripe: '#fff' }, anchored: false, clock: { offsetSec: 4, rate: 2, totalSec: 5 }, fromCutStart: true, label: 'c' }] }, { logo: null }).overlays
+        const [cap] = toRenderGraphics({ overlays: [{ kind: 'caption', cutIndex: 1, startSec: 16, durationSec: 0.5, spec: { label: 'GOAL', stripe: '#fff' }, clock: { offsetSec: 4, rate: 2, totalSec: 5 }, fromCutStart: true, label: 'c' }] }, { logo: null }).overlays
         expect(cap.anchor).toBe('fromCutStart')
         expect(toRenderGraphics(spec, { logo: null }).overlays[1].anchor).toBe('stretchToCut')
-    })
-
-    it('should draw nothing while a caption shows the score', () => {
-        const r = recorder()
-        overlay.paint(r.ctx, 11)
-        expect(r.drawn).toEqual([])
-        overlay.paint(r.ctx, 14)
-        expect(r.drawn).toEqual(['WH', '1–0', 'CO'])
     })
 })

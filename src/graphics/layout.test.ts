@@ -67,8 +67,8 @@ describe('cardFade', () => {
 describe('captionLayout', () => {
     const bug: BugSpec = { left: 'RR', right: 'WT', leftColour: '#f0f0f0', rightColour: '#ec5fa4', text: '1–0' }
     const goal: CaptionSpec = { label: 'GOAL', person: 'SAM', stripe: '#f0f0f0', bug }
-    const alphaAt = (spec: CaptionSpec, t: number, anchored = false): number =>
-        Math.max(...captionLayout(spec, t, true, CAPTION_SEC, estimateTextWidth, anchored).map((o) => (o.kind === 'cardBackground' ? 1 : o.alpha ?? 1)))
+    const alphaAt = (spec: CaptionSpec, t: number): number =>
+        Math.max(...captionLayout(spec, t, true, CAPTION_SEC, estimateTextWidth).map((o) => (o.kind === 'cardBackground' ? 1 : o.alpha ?? 1)))
     const rects = (ops: DrawOp[]): RectOp[] => ops.filter((o): o is RectOp => o.kind === 'rect')
 
     it('should show the score bug (initials and score) with the event line beneath', () => {
@@ -132,14 +132,6 @@ describe('captionLayout', () => {
         expect(alphaAt(goal, CAPTION_SEC)).toBe(0)
         const x = (t: number): number => Math.min(...rects(captionLayout(goal, t, true)).map((o) => o.x))
         expect(x(0.1)).toBeLessThan(x(2.5))
-    })
-
-    it('should keep the bug row still when anchored to an always-on score bug (only the event line moves)', () => {
-        const still = scoreBugLayout(bug, 0, 1, true, false)
-        const anchoredStart = captionLayout(goal, 0.05, true, CAPTION_SEC, estimateTextWidth, true)
-        for (const r of rects(still)) expect(anchoredStart).toContainEqual(expect.objectContaining({ kind: 'rect', x: r.x, y: r.y, w: r.w, h: r.h, fill: r.fill, alpha: 1 }))
-        const event = texts(anchoredStart).find((o) => o.text === 'GOAL')!
-        expect(event.alpha).toBeLessThan(1)
     })
 })
 

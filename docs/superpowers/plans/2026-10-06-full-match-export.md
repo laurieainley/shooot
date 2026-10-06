@@ -26,11 +26,9 @@ Plain renders stay stream-copied.
 - **Captions (§7):** `captionLayout` replaces the bottom lower third: top-left bug row (`WH 1–0 CO`, team colour
   bars, optional logo) with the event line beneath, 5 s, slide/fade 0.3 s, 1.4× scale, title-safe. REPLAY tag
   top-right at 1.4×. Setting key stays `lowerThirds` (label "Event captions").
-- **Score bug (§8):** overlay kind `scoreBug` (bug row only). Highlights "Score always on screen": one overlay per
-  cut over the whole cut (score from the timeline; replays show the score after the replayed moment), hidden while a
-  caption shows, and captions are then *anchored* (bug row static, only the event line animates). Full match:
-  `scoreBugWindows` (Off / After goals / Periodic) → global windows → split per cut.
-- **Resumable renders (§6):** opt-in per render (`resumable: true` for full match and for whole-reel re-encodes).
+- **Score bug (§8):** overlay kind `scoreBug` (bug row only). (Highlights "Score always on screen" and anchored captions
+  were removed later.) Full match: `scoreBugWindows` (Off / After goals / Periodic) → global windows → split per cut.
+- **Resumable renders (§6):** opt-in per render (`resumable: true` for full match).
   Each unit (intro card, every cut, outro card) is written as a packet log file in OPFS (`render-job/u-NNNN.bin`,
   committed on close) and the job state (signature, units done, cursor, progress, decoder configs, graphics report)
   goes to IndexedDB after each unit. Finishing muxes the logs into the MP4 (deleting each log once copied). After a

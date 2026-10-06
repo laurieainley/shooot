@@ -27,7 +27,7 @@ export function RenderHighlights() {
             return
         }
         setMissing([])
-        startExport('highlights', quality, plan, plan.reencodeAll)
+        startExport('highlights', quality, plan, false)
     }
 
     const job = saved.job
