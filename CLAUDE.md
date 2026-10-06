@@ -15,6 +15,13 @@ The tool is designed around football/soccer match footage (the primary use case 
 5. **Render** — `renderReel()` copies each segment's video and audio packets (snapped to keyframes) into a single MP4 streamed to OPFS, then offers a download / share. With LRV proxies there is a quick **Preview reel** (from the proxies) and a **Full quality render** (from the paired MP4s).
 6. **Export chapters** — generate YouTube-format chapter markers from the goal list.
 
+### Export modes (Export panel, two tabs)
+
+- **Export highlights** — the reel above. Graphics: VS / full-time cards, **event captions** (top-left score bug + event line, drawn 1 s after the marked moment for 5 s, fading in and out), **REPLAY tag** (top right, appears and disappears instantly), and **Score always on screen** (bug on every frame; re-encodes the whole reel).
+- **Export full match** — from **Kick off (K)** to **Final whistle (W)** across the files (both are events; the match clock starts at Kick off). Stream-copied; only the optional score bug moments (Off / After goals / Periodic every N min) and cards are re-encoded.
+- Renders run in a job manager outside the panel (progress chip in the top bar, Export button shows a pressed state while open and a striped one while rendering, auto-download once, inline-confirmed Cancel). Units are saved to OPFS so a render can be **resumed** after a reload. Copy buttons give the YouTube description and goalscorers; a **Relink** banner reopens files after a reload (file handles remembered on desktop Chrome/Edge).
+- Graphics text is centred from measured canvas metrics (`graphics/paint.ts`) after fonts are loaded (`ensureGraphicsFonts`), never from per-platform baseline guesses.
+
 ## Tech Stack
 
 - **React 19 + TypeScript** — strict mode enabled
@@ -105,7 +112,7 @@ src/
 
 | Key | Action |
 |-----|--------|
-| **G** | Mark event (opens picker: ⏎/G goal, P pen, O own goal, A pen awarded, X pen missed, H highlight, F foul, S save) |
+| **G** | Mark event (opens picker: ⏎/G goal, P pen, O own goal, A pen awarded, X pen missed, H highlight, F foul, S save, **K kick off, W final whistle**) |
 | **M** | Mute / unmute |
 | **, / .** | Decrease / increase playback speed (0.25x steps) |
 | **/** | Reset playback speed to 1x |
