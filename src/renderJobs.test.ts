@@ -36,6 +36,13 @@ describe('render job manager', () => {
         expect(job.result?.downloaded).toBe(true)
     })
 
+    it('should keep the report of a render without graphics (replay crops that could not be made)', async () => {
+        const skipped = [{ label: 'Replay zoom: Goal 0:00:20', reason: 'this browser cannot encode video' }]
+        const { store } = setup(async (_c, _s, o) => { o.onGraphics?.({ applied: [], skipped }); return new Blob(['x']) })
+        await store.getState().start({ kind: 'highlights', quality: 'full' }, async () => req())
+        expect(store.getState().job?.report?.skipped).toEqual(skipped)
+    })
+
     it('should allow only one render at a time', async () => {
         const { store } = setup(async () => gate.promise)
         void store.getState().start({ kind: 'highlights', quality: 'full' }, async () => req())

@@ -1,5 +1,6 @@
 // The two exports as plain plans: what to cut from which files, the graphics, the output name and a signature.
-import type { MatchEvent, Team, VideoSourceFile } from '../types'
+import type { GoalAreas, MatchEvent, Team, VideoSourceFile } from '../types'
+import { replayOptionsFor } from './attack'
 import type { Cut, RenderSource } from '../render/types'
 import { buildGraphicsSpec, fullMatchGraphicsSpec, type GraphicsSettings } from '../graphics/plan'
 import type { GraphicsSpec } from '../graphics/types'
@@ -29,6 +30,9 @@ export type ExportState = {
     teams: Team[]
     matchdayLabel: string | null
     fullMatch: FullMatchSettings
+    /** Replay zoom: where the goals are in the picture and which way the first team attacks in the first half. */
+    goalAreas?: GoalAreas | null
+    whitesAttackLeft?: boolean
 }
 
 export type ExportPlan = {
@@ -66,7 +70,7 @@ function finish(kind: 'highlights' | 'fullMatch', quality: RenderQuality, s: Exp
 export function highlightsExport(s: ExportState, quality: RenderQuality): ExportPlan {
     const linked = linkedEvents(s.events)
     const segments = mergeOverlappingGoalSegments(linked, s.cumulativeOffsets, kickOffSec(linked, s.cumulativeOffsets), s.adjustTimestampsByOffset, s.lengthBeforeGoalSec, s.lengthAfterGoalSec)
-    const cuts = buildRenderPlan(segments, s.files.map((f) => f.durationSec ?? Infinity), { beforeSec: s.replayBeforeSec, afterSec: s.replayAfterSec, speed: s.replaySpeed })
+    const cuts = buildRenderPlan(segments, s.files.map((f) => f.durationSec ?? Infinity), replayOptionsFor({ ...s, events: linked }))
     const spec = nonEmpty(buildGraphicsSpec({ events: linked, teams: s.teams, cuts, cumulativeOffsets: s.cumulativeOffsets, settings: s.graphics, matchday: matchday(s) }))
     const reencodeAll = !!spec?.overlays.some((o) => o.kind === 'scoreBug')
     return finish('highlights', quality, s, cuts, spec, 'highlights', reencodeAll, reencodeAll)

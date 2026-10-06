@@ -1,3 +1,4 @@
+import type { CropRect } from '../types'
 import type { HighlightSegment } from './highlights'
 import { buildRenderPlan, type ReplayOptions } from './renderPlan'
 
@@ -10,6 +11,7 @@ export type PreviewStep = {
     gain: number       // volume factor (replays play quieter, as rendered)
     replay: boolean
     clipIndex: number  // which clip of the reel this step belongs to
+    crop?: CropRect    // replays: the part of the picture shown (same as the render)
 }
 
 /** The preview follows the render plan exactly, so what you preview is what gets rendered. */
@@ -22,6 +24,7 @@ export function buildPreviewPlan(segments: HighlightSegment[], durationsSec: num
         gain: c.gain ?? 1,
         replay: c.speed !== undefined,
         clipIndex,
+        ...(c.crop ? { crop: c.crop } : {}),
     })))
 }
 

@@ -66,3 +66,22 @@ describe('buildRenderPlan — replays', () => {
         expect(buildRenderPlan([segWith(0, 50, 64, [g('a', 0, 60)])], [100])).toHaveLength(1)
     })
 })
+
+describe('buildRenderPlan — replay crops', () => {
+    const box = { x: 0.1, y: 0.3, w: 0.4, h: 0.4 }
+    it('should give a replay the crop of its event, and never the clip itself', () => {
+        const cuts = buildRenderPlan([segWith(0, 50, 64, [g('a', 0, 60)])], [100], { ...REPLAY, cropFor: () => box })
+        expect(cuts[0].crop).toBeUndefined()
+        expect(cuts[1].crop).toEqual(box)
+        expect(cuts[1].cropLabel).toMatch(/Replay zoom/)
+    })
+    it('should leave a replay uncropped when the event shows the whole frame', () => {
+        const cuts = buildRenderPlan([segWith(0, 50, 64, [g('a', 0, 60)])], [100], { ...REPLAY, cropFor: () => null })
+        expect(cuts[1]).toEqual({ sourceIndex: 0, startSec: 57, endSec: 61, speed: 0.5, gain: 0.5 })
+    })
+    it('should ask for each event in turn', () => {
+        const cuts = buildRenderPlan([segWith(0, 50, 70, [g('a', 0, 60), g('b', 0, 66)])], [100],
+            { ...REPLAY, cropFor: (e) => (e.id === 'b' ? box : null) })
+        expect(cuts.map((c) => !!c.crop)).toEqual([false, false, true])
+    })
+})

@@ -6,6 +6,7 @@ import { ensureGraphicsFonts } from '../graphics/assets'
 import { frameDuration, presentationRanks } from './frameGrid'
 import { covers, craToBla, paramSets, pickSampleEntry, spsLimits, spsOf, withInbandParams, type SpsLimits } from './nal'
 import { overlaySpans, type Gop, type ReencodeSpan } from './overlayWindow'
+import { cropPixels } from '../utils/crop'
 import { describeOutput, encodeSegment, i420Frame, probeEncoders, withBitrate, type EncoderSetup } from './segmentEncoder'
 import { applyOverlay, convertRange, fadeI420, i420Layout, isYuv420, matrixOf, prepareOverlay, rgbaToI420, targetColorSpace, type PlaneLayout, type PreparedOverlay, type YuvPlanes } from './yuvBlend'
 import type { RenderCard, RenderOverlay } from './types'
@@ -239,14 +240,21 @@ export class GraphicsSession {
 
     private rasterCanvas: OffscreenCanvas | null = null
 
-    /** Draws any decodable frame onto a canvas and returns its RGBA pixels. */
-    private rasterise(frame: VideoFrame, width: number, height: number): Uint8ClampedArray {
+    /** Draws any decodable frame onto a canvas (optionally just a part of it, scaled up to the whole canvas) and returns its RGBA pixels. */
+    private rasterise(frame: VideoFrame, width: number, height: number, crop?: RenderOverlay['crop']): Uint8ClampedArray {
         if (!this.rasterCanvas || this.rasterCanvas.width !== width || this.rasterCanvas.height !== height) {
             this.rasterCanvas = new OffscreenCanvas(width, height)
         }
-        const ctx = this.rasterCanvas.getContext('2d', { willReadFrequently: true })
+        const ctx = this.rasterCanvas.getContext('2d', crop ? undefined : { willReadFrequently: true })
         if (!ctx) throw new Error('no 2D canvas to convert decoded frames')
-        ctx.drawImage(frame, 0, 0, width, height)
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = 'high'
+        if (crop) {
+            const { sx, sy, sw, sh } = cropPixels(crop, width, height)
+            ctx.drawImage(frame, sx, sy, sw, sh, 0, 0, width, height)
+        } else {
+            ctx.drawImage(frame, 0, 0, width, height)
+        }
         return ctx.getImageData(0, 0, width, height).data
     }
 
@@ -259,14 +267,17 @@ export class GraphicsSession {
         let buf: Uint8Array
         let layout: PlaneLayout[]
         let format: 'I420' | 'NV12'
-        if (isYuv420(frame.format)) {
+        const active = overlays.filter((o) => t >= o.startSec - 1e-6 && t < o.startSec + o.durationSec)
+        // A replay crop replaces the picture first (rasterised through a canvas), anything drawn goes over it.
+        const crop = active.find((o) => o.crop)?.crop
+        if (isYuv420(frame.format) && !crop) {
             format = frame.format
             buf = new Uint8Array(frame.allocationSize())
             layout = await frame.copyTo(buf)
         } else {
             // Some decoders (e.g. Android hardware, GPU-backed frames) hand back RGBA/BGRA or opaque frames:
             // rasterise through a canvas and convert to I420 in the footage's matrix and range.
-            const rgba = this.rasterise(frame, W, H)
+            const rgba = this.rasterise(frame, W, H, crop)
             format = 'I420'
             buf = rgbaToI420(rgba, W, H, matrixOf(cs.matrix), cs.fullRange ?? false)
             layout = i420Layout(W, H)
@@ -276,9 +287,8 @@ export class GraphicsSession {
         // limited-range NV12 for full-range HEVC): bring the samples back to the footage's range.
         // (Rasterised frames were converted straight into the footage's range above.)
         const decodedFull = frame.colorSpace.fullRange ?? false
-        if (isYuv420(frame.format) && decodedFull !== (cs.fullRange ?? false)) convertRange(planes, cs.fullRange ?? false)
-        const active = overlays.filter((o) => t >= o.startSec - 1e-6 && t < o.startSec + o.durationSec)
-        if (active.length > 0) {
+        if (isYuv420(frame.format) && !crop && decodedFull !== (cs.fullRange ?? false)) convertRange(planes, cs.fullRange ?? false)
+        if (active.some((o) => o.rows(W, H)[1] > o.rows(W, H)[0])) {
             const ctx = getCtx()
             let y0 = H
             let y1 = 0

@@ -5,6 +5,9 @@ export type Cut = {
     speed?: number    // < 1 = slow motion (timestamps stretched by 1/speed); default 1
     silent?: boolean  // replace source audio with silence
     gain?: number     // audio volume factor (re-encodes the audio when not 1); default 1
+    /** Show only this part of the frame (fractions), scaled up to the full frame: the video is re-encoded. */
+    crop?: { x: number; y: number; w: number; h: number }
+    cropLabel?: string // how a failed crop is named in "Rendered without"
 }
 
 export type RenderSource = {
@@ -47,6 +50,8 @@ export type RenderOverlay = {
      * every frame of the cut and its own timeline is stretched over them (REPLAY tag: fades at the real edges).
      */
     anchor?: 'fromCutStart' | 'wholeCut' | 'stretchToCut'
+    /** Replaces the picture with this part of the frame (fractions), scaled to the full frame, before anything is drawn. */
+    crop?: { x: number; y: number; w: number; h: number }
 }
 
 export type RenderGraphics = { intro?: RenderCard; outro?: RenderCard; overlays: RenderOverlay[] }

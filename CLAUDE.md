@@ -98,6 +98,8 @@ src/
     fileAccept.ts   # isAcceptedVideo(), FILE_INPUT_ACCEPT (extension-only for Android)
     renderPlan.ts   # buildRenderPlan(): segments → cuts (cross-file split, clamping, replay cuts)
     replays.ts      # wantsReplay(): explicit override or isScoring()
+    crop.ts         # replay zoom rect maths: aspect lock (h = w as fractions), clamp, zoom around centre, cropTransform()
+    attack.ts       # attackingSide(), replayCropResolver(), replayOptionsFor(): which goal area a replay zooms to
     renderSources.ts # resolveRenderSources() (preview vs full), formatRenderProgress()
     fileBadges.ts   # pill badges (proxy, HEVC, can't play here)
   render/           # Rendering engine behind renderReel()
@@ -170,6 +172,7 @@ with the removed element. The orientation is never locked.
 - Cuts snap to keyframes (GoPro: 1.001 s GOP) and are clamped to the real end of each file. Audio is copied, so all clips in one render must share codec and audio parameters; mixed inputs are rejected with a message.
 - GoPro `.LRV` proxies are paired with `GX`/`GH` MP4s by `src/utils/gopro.ts`; edit on proxies, render from `fullFile`.
 - Read `File`s through `fileSource()` (`src/render/fileSource.ts`), never `BlobSource`: on Android every read from USB storage costs ~0.25 s, so it reads few, large (8 MB) aligned blocks.
+- Replay zoom (sub-project K): `Cut.crop` (from `MatchEvent.replayCrop`, else the scoring team's attacking goal area from Match setup) makes the engine open the graphics session even without graphics; the replay's GOPs are decoded, the crop is drawn scaled to the full frame on a canvas (`imageSmoothingQuality 'high'`, GPU canvas + `rgbaToI420` in the footage's matrix/range), and re-encoded like an overlay (`cropOverlay.ts` makes the whole-cut overlay). A failed crop leaves the replay uncropped and is listed under "Rendered without". Preview applies the same rect through the player's CSS transform (`cropTransform`). Footage without colour tags (no VUI) gets a small hue shift in cropped replays (measured on synthetic untagged HEVC: pure red came back as 253,23,0; tagged BT.709 footage round-trips exactly), probably a matrix assumption mismatch between the browser's decode and our RGB-to-YUV; camera files are tagged.
 - Show progress for renders; never block the UI silently.
 - Do not unit-test engine internals; mock `../render` at the boundary.
 

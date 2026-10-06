@@ -28,6 +28,14 @@ describe('buildPreviewPlan', () => {
     })
 })
 
+describe('buildPreviewPlan — crops', () => {
+    it('should carry the replay crop to the step, clips stay whole', () => {
+        const box = { x: 0.1, y: 0.3, w: 0.4, h: 0.4 }
+        const steps = buildPreviewPlan([seg(0, 90, 104, [g('a', 100)])], [600], { ...REPLAY, cropFor: () => box })
+        expect(steps.map((s) => s.crop ?? null)).toEqual([null, box])
+    })
+})
+
 describe('shouldAdvance', () => {
     const step: PreviewStep = { sourceIndex: 0, startSec: 90, endSec: 104, speed: 1, gain: 1, replay: false, clipIndex: 0 }
 

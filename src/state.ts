@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { MarkerType, MatchEvent, Team, VideoSourceFile } from './types'
+import type { GoalAreas, MarkerType, MatchEvent, Team, VideoSourceFile } from './types'
+import { replayOptionsFor } from './utils/attack'
+import { normaliseAreas } from './utils/crop'
 import { migrateEvent } from './utils/eventTypes'
 import { computeCumulativeOffsets } from './utils/timeline'
 import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/highlights'
@@ -124,6 +126,11 @@ type AppState = {
     matchdayLabel: string | null
     setMatchdayLabel: (label: string | null) => void
     setTeamInitials: (index: number, initials: string) => void
+    /** Replay zoom: the two goal mouths in the picture (null = not set) and which way the first team attacks in the first half. */
+    goalAreas: GoalAreas | null
+    whitesAttackLeft: boolean
+    setGoalAreas: (areas: GoalAreas | null) => void
+    setWhitesAttackLeft: (left: boolean) => void
 }
 
 /** Kick-off on the whole timeline (0 when not marked): match clocks, Home, chapters and the full match start there. */
@@ -164,6 +171,8 @@ export const useAppState = create<AppState>()(
             opening: null,
             graphics: { cards: true, lowerThirds: true, replayTag: false, scoreBug: false },
             matchdayLabel: null,
+            goalAreas: null,
+            whitesAttackLeft: true,
             cumulativeOffsets: [],
             currentTimeInFileSec: 0,
             currentFileIndex: 0,
@@ -357,7 +366,7 @@ export const useAppState = create<AppState>()(
                     files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0,
                     isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, picker: null, panel: null,
                     undoStack: [...state.undoStack.slice(-49), state.events], redoStack: [],
-                    matchdayLabel: null,
+                    matchdayLabel: null, goalAreas: null,
                 })
             },
             setTeams: (teams) => set({ teams }),
@@ -402,6 +411,8 @@ export const useAppState = create<AppState>()(
             setExportTab: (tab) => set({ exportTab: tab }),
             setFullMatch: (partial) => set({ fullMatch: { ...get().fullMatch, ...partial } }),
             noteReencodeSpeed: (secPerSec) => { if (secPerSec > 0 && Number.isFinite(secPerSec)) set({ reencodeSecPerSec: secPerSec }) },
+            setGoalAreas: (areas) => set({ goalAreas: areas ? normaliseAreas(areas) : null }),
+            setWhitesAttackLeft: (left) => set({ whitesAttackLeft: left }),
             setMatchdayLabel: (label) => set({ matchdayLabel: label?.trim() ? label : null }),
             setTeamInitials: (index, initials) => set({
                 teams: get().teams.map((t, i) => {
@@ -433,7 +444,7 @@ export const useAppState = create<AppState>()(
                     state.lengthAfterGoalSec
                 )
                 const steps = buildPreviewPlan(segments, state.files.map((f) => f.durationSec ?? Infinity),
-                    { beforeSec: state.replayBeforeSec, afterSec: state.replayAfterSec, speed: state.replaySpeed })
+                    replayOptionsFor({ ...state, events: linkedEvents(state.events) }))
                 if (steps.length > 0) {
                     set({
                         isPreviewMode: true,
@@ -475,6 +486,8 @@ export const useAppState = create<AppState>()(
                 reencodeSecPerSec: state.reencodeSecPerSec,
                 fullMatch: state.fullMatch,
                 matchdayLabel: state.matchdayLabel,
+                goalAreas: state.goalAreas,
+                whitesAttackLeft: state.whitesAttackLeft,
                 barCollapsed: state.barCollapsed,
             }),
             version: 10,

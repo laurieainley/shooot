@@ -8,6 +8,7 @@ import { wantsReplay } from '../utils/replays'
 import { filterRoster, rosterTeamFor } from '../utils/roster'
 import { formatEventClock } from '../utils/timeline'
 import { ColumnPanel } from './ColumnPanel'
+import { ReplayFraming } from './ReplayFraming'
 
 /**
  * Touch editing of an existing event (tap a row in the event log; it replaces the events column rather than covering the picture): type, team, person, note, time nudge,
@@ -166,6 +167,7 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
                 <input type="checkbox" checked={wantsReplay(e)} onChange={(ev) => update({ replay: ev.target.checked })} />
                 <span className="toggle-row__text">Slow-mo replay<span className="toggle-row__hint">after the clip in the reel</span></span>
             </label>
+            {wantsReplay(e) && <ReplayFraming event={e} />}
             </>}
 
             <div className="sheet__actions">

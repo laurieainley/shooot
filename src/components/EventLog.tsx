@@ -150,6 +150,7 @@ export function EventLog() {
                             onWatch={() => { setSelectedId(e.id); watch(e) }}
                             onEdit={(field) => { setSelectedId(e.id); setEditing(field ? { id: e.id, field } : null) }}
                             onToggleReplay={() => toggleReplay(e)}
+                            onFraming={() => useAppState.getState().editEvent(e.id)}
                             onRemove={() => remove(events.indexOf(e))}
                             restoreFocus={() => rootRef.current?.focus()}
                             touch={coarse}
@@ -173,13 +174,14 @@ interface EventRowProps {
     onWatch: () => void
     onEdit: (field: Field | null) => void
     onToggleReplay: () => void
+    onFraming: () => void
     onRemove: () => void
     restoreFocus: () => void
     /** Touch: delete lives in the edit sheet (a tap opens it), so the row keeps only the replay toggle. */
     touch?: boolean
 }
 
-function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, onSelect, onWatch, onEdit, onToggleReplay, onRemove, restoreFocus, touch = false }: EventRowProps) {
+function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, onSelect, onWatch, onEdit, onToggleReplay, onFraming, onRemove, restoreFocus, touch = false }: EventRowProps) {
     const team = teams.find((t) => t.name === e.team)
     const replay = wantsReplay(e)
     const label = `${controlLabel(e)}${e.scorer ? ` · ${e.scorer}` : ''}`
@@ -257,6 +259,10 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, o
                 <WatchButton onWatch={onWatch} disabled={e.unlinked} />
                 <button type="button" aria-label="Replay" aria-pressed={replay} title={replay ? 'Slow-mo replay on (R)' : 'Slow-mo replay off (R)'}
                     tabIndex={-1} onClick={(ev) => { stop(ev); onToggleReplay() }} className="row-btn replay-btn">↻</button>
+                {!touch && replay && (
+                    <button type="button" aria-label="Replay framing" title="Replay framing (zoom to the goal)" tabIndex={-1}
+                        onClick={(ev) => { stop(ev); onFraming() }} className="row-btn framing-btn">⌖</button>
+                )}
                 {!touch && (
                     <button type="button" aria-label="Delete event" title="Delete (⌫)" tabIndex={-1}
                         onClick={(ev) => { stop(ev); onRemove() }} className="row-btn delete-btn">×</button>

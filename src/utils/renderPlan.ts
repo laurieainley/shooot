@@ -1,8 +1,15 @@
 import type { HighlightSegment } from './highlights'
 import type { Cut } from '../render/types'
+import type { CropRect, MatchEvent } from '../types'
+import { eventLabel } from './eventTypes'
+import { formatHMS } from './timeline'
 import { wantsReplay } from './replays'
 
-export type ReplayOptions = { beforeSec: number; afterSec: number; speed: number }
+export type ReplayOptions = {
+    beforeSec: number; afterSec: number; speed: number
+    /** The part of the frame a replay of this event shows (null = whole frame). */
+    cropFor?: (e: MatchEvent) => CropRect | null
+}
 
 /** Replays keep their (slowed, pitch-kept) audio at half volume (−6 dB). */
 export const REPLAY_GAIN = 0.5
@@ -28,8 +35,9 @@ export function buildRenderPlan(segments: HighlightSegment[], durationsSec: numb
         // Replays never span files: the window is clamped to the event's own file.
         const wanted = s.goals.filter(wantsReplay).sort((a, b) => a.matchTimeSec - b.matchTimeSec)
         for (const e of wanted) {
+            const crop = replay.cropFor?.(e) ?? null
             push(e.sourceFileIndex ?? idx, e.matchTimeSec - replay.beforeSec, e.matchTimeSec + replay.afterSec,
-                { speed: replay.speed, gain: REPLAY_GAIN })
+                { speed: replay.speed, gain: REPLAY_GAIN, ...(crop ? { crop, cropLabel: `Replay zoom: ${eventLabel(e)} ${formatHMS(e.matchTimeSec)}` } : {}) })
         }
     }
     return cuts
