@@ -1,6 +1,7 @@
 import type { CropRect, GoalAreas, MatchEvent, Team } from '../types'
 import { clampRect, isFullFrame } from './crop'
 import { linkedEvents } from './relink'
+import type { ReplayOptions } from './renderPlan'
 
 export type Side = 'left' | 'right'
 
@@ -42,5 +43,24 @@ export function replayCropResolver(ctx: AttackContext): (e: MatchEvent) => CropR
             rect = side && ctx.areas ? ctx.areas[side] : null
         }
         return rect && !isFullFrame(rect) ? rect : null
+    }
+}
+
+export type ReplayState = {
+    replayBeforeSec: number
+    replayAfterSec: number
+    replaySpeed: number
+    events: MatchEvent[]
+    teams: Team[]
+    cumulativeOffsets: number[]
+    whitesAttackLeft?: boolean
+    goalAreas?: GoalAreas | null
+}
+
+/** Replay timing, speed and framing from the project: the one place the render and the preview get them. */
+export function replayOptionsFor(s: ReplayState): ReplayOptions {
+    return {
+        beforeSec: s.replayBeforeSec, afterSec: s.replayAfterSec, speed: s.replaySpeed,
+        cropFor: replayCropResolver({ events: s.events, teams: s.teams, cumulativeOffsets: s.cumulativeOffsets, whitesAttackLeft: s.whitesAttackLeft ?? true, areas: s.goalAreas ?? null }),
     }
 }

@@ -40,6 +40,17 @@ describe('ProjectIO', () => {
         expect(selectMatchStartSec(useAppState.getState())).toBe(30)
     })
 
+    it('should round-trip goal areas, the attacking direction and replay framing', async () => {
+        const { container } = render(<ProjectIO />)
+        const input = container.querySelector('input[type="file"]') as HTMLInputElement
+        const areas = { left: { x: 0.04, y: 0.3, w: 0.4, h: 0.4 }, right: { x: 0.56, y: 0.3, w: 0.4, h: 0.4 } }
+        const json = JSON.stringify({ events: [{ id: 'x', matchTimeSec: 42, type: 'goal', replayCrop: 'left' }], goalAreas: areas, whitesAttackLeft: false })
+        fireEvent.change(input, { target: { files: [new File([json], 'p.json')] } })
+        await waitFor(() => expect(useAppState.getState().goalAreas).toEqual(areas))
+        expect(useAppState.getState().whitesAttackLeft).toBe(false)
+        expect(useAppState.getState().events[0].replayCrop).toBe('left')
+    })
+
     it('should report a file that is not valid JSON', async () => {
         const { container } = render(<ProjectIO />)
         const input = container.querySelector('input[type="file"]') as HTMLInputElement

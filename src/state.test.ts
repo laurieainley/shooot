@@ -444,3 +444,50 @@ describe('kick-off migration', () => {
         expect(selectMatchStartSec(s())).toBe(610)
     })
 })
+
+describe('goal areas and replay framing', () => {
+    const areas = { left: { x: 0.04, y: 0.3, w: 0.4, h: 0.4 }, right: { x: 0.56, y: 0.3, w: 0.4, h: 0.4 } }
+    beforeEach(() => {
+        useAppState.setState({
+            files: [], events: [], cumulativeOffsets: [], undoStack: [], redoStack: [], currentFileIndex: 0, isPreviewMode: false,
+            adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
+            replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5, goalAreas: null, whitesAttackLeft: true,
+        })
+        s().setFiles([vf('a.mp4')])
+        s().addEvent({ id: 'g', matchTimeSec: 50, sourceFileIndex: 0, type: 'goal', team: 'Colours' })
+    })
+
+    it('should store goal areas clamped to the frame, and the attacking direction', () => {
+        s().setGoalAreas({ left: { x: 0.9, y: 0.3, w: 0.4, h: 0.9 }, right: areas.right })
+        expect(s().goalAreas?.left).toEqual({ x: 0.6, y: 0.3, w: 0.4, h: 0.4 })
+        s().setWhitesAttackLeft(false)
+        expect(s().whitesAttackLeft).toBe(false)
+        s().setGoalAreas(null)
+        expect(s().goalAreas).toBeNull()
+    })
+
+    it('should crop the preview replay to the scoring team\'s attacking goal', () => {
+        s().setGoalAreas(areas)
+        s().startPreview()
+        expect(s().previewSteps.map((p) => p.crop ?? null)).toEqual([null, areas.right]) // Colours attack right
+    })
+
+    it('should follow the attacking direction and an event\'s own framing', () => {
+        s().setGoalAreas(areas)
+        s().setWhitesAttackLeft(false)
+        s().startPreview()
+        expect(s().previewSteps[1].crop).toEqual(areas.left)
+        s().exitPreview()
+        s().updateEvent('g', { replayCrop: 'full' })
+        s().startPreview()
+        expect(s().previewSteps[1].crop).toBeUndefined()
+    })
+
+    it('should forget the goal areas for a new match (the camera moves) but keep the direction', () => {
+        s().setGoalAreas(areas)
+        s().setWhitesAttackLeft(false)
+        s().newMatch()
+        expect(s().goalAreas).toBeNull()
+        expect(s().whitesAttackLeft).toBe(false)
+    })
+})

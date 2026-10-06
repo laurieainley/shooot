@@ -1,6 +1,7 @@
 import { useRef, useState, type ChangeEvent } from 'react'
 import { selectMatchStartSec, useAppState } from '../state'
 import { migrateEvent } from '../utils/eventTypes'
+import { normaliseAreas } from '../utils/crop'
 import { withMigratedKickOff } from '../utils/matchClock'
 
 interface ProjectIOProps {
@@ -16,9 +17,9 @@ export function ProjectIO({ menu = false }: ProjectIOProps) {
 
     const onExport = (): void => {
         const st = useAppState.getState()
-        const { teams } = st
+        const { teams, goalAreas, whitesAttackLeft } = st
         const matchStartTimeSec = selectMatchStartSec(st) // kept for older versions of the app
-        const blob = new Blob([JSON.stringify({ events, goals: events, teams, matchStartTimeSec }, null, 2)], { type: 'application/json' })
+        const blob = new Blob([JSON.stringify({ events, goals: events, teams, matchStartTimeSec, goalAreas, whitesAttackLeft }, null, 2)], { type: 'application/json' })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
@@ -40,6 +41,8 @@ export function ProjectIO({ menu = false }: ProjectIOProps) {
             if (imported) st.setEvents(withMigratedKickOff(imported.map((e: unknown) => migrateEvent(e as Parameters<typeof migrateEvent>[0])), start))
             else if (start > 0) st.setEvents(withMigratedKickOff(st.events, start))
             if (Array.isArray(data.teams) && data.teams.length === 2) st.setTeams(data.teams)
+            if ('goalAreas' in data) st.setGoalAreas(normaliseAreas(data.goalAreas))
+            if (typeof data.whitesAttackLeft === 'boolean') st.setWhitesAttackLeft(data.whitesAttackLeft)
             setMessage(imported ? `Imported ${imported.length} events` : 'Imported')
         } catch {
             setMessage('Could not read that file as a project (JSON).')
