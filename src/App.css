@@ -782,3 +782,12 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .shell--tablet .event-log ol { padding-bottom: 40px; }
 .shell--tablet .clip-summary { flex: none; }
 .shell--tablet .top-bar { padding-inline: max(14px, env(safe-area-inset-left, 0px)) max(14px, env(safe-area-inset-right, 0px)); }
+
+/* Paused: a big play icon over the picture (video.js's own big-play button only shows before the first play). */
+.player-container .video-js .vjs-big-play-button { display: none !important; }
+.play-indicator {
+  position: absolute; top: 50%; left: 50%; z-index: 4; transform: translate(-50%, -50%); pointer-events: none;
+  display: grid; place-items: center; width: 84px; height: 84px; border-radius: 50%;
+  background: rgb(5 7 6 / 0.55); border: 2px solid rgb(255 255 255 / 0.85); color: #fff; box-shadow: 0 4px 18px rgb(0 0 0 / 0.4);
+}
+.play-indicator svg { margin-left: 5px; }

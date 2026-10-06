@@ -13,6 +13,7 @@ import { useZoomPan, type ZoomPan } from './useZoomPan'
 import { ZoomChip } from './ZoomChip'
 import { RenderChip } from './RenderChip'
 import { useTouchScrub } from './useTouchScrub'
+import { PlayIndicator } from './PlayIndicator'
 import { formatEventClock } from '../utils/timeline'
 import { playerOptions } from '../utils/playerOptions'
 import { shouldAdvance } from '../utils/preview'
@@ -28,6 +29,7 @@ export function Player() {
     const setCurrentFileIndex = useAppState((s) => s.setCurrentFileIndex)
     const [isFullscreen, setIsFullscreen] = useState(false)
     const [durationSec, setDurationSec] = useState(0)
+    const [paused, setPaused] = useState(true)
     const [progressHost, setProgressHost] = useState<HTMLElement | null>(null)
     const [speedIndicator, setSpeedIndicator] = useState<number | null>(null)
     const speedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -220,6 +222,17 @@ export function Player() {
             // do not dispose across renders in dev HMR
         }
     }, [files, currentFileIndex])
+
+    // Paused indicator: follows the player's own state (play / pause / ended / a new source).
+    useEffect(() => {
+        const p = playerRef.current
+        if (!p) return
+        const sync = (): void => setPaused(p.paused() !== false)
+        const evts = 'play playing pause ended loadstart emptied'
+        sync()
+        p.on(evts, sync)
+        return () => p.off(evts, sync)
+    }, [])
 
     // Listen for seekToGoal events
     useEffect(() => {
@@ -414,6 +427,7 @@ export function Player() {
                     {speedIndicator.toFixed(2)}x
                 </div>
             )}
+            <PlayIndicator visible={paused && !scrub} />
             <ZoomChip zoom={zoomPan.zoom} onReset={zoomPan.reset} />
             {(isFullscreen || immersive) && <RenderChip variant="overlay" />}
             {scrub && <div className="scrub-bubble tc" style={{ left: scrub.leftPx }}>{formatEventClock(fileOffset + scrub.timeSec, scrub.timeSec, matchStartSec)}</div>}
