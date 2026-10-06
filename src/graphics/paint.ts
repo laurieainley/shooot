@@ -1,5 +1,6 @@
 // Executes layout draw ops on a canvas. The 1920×1080 design is scaled uniformly and centred in the frame.
 import { DESIGN_H, DESIGN_W, type DrawOp, type MeasureText } from './layout'
+import { stripeBands, teamFill } from './teamFill'
 import { NAVY, NAVY_DARK } from './teamStyle'
 
 export const DISPLAY_FONT = '"Bebas Neue", "Oswald", "Arial Narrow", sans-serif'
@@ -48,6 +49,28 @@ export function textInkMetrics(ctx: Ctx, size: number): { ascent: number; descen
     return hasBox
         ? { ascent: m.actualBoundingBoxAscent, descent: Math.max(0, m.actualBoundingBoxDescent || 0) }
         : { ascent: size * 0.7, descent: 0 }
+}
+
+/** Fills the current path (or `box` when there is none) with a colour or, for 'multi', diagonal stripes clipped to it. */
+function fillShape(ctx: Ctx, fill: string, box: Box, hasPath: boolean): void {
+    const f = teamFill(fill)
+    if (f.kind === 'solid') {
+        ctx.fillStyle = f.color
+        if (hasPath) ctx.fill()
+        else ctx.fillRect(box.x, box.y, box.w, box.h)
+        return
+    }
+    ctx.save()
+    if (!hasPath) { ctx.beginPath(); ctx.rect(box.x, box.y, box.w, box.h) }
+    ctx.clip()
+    for (const b of stripeBands(box, f.colors)) {
+        ctx.fillStyle = b.color
+        ctx.beginPath()
+        b.points.forEach(([px, py], i) => (i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py)))
+        ctx.closePath()
+        ctx.fill()
+    }
+    ctx.restore()
 }
 
 function shieldPath(ctx: Ctx, cx: number, cy: number, w: number, h: number): void {
@@ -104,14 +127,13 @@ export function paintOps(ctx: Ctx, ops: DrawOp[], assets: PaintAssets): void {
         if (ctx.globalAlpha <= 0) continue
         switch (op.kind) {
             case 'rect':
-                ctx.fillStyle = op.fill
-                ctx.fillRect(op.x, op.y, op.w, op.h)
+                fillShape(ctx, op.fill, op, false)
                 break
             case 'shield': {
                 const r = op.box ? clampInto(op.box, { x: op.cx - op.w / 2, y: op.cy - op.h / 2, w: op.w, h: op.h }) : { x: op.cx - op.w / 2, y: op.cy - op.h / 2, w: op.w, h: op.h }
                 shieldPath(ctx, r.x + r.w / 2, r.y + r.h / 2, r.w, r.h)
-                ctx.fillStyle = op.fill
-                ctx.fill()
+                fillShape(ctx, op.fill, r, true)
+                shieldPath(ctx, r.x + r.w / 2, r.y + r.h / 2, r.w, r.h) // stripes leave their last band as the current path
                 ctx.lineWidth = op.lineWidth
                 ctx.strokeStyle = op.stroke
                 ctx.stroke()
@@ -126,6 +148,14 @@ export function paintOps(ctx: Ctx, ops: DrawOp[], assets: PaintAssets): void {
                 if (op.baseline === 'middle') {
                     const m = textInkMetrics(ctx, op.size)
                     y = centredBaseline(op.y, m.ascent, m.descent)
+                }
+                if (op.outline) {
+                    ctx.save()
+                    ctx.lineJoin = 'round'
+                    ctx.lineWidth = Math.max(2, op.size * 0.09)
+                    ctx.strokeStyle = op.outline
+                    ctx.strokeText(op.text, op.x, y, op.maxWidth)
+                    ctx.restore()
                 }
                 ctx.fillText(op.text, op.x, y, op.maxWidth)
                 break

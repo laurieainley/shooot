@@ -227,3 +227,21 @@ describe('overlay size', () => {
         expect(tag.h).toBeLessThan(Math.round(64 * 1.4))
     })
 })
+
+describe('multicolour team in cards', () => {
+    it('should keep the multi fill on the shield and outline the white initials', () => {
+        const multi = { name: 'MIXED', initials: 'MX', colour: 'multi', ink: '#ffffff' }
+        const ops = cardLayout({ heading: 'H', centre: 'VS', left: multi, right: multi }, 2, 4, false)
+        const shield = ops.find((o) => o.kind === 'shield')
+        expect(shield).toMatchObject({ fill: 'multi' })
+        const initials = ops.find((o): o is TextOp => o.kind === 'text' && o.text === 'MX')!
+        expect(initials.color).toBe('#ffffff')
+        expect(initials.outline).toBeTruthy()
+    })
+
+    it('should not outline initials on a solid shield', () => {
+        const solid = { name: 'A', initials: 'AA', colour: '#336699', ink: '#ffffff' }
+        const ops = cardLayout({ heading: 'H', centre: 'VS', left: solid, right: solid }, 2, 4, false)
+        expect(ops.find((o): o is TextOp => o.kind === 'text' && o.text === 'AA')!.outline).toBeUndefined()
+    })
+})
