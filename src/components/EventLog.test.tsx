@@ -89,11 +89,18 @@ describe('EventLog selection and keys', () => {
         ])
     })
 
-    it('should select a clicked row and seek to its clip start', async () => {
+    it('should select a clicked row without seeking or playing', async () => {
         render(<EventLog />)
         await userEvent.click(rows()[1])
         expect(rows()[1]).toHaveAttribute('aria-selected', 'true')
+        expect(seekToGoal).not.toHaveBeenCalled()
+    })
+
+    it('should watch a row from its Watch button: seek to the clip start and play', async () => {
+        render(<EventLog />)
+        await userEvent.click(within(rows()[1]).getByRole('button', { name: 'Watch' }))
         expect(seekToGoal).toHaveBeenCalledWith(0, 50)
+        expect(rows()[1]).toHaveAttribute('aria-selected', 'true')
     })
 
     it('should move the selection with ArrowDown / ArrowUp while the log is focused', () => {
@@ -110,7 +117,7 @@ describe('EventLog selection and keys', () => {
         expect(seekToGoal).not.toHaveBeenCalled()
     })
 
-    it('should seek on Enter, remove on Delete or Backspace, and toggle replay on R', () => {
+    it('should watch (seek and play) on Enter, remove on Delete or Backspace, and toggle replay on R', () => {
         render(<EventLog />)
         log().focus()
         fireEvent.keyDown(log(), { key: 'ArrowDown' })
@@ -363,11 +370,18 @@ describe('EventLog on touch screens', () => {
     })
     afterEach(() => setCoarsePointer(false))
 
-    it('should seek and open the edit sheet for a tapped row', async () => {
+    it('should open the edit sheet for a tapped row without seeking or playing', async () => {
         render(<EventLog />)
         await userEvent.click(rows()[1])
-        expect(seekToGoal).toHaveBeenCalledWith(0, 50)
+        expect(seekToGoal).not.toHaveBeenCalled()
         expect(useAppState.getState()).toMatchObject({ panel: 'event', editingEventId: 'b' })
+    })
+
+    it('should watch from the row button on touch without opening the editor', async () => {
+        render(<EventLog />)
+        await userEvent.click(within(rows()[1]).getByRole('button', { name: 'Watch' }))
+        expect(seekToGoal).toHaveBeenCalledWith(0, 50)
+        expect(useAppState.getState().panel).toBeNull()
     })
 
     it('should not open the edit sheet from the replay or delete buttons', async () => {
@@ -417,10 +431,12 @@ describe('EventLog — match markers', () => {
         }
     })
 
-    it('should jump to the marker itself (not a clip start) when clicked', async () => {
+    it('should jump to the marker itself (not a clip start) on Watch, and only select it when clicked', async () => {
         setup([{ id: 'ko', matchTimeSec: 60, sourceFileIndex: 0, type: 'kick_off' }])
         render(<EventLog />)
         await userEvent.click(rows()[0])
+        expect(seekToGoal).not.toHaveBeenCalled()
+        await userEvent.click(within(rows()[0]).getByRole('button', { name: 'Watch' }))
         expect(seekToGoal).toHaveBeenCalledWith(0, 60)
     })
 })

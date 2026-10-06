@@ -791,3 +791,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   background: rgb(5 7 6 / 0.55); border: 2px solid rgb(255 255 255 / 0.85); color: #fff; box-shadow: 0 4px 18px rgb(0 0 0 / 0.4);
 }
 .play-indicator svg { margin-left: 5px; }
+
+/* Row Watch button: the only thing on a row that moves or starts the video. */
+.row-btn.watch-btn { color: var(--ink); }
+.row-btn.watch-btn svg { margin-left: 1px; }
