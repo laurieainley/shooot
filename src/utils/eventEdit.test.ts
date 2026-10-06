@@ -17,7 +17,7 @@ describe('optionForEvent', () => {
     })
 
     it('should find the option for every other type', () => {
-        for (const type of ['own_goal', 'penalty_awarded', 'penalty_missed', 'highlight', 'foul', 'save'] as const) {
+        for (const type of ['own_goal', 'penalty_conceded', 'penalty_missed', 'highlight', 'foul', 'save'] as const) {
             expect(optionForEvent(ev({ type })).type).toBe(type)
         }
     })
@@ -29,8 +29,8 @@ describe('typeChangePatch', () => {
         expect(typeChangePatch(ev({ pen: true }), opt('own_goal'))).toEqual({ type: 'own_goal', pen: undefined })
     })
 
-    it('should drop the person when the new type has no person (penalty awarded)', () => {
-        expect(typeChangePatch(ev({ scorer: 'Sam' }), opt('penalty_awarded'))).toEqual({ type: 'penalty_awarded', pen: undefined, scorer: undefined })
+    it('should drop the person when the new type has no person (a match marker)', () => {
+        expect(typeChangePatch(ev({ scorer: 'Sam' }), opt('kick_off'))).toEqual({ type: 'kick_off', pen: undefined, scorer: undefined })
     })
 
     it('should keep the person when the new type has one', () => {

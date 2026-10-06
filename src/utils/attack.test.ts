@@ -16,11 +16,14 @@ describe('replayGoalFor', () => {
         expect(at('goal', 'Whites')).toBe('team2')
         expect(at('goal', 'Colours')).toBe('team1')
     })
-    it('should treat penalty goals, awarded and missed penalties like goals', () => {
-        for (const t of ['penalty_awarded', 'penalty_missed'] as const) {
-            expect(at(t, 'Whites')).toBe('team2')
-            expect(at(t, 'Colours')).toBe('team1')
-        }
+    it('should treat missed penalties like goals', () => {
+        expect(at('penalty_missed', 'Whites')).toBe('team2')
+        expect(at('penalty_missed', 'Colours')).toBe('team1')
+    })
+    it('should send a conceded penalty to the conceding team\'s own goal (where it is taken)', () => {
+        expect(at('penalty_conceded', 'Whites')).toBe('team1')
+        expect(at('penalty_conceded', 'Colours')).toBe('team2')
+        expect(at('penalty_conceded', 'Whites', 500, 400)).toBe('team2')
     })
     it('should send an own goal to the goal the credited team attacks', () => {
         expect(at('own_goal', 'Whites')).toBe('team2')

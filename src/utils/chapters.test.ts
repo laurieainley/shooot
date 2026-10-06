@@ -95,6 +95,16 @@ describe('generateYouTubeChapters — event types', () => {
         expect(out).toContain('02:50 Own goal 1-1 (Colours) Alex')
         expect(out).toContain('03:50 Penalty missed (Whites) Jo')
     })
+
+    it('should label a conceded penalty with the conceding team and person, without changing the score', () => {
+        const events = [
+            e('a', 60, { type: 'penalty_conceded', team: 'Colours', scorer: 'Ade', notes: 'Late tackle' }),
+        ]
+        const out = generateYouTubeChapters(events, [0], 0, 10, 4, ['Whites', 'Colours'])
+        expect(out.split('\n')[0]).toBe('Whites 0-0 Colours')
+        expect(out).toContain('00:50 Penalty conceded (Colours) Ade')
+        expect(out).toContain('Late tackle')
+    })
 })
 
 describe('chapters — notes', () => {

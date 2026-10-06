@@ -1,5 +1,5 @@
 import { migrateReplayCrop } from './crop'
-import type { EventType, MarkerType, MatchEvent } from '../types'
+import type { EventType, MarkerType, MatchEvent, Team } from '../types'
 
 export type EventMeta = {
     label: string
@@ -13,7 +13,7 @@ export type EventMeta = {
 export const EVENT_META: Record<EventType, EventMeta> = {
     goal:            { label: 'Goal',            icon: '⚽', color: '#f72585', scoring: true },
     own_goal:        { label: 'Own goal',        icon: '⚽', color: '#e63946', scoring: true },
-    penalty_awarded: { label: 'Penalty awarded', icon: 'Ⓟ', color: '#fee440', scoring: false },
+    penalty_conceded: { label: 'Penalty conceded', icon: 'Ⓟ', color: '#fee440', scoring: false },
     penalty_missed:  { label: 'Penalty missed',  icon: 'Ⓟ', color: '#a0a0a0', scoring: false },
     highlight:       { label: 'Highlight',       icon: '★', color: '#4cc9f0', scoring: false },
     foul:            { label: 'Foul',            icon: '🟨', color: '#f4a261', scoring: false },
@@ -23,7 +23,7 @@ export const EVENT_META: Record<EventType, EventMeta> = {
     final_whistle:   { label: 'Final whistle',   icon: '🏁', color: '#e5e5e5', scoring: false, marker: true },
 }
 
-export type PickerOptionId = 'goal' | 'goal_pen' | 'own_goal' | 'penalty_awarded' | 'penalty_missed' | 'highlight' | 'foul' | 'save' | MarkerType
+export type PickerOptionId = 'goal' | 'goal_pen' | 'own_goal' | 'penalty_conceded' | 'penalty_missed' | 'highlight' | 'foul' | 'save' | MarkerType
 
 export type PickerOption = {
     id: PickerOptionId
@@ -51,7 +51,7 @@ export const PICKER_OPTIONS: PickerOption[] = [
     { ...SCORER, id: 'goal',            type: 'goal',            key: 'g', label: 'Goal',            personLabel: 'Scorer', askAssist: true },
     { ...SCORER, id: 'goal_pen',        type: 'goal',            key: 'p', label: 'Penalty goal',     personLabel: 'Penalty taker', pen: true },
     { ...SCORER, id: 'own_goal',        type: 'own_goal',        key: 'o', label: 'Own goal',        personLabel: 'Own goal by' },
-    { ...SCORER, id: 'penalty_awarded', type: 'penalty_awarded', key: 'a', label: 'Penalty awarded', askScorer: false },
+    { ...SCORER, id: 'penalty_conceded', type: 'penalty_conceded', key: 'a', label: 'Penalty conceded', personLabel: 'Conceded by', personOptional: true },
     { ...SCORER, id: 'penalty_missed',  type: 'penalty_missed',  key: 'x', label: 'Penalty missed',  personLabel: 'Taker' },
     { ...OPTIONAL_ALL, id: 'highlight', type: 'highlight',       key: 'h', label: 'Highlight',       personLabel: 'Who', askText: 'prompt', textLabel: 'What happened' },
     { ...OPTIONAL_ALL, id: 'foul',      type: 'foul',            key: 'f', label: 'Foul',            personLabel: 'Committed by', textLabel: 'Note' },
@@ -65,7 +65,7 @@ export const PICKER_OPTIONS: PickerOption[] = [
 /** The touch type list: grouped, in this order (Save · Foul · Highlight differs from the keyboard order above). */
 export const PICKER_GROUPS: { label: string; ids: PickerOptionId[] }[] = [
     { label: 'Goals', ids: ['goal', 'goal_pen', 'own_goal'] },
-    { label: 'Penalties', ids: ['penalty_awarded', 'penalty_missed'] },
+    { label: 'Penalties', ids: ['penalty_conceded', 'penalty_missed'] },
     { label: 'Other', ids: ['save', 'foul', 'highlight'] },
     { label: 'Match', ids: ['kick_off', 'half_time', 'final_whistle'] },
 ]
@@ -129,10 +129,25 @@ export function isMarker<T extends Pick<MatchEvent, 'type'>>(e: T): e is T & { t
 const LEGACY_TYPES: Record<string, EventType> = { moment: 'highlight', card: 'foul' }
 
 /** `whitesAttackLeft`: the old direction flag, needed only to turn a stored 'left' / 'right' replay framing into a team's goal. */
-export function migrateEvent(raw: Omit<MatchEvent, 'type' | 'replayCrop'> & { type?: string; replayCrop?: unknown }, whitesAttackLeft = true): MatchEvent {
+export function migrateEvent(raw: Omit<MatchEvent, 'type' | 'replayCrop'> & { type?: string; replayCrop?: unknown }, whitesAttackLeft = true, teams: Team[] = []): MatchEvent {
+    if (raw.type === 'penalty_awarded') return migrateEvent(awardedToConceded(raw, teams), whitesAttackLeft, teams)
     const t = raw.type ?? 'goal'
     const type = (LEGACY_TYPES[t] ?? (t in EVENT_META ? t : 'highlight')) as EventType
     const { replayCrop, ...rest } = raw
     const crop = migrateReplayCrop(replayCrop, whitesAttackLeft)
     return { ...rest, type, ...(crop !== undefined ? { replayCrop: crop } : {}) }
+}
+
+/**
+ * "Penalty awarded" (team = the team awarded it) became "Penalty conceded" (team = the team that conceded it):
+ * the team flips to the other of two teams, and a person from the awarding roster is cleared (they were the wrong team's player).
+ */
+function awardedToConceded<T extends { team?: string; scorer?: string }>(raw: T, teams: Team[]): T & { type: 'penalty_conceded' } {
+    const out = { ...raw, type: 'penalty_conceded' as const }
+    const idx = raw.team ? teams.findIndex((t) => t.name === raw.team) : -1
+    if (teams.length !== 2 || idx < 0) return out
+    out.team = teams[1 - idx].name
+    const person = raw.scorer?.trim().toLowerCase()
+    if (person && teams[idx].roster.some((r) => r.trim().toLowerCase() === person)) delete out.scorer
+    return out
 }

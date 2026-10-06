@@ -13,7 +13,7 @@ export function optionPatch(option: PickerOption): Partial<MatchEvent> {
     return { type: option.type, pen: option.pen ? true : undefined }
 }
 
-/** Changing an existing event's type; a type without a person step (penalty awarded) drops the person. */
+/** Changing an existing event's type; a type without a person step (a match marker) drops the person. */
 export function typeChangePatch(e: Pick<MatchEvent, 'scorer' | 'assist'>, option: PickerOption): Partial<MatchEvent> {
     const patch: Partial<MatchEvent> = optionPatch(option)
     if (!option.askScorer && e.scorer !== undefined) patch.scorer = undefined

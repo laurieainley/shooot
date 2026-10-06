@@ -86,10 +86,23 @@ describe('pickerReducer — team step', () => {
         expect(r.state.team).toBe('Colours')
     })
 
-    it('should close after team when the option has no scorer', () => {
-        const r = run([key('a'), key('w')])
-        expect(r.state.step).toBe('text')
-        expect(run([key('a'), key('w'), key('Enter')]).effects.at(-1)).toEqual({ kind: 'close' })
+    it('should go team, then Conceded by (conceding team roster), then the note for a conceded penalty', () => {
+        const a = run([key('a')])
+        expect(a.effects).toEqual([{ kind: 'update', patch: { type: 'penalty_conceded', pen: undefined } }])
+        expect(a.state.step).toBe('team')
+        const t = run([key('a'), key('c')])
+        expect(t.state).toMatchObject({ step: 'scorer', team: 'Colours' })
+        expect(scorerCandidates(t.state, ctx)).toEqual(['Alex Wu', 'Jo'])
+        const p = run([key('a'), key('c'), { kind: 'text', value: 'jo' }, key('Enter')])
+        expect(p.effects.at(-1)).toEqual({ kind: 'update', patch: { scorer: 'Jo' } })
+        expect(p.state.step).toBe('text')
+        expect(run([key('a'), key('c'), { kind: 'text', value: 'jo' }, key('Enter'), key('Enter')]).effects.at(-1)).toEqual({ kind: 'close' })
+    })
+
+    it('should let Conceded by be skipped and add a new name to the conceding roster', () => {
+        expect(run([key('a'), key('c'), key('Tab')]).state.step).toBe('text')
+        const r = run([key('a'), key('c'), { kind: 'text', value: 'Newbie' }, key('Enter')])
+        expect(r.effects).toContainEqual({ kind: 'addToRoster', team: 'Colours', name: 'Newbie' })
     })
 
     it('should close on Escape', () => {

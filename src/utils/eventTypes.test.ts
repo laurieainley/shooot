@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { isMarker } from './eventTypes'
 import { PICKER_GROUPS, PICKER_OPTIONS, controlLabel, eventLabel, eventIcon, isScoring, migrateEvent, optionForKey, EVENT_META, shortNote, eventSummary, assistOf, controlSummary } from './eventTypes'
-import type { MatchEvent } from '../types'
+import type { MatchEvent, Team } from '../types'
 
 const ev = (extra: Partial<MatchEvent>): MatchEvent => ({ id: 'e', matchTimeSec: 1, type: 'goal', ...extra })
 
@@ -27,6 +27,8 @@ describe('eventLabel', () => {
         expect(eventLabel(ev({ pen: true }))).toBe('Goal (pen)')
         expect(eventLabel(ev({}))).toBe('Goal')
         expect(eventLabel(ev({ type: 'penalty_missed' }))).toBe('Penalty missed')
+        expect(eventLabel(ev({ type: 'penalty_conceded' }))).toBe('Penalty conceded')
+        expect(controlLabel(ev({ type: 'penalty_conceded' }))).toBe('Penalty conceded')
     })
 })
 
@@ -54,7 +56,7 @@ describe('isScoring', () => {
     it('should count goals and own goals only', () => {
         expect(isScoring(ev({}))).toBe(true)
         expect(isScoring(ev({ type: 'own_goal' }))).toBe(true)
-        expect(isScoring(ev({ type: 'penalty_awarded' }))).toBe(false)
+        expect(isScoring(ev({ type: 'penalty_conceded' }))).toBe(false)
         expect(isScoring(ev({ type: 'highlight' }))).toBe(false)
     })
 })
@@ -65,6 +67,32 @@ describe('migrateEvent', () => {
         expect(migrateEvent({ id: 'a', matchTimeSec: 1, type: 'card' }).type).toBe('foul')
         expect(migrateEvent({ id: 'a', matchTimeSec: 1 }).type).toBe('goal')
         expect(migrateEvent({ id: 'a', matchTimeSec: 1, type: 'save' }).type).toBe('save')
+    })
+})
+
+describe('migrateEvent — penalty_awarded to penalty_conceded', () => {
+    const teams: Team[] = [{ name: 'Whites', color: '#fff', roster: ['Sam'] }, { name: 'Colours', color: '#f00', roster: ['Jo'] }]
+    const old = (extra: object) => ({ id: 'p', matchTimeSec: 5, type: 'penalty_awarded', ...extra }) as Parameters<typeof migrateEvent>[0]
+
+    it('should become penalty_conceded with the team flipped to the other team', () => {
+        expect(migrateEvent(old({ team: 'Whites' }), true, teams)).toMatchObject({ type: 'penalty_conceded', team: 'Colours' })
+        expect(migrateEvent(old({ team: 'Colours' }), true, teams)).toMatchObject({ type: 'penalty_conceded', team: 'Whites' })
+    })
+    it('should leave an unset team unset', () => {
+        expect(migrateEvent(old({}), true, teams).team).toBeUndefined()
+    })
+    it('should leave the team alone when there are not two teams', () => {
+        expect(migrateEvent(old({ team: 'Whites' }), true, []).type).toBe('penalty_conceded')
+        expect(migrateEvent(old({ team: 'Whites' }), true, []).team).toBe('Whites')
+        expect(migrateEvent(old({ team: 'Whites' })).team).toBe('Whites')
+    })
+    it('should clear a person from the awarding roster but keep one from elsewhere', () => {
+        expect(migrateEvent(old({ team: 'Whites', scorer: 'sam' }), true, teams).scorer).toBeUndefined()
+        expect(migrateEvent(old({ team: 'Whites', scorer: 'Jo' }), true, teams).scorer).toBe('Jo')
+        expect(migrateEvent(old({ team: 'Whites', scorer: 'Stranger' }), true, teams).scorer).toBe('Stranger')
+    })
+    it('should not touch events already converted', () => {
+        expect(migrateEvent({ id: 'c', matchTimeSec: 1, type: 'penalty_conceded', team: 'Whites' }, true, teams).team).toBe('Whites')
     })
 })
 
@@ -79,11 +107,11 @@ describe('PICKER_OPTIONS — per-type details', () => {
         expect(opt('save').personLabel).toBe('Goalkeeper')
         expect(opt('highlight').personLabel).toBe('Who')
         expect(opt('foul').personLabel).toBe('Committed by')
-        expect(opt('penalty_awarded').askScorer).toBe(false)
+        expect(opt('penalty_conceded')).toMatchObject({ askScorer: true, personLabel: 'Conceded by', personOptional: true })
     })
 
     it('should make the goalkeeper, highlight and foul people optional', () => {
-        expect(PICKER_OPTIONS.filter((o) => o.personOptional).map((o) => o.id)).toEqual(['highlight', 'foul', 'save'])
+        expect(PICKER_OPTIONS.filter((o) => o.personOptional).map((o) => o.id)).toEqual(['penalty_conceded', 'highlight', 'foul', 'save'])
     })
 
     it('should ask highlight and foul for an optional team and a text', () => {
@@ -149,7 +177,7 @@ describe('PICKER_GROUPS', () => {
     it('should list every picker option exactly once, in the touch order', () => {
         const ids = PICKER_GROUPS.flatMap((g) => g.ids)
         expect([...ids].sort()).toEqual(PICKER_OPTIONS.map((o) => o.id).sort())
-        expect(ids).toEqual(['goal', 'goal_pen', 'own_goal', 'penalty_awarded', 'penalty_missed', 'save', 'foul', 'highlight', 'kick_off', 'half_time', 'final_whistle'])
+        expect(ids).toEqual(['goal', 'goal_pen', 'own_goal', 'penalty_conceded', 'penalty_missed', 'save', 'foul', 'highlight', 'kick_off', 'half_time', 'final_whistle'])
         expect(PICKER_GROUPS.map((g) => g.label)).toEqual(['Goals', 'Penalties', 'Other', 'Match'])
     })
 })
