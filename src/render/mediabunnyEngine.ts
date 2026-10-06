@@ -6,7 +6,7 @@ import {
 import { cropLabels, cropOverlayFor } from './cropOverlay'
 import { fileSource } from './fileSource'
 import { openGraphicsSession, type GraphicsSession, type OutItem } from './graphicsSession'
-import { hasInbandParams, planJoin, profileOf, type JoinPlan } from './joinParams'
+import { hasInbandParams, joinEntryConfig, planJoin, profileOf, type JoinPlan } from './joinParams'
 import { craToBla, lengthSize, withInbandParams } from './nal'
 import { clipPartSeconds, replayPartAfter } from './captionJoin'
 import { mixedSizeNotice } from './outputSize'
@@ -214,7 +214,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
         const usedList = [...used]
         const join: JoinPlan | null = !session && usedList.length > 1 ? planJoin(usedList.map((i) => opened[i].config.description), first.video.codec === 'hevc') : null
         const joinParams = new Map(usedList.map((i, k) => [opened[i], join?.params[k]] as const))
-        const vConfig = session ? session.entry : join ? opened[usedList[join.entry]].config : first.config
+        const vConfig = session ? session.entry : join ? joinEntryConfig(join, opened[usedList[join.entry]].config, first.video.codec === 'hevc') : first.config
         const aConfig = first.audio ? (await first.audio.getDecoderConfig())! : null
         const hasAudio = !!first.audio?.codec
 

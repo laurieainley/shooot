@@ -1,7 +1,7 @@
 // Joining several source files into one track: each file has its own VPS/SPS/PPS. A decoder that only sees the first
 // file's parameter sets (the MP4 sample entry) mis-decodes the rest, so every key frame carries its own source's sets
 // in-band and the sample entry holds the SPS that covers all of them (the title-card spike's rules).
-import { covers, nalType, paramSets, pickSampleEntry, spsLimits, spsOf, type SpsLimits } from './nal'
+import { covers, nalType, paramSets, pickSampleEntry, raiseEntry, spsLimits, spsOf, type SpsLimits } from './nal'
 
 export type JoinPlan = {
     /** Index of the source whose record becomes the sample entry. */
@@ -28,6 +28,11 @@ export function planJoin(descriptions: (AllowSharedBufferSource | undefined)[], 
     // No single SPS covers the rest: take the largest, a best effort that is still no worse than the first file's.
     const entry = idx >= 0 ? idx : limits.reduce((best, l, i) => (covers(l, limits[best]) ? i : best), 0)
     return { entry, params, limits }
+}
+
+/** The sample entry config of a join: the entry source's record with its level raised to the highest among the sources. */
+export function joinEntryConfig(plan: JoinPlan, config: VideoDecoderConfig, hevc: boolean): VideoDecoderConfig {
+    return raiseEntry(config, hevc, plan.limits[plan.entry], plan.limits)
 }
 
 /** True when the sample already carries VPS/SPS/PPS (then nothing is added). */

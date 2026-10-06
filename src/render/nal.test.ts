@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { covers, craToBla, lengthSize, nalType, paramSets, pickSampleEntry, spsLimits, withInbandParams } from './nal'
-import { X264_AVCC, X264_REF1_AVCC, X265_HVCC, VT_AVCC, VT_HVCC, hex } from './nal.fixtures'
+import { unescape, codecWithLevel, covers, craToBla, lengthSize, nalType, paramSets, pickSampleEntry, raiseLevel, spsLimits, withInbandParams } from './nal'
+import { GOPRO4K_HVCC, X264_AVCC, X264_REF1_AVCC, X265_HVCC, VT_AVCC, VT_HVCC, hex } from './nal.fixtures'
 
 const sps = (desc: string, hevc: boolean): Uint8Array => paramSets(hex(desc), hevc).find((n) => nalType(n, hevc) === (hevc ? 33 : 7))!
 
@@ -37,6 +37,8 @@ describe('spsLimits', () => {
     })
 })
 
+const P = { profile: 1, profileSpace: 0, tier: 0 }
+
 describe('covers / pickSampleEntry', () => {
     const lim = (desc: string, hevc: boolean) => spsLimits(sps(desc, hevc), hevc)
 
@@ -55,13 +57,13 @@ describe('covers / pickSampleEntry', () => {
     })
 
     it('should prefer the first entry when several cover the rest', () => {
-        const a = { codedWidth: 1920, codedHeight: 1088, dpb: 5, level: 120 }
+        const a = { ...P, codedWidth: 1920, codedHeight: 1088, dpb: 5, level: 120 }
         expect(pickSampleEntry([a, { ...a }])).toBe(0)
     })
 
     it('should return -1 when no entry covers all others', () => {
-        const tall = { codedWidth: 1920, codedHeight: 1088, dpb: 2, level: 120 }
-        const deep = { codedWidth: 1920, codedHeight: 1080, dpb: 4, level: 120 }
+        const tall = { ...P, codedWidth: 1920, codedHeight: 1088, dpb: 2, level: 120 }
+        const deep = { ...P, codedWidth: 1920, codedHeight: 1080, dpb: 4, level: 120 }
         expect(pickSampleEntry([tall, deep])).toBe(-1)
     })
 })
@@ -117,5 +119,98 @@ describe('craToBla', () => {
         const src = new Uint8Array(lp([21 << 1, 0x01, 0xaf]))
         craToBla(src, 4)
         expect((src[4] >> 1) & 63).toBe(21)
+    })
+})
+
+describe('profile, tier and level', () => {
+    const lim = (desc: string, hevc: boolean) => spsLimits(sps(desc, hevc), hevc)
+
+    it('should read profile, tier and level from HEVC and H.264 SPS', () => {
+        expect(lim(X265_HVCC, true)).toMatchObject({ profile: 1, profileSpace: 0, tier: 0, level: 120 })
+        expect(lim(VT_HVCC, true)).toMatchObject({ profile: 1, tier: 0, level: 120 })
+        expect(lim(GOPRO4K_HVCC, true)).toMatchObject({ codedWidth: 3840, codedHeight: 2160, profile: 1, tier: 0, level: 180 })
+        expect(lim(X264_AVCC, false)).toMatchObject({ profile: 100, level: 30 })
+    })
+
+    it('should not let a lower level cover a higher one', () => {
+        const footage = { ...P, codedWidth: 3840, codedHeight: 2160, dpb: 5, level: 180 }
+        const card = { ...footage, codedHeight: 2176, level: 150 }
+        expect(covers(card, footage)).toBe(false)
+        expect(covers({ ...footage, level: 150 }, footage)).toBe(false)
+        expect(covers({ ...footage, level: 183 }, footage)).toBe(true)
+    })
+
+    it('should not let a lower tier or another profile cover', () => {
+        const a = { ...P, codedWidth: 1920, codedHeight: 1080, dpb: 4, level: 120 }
+        expect(covers(a, { ...a, tier: 1 })).toBe(false)
+        expect(covers({ ...a, tier: 1 }, a)).toBe(true)
+        expect(covers(a, { ...a, profile: 2 })).toBe(false)
+        expect(covers({ ...a, profile: 2 }, a)).toBe(false)
+    })
+
+    it('should pick the card entry for 4K footage whose level is higher, to be raised afterwards', () => {
+        const footage = lim(GOPRO4K_HVCC, true)
+        const card = { ...footage, codedHeight: 2176, level: 150 }
+        expect(pickSampleEntry([footage, card])).toBe(1)
+    })
+
+    it('should find no entry for footage and a card of different profiles', () => {
+        const a = { ...P, codedWidth: 1920, codedHeight: 1088, dpb: 4, level: 120 }
+        expect(pickSampleEntry([a, { ...a, profile: 2 }])).toBe(-1)
+    })
+})
+
+describe('raiseLevel', () => {
+    const lim = (desc: Uint8Array, hevc: boolean) => spsLimits(paramSets(desc, hevc).find((n) => nalType(n, hevc) === (hevc ? 33 : 7))!, hevc)
+
+    it('should raise the level in the hvcC header and in the VPS and SPS, leaving everything else', () => {
+        const src = hex(VT_HVCC)
+        const out = raiseLevel(src, true, 180, 0)
+        expect(out[12]).toBe(180)
+        expect(lim(out, true)).toMatchObject({ level: 180, codedWidth: 1920, codedHeight: 1088, dpb: 5 })
+        const vps = paramSets(out, true)[0]
+        expect(unescape(vps)[17]).toBe(180)
+        expect(paramSets(out, true)).toHaveLength(3)
+        expect(paramSets(out, true)[2]).toEqual(paramSets(src, true)[2])
+        expect(out.length).toBe(src.length)
+    })
+
+    it('should keep the x265 SEI array and raise the level of a real 4K level 6 record unchanged when already enough', () => {
+        expect(raiseLevel(hex(GOPRO4K_HVCC), true, 180, 0)).toEqual(hex(GOPRO4K_HVCC))
+        expect(raiseLevel(hex(GOPRO4K_HVCC), true, 120, 0)).toEqual(hex(GOPRO4K_HVCC))
+        const out = raiseLevel(hex(X265_HVCC), true, 150, 0)
+        expect(out[12]).toBe(150)
+        expect(lim(out, true)).toMatchObject({ level: 150, codedWidth: 1920 })
+    })
+
+    it('should set the tier flag in the header and the SPS', () => {
+        const out = raiseLevel(hex(VT_HVCC), true, 150, 1)
+        expect(out[1] & 0x20).toBe(0x20)
+        expect(lim(out, true)).toMatchObject({ tier: 1, level: 150, profile: 1 })
+    })
+
+    it('should survive an SPS whose profile bytes need emulation prevention', () => {
+        // Level 3 (0x03) in the PTL forces an escape after the zero constraint flags; round trip must stay parseable.
+        const low = raiseLevel(hex(VT_HVCC), true, 3, 0)
+        expect(low).toEqual(hex(VT_HVCC)) // never lowers
+        const out = raiseLevel(hex(X265_HVCC), true, 186, 0)
+        expect(lim(out, true)).toMatchObject({ level: 186, codedWidth: 1920, codedHeight: 1080 })
+    })
+
+    it('should raise the level in the avcC header and SPS', () => {
+        const out = raiseLevel(hex(X264_AVCC), false, 51, 0)
+        expect(out[3]).toBe(51)
+        expect(lim(out, false)).toMatchObject({ level: 51, profile: 100, codedWidth: 768, dpb: 4 })
+        expect(paramSets(out, false).map((n) => nalType(n, false))).toEqual([7, 8])
+        expect(out.slice(out.length - 4)).toEqual(hex(X264_AVCC).slice(hex(X264_AVCC).length - 4))
+    })
+})
+
+describe('codecWithLevel', () => {
+    it('should rewrite the level of HEVC and H.264 codec strings', () => {
+        expect(codecWithLevel('hvc1.1.6.L150.B0', true, 180, 0)).toBe('hvc1.1.6.L180.B0')
+        expect(codecWithLevel('hvc1.1.6.L120.90', true, 150, 1)).toBe('hvc1.1.6.H150.90')
+        expect(codecWithLevel('avc1.640028', false, 51, 0)).toBe('avc1.640033')
+        expect(codecWithLevel('vp09.00.10.08', false, 51, 0)).toBe('vp09.00.10.08')
     })
 })
