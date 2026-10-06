@@ -47,6 +47,25 @@ describe('FullscreenControls', () => {
         expect(player.pause).not.toHaveBeenCalled()
     })
 
+    it('should ignore a third tap right after a double tap: one seek, no play/pause', () => {
+        const player = fakePlayer()
+        const { container } = render(<FullscreenControls playerRef={{ current: player }} isFullscreen />)
+        const right = container.querySelector('.tap-zone-right')!
+        fireEvent.click(right)
+        act(() => { vi.advanceTimersByTime(100) })
+        fireEvent.click(right)
+        act(() => { vi.advanceTimersByTime(150) })
+        fireEvent.click(right)
+        act(() => { vi.advanceTimersByTime(1000) })
+        expect(player.currentTime).toHaveBeenCalledWith(25)
+        expect(player.play).not.toHaveBeenCalled()
+        expect(player.pause).not.toHaveBeenCalled()
+        // a later single tap is normal again
+        fireEvent.click(right)
+        act(() => { vi.advanceTimersByTime(400) })
+        expect(player.play).toHaveBeenCalledTimes(1)
+    })
+
     it('should toggle play/pause at once on a centre tap', () => {
         const player = fakePlayer()
         const { container } = render(<FullscreenControls playerRef={{ current: player }} isFullscreen />)

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { DOUBLE_TAP_MS, isDoubleTap, type Tap, type TapZone } from '../utils/tap'
+import { DOUBLE_TAP_MS, NO_TAPS, resolveTap, type Tap, type TapMemory, type TapZone } from '../utils/tap'
 import { Fab } from './Fab'
 import { ScoreBadge } from './ScoreBadge'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
@@ -29,7 +29,7 @@ const SEEK_SEC = 5
 export function FullscreenControls({ playerRef, isFullscreen }: FullscreenControlsProps) {
     const [playbackSpeed, setPlaybackSpeed] = useState(1)
     const [tapFeedback, setTapFeedback] = useState<{ side: 'left' | 'right'; timestamp: number } | null>(null)
-    const lastTapRef = useRef<Tap | null>(null)
+    const tapsRef = useRef<TapMemory>(NO_TAPS)
     const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const coarse = useMediaQuery(COARSE_QUERY)
 
@@ -56,21 +56,19 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
             clearTimeout(singleTapTimerRef.current)
             singleTapTimerRef.current = null
         }
-        if (isDoubleTap(lastTapRef.current, tap) && zone !== 'centre') {
+        const { memory, action } = resolveTap(tapsRef.current, tap)
+        tapsRef.current = memory
+        if (action === 'ignore') return
+        if (action === 'seek') {
             if (player) {
                 const t = player.currentTime() || 0
                 player.currentTime(zone === 'left' ? Math.max(0, t - SEEK_SEC) : t + SEEK_SEC)
-                setTapFeedback({ side: zone, timestamp: tap.time })
+                setTapFeedback({ side: zone as 'left' | 'right', timestamp: tap.time })
                 setTimeout(() => setTapFeedback(null), 500)
             }
-            lastTapRef.current = null
             return
         }
-        lastTapRef.current = tap
-        if (zone === 'centre') {
-            togglePlay() // no double tap in the centre, so no need to wait
-            return
-        }
+        if (action === 'toggle') { togglePlay(); return } // no double tap in the centre, so no need to wait
         singleTapTimerRef.current = setTimeout(() => {
             singleTapTimerRef.current = null
             togglePlay()
