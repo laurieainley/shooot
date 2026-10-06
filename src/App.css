@@ -616,7 +616,7 @@
 .event-picker__item--type[aria-selected="false"] { border-left-color: var(--line); }
 /* Fullscreen: a small panel on the right, at most 40 % of the height, never over the picture's centre. */
 .event-picker--compact {
-  position: absolute; right: 0; bottom: 0; z-index: 50; width: min(380px, 46%); max-height: 40%;
+  position: absolute; right: 0; bottom: 0; z-index: 50; width: min(380px, 46%); max-height: max(40%, 176px);
   border-width: 1px 0 0 1px; border-radius: 10px 0 0 0; padding: 8px 10px 0; box-shadow: -6px -6px 22px rgb(0 0 0 / 0.35);
   padding-right: max(10px, env(safe-area-inset-right, 0px)); font-size: 15px;
 }
@@ -857,3 +857,11 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .shell--tablet .event-picker__groups { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; row-gap: 2px; align-items: end; }
 @media (max-height: 500px) { .event-picker--column .event-picker__prompt { display: none; } }
 .rail { grid-template-columns: minmax(0, 1fr); } /* a wide panel inside never widens the rail */
+
+/* Compact: Cancel / Done sit in the header row, so the little height there is goes to the list. */
+.event-picker--compact { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr); column-gap: 8px; }
+.event-picker--compact .event-picker__head { grid-column: 1; grid-row: 1; align-self: center; }
+.event-picker--compact .event-picker__actions { grid-column: 2; grid-row: 1; position: static; padding: 0 0 6px; border: 0; background: none; }
+.event-picker--compact .event-picker__actions > button { flex: none; min-width: 72px; }
+.event-picker--compact .event-picker__body { grid-column: 1 / -1; grid-row: 2; padding-bottom: 8px; }
+.event-picker--compact .event-picker__prompt { display: none; }
