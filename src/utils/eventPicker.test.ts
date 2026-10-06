@@ -52,7 +52,7 @@ describe('pickerReducer — type step', () => {
     })
 
     it('should close after type when no teams are configured', () => {
-        expect(run([key('Enter')], noTeams).effects.at(-1)).toEqual({ kind: 'close' })
+        expect(run([key('Enter'), key('Enter')], noTeams).effects.at(-1)).toEqual({ kind: 'close' })
     })
 
     it('should place a Kick off marker with K and finish (no team, person or text step)', () => {
@@ -88,7 +88,8 @@ describe('pickerReducer — team step', () => {
 
     it('should close after team when the option has no scorer', () => {
         const r = run([key('a'), key('w')])
-        expect(r.effects.at(-1)).toEqual({ kind: 'close' })
+        expect(r.state.step).toBe('text')
+        expect(run([key('a'), key('w'), key('Enter')]).effects.at(-1)).toEqual({ kind: 'close' })
     })
 
     it('should close on Escape', () => {
@@ -98,12 +99,12 @@ describe('pickerReducer — team step', () => {
 
 describe('pickerReducer — scorer step', () => {
     it('should filter by typed text and pick the highlighted match', () => {
-        const r = run([key('Enter'), key('w'), { kind: 'text', value: 'sa' }, key('ArrowDown'), key('Enter'), key('Tab')])
+        const r = run([key('Enter'), key('w'), { kind: 'text', value: 'sa' }, key('ArrowDown'), key('Enter'), key('Tab'), key('Enter')])
         expect(r.effects.slice(-2)).toEqual([{ kind: 'update', patch: { scorer: 'Sandy Wu' } }, { kind: 'close' }])
     })
 
     it('should add an unknown name to the roster', () => {
-        const r = run([key('Enter'), key('w'), { kind: 'text', value: 'New Guy' }, key('Enter'), key('Tab')])
+        const r = run([key('Enter'), key('w'), { kind: 'text', value: 'New Guy' }, key('Enter'), key('Tab'), key('Enter')])
         expect(r.effects.slice(-3)).toEqual([
             { kind: 'addToRoster', team: 'Whites', name: 'New Guy' },
             { kind: 'update', patch: { scorer: 'New Guy' } },
@@ -138,6 +139,7 @@ describe('pickerReducer — choose (tap/click)', () => {
             { kind: 'choose', value: 'own_goal' },
             { kind: 'choose', value: 'Whites' },
             { kind: 'choose', value: 'Jo' },
+            key('Enter'),
         ])
         expect(r.effects).toEqual([
             { kind: 'update', patch: { type: 'own_goal', pen: undefined } },
@@ -204,11 +206,11 @@ describe('pickerReducer — per-type details', () => {
     it('should go straight to the text step for a highlight when no teams are set', () => {
         const r = run([key('h')], noTeams)
         expect(r.state.step).toBe('text')
-        expect(run([key('s')], noTeams).effects.at(-1)).toEqual({ kind: 'close' })
+        expect(run([key('s'), key('Enter')], noTeams).effects.at(-1)).toEqual({ kind: 'close' })
     })
 
     it('should let a save skip the goalkeeper and close', () => {
-        const r = run([key('s'), key('w'), key('Tab')])
+        const r = run([key('s'), key('w'), key('Tab'), key('Enter')])
         expect(updates(r.effects)).toEqual([{ type: 'save', pen: undefined }, { team: 'Whites' }])
         expect(r.effects.at(-1)).toEqual({ kind: 'close' })
     })
@@ -270,29 +272,29 @@ describe('pickerReducer — assist step', () => {
     })
 
     it('should save a chosen assist and close', () => {
-        const r = run([...afterScorer, { kind: 'choose', value: 'Sandy Wu' }])
+        const r = run([...afterScorer, { kind: 'choose', value: 'Sandy Wu' }, key('Enter')])
         expect(r.effects.slice(-2)).toEqual([{ kind: 'update', patch: { assist: 'Sandy Wu' } }, { kind: 'close' }])
     })
 
     it('should choose the highlighted assist on Enter', () => {
-        const r = run([...afterScorer, key('Enter')])
+        const r = run([...afterScorer, key('Enter'), key('Enter')])
         expect(r.effects.slice(-2)).toEqual([{ kind: 'update', patch: { assist: 'Sandy Wu' } }, { kind: 'close' }])
     })
 
     it('should leave no assist on Skip, Tab, Escape or an empty Enter', () => {
         for (const input of [{ kind: 'choose', value: SKIP } as PickerInput, key('Tab'), key('Escape')]) {
-            const r = run([...afterScorer, input])
+            const r = run([...afterScorer, input, ...(input.kind === 'key' && input.key === 'Escape' ? [] : [key('Enter')])])
             expect(r.effects.some((e) => e.kind === 'update' && 'assist' in e.patch)).toBe(false)
             expect(r.effects.at(-1)).toEqual({ kind: 'close' })
         }
         const noOne = run([...afterScorer, { kind: 'text', value: 'zzz' }, key('Backspace')])
         expect(noOne.state.step).toBe('assist')
-        const enter = run([key('g'), key('c'), { kind: 'choose', value: 'Jo' }, { kind: 'text', value: '' }, key('ArrowDown'), key('Enter')])
+        const enter = run([key('g'), key('c'), { kind: 'choose', value: 'Jo' }, { kind: 'text', value: '' }, key('ArrowDown'), key('Enter'), key('Enter')])
         expect(enter.effects.at(-1)).toEqual({ kind: 'close' })
     })
 
     it('should add a new typed name to the scoring team roster', () => {
-        const r = run([...afterScorer, { kind: 'text', value: 'Newbie' }, key('Enter')])
+        const r = run([...afterScorer, { kind: 'text', value: 'Newbie' }, key('Enter'), key('Enter')])
         expect(r.effects.slice(-3)).toEqual([
             { kind: 'addToRoster', team: 'Whites', name: 'Newbie' },
             { kind: 'update', patch: { assist: 'Newbie' } },
@@ -301,21 +303,48 @@ describe('pickerReducer — assist step', () => {
     })
 
     it('should not take the scorer as their own assist', () => {
-        const r = run([...afterScorer, { kind: 'text', value: 'sam taylor' }, key('Enter')])
+        const r = run([...afterScorer, { kind: 'text', value: 'sam taylor' }, key('Enter'), key('Enter')])
         expect(r.effects.some((e) => e.kind === 'update' && 'assist' in e.patch)).toBe(false)
         expect(r.effects.at(-1)).toEqual({ kind: 'close' })
     })
 
     it('should not offer an assist for penalty goals or own goals', () => {
-        expect(run([key('p'), key('w'), { kind: 'choose', value: 'Sam Taylor' }]).effects.at(-1)).toEqual({ kind: 'close' })
-        expect(run([key('o'), key('w'), { kind: 'choose', value: 'Jo' }]).effects.at(-1)).toEqual({ kind: 'close' })
+        expect(run([key('p'), key('w'), { kind: 'choose', value: 'Sam Taylor' }, key('Enter')]).effects.at(-1)).toEqual({ kind: 'close' })
+        expect(run([key('o'), key('w'), { kind: 'choose', value: 'Jo' }, key('Enter')]).effects.at(-1)).toEqual({ kind: 'close' })
     })
 
     it('should still close after the assist when the goal has no team step (no teams)', () => {
-        expect(run([key('g')], noTeams).effects.at(-1)).toEqual({ kind: 'close' })
+        expect(run([key('g'), key('Enter')], noTeams).effects.at(-1)).toEqual({ kind: 'close' })
     })
 
     it('should accept typed text in the assist step', () => {
         expect(run([...afterScorer, { kind: 'text', value: 'x' }]).state.query).toBe('x')
+    })
+})
+
+describe('pickerReducer — optional note on every event', () => {
+    it('should ask for an optional note after the goalkeeper on a save and store it', () => {
+        const r = run([key('s'), key('w'), key('Tab'), text('great stop'), key('Enter')])
+        expect(r.state.step).toBe('text')
+        expect(updates(r.effects)).toEqual([{ type: 'save', pen: undefined }, { team: 'Whites' }, { notes: 'great stop' }])
+        expect(r.effects.at(-1)).toEqual({ kind: 'close' })
+    })
+
+    it('should keep a goal note after the assist step', () => {
+        const r = run([key('g'), key('w'), choose('Sam Taylor'), key('Tab'), text('top corner'), key('Enter')])
+        expect(updates(r.effects)).toContainEqual({ notes: 'top corner' })
+        expect(r.effects.at(-1)).toEqual({ kind: 'close' })
+    })
+
+    it('should let Skip-style keys (Tab, Escape, empty Enter) leave no note', () => {
+        for (const k of ['Enter', 'Escape']) {
+            const r = run([key('s'), key('w'), key('Tab'), key(k)])
+            expect(updates(r.effects).some((u) => 'notes' in u)).toBe(false)
+            expect(r.effects.at(-1)).toEqual({ kind: 'close' })
+        }
+    })
+
+    it('should not ask for a note on match markers', () => {
+        expect(run([key('k')]).state.step).not.toBe('text')
     })
 })

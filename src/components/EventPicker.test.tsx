@@ -33,6 +33,8 @@ describe('EventPicker', () => {
         press('Enter')
         expect(s().events[0]).toMatchObject({ type: 'goal', team: 'Whites', scorer: 'Sandy Wu' })
         press('Tab') // the optional assist step
+        expect(s().picker).not.toBeNull() // the optional note step
+        press('Enter')
         expect(s().picker).toBeNull()
     })
 
@@ -47,6 +49,7 @@ describe('EventPicker', () => {
         expect(screen.queryByRole('option', { name: /sam taylor/i })).not.toBeInTheDocument()
         press('Enter')
         expect(s().events[0]).toMatchObject({ type: 'goal', team: 'Whites', scorer: 'Sam Taylor', assist: 'Sandy Wu' })
+        press('Enter') // empty note
         expect(s().picker).toBeNull()
     })
 
@@ -81,6 +84,8 @@ describe('EventPicker', () => {
         render(<EventPicker />)
         press('p'); press('w')
         fireEvent.click(screen.getByRole('option', { name: /sam taylor/i }))
+        expect(screen.queryByRole('textbox', { name: 'Assist' })).not.toBeInTheDocument()
+        press('Enter') // empty note
         expect(s().picker).toBeNull()
     })
 
@@ -93,6 +98,8 @@ describe('EventPicker', () => {
         expect(screen.getByRole('textbox', { name: 'Assist' })).toBeInTheDocument()
         fireEvent.click(screen.getByRole('option', { name: /sandy wu/i }))
         expect(s().events[0].assist).toBe('Sandy Wu')
+        expect(s().picker).not.toBeNull() // the optional note
+        press('Enter')
         expect(s().picker).toBeNull()
         setCoarsePointer(false)
     })
@@ -123,6 +130,7 @@ describe('EventPicker', () => {
         press('c')
         expect(screen.getByRole('textbox', { name: 'Goalkeeper' })).toBeInTheDocument()
         fireEvent.click(screen.getByRole('button', { name: /skip/i }))
+        press('Enter') // empty note
         expect(s().picker).toBeNull()
         expect(s().events[0]).toMatchObject({ type: 'save', team: 'Colours' })
         expect(s().events[0].scorer).toBeUndefined()
@@ -176,7 +184,8 @@ describe('EventPicker', () => {
         press('w')
         expect(document.activeElement).toBe(screen.getByRole('textbox', { name: /scorer/i }))
         press('Enter')
-        press('Escape') // past the optional assist step
+        press('Tab') // past the optional assist step
+        press('Escape') // and the optional note
         expect(s().picker).toBeNull()
         expect(document.activeElement).toBe(playerEl)
         playerEl.remove()
@@ -310,5 +319,36 @@ describe('EventPicker duplicate-mark guard', () => {
         act(() => s().markEvent(101))
         render(<EventPicker />)
         expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+})
+
+describe('EventPicker optional note', () => {
+    beforeEach(() => {
+        setCoarsePointer(false)
+        useAppState.setState({
+            files: [vf('a.mp4')], events: [], cumulativeOffsets: [0], currentFileIndex: 0, undoStack: [], redoStack: [], picker: null,
+            teams: [{ name: 'Whites', color: '#fff', roster: ['Sam Taylor'] }, { name: 'Colours', color: '#f00', roster: ['Jo'] }],
+        })
+        act(() => s().markEvent(100))
+    })
+
+    it('should store a note typed after a save', () => {
+        render(<EventPicker />)
+        press('s'); press('c')
+        fireEvent.click(screen.getByRole('button', { name: /skip/i })) // goalkeeper
+        fireEvent.change(screen.getByRole('textbox', { name: /note/i }), { target: { value: 'point blank' } })
+        press('Enter')
+        expect(s().events[0]).toMatchObject({ type: 'save', team: 'Colours', notes: 'point blank' })
+        expect(s().picker).toBeNull()
+    })
+
+    it('should store a note typed after a goal', () => {
+        render(<EventPicker />)
+        press('Enter'); press('w')
+        fireEvent.click(screen.getByRole('option', { name: /sam taylor/i }))
+        press('Tab') // no assist
+        fireEvent.change(screen.getByRole('textbox', { name: /note/i }), { target: { value: 'top corner' } })
+        press('Enter')
+        expect(s().events[0]).toMatchObject({ type: 'goal', scorer: 'Sam Taylor', notes: 'top corner' })
     })
 })

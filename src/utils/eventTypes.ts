@@ -43,7 +43,7 @@ export type PickerOption = {
 }
 
 type Base = Pick<PickerOption, 'pen' | 'askTeam' | 'teamOptional' | 'askScorer' | 'personOptional' | 'askText'>
-const SCORER: Base = { pen: false, askTeam: true, teamOptional: false, askScorer: true, personOptional: false, askText: false }
+const SCORER: Base = { pen: false, askTeam: true, teamOptional: false, askScorer: true, personOptional: false, askText: 'optional' }
 const MARKER: Base = { pen: false, askTeam: false, teamOptional: false, askScorer: false, personOptional: false, askText: false }
 const OPTIONAL_ALL: Base = { pen: false, askTeam: true, teamOptional: true, askScorer: true, personOptional: true, askText: 'optional' }
 

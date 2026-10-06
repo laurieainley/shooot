@@ -485,6 +485,7 @@
 /* Zoom (Z / pinch): only the picture is transformed, the controls stay put. */
 .player-container .vjs-tech { transform-origin: center; }
 .player-container--zoomed .vjs-tech { cursor: grab; }
+.player-container--zoomed.zoom-dragging .vjs-tech { cursor: grabbing; }
 .zoom-chip {
   position: absolute; top: 10px; left: 10px; z-index: 30; /* top-right is the touch fullscreen button */
   border: 1px solid rgb(255 255 255 / 0.3); border-radius: 3px; padding: 2px 8px;

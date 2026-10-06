@@ -100,6 +100,16 @@ describe('generateYouTubeChapters — event types', () => {
 describe('chapters — notes', () => {
     const e = (id: string, t: number, extra: Partial<MatchEvent>): MatchEvent => ({ id, matchTimeSec: t, sourceFileIndex: 0, type: 'highlight', ...extra })
 
+    it('should add a note on a goal and on a save', () => {
+        const events = [
+            e('a', 100, { type: 'goal', team: 'Whites', scorer: 'Sam', notes: 'top corner' }),
+            e('b', 200, { type: 'save', team: 'Colours', scorer: 'Jo', notes: 'point blank' }),
+        ]
+        const out = generateYouTubeChapters(events, [0], 0, 0, 4, ['Whites', 'Colours'])
+        expect(out).toContain('01:40 Goal 1-0 (Whites) Sam: top corner')
+        expect(out).toContain('03:20 Save (Colours) Jo: point blank')
+    })
+
     it('should add a shortened note after the person', () => {
         const events = [
             e('a', 734, { team: 'Whites', scorer: 'Sam', notes: 'nutmeg on the wing' }),

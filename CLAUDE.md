@@ -130,6 +130,14 @@ event picker or a sheet / panel is open (those have their own keys). `components
 | **[ / ]** | Previous / next file |
 | **Z / 0** | Cycle zoom / reset zoom |
 | **F** | Toggle fullscreen |
+| **Z / 0** | Cycle zoom 1 → 1.5 → 2 → 3 → 4 → 1 / reset zoom |
+
+### Zoom and pan
+
+- Zoomed in (> 1×), a plain left-button drag on the picture pans (grab / grabbing cursor); a click (< 5 px, < 300 ms) still toggles play, a drag never does.
+- Mouse wheel with Ctrl (trackpad pinch) zooms 1×–4× towards the cursor; plain two-finger scroll pans while zoomed (page scroll untouched at 1×).
+- Touch: pinch zooms, two-finger drag pans, double-tap seeks, tap toggles.
+- Maths (`zoomTowards`, `dragPan`, `classifyPointer`, `wheelZoomFactor`, `clampPan`) lives in `src/utils/zoom.ts`; handlers in `Player.tsx`, state in `useZoomPan.ts`.
 | **L** | Focus the event log |
 | **Cmd/Ctrl+Z, +Shift** | Undo / redo (not in text fields) |
 

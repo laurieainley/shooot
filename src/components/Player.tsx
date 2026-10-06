@@ -9,6 +9,7 @@ import { EventPicker } from './EventPicker'
 import { TimelineMarkers } from './TimelineMarkers'
 import { patchPlayerFullscreen, type FullscreenPlayer } from './fullscreen'
 import { cropTransform } from '../utils/crop'
+import { classifyPointer, wheelZoomFactor } from '../utils/zoom'
 import { useZoomPan, type ZoomPan } from './useZoomPan'
 import { ZoomChip } from './ZoomChip'
 import { RenderChip } from './RenderChip'
@@ -40,7 +41,7 @@ export function Player() {
     const previewSteps = useAppState((s) => s.previewSteps)
     const currentPreviewSegment = useAppState((s) => s.currentPreviewSegment)
     const nextPreviewSegment = useAppState((s) => s.nextPreviewSegment)
-    // Zoom / pan of the picture only (Z, 0, Shift-drag, pinch)
+    // Zoom / pan of the picture only (Z, 0, drag, wheel, pinch)
     const getViewport = useCallback(() => {
         const el = containerRef.current
         return { width: el?.clientWidth ?? 0, height: el?.clientHeight ?? 0 }
@@ -237,26 +238,33 @@ export function Player() {
         tech.style.transform = zoom > 1 ? `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` : ''
     }, [userZoom, userPan, currentFileIndex, files, isPreviewMode, previewSteps, currentPreviewSegment])
 
-    // Shift+drag (mouse) or two-finger drag pans while zoomed; a two-finger pinch zooms between 1× and 4×.
+    // Mouse: drag the picture to pan while zoomed, wheel / trackpad pinch zooms towards the cursor, two-finger scroll pans.
+    // Touch: two-finger drag pans, a two-finger pinch zooms between 1× and 4×.
     useEffect(() => {
         const el = containerRef.current
         if (!el) return
         const pointers = new Map<number, { x: number; y: number }>()
         let pinch: { dist: number; zoom: number; mid: { x: number; y: number } } | null = null
+        let mouse: { id: number; start: { x: number; y: number }; at: number; dragging: boolean } | null = null
         let dragged = false
         const spread = (): { dist: number; mid: { x: number; y: number } } => {
             const [a, b] = Array.from(pointers.values())
             return { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } }
         }
+        const onPicture = (e: Event): boolean => !(e.target as HTMLElement).closest('.vjs-control-bar, button, .event-picker, .vjs-menu')
         const onDown = (e: PointerEvent): void => {
-            const touch = e.pointerType === 'touch'
-            if (!touch && !(e.shiftKey && zoomRef.current.zoom > 1)) return
-            if ((e.target as HTMLElement).closest('.vjs-control-bar, button, .event-picker')) return
-            pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
-            dragged = false
-            if (pointers.size === 2) {
-                const s = spread()
-                pinch = { dist: s.dist, zoom: zoomRef.current.zoom, mid: s.mid }
+            if (!onPicture(e)) return
+            if (e.pointerType === 'touch') {
+                pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+                dragged = false
+                if (pointers.size === 2) {
+                    const s = spread()
+                    pinch = { dist: s.dist, zoom: zoomRef.current.zoom, mid: s.mid }
+                }
+            } else if (e.button === 0 && zoomRef.current.zoom > 1) {
+                pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+                mouse = { id: e.pointerId, start: { x: e.clientX, y: e.clientY }, at: performance.now(), dragging: false }
+                dragged = false
             }
         }
         const onMove = (e: PointerEvent): void => {
@@ -270,31 +278,59 @@ export function Player() {
                 pinch.mid = s.mid
                 dragged = true
                 e.preventDefault()
-            } else if (e.pointerType !== 'touch' && e.shiftKey) {
+            } else if (mouse && mouse.id === e.pointerId) {
+                if (!mouse.dragging) {
+                    const kind = classifyPointer(Math.hypot(e.clientX - mouse.start.x, e.clientY - mouse.start.y), 0)
+                    if (kind === 'click') return
+                    mouse.dragging = true
+                    dragged = true
+                    el.classList.add('zoom-dragging')
+                    try { el.setPointerCapture(e.pointerId) } catch { /* pointer already gone */ }
+                }
                 zoomRef.current.panBy(e.clientX - prev.x, e.clientY - prev.y)
-                dragged = true
                 e.preventDefault()
             }
         }
         const onUp = (e: PointerEvent): void => {
             if (!pointers.delete(e.pointerId)) return
+            if (mouse && mouse.id === e.pointerId) {
+                // A slow press without movement is neither a click nor a pan: leave the click alone only when it qualifies.
+                if (!mouse.dragging && classifyPointer(Math.hypot(e.clientX - mouse.start.x, e.clientY - mouse.start.y), performance.now() - mouse.at) === 'drag') dragged = true
+                if (mouse.dragging) try { el.releasePointerCapture(e.pointerId) } catch { /* already released */ }
+                el.classList.remove('zoom-dragging')
+                mouse = null
+            }
             if (pinch && pointers.size < 2) { pinch = null; zoomRef.current.pinchEnd() }
         }
         // A pan or pinch must not also toggle play / count as a tap.
         const onClick = (e: MouseEvent): void => {
             if (dragged) { e.stopPropagation(); e.preventDefault(); dragged = false }
         }
+        const onWheel = (e: WheelEvent): void => {
+            if (!onPicture(e)) return
+            const z = zoomRef.current
+            if (!e.ctrlKey && z.zoom <= 1) return
+            const rect = el.getBoundingClientRect()
+            if (e.ctrlKey) {
+                z.zoomAt(wheelZoomFactor(e.deltaY), { x: e.clientX - rect.left - rect.width / 2, y: e.clientY - rect.top - rect.height / 2 })
+            } else {
+                z.panBy(-e.deltaX, -e.deltaY)
+            }
+            e.preventDefault()
+        }
         el.addEventListener('pointerdown', onDown, true)
         window.addEventListener('pointermove', onMove, { capture: true, passive: false })
         window.addEventListener('pointerup', onUp, true)
         window.addEventListener('pointercancel', onUp, true)
         el.addEventListener('click', onClick, true)
+        el.addEventListener('wheel', onWheel, { passive: false })
         return () => {
             el.removeEventListener('pointerdown', onDown, true)
             window.removeEventListener('pointermove', onMove, true)
             window.removeEventListener('pointerup', onUp, true)
             window.removeEventListener('pointercancel', onUp, true)
             el.removeEventListener('click', onClick, true)
+            el.removeEventListener('wheel', onWheel)
         }
     }, [])
 

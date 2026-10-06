@@ -89,7 +89,8 @@ describe('PICKER_OPTIONS — per-type details', () => {
     it('should ask highlight and foul for an optional team and a text', () => {
         expect(opt('highlight')).toMatchObject({ askTeam: true, teamOptional: true, askText: 'prompt', textLabel: 'What happened' })
         expect(opt('foul')).toMatchObject({ askTeam: true, teamOptional: true, askText: 'optional', textLabel: 'Note' })
-        expect(PICKER_OPTIONS.filter((o) => o.askText).map((o) => o.id)).toEqual(['highlight', 'foul'])
+        expect(PICKER_OPTIONS.filter((o) => o.askText).map((o) => o.id)).toEqual(PICKER_OPTIONS.filter((o) => !o.marker).map((o) => o.id)) // every event but the match markers
+        expect(PICKER_OPTIONS.filter((o) => o.askText === 'prompt').map((o) => o.id)).toEqual(['highlight'])
         expect(PICKER_OPTIONS.filter((o) => o.teamOptional).map((o) => o.id)).toEqual(['highlight', 'foul'])
     })
 })
