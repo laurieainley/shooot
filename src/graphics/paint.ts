@@ -13,6 +13,43 @@ export function designFit(width: number, height: number): { s: number; ox: numbe
     return { s, ox: (width - DESIGN_W * s) / 2, oy: (height - DESIGN_H * s) / 2 }
 }
 
+export type Box = { x: number; y: number; w: number; h: number }
+
+/** Baseline y that centres ink spanning `ascent` above to `descent` below the baseline on `centreY`. */
+export function centredBaseline(centreY: number, ascent: number, descent: number): number {
+    return centreY + (ascent - descent) / 2
+}
+
+/** `inner` moved (and, if larger than `box`, shrunk with its aspect ratio kept) to lie wholly inside `box`. */
+export function clampInto(box: Box, inner: Box): Box {
+    const k = Math.min(1, box.w / inner.w, box.h / inner.h)
+    const w = inner.w * k
+    const h = inner.h * k
+    const fits = k === 1
+    const x = fits ? Math.min(Math.max(inner.x, box.x), box.x + box.w - w) : box.x + (box.w - w) / 2
+    const y = fits ? Math.min(Math.max(inner.y, box.y), box.y + box.h - h) : box.y + (box.h - h) / 2
+    return { x, y, w, h }
+}
+
+/** Reference glyphs: capitals and digits, which is all the graphics draw (no descenders to skew the centring). */
+const INK_REFERENCE = 'H0'
+
+/**
+ * Ascent / descent of the display font's capitals at `size`, measured by the platform rather than guessed, so text
+ * centres the same with Bebas Neue as with a fallback (font metrics and 'middle' baselines differ per platform).
+ */
+export function textInkMetrics(ctx: Ctx, size: number): { ascent: number; descent: number } {
+    ctx.save()
+    ctx.font = `${size}px ${DISPLAY_FONT}`
+    ctx.textBaseline = 'alphabetic'
+    const m = ctx.measureText(INK_REFERENCE)
+    ctx.restore()
+    const hasBox = Number.isFinite(m.actualBoundingBoxAscent) && m.actualBoundingBoxAscent > 0
+    return hasBox
+        ? { ascent: m.actualBoundingBoxAscent, descent: Math.max(0, m.actualBoundingBoxDescent || 0) }
+        : { ascent: size * 0.7, descent: 0 }
+}
+
 function shieldPath(ctx: Ctx, cx: number, cy: number, w: number, h: number): void {
     ctx.beginPath()
     ctx.moveTo(cx - w / 2, cy - h / 2)
@@ -70,26 +107,36 @@ export function paintOps(ctx: Ctx, ops: DrawOp[], assets: PaintAssets): void {
                 ctx.fillStyle = op.fill
                 ctx.fillRect(op.x, op.y, op.w, op.h)
                 break
-            case 'shield':
-                shieldPath(ctx, op.cx, op.cy, op.w, op.h)
+            case 'shield': {
+                const r = op.box ? clampInto(op.box, { x: op.cx - op.w / 2, y: op.cy - op.h / 2, w: op.w, h: op.h }) : { x: op.cx - op.w / 2, y: op.cy - op.h / 2, w: op.w, h: op.h }
+                shieldPath(ctx, r.x + r.w / 2, r.y + r.h / 2, r.w, r.h)
                 ctx.fillStyle = op.fill
                 ctx.fill()
                 ctx.lineWidth = op.lineWidth
                 ctx.strokeStyle = op.stroke
                 ctx.stroke()
                 break
-            case 'text':
+            }
+            case 'text': {
                 ctx.fillStyle = op.color
                 ctx.font = `${op.size}px ${DISPLAY_FONT}`
                 ctx.textAlign = op.align
-                ctx.textBaseline = op.baseline
-                ctx.fillText(op.text, op.x, op.y, op.maxWidth)
+                ctx.textBaseline = 'alphabetic'
+                let y = op.y
+                if (op.baseline === 'middle') {
+                    const m = textInkMetrics(ctx, op.size)
+                    y = centredBaseline(op.y, m.ascent, m.descent)
+                }
+                ctx.fillText(op.text, op.x, y, op.maxWidth)
                 break
+            }
             case 'logo': {
                 const logo = assets.logo
                 if (!logo) break
                 const w = (logo.width / logo.height) * op.h
-                ctx.drawImage(logo, op.align === 'center' ? op.x - w / 2 : op.x, op.y, w, op.h)
+                const r = { x: op.align === 'center' ? op.x - w / 2 : op.x, y: op.y, w, h: op.h }
+                const c = op.box ? clampInto(op.box, r) : r
+                ctx.drawImage(logo, c.x, c.y, c.w, c.h)
                 break
             }
         }

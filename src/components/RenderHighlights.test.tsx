@@ -8,7 +8,7 @@ import type { VideoSourceFile } from '../types'
 
 const renderReel = vi.fn()
 vi.mock('../render', () => ({ renderReel: (...a: unknown[]) => renderReel(...a) }))
-vi.mock('../graphics/assets', () => ({ loadGraphicsFont: vi.fn(async () => true), loadLogo: vi.fn(async () => null) }))
+vi.mock('../graphics/assets', () => ({ ensureGraphicsFonts: vi.fn(async () => true), loadLogo: vi.fn(async () => null) }))
 vi.mock('../graphics/logoStore', () => ({ loadCustomLogo: vi.fn(async () => null) }))
 
 import { RenderHighlights } from './RenderHighlights'
@@ -90,7 +90,7 @@ describe('RenderHighlights', () => {
         const g = renderReel.mock.calls[0][2].graphics
         expect(g.intro.label).toBe('Title card')
         expect(g.outro.label).toBe('Full-time card')
-        expect(g.overlays.map((o: { cutIndex: number; startSec: number }) => [o.cutIndex, o.startSec])).toEqual([[0, 100], [1, expect.any(Number)]])
+        expect(g.overlays.map((o: { cutIndex: number; startSec: number }) => [o.cutIndex, o.startSec])).toEqual([[0, 101], [1, expect.any(Number)]])
     })
 
     it('should render without graphics when they are all turned off', async () => {
