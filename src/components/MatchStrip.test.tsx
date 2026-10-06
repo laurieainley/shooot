@@ -15,9 +15,9 @@ describe('MatchStrip', () => {
         useAppState.setState({
             files: [vf('GX010226.MP4', 600), vf('GX020226.MP4', 400)],
             cumulativeOffsets: [0, 600],
-            events: [{ id: 'a', matchTimeSec: 100, sourceFileIndex: 1, type: 'goal', team: 'Colours' }],
+            events: [{ id: 'k', matchTimeSec: 100, sourceFileIndex: 0, type: 'kick_off' }, { id: 'a', matchTimeSec: 100, sourceFileIndex: 1, type: 'goal', team: 'Colours' }],
             teams: [{ name: 'Whites', color: '#3a6ea5', roster: [] }, { name: 'Colours', color: '#c2364a', roster: [] }],
-            matchStartTimeSec: 100, currentFileIndex: 0, currentTimeInFileSec: 50,
+            currentFileIndex: 0, currentTimeInFileSec: 50,
             lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, isPreviewMode: false, seekToGoal,
         })
     })
@@ -40,7 +40,7 @@ describe('MatchStrip', () => {
         render(<MatchStrip />)
         expect(screen.getByText('GX010226.MP4')).toBeInTheDocument()
         expect(screen.getByText('GX020226.MP4')).toBeInTheDocument()
-        expect(screen.getByTitle('Kick-off')).toHaveStyle({ left: '10%' })
+        expect(screen.getByTitle(/^Kick off/)).toHaveStyle({ left: '10%' })
         const dot = screen.getByRole('button', { name: /Goal – Colours/ })
         expect(dot).toHaveStyle({ left: '70%', background: '#c2364a' })
         expect(track()).toHaveAttribute('aria-valuenow', '50')

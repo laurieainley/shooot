@@ -1,4 +1,4 @@
-import type { MatchEvent, Team } from '../types'
+import type { MarkerType, MatchEvent, Team } from '../types'
 import { PICKER_OPTIONS, optionForKey, type PickerOption } from './eventTypes'
 import { optionPatch, personEdit } from './eventEdit'
 import { filterRoster, rosterTeamFor, teamShortcuts } from './roster'
@@ -25,6 +25,8 @@ export type PickerEffect =
     | { kind: 'update'; patch: Partial<MatchEvent> }
     | { kind: 'remove' }
     | { kind: 'addToRoster'; team: string; name: string }
+    /** Make the event this match marker (the store moves an existing one: single instance). */
+    | { kind: 'marker'; type: MarkerType }
     | { kind: 'close' }
 
 export type PickerContext = { teams: Team[] }
@@ -59,6 +61,7 @@ function afterPerson(state: PickerState, effects: PickerEffect[]): Result {
 }
 
 function chooseOption(state: PickerState, option: PickerOption, ctx: PickerContext): Result {
+    if (option.marker) return { state: { ...state, option }, effects: [{ kind: 'marker', type: option.type as MarkerType }, CLOSE] }
     const effects: PickerEffect[] = [{ kind: 'update', patch: optionPatch(option) }]
     const next = { ...state, option }
     if (option.askTeam && hasTeams(ctx)) {

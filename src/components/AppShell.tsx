@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useAppState } from '../state'
 import { ClipSummary } from './ClipSummary'
 import { EmptyPlayer } from './EmptyPlayer'
@@ -11,6 +12,9 @@ import { PreviewControls } from './PreviewControls'
 import { Chevron, TopBar } from './TopBar'
 import { useKeyboardInset } from './useKeyboardInset'
 import { useLayout } from './useMediaQuery'
+import { RenderChip } from './RenderChip'
+import { useWakeLock } from './useWakeLock'
+import { useRenderJobs } from '../renderJobs'
 
 /**
  * Edit bay. Desktop (≥ 900px): one screen, no page scroll — player and match strip on the left, the event
@@ -25,12 +29,23 @@ export function AppShell() {
     const isPreviewMode = useAppState((s) => s.isPreviewMode)
     const sideBySide = layout !== 'phone'
     const collapsed = useAppState((s) => s.barCollapsed) && layout === 'landscape'
+    // A render keeps the screen on for its whole life (not just while the Export panel is open)…
+    const rendering = useRenderJobs((s) => s.job?.phase === 'running')
+    useWakeLock(rendering)
+    // …and leaving the page asks first (a full match can resume, but a reel would start again).
+    useEffect(() => {
+        if (!rendering) return
+        const warn = (e: BeforeUnloadEvent): void => { e.preventDefault() }
+        window.addEventListener('beforeunload', warn)
+        return () => window.removeEventListener('beforeunload', warn)
+    }, [rendering])
 
     // Side by side: the preview bar floats over the top of the picture. Portrait phone: it sits below the video.
     const stage = (
         <div className="stage">
             {hasFiles ? <Player /> : <EmptyPlayer />}
             {sideBySide && isPreviewMode && <div className="preview-bar"><PreviewControls /></div>}
+            {collapsed && <RenderChip variant="overlay" />}
         </div>
     )
 

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { cardFade, cardLayout, lowerThirdLayout, replayTagLayout, estimateTextWidth, LOWER_THIRD_SEC, type DrawOp, type TextOp } from './layout'
+import { BUG_ROWS, CAPTION_DELAY_SEC, CAPTION_ROWS, CAPTION_SEC, captionLayout, cardFade, cardLayout, replayTagLayout, scoreBugLayout, estimateTextWidth, type DrawOp, type RectOp, type TextOp } from './layout'
 import { NAVY, ORANGE } from './teamStyle'
-import type { CardSpec, LowerThirdSpec } from './types'
+import type { BugSpec, CaptionSpec, CardSpec } from './types'
 
 const left = { name: "RYAN'S ROVERS", initials: 'RR', colour: '#f0f0f0', ink: NAVY }
 const right = { name: 'WALFORD TOWN', initials: 'WT', colour: '#ec5fa4', ink: '#ffffff' }
@@ -64,77 +64,134 @@ describe('cardFade', () => {
     })
 })
 
-describe('lowerThirdLayout', () => {
-    const goal: LowerThirdSpec = { label: 'GOAL', person: 'SAM', stripe: '#f0f0f0', score: { left: 'RR', right: 'WT', text: '1–0' } }
-    const alphaAt = (spec: LowerThirdSpec, t: number): number => Math.max(...lowerThirdLayout(spec, t, true).map((o) => (o.kind === 'cardBackground' ? 1 : o.alpha ?? 1)))
+describe('captionLayout', () => {
+    const bug: BugSpec = { left: 'RR', right: 'WT', leftColour: '#f0f0f0', rightColour: '#ec5fa4', text: '1–0' }
+    const goal: CaptionSpec = { label: 'GOAL', person: 'SAM', stripe: '#f0f0f0', bug }
+    const alphaAt = (spec: CaptionSpec, t: number, anchored = false): number =>
+        Math.max(...captionLayout(spec, t, true, CAPTION_SEC, estimateTextWidth, anchored).map((o) => (o.kind === 'cardBackground' ? 1 : o.alpha ?? 1)))
+    const rects = (ops: DrawOp[]): RectOp[] => ops.filter((o): o is RectOp => o.kind === 'rect')
 
-    it('should show label, person and the score after a goal', () => {
-        const ops = lowerThirdLayout(goal, 1.5, true)
-        expect(textOf(ops)).toEqual(expect.arrayContaining(['GOAL', 'SAM', 'RR', '1–0', 'WT']))
+    it('should show the score bug (initials and score) with the event line beneath', () => {
+        const ops = captionLayout(goal, 2.5, true)
+        expect(textOf(ops)).toEqual(expect.arrayContaining(['RR', '1–0', 'WT', 'GOAL', 'SAM']))
+        const y = (t: string): number => texts(ops).find((o) => o.text === t)!.y
+        expect(y('GOAL')).toBeGreaterThan(y('1–0'))
     })
 
-    it('should leave the score out for events that do not score', () => {
-        const ops = lowerThirdLayout({ label: 'HIGHLIGHT', person: 'JO', note: 'NUTMEG ON THE WING', stripe: ORANGE }, 1.5, true)
-        expect(textOf(ops)).toEqual(expect.arrayContaining(['HIGHLIGHT', 'JO', 'NUTMEG ON THE WING']))
-        expect(textOf(ops)).not.toContain('1–0')
+    it('should still show the current score on events that do not score', () => {
+        const ops = captionLayout({ label: 'HIGHLIGHT', person: 'JO', note: 'NUTMEG ON THE WING', stripe: ORANGE, bug: { ...bug, text: '0–0' } }, 2.5, true)
+        expect(textOf(ops)).toEqual(expect.arrayContaining(['0–0', 'HIGHLIGHT', 'JO', 'NUTMEG ON THE WING']))
     })
 
-    it('should size the panel from the measured text', () => {
-        const panelW = (m?: (t: string, s: number) => number): number => {
-            const ops = lowerThirdLayout({ label: 'HIGHLIGHT', person: 'JOSEPHINE BLOGGS', stripe: ORANGE }, 1.5, false, LOWER_THIRD_SEC, m)
-            const panel = ops.filter((o) => o.kind === 'rect')[1]
-            return panel.kind === 'rect' ? panel.w : 0
+    it('should leave the bug out without teams', () => {
+        const ops = captionLayout({ label: 'GOAL', person: 'SAM', stripe: ORANGE }, 2.5, true)
+        expect(textOf(ops)).toEqual(['GOAL', 'SAM'])
+    })
+
+    it('should sit top-left inside title-safe and clear of the top-right REPLAY tag', () => {
+        const ops = captionLayout({ ...goal, person: 'MAXIMILIAN ALEXANDER-FOTHERINGHAM THE THIRD', note: 'A VERY LONG NOTE ABOUT A WONDERFUL PIECE OF SKILL THAT GOES ON AND ON' }, 2.5, true)
+        const tag = rects(replayTagLayout(1, 6))[0]
+        for (const o of rects(ops)) {
+            expect(o.x).toBeGreaterThanOrEqual(96)
+            expect(o.y).toBeGreaterThanOrEqual(54)
+            expect(o.x + o.w).toBeLessThan(tag.x)
+            expect(o.y + o.h).toBeLessThanOrEqual(CAPTION_ROWS[1])
         }
-        expect(panelW((t, size) => t.length * size * 0.3)).toBeLessThan(panelW())
+        for (const o of texts(ops)) if (o.align === 'left') expect(o.x + (o.maxWidth ?? estimateTextWidth(o.text, o.size))).toBeLessThan(tag.x)
     })
 
-    it('should be legible on a phone-sized 768×432 reel: label, person and score ≥ 35 px, note ≥ 22 px when scaled down', () => {
+    it('should be legible on a 768×432 reel: event line ≥ 30 px, score ≥ 26 px, note ≥ 20 px', () => {
         const scale = 432 / 1080
-        const ops = texts(lowerThirdLayout({ ...goal, note: 'TOP CORNER' }, 1.5, true))
+        const ops = texts(captionLayout({ ...goal, note: 'TOP CORNER' }, 2.5, true))
         const size = (t: string): number => ops.find((o) => o.text === t)!.size * scale
-        expect(size('GOAL')).toBeGreaterThanOrEqual(35)
-        expect(size('SAM')).toBeGreaterThanOrEqual(35)
-        expect(size('1–0')).toBeGreaterThanOrEqual(33)
-        expect(size('TOP CORNER')).toBeGreaterThanOrEqual(22)
+        expect(size('GOAL')).toBeGreaterThanOrEqual(30)
+        expect(size('SAM')).toBeGreaterThanOrEqual(30)
+        expect(size('1–0')).toBeGreaterThanOrEqual(26)
+        expect(size('RR')).toBeGreaterThanOrEqual(24)
+        expect(size('TOP CORNER')).toBeGreaterThanOrEqual(20)
     })
 
-    it('should be about 1.4× the original panel (one row ≥ 134 px tall in the 1080 design)', () => {
-        const panel = lowerThirdLayout({ label: 'GOAL', person: 'SAM', stripe: ORANGE }, 1.5, false).filter((o) => o.kind === 'rect')[1]
-        expect(panel.kind === 'rect' && panel.h).toBeGreaterThanOrEqual(134)
+    it('should size the event panel from the measured text', () => {
+        const width = (m: (t: string, s: number) => number): number =>
+            Math.max(...rects(captionLayout({ label: 'HIGHLIGHT', person: 'JOSEPHINE BLOGGS', stripe: ORANGE }, 2.5, false, CAPTION_SEC, m)).map((r) => r.x + r.w))
+        expect(width((t, size) => t.length * size * 0.3)).toBeLessThan(width(estimateTextWidth))
     })
 
-    it('should squeeze a long name inside the safe area rather than overflow', () => {
-        const ops = lowerThirdLayout({ label: 'PENALTY MISSED', person: 'MAXIMILIAN ALEXANDER-FOTHERINGHAM', stripe: ORANGE, score: { left: 'RR', right: 'WT', text: '10–10' } }, 1.5, true)
-        const person = texts(ops).find((o) => o.text.startsWith('MAXIMILIAN'))!
-        const scoreBox = ops.filter((o) => o.kind === 'rect')[2]
-        expect(person.x + (person.maxWidth ?? 0)).toBeLessThanOrEqual(scoreBox.kind === 'rect' ? scoreBox.x : 0)
-        expect(scoreBox.kind === 'rect' && scoreBox.x + scoreBox.w).toBeLessThanOrEqual(1824)
+    it('should use the team colours for the stripe and the bug bars', () => {
+        const fills = rects(captionLayout(goal, 2.5, true)).map((r) => r.fill)
+        expect(fills).toEqual(expect.arrayContaining(['#f0f0f0', '#ec5fa4']))
     })
 
-    it('should use the team colour for the stripe', () => {
-        expect(lowerThirdLayout(goal, 1.5, true).some((o) => o.kind === 'rect' && o.fill === '#f0f0f0')).toBe(true)
-    })
-
-    it('should stay inside the title-safe area', () => {
-        const ops = lowerThirdLayout({ ...goal, note: 'A VERY LONG NOTE ABOUT A WONDERFUL PIECE OF SKILL THAT GOES ON AND ON AND ON' }, 1.5, true)
-        for (const o of ops) {
-            if (o.kind === 'rect') {
-                expect(o.x).toBeGreaterThanOrEqual(96)
-                expect(o.x + o.w).toBeLessThanOrEqual(1824)
-                expect(o.y + o.h).toBeLessThanOrEqual(1026)
-            }
-            if (o.kind === 'text' && o.align === 'left') expect(o.x + (o.maxWidth ?? estimateTextWidth(o.text, o.size))).toBeLessThanOrEqual(1824)
-        }
-    })
-
-    it('should fade and slide in over 0.3 s and out over the last 0.3 s', () => {
+    it('should be on screen for 5 s, sliding and fading in and out over 0.3 s', () => {
+        expect(CAPTION_SEC).toBe(5)
+        expect(CAPTION_DELAY_SEC).toBe(1)
         expect(alphaAt(goal, 0)).toBe(0)
         expect(alphaAt(goal, 0.15)).toBeGreaterThan(0)
         expect(alphaAt(goal, 0.15)).toBeLessThan(1)
-        expect(alphaAt(goal, 1.5)).toBe(1)
-        expect(alphaAt(goal, LOWER_THIRD_SEC)).toBe(0)
-        const x = (t: number): number => Math.min(...lowerThirdLayout(goal, t, true).filter((o) => o.kind === 'rect').map((o) => (o.kind === 'rect' ? o.x : 0)))
-        expect(x(0.1)).toBeLessThan(x(1.5))
+        expect(alphaAt(goal, 2.5)).toBe(1)
+        expect(alphaAt(goal, CAPTION_SEC)).toBe(0)
+        const x = (t: number): number => Math.min(...rects(captionLayout(goal, t, true)).map((o) => o.x))
+        expect(x(0.1)).toBeLessThan(x(2.5))
+    })
+
+    it('should keep the bug row still when anchored to an always-on score bug (only the event line moves)', () => {
+        const still = scoreBugLayout(bug, 0, 1, true, false)
+        const anchoredStart = captionLayout(goal, 0.05, true, CAPTION_SEC, estimateTextWidth, true)
+        for (const r of rects(still)) expect(anchoredStart).toContainEqual(expect.objectContaining({ kind: 'rect', x: r.x, y: r.y, w: r.w, h: r.h, fill: r.fill, alpha: 1 }))
+        const event = texts(anchoredStart).find((o) => o.text === 'GOAL')!
+        expect(event.alpha).toBeLessThan(1)
+    })
+})
+
+describe('text centring in panels', () => {
+    const bug: BugSpec = { left: 'WH', right: 'CO', leftColour: '#f5f5f5', rightColour: '#c2364a', text: '2–1' }
+    const panelOf = (ops: DrawOp[], t: TextOp): RectOp =>
+        ops.filter((o): o is RectOp => o.kind === 'rect' && o.x <= t.x + 1 && t.y > o.y && t.y < o.y + o.h && o.h > 20).sort((a, b) => a.w * a.h - b.w * b.h)[0]
+
+    it('should anchor the score bug and REPLAY texts exactly on the vertical centre of their panel (the painter centres the ink from measured metrics)', () => {
+        const ops = [...scoreBugLayout(bug, 3, 10, true, false), ...replayTagLayout(1, 6)]
+        const middle = texts(ops).filter((o) => o.baseline === 'middle')
+        expect(middle).toHaveLength(4)
+        for (const t of middle) {
+            const p = panelOf(ops, t)
+            expect(t.y).toBeCloseTo(p.y + p.h / 2, 5)
+        }
+    })
+
+    it('should centre the event line in its own row and the note in its own band', () => {
+        const ops = captionLayout({ label: 'GOAL', person: 'SAM', note: 'TOP BINS', stripe: '#fff', bug }, 2.5, true)
+        const top = 54 + Math.round(64 * 1.4) + Math.round(4 * 1.4)
+        const eventH = Math.round(72 * 1.4)
+        const noteH = Math.round(50 * 1.4)
+        expect(texts(ops).find((o) => o.text === 'GOAL')!.y).toBe(top + eventH / 2)
+        expect(texts(ops).find((o) => o.text === 'SAM')!.y).toBe(top + eventH / 2)
+        expect(texts(ops).find((o) => o.text === 'TOP BINS')!.y).toBe(top + eventH + noteH / 2)
+    })
+})
+
+describe('scoreBugLayout', () => {
+    const bug: BugSpec = { left: 'WH', right: 'CO', leftColour: '#f5f5f5', rightColour: '#c2364a', text: '2–1' }
+
+    it('should draw initials either side of the score with team colour bars, top-left', () => {
+        const ops = scoreBugLayout(bug, 3, 10, true, false)
+        expect(textOf(ops)).toEqual(['WH', '2–1', 'CO'])
+        const r = ops.filter((o): o is RectOp => o.kind === 'rect')
+        expect(r.map((o) => o.fill)).toEqual(expect.arrayContaining(['#f5f5f5', '#c2364a']))
+        for (const o of r) {
+            expect(o.x).toBeGreaterThanOrEqual(96)
+            expect(o.y).toBeGreaterThanOrEqual(54)
+            expect(o.y + o.h).toBeLessThanOrEqual(BUG_ROWS[1])
+        }
+        expect(ops.some((o) => o.kind === 'logo')).toBe(true)
+        expect(scoreBugLayout(bug, 3, 10, false, false).some((o) => o.kind === 'logo')).toBe(false)
+    })
+
+    it('should stay still when always on and fade in and out when it comes and goes', () => {
+        const alpha = (t: number, fade: boolean): number => Math.max(...scoreBugLayout(bug, t, 8, true, fade).map((o) => (o.kind === 'cardBackground' ? 1 : o.alpha ?? 1)))
+        expect(alpha(0, false)).toBe(1)
+        expect(alpha(0, true)).toBe(0)
+        expect(alpha(4, true)).toBe(1)
+        expect(alpha(8, true)).toBe(0)
     })
 })
 
@@ -145,5 +202,27 @@ describe('replayTagLayout', () => {
         const box = ops.find((o) => o.kind === 'rect')!
         expect(box.kind === 'rect' && box.x + box.w).toBeLessThanOrEqual(1824)
         expect(box.kind === 'rect' && box.y).toBeGreaterThanOrEqual(54)
+    })
+
+    it('should appear instantly, without fading or sliding, for its whole length', () => {
+        for (const t of [0, 0.05, 0.15, 3, 5.95]) {
+            for (const o of replayTagLayout(t, 6)) expect(o.kind === 'cardBackground' ? 1 : o.alpha ?? 1).toBe(1)
+        }
+        const x = (t: number): number => Math.min(...replayTagLayout(t, 6).filter((o): o is RectOp => o.kind === 'rect').map((o) => o.x))
+        expect(x(0)).toBe(x(3))
+    })
+
+    it('should widen to fit its text in a wider fallback font and stay inside the title-safe margin', () => {
+        const wide = (text: string, size: number): number => text.length * size * 0.6
+        const box = replayTagLayout(1, 6, wide).find((o): o is RectOp => o.kind === 'rect')!
+        const narrow = replayTagLayout(1, 6).find((o): o is RectOp => o.kind === 'rect')!
+        expect(box.w).toBeGreaterThan(narrow.w)
+        expect(box.x + box.w).toBe(1824)
+        expect(box.w).toBeGreaterThanOrEqual(wide('REPLAY', 67))
+    })
+
+    it('should be scaled up like the captions (≥ 26 px text on a 768×432 reel)', () => {
+        const text = replayTagLayout(1, 6).find((o): o is TextOp => o.kind === 'text')!
+        expect(text.size * 432 / 1080).toBeGreaterThanOrEqual(26)
     })
 })

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { addPickedFiles } from './addFiles'
 import { AddFilesButton } from './FilePills'
 import { OpeningStatus } from './OpeningStatus'
+import { rememberHandles, type StoredHandle } from '../files/handleStore'
 
 const HINTS: [string, string][] = [
     ['G', 'mark an event'], ['⇧← ⇧→', '1 s back / on'], ['↑ ↓', 'frame step'], [', .', 'speed down / up'],
@@ -18,6 +19,10 @@ export function EmptyPlayer() {
             onDrop={async (e) => {
                 e.preventDefault()
                 setDragging(false)
+                // Dropped files can come with handles (desktop Chrome): keep them for one-click relinking after a reload.
+                type WithHandle = DataTransferItem & { getAsFileSystemHandle?: () => Promise<FileSystemHandle | null> }
+                const handles = Array.from(e.dataTransfer.items ?? []).map((i) => (i as WithHandle).getAsFileSystemHandle?.() ?? null)
+                void Promise.all(handles).then((hs) => rememberHandles(hs.filter((h): h is StoredHandle => h?.kind === 'file'))).catch(() => undefined)
                 setError(await addPickedFiles(Array.from(e.dataTransfer.files ?? [])))
             }}
             onDragOver={(e) => { e.preventDefault(); setDragging(true) }}

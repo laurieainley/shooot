@@ -1,18 +1,16 @@
 import type { MatchEvent, Team } from '../types'
-import { EVENT_META, eventIcon, eventLabel, shortNote } from './eventTypes'
+import { EVENT_META, eventIcon, eventLabel, isMarker, shortNote } from './eventTypes'
 import { linkedEvents } from './relink'
 import { formatHMS } from './timeline'
 
 export type Marker = {
     id: string
-    kind: 'event' | 'start'
+    kind: 'event' | 'kick_off' | 'final_whistle'
     leftPct: number
     icon: string
     color: string
     title: string
 }
-
-const START_COLOR = '#22c55e'
 
 export function startInFile(matchStartSec: number, cumulativeOffsets: number[], fileIndex: number, durationSec: number): number | null {
     const local = matchStartSec - (cumulativeOffsets[fileIndex] ?? 0)
@@ -24,17 +22,19 @@ export function markersForFile(args: {
     fileIndex: number
     durationSec: number
     teams: Team[]
-    matchStartSec: number
     cumulativeOffsets: number[]
 }): Marker[] {
-    const { events, fileIndex, durationSec, teams, matchStartSec, cumulativeOffsets } = args
+    const { events, fileIndex, durationSec, teams } = args
     if (!durationSec) return []
     const pct = (t: number): number => Math.min(100, Math.max(0, (t / durationSec) * 100))
-    const out: Marker[] = []
-    const start = startInFile(matchStartSec, cumulativeOffsets, fileIndex, durationSec)
-    if (start !== null) out.push({ id: 'start', kind: 'start', leftPct: pct(start), icon: '⚑', color: START_COLOR, title: 'Match start' })
-    for (const e of linkedEvents(events)) {
-        if ((e.sourceFileIndex ?? 0) !== fileIndex) continue
+    const inFile = linkedEvents(events).filter((e) => e.globalTimeSec === undefined && (e.sourceFileIndex ?? 0) === fileIndex)
+    // Flags first so event markers draw on top of them.
+    const out: Marker[] = inFile.filter(isMarker).map((e) => ({
+        id: e.id, kind: e.type, leftPct: pct(e.matchTimeSec), icon: eventIcon(e), color: EVENT_META[e.type].color,
+        title: `${eventLabel(e)} ${formatHMS(e.matchTimeSec)}`,
+    }))
+    for (const e of inFile) {
+        if (isMarker(e)) continue
         const team = teams.find((t) => t.name === e.team)
         const who = e.team ? ` – ${e.team}${e.scorer ? ` (${e.scorer})` : ''}` : e.scorer ? ` – ${e.scorer}` : ''
         const note = shortNote(e.notes)
@@ -52,4 +52,9 @@ export function markersForFile(args: {
 
 export function homeTarget(currentSec: number, startSec: number | null): number {
     return startSec !== null && currentSec > startSec + 0.5 ? startSec : 0
+}
+
+/** Where watching an event starts: markers at themselves, other events at the start of their clip. */
+export function watchFromSec(e: Pick<MatchEvent, 'type' | 'matchTimeSec'>, beforeSec: number): number {
+    return isMarker(e) ? e.matchTimeSec : Math.max(0, e.matchTimeSec - beforeSec)
 }

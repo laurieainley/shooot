@@ -2,13 +2,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useAppState } from '../state'
+import { selectMatchStartSec, useAppState } from '../state'
 import { ProjectIO } from './ProjectIO'
 
 describe('ProjectIO', () => {
     beforeEach(() => {
         useAppState.setState({
-            files: [], events: [{ id: 'a', matchTimeSec: 10, type: 'goal' }], matchStartTimeSec: 0, undoStack: [], redoStack: [],
+            files: [], events: [{ id: 'a', matchTimeSec: 10, type: 'goal' }], undoStack: [], redoStack: [],
             teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }],
         })
     })
@@ -36,7 +36,8 @@ describe('ProjectIO', () => {
         fireEvent.change(input, { target: { files: [new File([json], 'p.json', { type: 'application/json' })] } })
         await waitFor(() => expect(useAppState.getState().events[0]).toMatchObject({ id: 'x', type: 'highlight' }))
         expect(useAppState.getState().teams.map((t) => t.name)).toEqual(['Reds', 'Blues'])
-        expect(useAppState.getState().matchStartTimeSec).toBe(30)
+        expect(useAppState.getState().events.find((e) => e.type === 'kick_off')).toMatchObject({ globalTimeSec: 30 })
+        expect(selectMatchStartSec(useAppState.getState())).toBe(30)
     })
 
     it('should report a file that is not valid JSON', async () => {

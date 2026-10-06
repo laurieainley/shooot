@@ -1,4 +1,5 @@
 import type { MatchEvent } from '../types'
+import { isMarker } from './eventTypes'
 
 export type HighlightSegment = {
     startTime: number
@@ -17,6 +18,8 @@ export function mergeOverlappingGoalSegments(
     lengthBeforeGoalSec: number,
     lengthAfterGoalSec: number
 ): HighlightSegment[] {
+    // Kick off / Final whistle are match markers, never highlights.
+    goals = goals.filter((g) => !isMarker(g));
     if (goals.length === 0) return [];
 
     // Create goals with adjusted times for sorting, but keep original times for playback

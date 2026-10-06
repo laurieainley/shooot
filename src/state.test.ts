@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { matchdayText, useAppState } from './state'
+import { matchdayText, selectMatchStartSec, useAppState } from './state'
 import type { MatchEvent, VideoSourceFile } from './types'
 
 const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec: 100, kind: 'full' })
@@ -108,9 +108,9 @@ describe('teams and picker', () => {
         expect(s().teams[0]).toMatchObject({ name: 'A', roster: ['x'] })
     })
 
-    it('should migrate v8 legacy event types and persist teams (v9)', () => {
+    it('should migrate v8 legacy event types and persist teams (v9+)', () => {
         const opts = useAppState.persist.getOptions()
-        expect(opts.version).toBe(9)
+        expect(opts.version).toBe(10)
         const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
         expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
         expect(opts.partialize!(s())).toHaveProperty('teams')
@@ -179,12 +179,12 @@ describe('newMatch', () => {
     it('should clear events, files and kick-off but keep teams and clip/replay settings, undoably', () => {
         const teams = [{ name: 'Lights', color: '#fff', roster: ['Sam'] }, { name: 'Darks', color: '#000', roster: [] }]
         useAppState.setState({
-            files: [vf('a.mp4')], cumulativeOffsets: [0], currentFileIndex: 0, matchStartTimeSec: 90,
+            files: [vf('a.mp4')], cumulativeOffsets: [0], currentFileIndex: 0,
             events: [{ id: 'e', matchTimeSec: 100, sourceFileIndex: 0, sourceFileKey: 'a.mp4', type: 'goal' }],
             teams, lengthBeforeGoalSec: 12, replaySpeed: 0.25, undoStack: [], redoStack: [], picker: { eventId: 'e' },
         })
         s().newMatch()
-        expect(s()).toMatchObject({ files: [], events: [], cumulativeOffsets: [], matchStartTimeSec: 0, picker: null, teams, lengthBeforeGoalSec: 12, replaySpeed: 0.25 })
+        expect(s()).toMatchObject({ files: [], events: [], cumulativeOffsets: [], picker: null, teams, lengthBeforeGoalSec: 12, replaySpeed: 0.25 })
         s().undo()
         expect(s().events.map((e) => e.id)).toEqual(['e'])
     })
@@ -288,7 +288,7 @@ describe('preview', () => {
     beforeEach(() => {
         useAppState.setState({
             files: [], events: [], cumulativeOffsets: [], undoStack: [], redoStack: [], currentFileIndex: 0, isPreviewMode: false,
-            matchStartTimeSec: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
+            adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
             replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5,
         })
         s().setFiles([vf('a.mp4')])
@@ -317,32 +317,32 @@ describe('preview', () => {
 
 describe('match graphics settings', () => {
     beforeEach(() => {
-        useAppState.setState({ graphics: { cards: true, lowerThirds: true, replayTag: false }, matchNumber: 1, matchdayLabel: null })
+        useAppState.setState({ graphics: { cards: true, lowerThirds: true, replayTag: false, scoreBug: false }, matchdayLabel: null })
     })
 
     it('should default to cards and lower thirds on, replay tag off', () => {
-        expect(s().graphics).toEqual({ cards: true, lowerThirds: true, replayTag: false })
+        expect(s().graphics).toEqual({ cards: true, lowerThirds: true, replayTag: false, scoreBug: false })
     })
 
     it('should toggle one graphic at a time', () => {
         s().setGraphics({ replayTag: true })
         s().setGraphics({ cards: false })
-        expect(s().graphics).toEqual({ cards: false, lowerThirds: true, replayTag: true })
+        expect(s().graphics).toEqual({ cards: false, lowerThirds: true, replayTag: true, scoreBug: false })
     })
 
-    it('should name the matchday from the match number until it is edited', () => {
-        expect(matchdayText(s())).toBe('Matchday 1')
+    it('should head the card MATCH until a matchday is typed', () => {
+        expect(matchdayText(s())).toBe('MATCH')
         s().setMatchdayLabel('Cup final')
         expect(matchdayText(s())).toBe('Cup final')
         s().setMatchdayLabel('  ')
-        expect(matchdayText(s())).toBe('Matchday 1')
+        expect(matchdayText(s())).toBe('MATCH')
     })
 
-    it('should move to the next matchday on New match', () => {
+    it('should clear the matchday on New match without counting matches', () => {
         s().setMatchdayLabel('Cup final')
         s().newMatch()
-        expect(s().matchNumber).toBe(2)
-        expect(matchdayText(s())).toBe('Matchday 2')
+        expect(matchdayText(s())).toBe('MATCH')
+        expect(s()).not.toHaveProperty('matchNumber')
     })
 
     it('should store team initials, clearing them when blank', () => {
@@ -355,6 +355,55 @@ describe('match graphics settings', () => {
 
     it('should persist graphics settings and the matchday', () => {
         const persisted = useAppState.persist.getOptions().partialize!(s()) as Record<string, unknown>
-        expect(persisted).toMatchObject({ graphics: s().graphics, matchNumber: 1, matchdayLabel: null })
+        expect(persisted).toMatchObject({ graphics: s().graphics, matchdayLabel: null })
+        expect(persisted).not.toHaveProperty('matchNumber')
+    })
+})
+
+describe('match markers (kick off / final whistle)', () => {
+    beforeEach(() => {
+        useAppState.setState({ files: [], events: [], cumulativeOffsets: [], undoStack: [], redoStack: [], currentFileIndex: 0, picker: null, panel: null })
+        s().setFiles([vf('a.mp4'), vf('b.mp4')])
+    })
+
+    it('should turn an event into a marker without team, person, note or replay', () => {
+        s().addEvent({ id: 'k1', matchTimeSec: 30, sourceFileIndex: 0, type: 'goal', team: 'Whites', scorer: 'Sam', notes: 'x', replay: true, pen: true })
+        s().placeMarker('k1', 'kick_off')
+        const k = s().events.find((e) => e.id === 'k1')!
+        expect(k.type).toBe('kick_off')
+        for (const f of ['team', 'scorer', 'notes', 'replay', 'pen'] as const) expect(k[f]).toBeUndefined()
+    })
+
+    it('should move the existing marker when a second one of the same type is placed, in one undo step', () => {
+        s().addEvent({ id: 'k1', matchTimeSec: 30, sourceFileIndex: 0, type: 'kick_off' })
+        s().addEvent({ id: 'w1', matchTimeSec: 90, sourceFileIndex: 1, type: 'final_whistle' })
+        s().addEvent({ id: 'k2', matchTimeSec: 40, sourceFileIndex: 0, type: 'goal' })
+        s().placeMarker('k2', 'kick_off')
+        expect(s().events.filter((e) => e.type === 'kick_off').map((e) => e.id)).toEqual(['k2'])
+        expect(s().events.some((e) => e.id === 'w1')).toBe(true)
+        s().undo()
+        expect(s().events.find((e) => e.id === 'k1')?.type).toBe('kick_off')
+        expect(s().events.find((e) => e.id === 'k2')?.type).toBe('goal')
+    })
+})
+
+describe('kick-off migration', () => {
+    const migrate = (persisted: unknown, version: number) => useAppState.persist.getOptions().migrate!(persisted, version) as Record<string, unknown>
+
+    it('should turn a stored match start into a Kick off event and drop the field', () => {
+        const out = migrate({ events: [{ id: 'g', matchTimeSec: 700, sourceFileIndex: 1, type: 'goal' }], matchStartTimeSec: 610 }, 9)
+        expect(out).not.toHaveProperty('matchStartTimeSec')
+        expect(out.events).toEqual([
+            { id: 'g', matchTimeSec: 700, sourceFileIndex: 1, type: 'goal' },
+            expect.objectContaining({ type: 'kick_off', globalTimeSec: 610 }),
+        ])
+    })
+
+    it('should place the migrated Kick off in its file when the files load', () => {
+        useAppState.setState({ files: [], events: [{ id: 'k', type: 'kick_off', matchTimeSec: 610, sourceFileIndex: 0, globalTimeSec: 610 }], cumulativeOffsets: [], undoStack: [], redoStack: [] })
+        expect(selectMatchStartSec(s())).toBe(610)
+        s().setFiles([{ ...vf('a.mp4'), durationSec: 500 }, { ...vf('b.mp4'), durationSec: 500 }])
+        expect(s().events[0]).toMatchObject({ sourceFileIndex: 1, matchTimeSec: 110, sourceFileKey: 'b.mp4' })
+        expect(selectMatchStartSec(s())).toBe(610)
     })
 })

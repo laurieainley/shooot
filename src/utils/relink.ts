@@ -4,6 +4,7 @@ import { fileKey } from './fileKey'
 export function relinkEvents(events: MatchEvent[], files: { name: string }[]): MatchEvent[] {
     const keys = files.map((f) => fileKey(f.name))
     return events.map((e) => {
+        if (e.globalTimeSec !== undefined) return e // not placed in a file yet (utils/matchClock.ts)
         if (e.sourceFileKey === undefined) {
             const key = keys[e.sourceFileIndex ?? 0]
             return key === undefined ? e : { ...e, sourceFileKey: key }

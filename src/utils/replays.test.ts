@@ -15,3 +15,10 @@ describe('wantsReplay', () => {
         expect(wantsReplay(ev({ type: 'save', replay: true }))).toBe(true)
     })
 })
+
+describe('wantsReplay — markers', () => {
+    it('should never replay Kick off or Final whistle, even when asked', () => {
+        expect(wantsReplay(ev({ type: 'kick_off' }))).toBe(false)
+        expect(wantsReplay(ev({ type: 'final_whistle', replay: true }))).toBe(false)
+    })
+})

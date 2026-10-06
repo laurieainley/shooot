@@ -22,14 +22,15 @@ describe('MatchGraphicsSetup', () => {
         URL.revokeObjectURL = vi.fn()
         useAppState.setState({
             teams: [{ name: "Ryan's Rovers", color: '#f0f0f0', roster: [] }, { name: 'Walford Town', color: '#ec5fa4', roster: [] }],
-            matchNumber: 3, matchdayLabel: null,
+            matchdayLabel: null,
         })
     })
 
-    it('should show the automatic matchday and keep an edited one', () => {
+    it('should show an example matchday as a placeholder only and keep an edited one', () => {
         render(<MatchGraphicsSetup />)
         const field = screen.getByLabelText('Matchday')
-        expect(field).toHaveAttribute('placeholder', 'Matchday 3')
+        expect(field).toHaveAttribute('placeholder', 'e.g. Matchday 3')
+        expect(field).toHaveValue('')
         fireEvent.change(field, { target: { value: 'Cup final' } })
         fireEvent.blur(field)
         expect(s().matchdayLabel).toBe('Cup final')

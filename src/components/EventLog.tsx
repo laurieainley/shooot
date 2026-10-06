@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { useAppState } from '../state'
+import { selectMatchStartSec, useAppState } from '../state'
 import type { MatchEvent, Team } from '../types'
-import { eventLabel, shortNote } from '../utils/eventTypes'
+import { eventIcon, eventLabel, isMarker, shortNote } from '../utils/eventTypes'
+import { watchFromSec } from '../utils/markers'
 import { wantsReplay } from '../utils/replays'
 import { filterRoster, rosterTeamFor } from '../utils/roster'
 import { formatScore, scoresAfter } from '../utils/score'
 import { formatEventClock } from '../utils/timeline'
 import { TimeInput } from './TimeInput'
+import { RelinkBanner } from './RelinkBanner'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 
 type Field = 'scorer' | 'team' | 'time' | 'notes'
@@ -21,7 +23,7 @@ export function EventLog() {
     const files = useAppState((s) => s.files)
     const teams = useAppState((s) => s.teams)
     const offsets = useAppState((s) => s.cumulativeOffsets)
-    const matchStartTimeSec = useAppState((s) => s.matchStartTimeSec)
+    const matchStartTimeSec = useAppState(selectMatchStartSec)
     const canUndo = useAppState((s) => s.undoStack.length > 0)
     const canRedo = useAppState((s) => s.redoStack.length > 0)
     const coarse = useMediaQuery(COARSE_QUERY)
@@ -60,9 +62,9 @@ export function EventLog() {
     const seek = (e: MatchEvent): void => {
         if (e.unlinked) return
         const st = useAppState.getState()
-        st.seekToGoal(e.sourceFileIndex ?? 0, Math.max(0, e.matchTimeSec - st.lengthBeforeGoalSec))
+        st.seekToGoal(e.sourceFileIndex ?? 0, watchFromSec(e, st.lengthBeforeGoalSec))
     }
-    const toggleReplay = (e: MatchEvent): void => useAppState.getState().updateEvent(e.id, { replay: !wantsReplay(e) })
+    const toggleReplay = (e: MatchEvent): void => { if (!isMarker(e)) useAppState.getState().updateEvent(e.id, { replay: !wantsReplay(e) }) }
     const remove = (index: number): void => {
         const e = events[index]
         if (!e) return
@@ -119,6 +121,7 @@ export function EventLog() {
                 <button type="button" aria-label="Undo" title="Undo (⌘Z)" onClick={() => useAppState.getState().undo()} disabled={!canUndo} className="btn-icon"><UndoIcon /></button>
                 <button type="button" aria-label="Redo" title="Redo (⇧⌘Z)" onClick={() => useAppState.getState().redo()} disabled={!canRedo} className="btn-icon"><UndoIcon redo /></button>
             </header>
+            <RelinkBanner />
 
             {events.length === 0 ? (
                 <p className="m-0 px-3 py-4 text-[13px] text-muted">
@@ -182,6 +185,8 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, o
     const stop = (ev: React.SyntheticEvent): void => ev.stopPropagation()
     const done = (): void => { onEdit(null); restoreFocus() }
     const update = useAppState((s) => s.updateEvent)
+
+    if (isMarker(e)) return <MarkerRow event={e} selected={selected} clock={clock} fileTag={fileTag} editing={editing} onSelect={onSelect} onEdit={onEdit} onRemove={onRemove} restoreFocus={restoreFocus} touch={touch} />
 
     return (
         <li
@@ -249,6 +254,36 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, o
                     : fileTag && <span className="tag">{fileTag}</span>}
                 <button type="button" aria-label="Replay" aria-pressed={replay} title={replay ? 'Slow-mo replay on (R)' : 'Slow-mo replay off (R)'}
                     tabIndex={-1} onClick={(ev) => { stop(ev); onToggleReplay() }} className="row-btn replay-btn">↻</button>
+                {!touch && (
+                    <button type="button" aria-label="Delete event" title="Delete (⌫)" tabIndex={-1}
+                        onClick={(ev) => { stop(ev); onRemove() }} className="row-btn delete-btn">×</button>
+                )}
+            </span>
+        </li>
+    )
+}
+
+type MarkerRowProps = Pick<EventRowProps, 'event' | 'selected' | 'clock' | 'fileTag' | 'editing' | 'onSelect' | 'onEdit' | 'onRemove' | 'restoreFocus' | 'touch'>
+
+/** Kick off / Final whistle: a flag, the label and the time — no team, person, score or replay. */
+function MarkerRow({ event: e, selected, clock, fileTag, editing, onSelect, onEdit, onRemove, restoreFocus, touch = false }: MarkerRowProps) {
+    const stop = (ev: React.SyntheticEvent): void => ev.stopPropagation()
+    const update = useAppState((s) => s.updateEvent)
+    return (
+        <li role="option" aria-selected={selected} aria-disabled={e.unlinked ? true : undefined} data-event-id={e.id}
+            onClick={onSelect} className={`event-row event-row--marker event-row--${e.type}`}>
+            {editing === 'time' ? (
+                <span onClick={stop}>
+                    <TimeInput ariaLabel="Event time" valueSec={e.matchTimeSec} className="field tc w-full px-1 py-0 text-[13px]"
+                        onCommit={(t) => { update(e.id, { matchTimeSec: t }); useAppState.getState().sortEvents(); onEdit(null); restoreFocus() }} />
+                </span>
+            ) : (
+                <span className="tc text-[13px]" onDoubleClick={(ev) => { stop(ev); onEdit('time') }} title="Double-click to edit time (in file)">{clock}</span>
+            )}
+            <span className="marker-flag" aria-hidden="true">{eventIcon(e)}</span>
+            <span className="event-row__label truncate text-[13px]">{eventLabel(e)}</span>
+            <span className="flex items-center gap-1.5">
+                {e.unlinked ? <span className="tag tag-warn" title={e.sourceFileKey}>file missing</span> : fileTag && <span className="tag">{fileTag}</span>}
                 {!touch && (
                     <button type="button" aria-label="Delete event" title="Delete (⌫)" tabIndex={-1}
                         onClick={(ev) => { stop(ev); onRemove() }} className="row-btn delete-btn">×</button>

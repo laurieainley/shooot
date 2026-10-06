@@ -3,7 +3,6 @@ import { useAppState } from '../state'
 import { parseRoster } from '../utils/roster'
 import { MatchGraphicsSetup } from './MatchGraphicsSetup'
 import { Sheet } from './Sheet'
-import { TimeInput } from './TimeInput'
 
 // Kit colours: readable as dots on both the light and the dark theme.
 const SWATCHES = ['#f5f5f5', '#1f2a24', '#3a6ea5', '#c2364a', '#e0b100', '#2f8a4c', '#e36b1f', '#7a4fb3']
@@ -16,15 +15,8 @@ export function MatchSetup({ onClose }: MatchSetupProps) {
     const teams = useAppState((s) => s.teams)
     const setTeams = useAppState((s) => s.setTeams)
     const renameTeam = useAppState((s) => s.renameTeam)
-    const matchStartTimeSec = useAppState((s) => s.matchStartTimeSec)
-    const setMatchStartTime = useAppState((s) => s.setMatchStartTime)
     const [names, setNames] = useState(teams.map((t) => t.name))
     const [rosters, setRosters] = useState(teams.map((t) => t.roster.join('\n')))
-
-    const applyCurrentTime = (): void => {
-        const st = useAppState.getState()
-        setMatchStartTime(Math.floor((st.cumulativeOffsets[st.currentFileIndex] ?? 0) + st.currentTimeInFileSec))
-    }
 
     return (
         <Sheet label="Match setup" onClose={onClose}>
@@ -68,13 +60,10 @@ export function MatchSetup({ onClose }: MatchSetupProps) {
                     ))}
                 </div>
                 <p className="m-0 mt-2 text-[12px] text-muted">Teams and rosters are remembered for next time.</p>
-                <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line pt-3 pb-1">
-                    <span className="flex items-center gap-2 text-[13px] text-muted"><span className="kickoff-flag" aria-hidden="true" />Kick-off</span>
-                    <TimeInput valueSec={matchStartTimeSec} onCommit={setMatchStartTime} ariaLabel="Match start" />
-                    <button onClick={applyCurrentTime} className="btn-quiet">
-                        Use current time
-                    </button>
-                </div>
+                <p className="match-setup__kickoff">
+                    <span className="kickoff-flag" aria-hidden="true" />
+                    <span>Kick off and Final whistle are events: mark them from ＋ (keys <kbd>K</kbd> and <kbd>W</kbd>). The match clock starts at Kick off.</span>
+                </p>
                 <MatchGraphicsSetup />
         </Sheet>
     )

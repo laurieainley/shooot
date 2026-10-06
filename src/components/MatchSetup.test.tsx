@@ -12,7 +12,7 @@ describe('MatchSetup', () => {
         useAppState.setState({
             teams: [{ name: 'Whites', color: '#f5f5f5', roster: [] }, { name: 'Colours', color: '#f72585', roster: [] }],
             events: [{ id: 'e', matchTimeSec: 1, sourceFileIndex: 0, type: 'goal', team: 'Whites' }],
-            files: [], cumulativeOffsets: [], currentFileIndex: 0, currentTimeInFileSec: 75, matchStartTimeSec: 0,
+            files: [], cumulativeOffsets: [], currentFileIndex: 0, currentTimeInFileSec: 75,
         })
     })
 
@@ -34,10 +34,11 @@ describe('MatchSetup', () => {
         expect(s().teams[1].roster).toEqual(['Jo', 'Alex'])
     })
 
-    it('should set the match start from the current time', async () => {
+    it('should have no match start field: kick-off is marked as an event', () => {
         render(<MatchSetup onClose={() => {}} />)
-        await userEvent.click(screen.getByRole('button', { name: /use current time/i }))
-        expect(s().matchStartTimeSec).toBe(75)
+        expect(screen.queryByLabelText('Match start')).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /use current time/i })).not.toBeInTheDocument()
+        expect(screen.getByText(/Kick off and Final whistle/i)).toBeInTheDocument()
     })
 
     it('should say that teams and rosters are remembered', () => {

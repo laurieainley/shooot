@@ -34,6 +34,7 @@ export function EventPicker() {
             if (fx.kind === 'update') store.updateEvent(id, fx.patch)
             else if (fx.kind === 'remove') store.removeEvent(id)
             else if (fx.kind === 'addToRoster') store.addToRoster(fx.team, fx.name)
+            else if (fx.kind === 'marker') store.placeMarker(id, fx.type)
             else useAppState.getState().closePicker()
         }
     }

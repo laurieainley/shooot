@@ -25,6 +25,31 @@ export function loadGraphicsFont(): Promise<boolean> {
     return fontLoad
 }
 
+/** Resolves true if `work` succeeds within `ms`, false if it fails or is too slow (never rejects, never hangs). */
+export function settleWithin(work: Promise<unknown>, ms: number): Promise<boolean> {
+    return new Promise((resolve) => {
+        const timer = setTimeout(() => resolve(false), ms)
+        work.then(() => { clearTimeout(timer); resolve(true) }, () => { clearTimeout(timer); resolve(false) })
+    })
+}
+
+/** Every character the graphics draw, so the font faces covering them are fetched up front. */
+const GRAPHICS_GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 –-.\'()GOAL REPLAY'
+
+/**
+ * Makes sure Bebas Neue is usable before anything is painted (text drawn earlier would silently use a fallback
+ * font with different metrics, which is what mis-centred captions on some phones). Fail-safe: resolves false after
+ * `timeoutMs` and the painters then centre the fallback font from its measured metrics.
+ */
+export async function ensureGraphicsFonts(timeoutMs = 8000): Promise<boolean> {
+    const ok = await settleWithin((async () => {
+        if (!(await loadGraphicsFont())) throw new Error('graphics font unavailable')
+        await document.fonts.load('48px "Bebas Neue"', GRAPHICS_GLYPHS)
+    })(), timeoutMs)
+    if (!ok) fontLoad = null
+    return ok
+}
+
 /** The league logo as a bitmap: a custom image if given, otherwise the bundled T.N.F badge. */
 export async function loadLogo(custom?: Blob | null): Promise<ImageBitmap | null> {
     if (custom) {

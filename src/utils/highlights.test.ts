@@ -90,3 +90,16 @@ describe('mergeOverlappingGoalSegments', () => {
     expect(result[0].duration).toBe(result[0].endTime - result[0].startTime)
   })
 })
+
+describe('mergeOverlappingGoalSegments — match markers', () => {
+  it('should never make clips for Kick off or Final whistle', () => {
+    const events: MatchEvent[] = [
+      { id: 'k', matchTimeSec: 5, sourceFileIndex: 0, type: 'kick_off' },
+      goal('g', 100),
+      { id: 'w', matchTimeSec: 900, sourceFileIndex: 0, type: 'final_whistle' },
+    ]
+    const segs = mergeOverlappingGoalSegments(events, NO_OFFSETS, 0, false, BEFORE, AFTER)
+    expect(segs.map((s) => s.goals.map((g) => g.id))).toEqual([['g']])
+    expect(mergeOverlappingGoalSegments(events.filter((e) => e.type !== 'goal'), NO_OFFSETS, 0, false, BEFORE, AFTER)).toEqual([])
+  })
+})

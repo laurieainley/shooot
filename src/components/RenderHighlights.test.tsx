@@ -3,11 +3,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
+import { resetRenderJobs } from '../renderJobs'
 import type { VideoSourceFile } from '../types'
 
 const renderReel = vi.fn()
 vi.mock('../render', () => ({ renderReel: (...a: unknown[]) => renderReel(...a) }))
-vi.mock('../graphics/assets', () => ({ loadGraphicsFont: vi.fn(async () => true), loadLogo: vi.fn(async () => null) }))
+vi.mock('../graphics/assets', () => ({ ensureGraphicsFonts: vi.fn(async () => true), loadLogo: vi.fn(async () => null) }))
 vi.mock('../graphics/logoStore', () => ({ loadCustomLogo: vi.fn(async () => null) }))
 
 import { RenderHighlights } from './RenderHighlights'
@@ -16,12 +17,13 @@ const proxy: VideoSourceFile = { id: 'p', name: 'GL010226.LRV', kind: 'proxy', u
 
 describe('RenderHighlights', () => {
     beforeEach(() => {
+        resetRenderJobs()
         renderReel.mockReset()
         useAppState.setState({
             files: [proxy],
             events: [{ id: 'e', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal' }],
             lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
-            graphics: { cards: true, lowerThirds: true, replayTag: false },
+            graphics: { cards: true, lowerThirds: true, replayTag: false, scoreBug: false },
         })
     })
 
@@ -81,18 +83,18 @@ describe('RenderHighlights', () => {
         ])
     })
 
-    it('should pass title cards and a lower third for the goal to the renderer', async () => {
+    it('should pass title cards and a caption for the goal (carrying on over its replay) to the renderer', async () => {
         renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
         render(<RenderHighlights />)
         await userEvent.click(screen.getByRole('button', { name: /preview reel/i }))
         const g = renderReel.mock.calls[0][2].graphics
         expect(g.intro.label).toBe('Title card')
         expect(g.outro.label).toBe('Full-time card')
-        expect(g.overlays.map((o: { cutIndex: number; startSec: number }) => [o.cutIndex, o.startSec])).toEqual([[0, 100]])
+        expect(g.overlays.map((o: { cutIndex: number; startSec: number }) => [o.cutIndex, o.startSec])).toEqual([[0, 101], [1, expect.any(Number)]])
     })
 
     it('should render without graphics when they are all turned off', async () => {
-        useAppState.setState({ graphics: { cards: false, lowerThirds: false, replayTag: false } })
+        useAppState.setState({ graphics: { cards: false, lowerThirds: false, replayTag: false, scoreBug: false } })
         renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
         render(<RenderHighlights />)
         await userEvent.click(screen.getByRole('button', { name: /preview reel/i }))

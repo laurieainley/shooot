@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import videojs from 'video.js'
 import 'video.js/dist/video-js.css'
 import 'videojs-hotkeys'
-import { useAppState } from '../state'
+import { selectMatchStartSec, useAppState } from '../state'
 import { seekStepFor, frameStepTime, DEFAULT_FPS } from '../utils/hotkeys'
 import { FullscreenControls } from './FullscreenControls'
 import { EventPicker } from './EventPicker'
@@ -11,8 +11,9 @@ import { patchPlayerFullscreen, type FullscreenPlayer } from './fullscreen'
 import { homeTarget, startInFile } from '../utils/markers'
 import { useZoomPan, type ZoomPan } from './useZoomPan'
 import { ZoomChip } from './ZoomChip'
+import { RenderChip } from './RenderChip'
 import { useTouchScrub } from './useTouchScrub'
-import { formatHMS } from '../utils/timeline'
+import { formatEventClock } from '../utils/timeline'
 import { playerOptions } from '../utils/playerOptions'
 import { shouldAdvance } from '../utils/preview'
 
@@ -45,6 +46,9 @@ export function Player() {
     const zoomRef = useRef<ZoomPan>(zoomPan)
     zoomRef.current = zoomPan
     const scrub = useTouchScrub(containerRef, playerRef)
+    // The scrub bubble speaks match time (from kick-off), like the strip label and the event log.
+    const matchStartSec = useAppState(selectMatchStartSec)
+    const fileOffset = useAppState((s) => s.cumulativeOffsets[s.currentFileIndex] ?? 0)
 
     useEffect(() => {
         if (!videoRef.current) return
@@ -123,7 +127,7 @@ export function Player() {
                                 },
                                 handler: function (player: any) {
                                     const st = useAppState.getState()
-                                    const start = startInFile(st.matchStartTimeSec, st.cumulativeOffsets, st.currentFileIndex, player.duration() || 0)
+                                    const start = startInFile(selectMatchStartSec(st), st.cumulativeOffsets, st.currentFileIndex, player.duration() || 0)
                                     player.currentTime(homeTarget(player.currentTime() || 0, start))
                                 }
                             },
@@ -411,7 +415,8 @@ export function Player() {
                 </div>
             )}
             <ZoomChip zoom={zoomPan.zoom} onReset={zoomPan.reset} />
-            {scrub && <div className="scrub-bubble tc" style={{ left: scrub.leftPx }}>{formatHMS(scrub.timeSec)}</div>}
+            {(isFullscreen || immersive) && <RenderChip variant="overlay" />}
+            {scrub && <div className="scrub-bubble tc" style={{ left: scrub.leftPx }}>{formatEventClock(fileOffset + scrub.timeSec, scrub.timeSec, matchStartSec)}</div>}
             <FullscreenControls playerRef={playerRef} isFullscreen={isFullscreen || immersive} />
             <EventPicker />
             <TimelineMarkers host={progressHost} durationSec={durationSec} />

@@ -1,5 +1,5 @@
 import type { MatchEvent, Team } from '../types'
-import { eventLabel, shortNote } from './eventTypes'
+import { eventLabel, isMarker, shortNote } from './eventTypes'
 import { mergeOverlappingGoalSegments } from './highlights'
 import { linkedEvents } from './relink'
 import { formatHMS } from './timeline'
@@ -7,12 +7,14 @@ import { formatHMS } from './timeline'
 export type StripFile = { name: string; leftPct: number; widthPct: number }
 export type StripSpan = { leftPct: number; widthPct: number }
 export type StripEvent = { id: string; leftPct: number; color: string; title: string; kind: MatchEvent['type'] }
+export type StripFlag = { id: string; kind: 'kick_off' | 'final_whistle'; leftPct: number; title: string }
 export type MatchStrip = {
     totalSec: number
     files: StripFile[]
     clips: StripSpan[]
     events: StripEvent[]
-    startPct: number | null
+    /** Kick off / Final whistle. */
+    flags: StripFlag[]
     playheadPct: number
 }
 
@@ -31,16 +33,15 @@ export function buildMatchStrip(args: {
     cumulativeOffsets: number[]
     events: MatchEvent[]
     teams: Team[]
-    matchStartSec: number
     currentFileIndex: number
     currentTimeSec: number
     before: number
     after: number
 }): MatchStrip {
-    const { files, cumulativeOffsets, events, teams, matchStartSec, currentFileIndex, currentTimeSec, before, after } = args
+    const { files, cumulativeOffsets, events, teams, currentFileIndex, currentTimeSec, before, after } = args
     const durations = files.map((f) => f.durationSec ?? 0)
     const totalSec = durations.reduce((a, b) => a + b, 0)
-    if (totalSec <= 0) return { totalSec: 0, files: [], clips: [], events: [], startPct: null, playheadPct: 0 }
+    if (totalSec <= 0) return { totalSec: 0, files: [], clips: [], events: [], flags: [], playheadPct: 0 }
     const pct = (t: number): number => Math.round((Math.min(totalSec, Math.max(0, t)) / totalSec) * 10000) / 100
 
     const stripFiles = files.map((f, i) => ({ name: f.name, leftPct: pct(cumulativeOffsets[i] ?? 0), widthPct: pct(durations[i]) }))
@@ -51,7 +52,9 @@ export function buildMatchStrip(args: {
         const end = (cumulativeOffsets[s.sourceFileIndex] ?? 0) + s.endTime
         return { leftPct: pct(start), widthPct: Math.round((pct(end) - pct(start)) * 100) / 100 }
     })
-    const stripEvents = linked.map((e) => {
+    const globalOf = (e: MatchEvent): number => e.globalTimeSec ?? (cumulativeOffsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec
+    const flags = linked.filter(isMarker).map((e) => ({ id: e.id, kind: e.type, leftPct: pct(globalOf(e)), title: `${eventLabel(e)} ${formatHMS(globalOf(e))}` }))
+    const stripEvents = linked.filter((e) => !isMarker(e)).map((e) => {
         const team = teams.find((t) => t.name === e.team)
         const g = (cumulativeOffsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec
         const note = shortNote(e.notes)
@@ -63,7 +66,6 @@ export function buildMatchStrip(args: {
             kind: e.type,
         }
     })
-    const startPct = matchStartSec > 0 && matchStartSec < totalSec ? pct(matchStartSec) : null
     const playheadPct = pct((cumulativeOffsets[currentFileIndex] ?? 0) + currentTimeSec)
-    return { totalSec, files: stripFiles, clips, events: stripEvents, startPct, playheadPct }
+    return { totalSec, files: stripFiles, clips, events: stripEvents, flags, playheadPct }
 }

@@ -140,3 +140,22 @@ describe('generateHighlightChapters — replays', () => {
     expect(out).toContain('00:38 Goal 2-0 (Whites)')
   })
 })
+
+describe('chapters — match markers', () => {
+    const events: MatchEvent[] = [
+        { id: 'k', matchTimeSec: 60, sourceFileIndex: 0, type: 'kick_off' },
+        { id: 'g', matchTimeSec: 200, sourceFileIndex: 0, type: 'goal', team: 'Whites' },
+        { id: 'w', matchTimeSec: 900, sourceFileIndex: 0, type: 'final_whistle' },
+    ]
+
+    it('should leave Kick off and Final whistle out of YouTube chapters', () => {
+        const text = generateYouTubeChapters(events, [0], 60, 10, 4, ['Whites', 'Colours'])
+        expect(text).not.toMatch(/Kick off|Final whistle/)
+        expect(text).toContain('02:10 Goal 1-0 (Whites)')
+    })
+
+    it('should leave them out of highlight chapters', () => {
+        const text = generateHighlightChapters(events, [0], 10, 4, ['Whites', 'Colours'])
+        expect(text.split('\n').filter((l) => /^\d\d:\d\d/.test(l))).toEqual(['00:00 Goal 1-0 (Whites)'])
+    })
+})

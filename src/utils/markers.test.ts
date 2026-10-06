@@ -17,25 +17,32 @@ describe('startInFile', () => {
 describe('markersForFile', () => {
     it('should place linked events of this file only, coloured by team', () => {
         const events = [ev('a', 0, 25, { team: 'Colours', scorer: 'Jo' }), ev('b', 1, 10), ev('c', 0, 50, { unlinked: true })]
-        const m = markersForFile({ events, fileIndex: 0, durationSec: 100, teams, matchStartSec: 0, cumulativeOffsets: [0, 100] })
+        const m = markersForFile({ events, fileIndex: 0, durationSec: 100, teams, cumulativeOffsets: [0, 100] })
         expect(m).toEqual([
-            { id: 'start', kind: 'start', leftPct: 0, icon: '⚑', color: '#22c55e', title: 'Match start' },
             { id: 'a', kind: 'event', leftPct: 25, icon: '⚽', color: '#ff0000', title: '00:25 Goal – Colours (Jo)' },
         ])
     })
 
     it('should fall back to the type colour without a team and omit start in other files', () => {
-        const m = markersForFile({ events: [ev('b', 1, 10, { type: 'highlight' })], fileIndex: 1, durationSec: 100, teams, matchStartSec: 0, cumulativeOffsets: [0, 100] })
+        const m = markersForFile({ events: [ev('b', 1, 10, { type: 'highlight' })], fileIndex: 1, durationSec: 100, teams, cumulativeOffsets: [0, 100] })
         expect(m).toEqual([{ id: 'b', kind: 'event', leftPct: 10, icon: '★', color: '#4cc9f0', title: '00:10 Highlight' }])
     })
 
     it('should add a shortened note to the title', () => {
-        const m = markersForFile({ events: [ev('b', 0, 10, { type: 'highlight', team: 'Whites', scorer: 'Sam', notes: 'nutmeg on the wing' })], fileIndex: 0, durationSec: 100, teams, matchStartSec: 0, cumulativeOffsets: [0] })
+        const m = markersForFile({ events: [ev('b', 0, 10, { type: 'highlight', team: 'Whites', scorer: 'Sam', notes: 'nutmeg on the wing' })], fileIndex: 0, durationSec: 100, teams, cumulativeOffsets: [0] })
         expect(m.at(-1)?.title).toBe('00:10 Highlight – Whites (Sam) — nutmeg on the wing')
     })
 
+    it('should draw Kick off and Final whistle flags in their file', () => {
+        const events = [ev('k', 0, 20, { type: 'kick_off' }), ev('w', 0, 90, { type: 'final_whistle' }), ev('a', 0, 50)]
+        const m = markersForFile({ events, fileIndex: 0, durationSec: 100, teams, cumulativeOffsets: [0] })
+        expect(m.map((x) => [x.id, x.kind, x.leftPct])).toEqual([['k', 'kick_off', 20], ['w', 'final_whistle', 90], ['a', 'event', 50]])
+        expect(m[0]).toMatchObject({ icon: '⚑', color: '#22c55e', title: 'Kick off 00:20' })
+        expect(m[1]).toMatchObject({ title: 'Final whistle 01:30' })
+    })
+
     it('should return nothing without a duration', () => {
-        expect(markersForFile({ events: [ev('a', 0, 5)], fileIndex: 0, durationSec: 0, teams, matchStartSec: 0, cumulativeOffsets: [0] })).toEqual([])
+        expect(markersForFile({ events: [ev('a', 0, 5)], fileIndex: 0, durationSec: 0, teams, cumulativeOffsets: [0] })).toEqual([])
     })
 })
 

@@ -40,6 +40,13 @@ export type RenderOverlay = {
     paint: FramePainter
     /** Pixel rows the overlay can touch, for a frame of this size (only these are read back and blended). */
     rows: (width: number, height: number) => [number, number]
+    /**
+     * Cuts start at the key frame at/before their requested start and end with whole GOPs. 'fromCutStart': the overlay
+     * starts with the cut's first frame (a caption carried on over a replay). 'wholeCut': it covers every frame of the cut
+     * (score always on screen); `paint` still gets time from `startSec` (negative before it). 'stretchToCut': it covers
+     * every frame of the cut and its own timeline is stretched over them (REPLAY tag: fades at the real edges).
+     */
+    anchor?: 'fromCutStart' | 'wholeCut' | 'stretchToCut'
 }
 
 export type RenderGraphics = { intro?: RenderCard; outro?: RenderCard; overlays: RenderOverlay[] }
@@ -52,6 +59,13 @@ export type RenderOptions = {
     /** Optional match graphics. Any that cannot be made are left out (never failing the render) and reported. */
     graphics?: RenderGraphics
     onGraphics?: (report: GraphicsReport) => void
+    /** Output file name (default highlights.mp4). */
+    outputName?: string
+    /**
+     * Save progress after every unit (card / cut) so an interrupted render can carry on after a reload. The signature
+     * identifies the render (plan, sources, graphics): a saved job with another signature is discarded.
+     */
+    resumable?: { signature: string; kind: 'highlights' | 'fullMatch' }
 }
 
 export type RenderFn = (cuts: Cut[], sources: RenderSource[], opts: RenderOptions) => Promise<File | Blob>

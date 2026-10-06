@@ -12,6 +12,7 @@ const teams: Team[] = [
     { name: 'Whites', color: '#3a6ea5', roster: ['Sam Taylor', 'Priya'] },
     { name: 'Colours', color: '#c2364a', roster: ['Jo Smith', 'Jonas', 'Ade'] },
 ]
+const kickOff = (t: number): MatchEvent => ({ id: 'ko', matchTimeSec: t, sourceFileIndex: 0, type: 'kick_off' })
 const byId = (id: string): MatchEvent | undefined => useAppState.getState().events.find((e) => e.id === id)
 const rows = (): HTMLElement[] => screen.getAllByRole('option')
 const log = (): HTMLElement => screen.getByRole('region', { name: 'Events' })
@@ -21,7 +22,7 @@ let seekToGoal: ReturnType<typeof vi.fn<(fileIndex: number, timeSec: number) => 
 function setup(events: MatchEvent[], extra: Partial<ReturnType<typeof useAppState.getState>> = {}): void {
     seekToGoal = vi.fn()
     useAppState.setState({
-        files: [vf('a.mp4')], cumulativeOffsets: [0], events, teams, matchStartTimeSec: 0,
+        files: [vf('a.mp4')], cumulativeOffsets: [0], events, teams,
         lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, currentFileIndex: 0, currentTimeInFileSec: 0,
         undoStack: [], redoStack: [], picker: null, seekToGoal, ...extra,
     })
@@ -29,7 +30,7 @@ function setup(events: MatchEvent[], extra: Partial<ReturnType<typeof useAppStat
 
 describe('EventLog rows', () => {
     it('should show the match clock, label with scorer and the team colour dot', () => {
-        setup([{ id: 'a', matchTimeSec: 1521, sourceFileIndex: 0, type: 'goal', pen: true, team: 'Colours', scorer: 'Jo' }], { matchStartTimeSec: 100 })
+        setup([{ id: 'a', matchTimeSec: 1521, sourceFileIndex: 0, type: 'goal', pen: true, team: 'Colours', scorer: 'Jo' }, kickOff(100)])
         render(<EventLog />)
         const [row] = rows()
         expect(within(row).getByText('23:41')).toBeInTheDocument()
@@ -44,7 +45,7 @@ describe('EventLog rows', () => {
         const { unmount } = render(<EventLog />)
         expect(within(rows()[0]).getByText('01:15')).toBeInTheDocument()
         unmount()
-        setup([{ id: 'a', matchTimeSec: 70, sourceFileIndex: 0, type: 'highlight' }], { matchStartTimeSec: 100 })
+        setup([{ id: 'a', matchTimeSec: 70, sourceFileIndex: 0, type: 'highlight' }, kickOff(100)])
         render(<EventLog />)
         expect(within(rows()[0]).getByText('−00:30')).toBeInTheDocument()
     })
@@ -392,5 +393,34 @@ describe('EventLog on touch screens', () => {
         render(<EventLog />)
         await userEvent.click(rows()[0])
         expect(useAppState.getState().panel).toBeNull()
+    })
+})
+
+describe('EventLog — match markers', () => {
+    it('should show Kick off and Final whistle as distinct flag rows without replay, score or team', () => {
+        setup([
+            { id: 'ko', matchTimeSec: 60, sourceFileIndex: 0, type: 'kick_off' },
+            { id: 'g', matchTimeSec: 120, sourceFileIndex: 0, type: 'goal', team: 'Whites' },
+            { id: 'fw', matchTimeSec: 3000, sourceFileIndex: 0, type: 'final_whistle' },
+        ])
+        render(<EventLog />)
+        const [ko, , fw] = rows()
+        expect(ko).toHaveClass('event-row--marker')
+        expect(within(ko).getByText('Kick off')).toBeInTheDocument()
+        expect(within(ko).getByText('00:00')).toBeInTheDocument()
+        expect(within(fw).getByText('Final whistle')).toBeInTheDocument()
+        expect(within(fw).getByText('49:00')).toBeInTheDocument()
+        for (const r of [ko, fw]) {
+            expect(within(r).queryByRole('button', { name: 'Replay' })).not.toBeInTheDocument()
+            expect(r.querySelector('[data-team-dot]')).toBeNull()
+            expect(r.querySelector('[data-score]')).toBeNull()
+        }
+    })
+
+    it('should jump to the marker itself (not a clip start) when clicked', async () => {
+        setup([{ id: 'ko', matchTimeSec: 60, sourceFileIndex: 0, type: 'kick_off' }])
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        expect(seekToGoal).toHaveBeenCalledWith(0, 60)
     })
 })
