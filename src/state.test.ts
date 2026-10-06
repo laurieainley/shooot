@@ -147,10 +147,20 @@ describe('teams and picker', () => {
 
     it('should migrate v8 legacy event types and persist teams (v9+)', () => {
         const opts = useAppState.persist.getOptions()
-        expect(opts.version).toBe(12)
+        expect(opts.version).toBe(13)
         const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
         expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
         expect(opts.partialize!(s())).toHaveProperty('teams')
+    })
+
+    it('should switch on the replay tag and set the full-match score bug to after goals once (v13)', () => {
+        const migrate = useAppState.persist.getOptions().migrate!
+        const out = migrate({ graphics: { cards: true, lowerThirds: true, replayTag: false }, fullMatch: { cards: false, scoreBug: 'periodic', intervalMin: 7 } }, 12) as { graphics: { replayTag: boolean }; fullMatch: unknown }
+        expect(out.graphics.replayTag).toBe(true)
+        expect(out.fullMatch).toEqual({ cards: false, scoreBug: 'goals', intervalMin: 7 })
+        const fresh = migrate({}, 12) as Record<string, unknown>
+        expect(fresh.graphics).toBeUndefined()
+        expect(fresh.fullMatch).toBeUndefined()
     })
 
     it('should migrate left / right goal areas and replay framing to teams (v12)', () => {

@@ -497,7 +497,7 @@ export const useAppState = create<AppState>()(
                 goalAreas: state.goalAreas,
                 barCollapsed: state.barCollapsed,
             }),
-            version: 12,
+            version: 13,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -553,6 +553,13 @@ export const useAppState = create<AppState>()(
                 if (version < 12) {
                     state.goalAreas = normaliseAreas(state.goalAreas, state.whitesAttackLeft ?? true)
                     delete state.whitesAttackLeft
+                }
+
+                // New defaults the user asked for (v13): replay tag on, full-match score bug after goals — applied once
+                // to saved settings, since a saved value can't tell "never chose" from "chose off".
+                if (version < 13) {
+                    if (state.graphics) state.graphics = { ...state.graphics, replayTag: true }
+                    if (state.fullMatch) state.fullMatch = { ...state.fullMatch, scoreBug: 'goals' }
                 }
 
                 return state
