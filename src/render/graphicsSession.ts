@@ -245,7 +245,7 @@ export class GraphicsSession {
         if (!this.rasterCanvas || this.rasterCanvas.width !== width || this.rasterCanvas.height !== height) {
             this.rasterCanvas = new OffscreenCanvas(width, height)
         }
-        const ctx = this.rasterCanvas.getContext('2d', { willReadFrequently: true })
+        const ctx = this.rasterCanvas.getContext('2d', crop ? undefined : { willReadFrequently: true })
         if (!ctx) throw new Error('no 2D canvas to convert decoded frames')
         ctx.imageSmoothingEnabled = true
         ctx.imageSmoothingQuality = 'high'

@@ -110,6 +110,42 @@ describe('convertRange', () => {
     })
 })
 
+describe('rgbaToI420 against a per-pixel reference', () => {
+    // The straightforward formulation: Y per pixel, chroma = mean of (B-Y), (R-Y) over the 2x2 block.
+    function reference(d: Uint8ClampedArray, w: number, h: number, kr: number, kb: number, full: boolean): Uint8Array {
+        const kg = 1 - kr - kb
+        const cw = Math.ceil(w / 2)
+        const ch = Math.ceil(h / 2)
+        const out = new Uint8Array(w * h + 2 * cw * ch)
+        const ys = full ? 255 : 219, yo = full ? 0 : 16, cs = full ? 255 : 224
+        const uS = new Float64Array(cw * ch), vS = new Float64Array(cw * ch), n = new Float64Array(cw * ch)
+        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4
+            const R = d[i] / 255, G = d[i + 1] / 255, B = d[i + 2] / 255
+            const Y = kr * R + kg * G + kb * B
+            out[y * w + x] = Math.round(yo + ys * Y)
+            const c = (y >> 1) * cw + (x >> 1)
+            uS[c] += (B - Y) / (2 * (1 - kb)); vS[c] += (R - Y) / (2 * (1 - kr)); n[c]++
+        }
+        for (let c = 0; c < cw * ch; c++) {
+            out[w * h + c] = Math.round(128 + (cs * uS[c]) / n[c])
+            out[w * h + cw * ch + c] = Math.round(128 + (cs * vS[c]) / n[c])
+        }
+        return out
+    }
+    it.each([[8, 6], [7, 5], [6, 3], [1, 1]])('should match it within one level for %ix%i frames, both ranges', (w, h) => {
+        const d = new Uint8ClampedArray(w * h * 4)
+        let seed = 12345
+        for (let i = 0; i < d.length; i++) { seed = (seed * 1103515245 + 12345) & 0x7fffffff; d[i] = i % 4 === 3 ? 255 : seed >> 8 }
+        for (const full of [false, true]) {
+            const got = rgbaToI420(d, w, h, 'bt709', full)
+            const want = reference(d, w, h, 0.2126, 0.0722, full)
+            expect(got.length).toBe(want.length)
+            for (let i = 0; i < got.length; i++) expect(Math.abs(got[i] - want[i])).toBeLessThanOrEqual(1)
+        }
+    })
+})
+
 describe('rgbaToI420', () => {
     it('should give a frame-sized I420 buffer with the matrix and range asked for', () => {
         const out = rgbaToI420(rgba(4, 2, [255, 255, 255, 255]), 4, 2, 'bt709', true)

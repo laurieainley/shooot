@@ -162,29 +162,78 @@ export function rgbaToI420(rgba: Uint8ClampedArray, width: number, height: numbe
     const [kr, kb] = KR_KB[m]
     const kg = 1 - kr - kb
     const ys = fullRange ? 255 : 219
-    const yo = fullRange ? 0 : 16
+    const yo = (fullRange ? 0 : 16) + 0.5 // +0.5: rounding
     const cs = fullRange ? 255 : 224
-    const uSum = new Float32Array(cw * ch)
-    const vSum = new Float32Array(cw * ch)
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            const i = (y * width + x) * 4
-            const R = rgba[i] / 255
-            const G = rgba[i + 1] / 255
-            const B = rgba[i + 2] / 255
-            const Y = kr * R + kg * G + kb * B
-            out[y * width + x] = clamp8(yo + ys * Y)
-            const c = (y >> 1) * cw + (x >> 1)
-            uSum[c] += (B - Y) / (2 * (1 - kb))
-            vSum[c] += (R - Y) / (2 * (1 - kr))
-        }
-    }
+    // Per-channel weights with the 1/255 and the range scale folded in (hot loop: 2 million pixels per 1080p frame).
+    const yr = (ys * kr) / 255
+    const yg = (ys * kg) / 255
+    const yb = (ys * kb) / 255
+    const ur = -(cs * kr) / (2 * (1 - kb) * 255)
+    const ug = -(cs * kg) / (2 * (1 - kb) * 255)
+    const ub = cs / (2 * 255)
+    const vr = cs / (2 * 255)
+    const vg = -(cs * kg) / (2 * (1 - kr) * 255)
+    const vb = -(cs * kb) / (2 * (1 - kr) * 255)
+    const evenW = width % 2 === 0
+    const evenH = height % 2 === 0
     for (let cy = 0; cy < ch; cy++) {
         for (let cx = 0; cx < cw; cx++) {
-            const n = (Math.min(2, width - cx * 2)) * (Math.min(2, height - cy * 2))
+            if (evenW && evenH) {
+                // Whole 2×2 block (every block but the odd edge of odd sizes): unrolled.
+                const x = cx * 2
+                const y = cy * 2
+                const i0 = (y * width + x) * 4
+                const i1 = i0 + 4
+                const i2 = i0 + width * 4
+                const i3 = i2 + 4
+                const R0 = rgba[i0], G0 = rgba[i0 + 1], B0 = rgba[i0 + 2]
+                const R1 = rgba[i1], G1 = rgba[i1 + 1], B1 = rgba[i1 + 2]
+                const R2 = rgba[i2], G2 = rgba[i2 + 1], B2 = rgba[i2 + 2]
+                const R3 = rgba[i3], G3 = rgba[i3 + 1], B3 = rgba[i3 + 2]
+                const Y0 = yo + yr * R0 + yg * G0 + yb * B0
+                const Y1 = yo + yr * R1 + yg * G1 + yb * B1
+                const Y2 = yo + yr * R2 + yg * G2 + yb * B2
+                const Y3 = yo + yr * R3 + yg * G3 + yb * B3
+                const o = y * width + x
+                out[o] = Y0 < 0 ? 0 : Y0 > 255 ? 255 : Y0
+                out[o + 1] = Y1 < 0 ? 0 : Y1 > 255 ? 255 : Y1
+                out[o + width] = Y2 < 0 ? 0 : Y2 > 255 ? 255 : Y2
+                out[o + width + 1] = Y3 < 0 ? 0 : Y3 > 255 ? 255 : Y3
+                const R = R0 + R1 + R2 + R3
+                const G = G0 + G1 + G2 + G3
+                const B = B0 + B1 + B2 + B3
+                const U = 128.5 + (ur * R + ug * G + ub * B) / 4
+                const V = 128.5 + (vr * R + vg * G + vb * B) / 4
+                const c = cy * cw + cx
+                out[uOff + c] = U < 0 ? 0 : U > 255 ? 255 : U
+                out[vOff + c] = V < 0 ? 0 : V > 255 ? 255 : V
+                continue
+            }
+            let u = 0
+            let v = 0
+            let n = 0
+            for (let dy = 0; dy < 2; dy++) {
+                const y = cy * 2 + dy
+                if (y >= height) break
+                for (let dx = 0; dx < 2; dx++) {
+                    const x = cx * 2 + dx
+                    if (x >= width) break
+                    const i = (y * width + x) * 4
+                    const R = rgba[i]
+                    const G = rgba[i + 1]
+                    const B = rgba[i + 2]
+                    const Y = yo + yr * R + yg * G + yb * B
+                    out[y * width + x] = Y < 0 ? 0 : Y > 255 ? 255 : Y
+                    u += ur * R + ug * G + ub * B
+                    v += vr * R + vg * G + vb * B
+                    n++
+                }
+            }
             const c = cy * cw + cx
-            out[uOff + c] = clamp8(128 + (cs * uSum[c]) / n)
-            out[vOff + c] = clamp8(128 + (cs * vSum[c]) / n)
+            const U = 128.5 + u / n
+            const V = 128.5 + v / n
+            out[uOff + c] = U < 0 ? 0 : U > 255 ? 255 : U
+            out[vOff + c] = V < 0 ? 0 : V > 255 ? 255 : V
         }
     }
     return out
