@@ -171,3 +171,13 @@ describe('matchChapterLines — Half time', () => {
         expect(matchChapterLines(events, [0], 60, 3000, 10, ['Whites', 'Colours'])).toEqual(['00:00 Kick off', '02:10 Goal 1-0 (Whites)', '25:00 Half time'])
     })
 })
+
+describe('chapter assists', () => {
+  it('should add the assist after the scorer, only for normal goals', () => {
+    const g = { ...goal('a', 60, 'Red', 'Sam'), assist: 'Jo' }
+    expect(generateYouTubeChapters([g], [0], 0, 10, 4)).toContain('00:50 Goal 1 (Red) Sam, assist Jo')
+    expect(generateHighlightChapters([g], [0], 10, 4)).toContain('00:00 Goal 1 (Red) Sam, assist Jo')
+    expect(generateYouTubeChapters([{ ...g, pen: true }], [0], 0, 10, 4)).toContain('Goal (pen) 1 (Red) Sam')
+    expect(generateYouTubeChapters([{ ...g, pen: true }], [0], 0, 10, 4)).not.toContain('assist')
+  })
+})

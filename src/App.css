@@ -234,7 +234,7 @@
 }
 
 /* ---------- event log ---------- */
-.event-log { background: var(--panel); }
+.event-log { background: var(--panel); container: event-log / inline-size; }
 .event-log > header { transition: box-shadow 0.15s; }
 .event-log:focus-within > header { box-shadow: inset 0 -2px 0 var(--accent); }
 .event-row {
@@ -264,6 +264,11 @@
 .shell--phone .event-row__label, .shell--landscape .event-row__label {
   white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; line-height: 1.3;
 }
+/* Goal assists: "Goal · Sam (assist Jo)" in full; on narrow (phone / landscape) rows the short "Goal · Sam, Jo" (the title has the full text). */
+.event-row__assist-short { display: none; }
+@container event-log (max-width: 520px) { .event-row__assist { display: none; } .event-row__assist-short { display: inline; } }
+.shell--phone .event-row__assist, .shell--landscape .event-row__assist { display: none; }
+.shell--phone .event-row__assist-short, .shell--landscape .event-row__assist-short { display: inline; }
 
 .clip-summary {
   display: grid; gap: 3px; width: 100%; text-align: left; cursor: pointer;

@@ -323,7 +323,7 @@ export const useAppState = create<AppState>()(
                     .map((e) => {
                         if (e.id !== id) return e
                         const m: MatchEvent = { ...e, type }
-                        for (const k of ['team', 'scorer', 'notes', 'replay', 'pen'] as const) delete m[k]
+                        for (const k of ['team', 'scorer', 'assist', 'notes', 'replay', 'pen'] as const) delete m[k]
                         return m
                     })
                 set({

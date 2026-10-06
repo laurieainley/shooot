@@ -161,6 +161,45 @@ describe('text centring in panels', () => {
     })
 })
 
+describe('captionLayout with an assist', () => {
+    const bug: BugSpec = { left: 'RR', right: 'WT', leftColour: '#f0f0f0', rightColour: '#ec5fa4', text: '1–0' }
+    const goal: CaptionSpec = { label: 'GOAL', person: 'SAM', assist: 'JO', stripe: '#f0f0f0', bug }
+    const rects = (ops: DrawOp[]): RectOp[] => ops.filter((o): o is RectOp => o.kind === 'rect')
+    const tag = rects(replayTagLayout(1, 6))[0]
+
+    it('should keep GOAL · SAM on the event line and put a smaller "ASSIST: JO" beneath', () => {
+        const ops = texts(captionLayout(goal, 2.5, true))
+        const sam = ops.find((o) => o.text === 'SAM')!
+        const assist = ops.find((o) => o.text === 'ASSIST: JO')!
+        expect(assist.y).toBeGreaterThan(sam.y)
+        expect(assist.size).toBeLessThan(sam.size)
+        expect(assist.x).toBe(ops.find((o) => o.text === 'GOAL')!.x)
+    })
+
+    it('should stack the note under the assist, inside title-safe and the caption rows, clear of the REPLAY tag', () => {
+        const ops = captionLayout({ ...goal, person: 'MAXIMILIAN ALEXANDER-FOTHERINGHAM THE THIRD', assist: 'A VERY LONG ASSIST NAME THAT KEEPS GOING ON AND ON', note: 'TOP BINS FROM THE EDGE OF THE AREA' }, 2.5, true)
+        const t = texts(ops)
+        expect(t.find((o) => o.text.startsWith('ASSIST'))!.y).toBeLessThan(t.find((o) => o.text.startsWith('TOP BINS'))!.y)
+        for (const o of rects(ops)) {
+            expect(o.x).toBeGreaterThanOrEqual(96)
+            expect(o.x + o.w).toBeLessThan(tag.x)
+            expect(o.y + o.h).toBeLessThanOrEqual(CAPTION_ROWS[1])
+        }
+        for (const o of t) if (o.align === 'left') expect(o.x + (o.maxWidth ?? estimateTextWidth(o.text, o.size))).toBeLessThan(tag.x)
+        const panelBottom = Math.max(...rects(ops).filter((o) => o.fill === NAVY).map((o) => o.y + o.h))
+        for (const o of t) expect(o.y + o.size / 2).toBeLessThanOrEqual(panelBottom)
+    })
+
+    it('should be legible on a 768×432 reel (assist ≥ 15 px)', () => {
+        expect(texts(captionLayout(goal, 2.5, true)).find((o) => o.text === 'ASSIST: JO')!.size * (432 / 1080)).toBeGreaterThanOrEqual(15)
+    })
+
+    it('should not grow the caption without an assist', () => {
+        const heightOf = (spec: CaptionSpec): number => Math.max(...rects(captionLayout(spec, 2.5, true)).map((o) => o.y + o.h))
+        expect(heightOf(goal)).toBeGreaterThan(heightOf({ ...goal, assist: undefined }))
+    })
+})
+
 describe('scoreBugLayout', () => {
     const bug: BugSpec = { left: 'WH', right: 'CO', leftColour: '#f5f5f5', rightColour: '#c2364a', text: '2–1' }
 

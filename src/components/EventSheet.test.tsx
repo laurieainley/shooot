@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import type { MatchEvent, Team, VideoSourceFile } from '../types'
@@ -55,7 +55,7 @@ describe('EventSheet', () => {
     })
 
     it('should pick the person from the roster of the credited team', async () => {
-        await userEvent.click(screen.getByRole('button', { name: 'Priya' }))
+        await userEvent.click(within(screen.getByRole('group', { name: 'Scorer' })).getByRole('button', { name: 'Priya' }))
         expect(ev()?.scorer).toBe('Priya')
         expect(screen.getByRole('textbox', { name: 'Scorer' })).toHaveValue('Priya')
     })
@@ -125,5 +125,34 @@ describe('EventSheet — match markers', () => {
         expect(ev()).toMatchObject({ type: 'final_whistle' })
         expect(ev()?.team).toBeUndefined()
         expect(st.events.some((e) => e.id === 'old')).toBe(false)
+    })
+})
+
+describe('EventSheet assist', () => {
+    it('should show an Assist field with the scoring team roster minus the scorer, and set / clear it', async () => {
+        setup({ scorer: 'Sam Taylor' })
+        expect(screen.getByRole('textbox', { name: 'Assist' })).toHaveValue('')
+        const chips = screen.getByRole('group', { name: 'Assist' }) as HTMLElement
+        expect(chips).toHaveTextContent('Priya')
+        expect(chips).not.toHaveTextContent('Sam Taylor')
+        await userEvent.click(within(chips).getByRole('button', { name: 'Priya' }))
+        expect(ev()?.assist).toBe('Priya')
+        await userEvent.clear(screen.getByRole('textbox', { name: 'Assist' }))
+        await userEvent.keyboard('{Enter}')
+        expect(ev()?.assist).toBeUndefined()
+    })
+
+    it('should add a typed new assist to the roster', async () => {
+        setup({ scorer: 'Sam Taylor' })
+        await userEvent.type(screen.getByRole('textbox', { name: 'Assist' }), 'Newbie{Enter}')
+        expect(ev()?.assist).toBe('Newbie')
+        expect(useAppState.getState().teams[0].roster).toContain('Newbie')
+    })
+
+    it('should not show the field for penalty goals and own goals, and drop the assist on a type change', async () => {
+        setup({ assist: 'Priya' })
+        await userEvent.click(screen.getByRole('button', { name: 'Penalty goal' }))
+        expect(ev()?.assist).toBeUndefined()
+        expect(screen.queryByRole('textbox', { name: 'Assist' })).not.toBeInTheDocument()
     })
 })

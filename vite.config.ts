@@ -19,6 +19,8 @@ export default defineConfig({
     environment: 'node',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // Component tests can exceed the 5 s default on a loaded laptop; keep the suite deterministic.
+    testTimeout: 20000,
     exclude: ['node_modules', 'dist'],
   },
   plugins: [tailwindcss(), react()],

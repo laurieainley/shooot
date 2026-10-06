@@ -95,7 +95,8 @@ const CAPTION_MAX_RIGHT = 1480
 
 /** Design-space rows the score bug / a caption can touch (with room for anti-aliasing). */
 export const BUG_ROWS: [number, number] = [SAFE_Y - 14, SAFE_Y + BUG_H + ACCENT_H + 14]
-export const CAPTION_ROWS: [number, number] = [SAFE_Y - 14, SAFE_Y + BUG_H + ACCENT_H + EVENT_H + NOTE_H + 14]
+/** Under the event line: an optional assist line, then an optional note, each one NOTE_H band. */
+export const CAPTION_ROWS: [number, number] = [SAFE_Y - 14, SAFE_Y + BUG_H + ACCENT_H + EVENT_H + 2 * NOTE_H + 14]
 
 /** TV-style score bug row at the top-left title-safe corner: [logo] ▌WH  1–0  CO▐ with an orange underline. */
 function bugRow(bug: BugSpec, hasLogo: boolean, measure: MeasureText): { ops: DrawOp[]; right: number } {
@@ -137,7 +138,7 @@ export function scoreBugLayout(bug: BugSpec, t: number, duration: number, hasLog
 
 /**
  * Event caption, top-left (TV score-bug convention): the score bug row with the event line beneath
- * (`GOAL · SAM TAYLOR`, optional note). 5 s, sliding and fading in and out over 0.3 s.
+ * (`GOAL · SAM TAYLOR`, then smaller `ASSIST: JO` and note lines). 5 s, sliding and fading in and out over 0.3 s.
  */
 export function captionLayout(spec: CaptionSpec, t: number, hasLogo: boolean, duration = CAPTION_SEC, measure: MeasureText = estimateTextWidth): DrawOp[] {
     const bug = spec.bug ? bugRow(spec.bug, hasLogo, measure) : null
@@ -151,10 +152,13 @@ export function captionLayout(spec: CaptionSpec, t: number, hasLogo: boolean, du
     const labelW = measure(spec.label, labelSize)
     const personX = textX + labelW + gap
     const personW = spec.person ? measure(spec.person, labelSize) : 0
-    const noteW = spec.note ? measure(spec.note, noteSize) : 0
-    const contentRight = Math.max(spec.person ? personX + personW : textX + labelW, textX + noteW) + pad
+    // Smaller lines under the event line, in order: the assist, then the note.
+    const assistText = spec.assist ? `ASSIST: ${spec.assist}` : undefined
+    const subLines = [assistText, spec.note].filter((s): s is string => !!s)
+    const subW = Math.max(0, ...subLines.map((s) => measure(s, noteSize)))
+    const contentRight = Math.max(spec.person ? personX + personW : textX + labelW, textX + subW) + pad
     const right = Math.min(CAPTION_MAX_RIGHT, Math.max(bug?.right ?? 0, contentRight, textX + k(200)))
-    const h = EVENT_H + (spec.note ? NOTE_H : 0)
+    const h = EVENT_H + subLines.length * NOTE_H
     const event: DrawOp[] = [
         { kind: 'rect', x: SAFE_X, y: top, w: stripeW, h, fill: spec.stripe },
         { kind: 'rect', x: SAFE_X + stripeW, y: top, w: right - SAFE_X - stripeW, h, fill: NAVY },
@@ -163,9 +167,9 @@ export function captionLayout(spec: CaptionSpec, t: number, hasLogo: boolean, du
     if (spec.person) {
         event.push({ kind: 'text', text: spec.person, x: personX, y: top + EVENT_H / 2, size: labelSize, color: WHITE, align: 'left', baseline: 'middle', maxWidth: Math.max(80, right - pad - personX) })
     }
-    if (spec.note) {
-        event.push({ kind: 'text', text: spec.note, x: textX, y: top + EVENT_H + NOTE_H / 2, size: noteSize, color: '#c9d6ea', align: 'left', baseline: 'middle', maxWidth: Math.max(80, right - pad - textX) })
-    }
+    subLines.forEach((text, i) => {
+        event.push({ kind: 'text', text, x: textX, y: top + EVENT_H + NOTE_H * i + NOTE_H / 2, size: noteSize, color: '#c9d6ea', align: 'left', baseline: 'middle', maxWidth: Math.max(80, right - pad - textX) })
+    })
     const m = motion(t, duration)
     const bugOps = bug ? withMotion(bug.ops, m.alpha, m.dx) : []
     return [...bugOps, ...withMotion(event, m.alpha, m.dx)]

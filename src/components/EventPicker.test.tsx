@@ -32,7 +32,69 @@ describe('EventPicker', () => {
         press('ArrowDown')
         press('Enter')
         expect(s().events[0]).toMatchObject({ type: 'goal', team: 'Whites', scorer: 'Sandy Wu' })
+        press('Tab') // the optional assist step
         expect(s().picker).toBeNull()
+    })
+
+ it('should ask for an optional assist after the scorer, listing the team without the scorer', () => {
+        render(<EventPicker />)
+        press('Enter')
+        press('w')
+        fireEvent.click(screen.getByRole('option', { name: /sam taylor/i }))
+        expect(s().picker).not.toBeNull()
+        expect(screen.getByRole('textbox', { name: 'Assist' })).toBeInTheDocument()
+        expect(screen.getByRole('option', { name: /sandy wu/i })).toBeInTheDocument()
+        expect(screen.queryByRole('option', { name: /sam taylor/i })).not.toBeInTheDocument()
+        press('Enter')
+        expect(s().events[0]).toMatchObject({ type: 'goal', team: 'Whites', scorer: 'Sam Taylor', assist: 'Sandy Wu' })
+        expect(s().picker).toBeNull()
+    })
+
+    it('should leave no assist on Escape or Skip, and add a new typed name to the roster', () => {
+        render(<EventPicker />)
+        press('Enter'); press('w')
+        fireEvent.click(screen.getByRole('option', { name: /sam taylor/i }))
+        press('Escape')
+        expect(s().events[0].assist).toBeUndefined()
+        expect(s().picker).toBeNull()
+
+        act(() => s().markEvent(300))
+        const id = s().events.find((e) => e.matchTimeSec === 300)!.id
+        act(() => s().openPicker(id))
+        press('Enter'); press('w')
+        fireEvent.click(screen.getByRole('option', { name: /sam taylor/i }))
+        fireEvent.click(screen.getByRole('button', { name: /skip/i }))
+        expect(s().events.find((e) => e.id === id)!.assist).toBeUndefined()
+
+        act(() => s().markEvent(500))
+        const id2 = s().events.find((e) => e.matchTimeSec === 500)!.id
+        act(() => s().openPicker(id2))
+        press('Enter'); press('w')
+        fireEvent.click(screen.getByRole('option', { name: /sam taylor/i }))
+        fireEvent.change(screen.getByRole('textbox', { name: 'Assist' }), { target: { value: 'Newbie' } })
+        press('Enter')
+        expect(s().events.find((e) => e.id === id2)!.assist).toBe('Newbie')
+        expect(s().teams[0].roster).toContain('Newbie')
+    })
+
+    it('should not ask for an assist after a penalty goal', () => {
+        render(<EventPicker />)
+        press('p'); press('w')
+        fireEvent.click(screen.getByRole('option', { name: /sam taylor/i }))
+        expect(s().picker).toBeNull()
+    })
+
+    it('should offer the assist step on touch too', () => {
+        setCoarsePointer(true)
+        render(<EventPicker />)
+        fireEvent.click(screen.getByRole('option', { name: /^goal/i }))
+        fireEvent.click(screen.getByRole('option', { name: /whites/i }))
+        fireEvent.click(screen.getByRole('option', { name: /sam taylor/i }))
+        expect(screen.getByRole('textbox', { name: 'Assist' })).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('option', { name: /sandy wu/i }))
+        expect(s().events[0].assist).toBe('Sandy Wu')
+        expect(s().picker).toBeNull()
+        setCoarsePointer(false)
     })
 
     it('should make a highlight with H and ask for the team, with a Skip option', () => {
@@ -114,6 +176,7 @@ describe('EventPicker', () => {
         press('w')
         expect(document.activeElement).toBe(screen.getByRole('textbox', { name: /scorer/i }))
         press('Enter')
+        press('Escape') // past the optional assist step
         expect(s().picker).toBeNull()
         expect(document.activeElement).toBe(playerEl)
         playerEl.remove()

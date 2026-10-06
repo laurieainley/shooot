@@ -45,6 +45,7 @@ export type MatchEvent = {
     pen?: boolean            // goal scored from a penalty
     team?: string            // scoring events: the team credited with the goal
     scorer?: string          // own goal: player from the other team
+    assist?: string          // normal goals only (not penalties, not own goals): who set it up
     notes?: string
     replay?: boolean         // explicit replay override; undefined = default for the type
     replayCrop?: ReplayCrop  // replay framing; undefined = automatic, by event type (utils/attack.ts)

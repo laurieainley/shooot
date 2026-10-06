@@ -1,5 +1,5 @@
 import type { MatchEvent } from '../types'
-import { eventLabel, isMarker, isScoring, shortNote } from './eventTypes'
+import { assistOf, eventLabel, isMarker, isScoring, shortNote } from './eventTypes'
 import { wantsReplay } from './replays'
 import type { ReplayOptions } from './renderPlan'
 
@@ -27,6 +27,8 @@ function chapterLabel(e: MatchEvent, teams: string[], running: Record<string, nu
     }
     if (e.team) label += ` (${e.team})`
     if (e.scorer) label += ` ${e.scorer}`
+    const assist = assistOf(e)
+    if (assist) label += e.scorer ? `, assist ${assist}` : ` assist ${assist}`
     const note = shortNote(e.notes)
     if (note) label += `: ${note}`
     return label
