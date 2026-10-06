@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import { resetRenderJobs } from '../renderJobs'
 import type { VideoSourceFile } from '../types'
+import { stubWebCodecs } from '../test/codecs'
 
 const renderReel = vi.fn()
 vi.mock('../render', () => ({ renderReel: (...a: unknown[]) => renderReel(...a) }))
@@ -16,7 +17,10 @@ import { RenderHighlights } from './RenderHighlights'
 const proxy: VideoSourceFile = { id: 'p', name: 'GL010226.LRV', kind: 'proxy', url: '', file: new File([''], 'GL010226.LRV'), durationSec: 600 }
 
 describe('RenderHighlights', () => {
+    let restoreCodecs = (): void => undefined
+    afterEach(() => restoreCodecs())
     beforeEach(() => {
+        restoreCodecs = stubWebCodecs()
         resetRenderJobs()
         renderReel.mockReset()
         useAppState.setState({
@@ -110,5 +114,17 @@ describe('RenderHighlights', () => {
         await userEvent.click(screen.getByRole('button', { name: /preview reel/i }))
         expect(await screen.findByText(/Full-time card/)).toBeInTheDocument()
         expect(screen.getByText(/no encoder/)).toBeInTheDocument()
+    })
+
+    it('should skip the graphics up front, with the reason, when the browser has no WebCodecs, and still render the reel', async () => {
+        restoreCodecs()
+        restoreCodecs = stubWebCodecs(false)
+        renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
+        render(<RenderHighlights />)
+        await userEvent.click(screen.getByRole('button', { name: /preview reel/i }))
+        await vi.waitFor(() => expect(renderReel).toHaveBeenCalled())
+        expect(renderReel.mock.calls[0][0].length).toBeGreaterThan(0) // the cuts are still rendered
+        expect(renderReel.mock.calls[0][2].graphics).toBeUndefined() // …without graphics
+        expect(await screen.findByText(/does not have/i)).toBeInTheDocument()
     })
 })

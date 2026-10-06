@@ -865,3 +865,8 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .event-picker--compact .event-picker__actions > button { flex: none; min-width: 72px; }
 .event-picker--compact .event-picker__body { grid-column: 1 / -1; grid-row: 2; padding-bottom: 8px; }
 .event-picker--compact .event-picker__prompt { display: none; }
+
+/* Touch tablets use the desktop top bar: nothing may wait for a hover (file reorder buttons are always shown). */
+@media (hover: none) {
+  .shell--desktop .top-bar .file-pill__tools .row-btn { display: inline-grid; }
+}
