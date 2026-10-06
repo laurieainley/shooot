@@ -52,3 +52,67 @@ describe('settleZoom', () => {
         expect(settleZoom(0.5)).toBe(1)
     })
 })
+
+import { zoomTowards, dragPan, classifyPointer, wheelZoomFactor, CLICK_MAX_DISTANCE_PX, CLICK_MAX_DURATION_MS } from './zoom'
+
+const VP = { width: 1000, height: 600 }
+
+describe('zoomTowards', () => {
+    it('should keep the point under the cursor fixed', () => {
+        const cursor = { x: 400, y: 250 } // offset from the viewport centre
+        const before = { zoom: 2, pan: { x: -50, y: 30 } }
+        const r = zoomTowards(before.zoom, before.pan, 3, cursor, VP)
+        const under = (z: number, p: { x: number; y: number }): { x: number; y: number } => ({ x: (cursor.x - p.x) / z, y: (cursor.y - p.y) / z })
+        expect(under(r.zoom, r.pan).x).toBeCloseTo(under(2, before.pan).x)
+        expect(under(r.zoom, r.pan).y).toBeCloseTo(under(2, before.pan).y)
+    })
+    it('should zoom from 1x towards a corner, panning the opposite way', () => {
+        const r = zoomTowards(1, { x: 0, y: 0 }, 2, { x: 500, y: 300 }, VP)
+        expect(r.zoom).toBe(2)
+        expect(r.pan).toEqual({ x: -500, y: -300 })
+    })
+    it('should clamp the zoom to 1..4 and the pan to the picture', () => {
+        expect(zoomTowards(3, { x: 0, y: 0 }, 9, { x: 0, y: 0 }, VP).zoom).toBe(4)
+        const r = zoomTowards(2, { x: 500, y: 0 }, 1.5, { x: 0, y: 0 }, VP)
+        expect(r.pan.x).toBe(250)
+    })
+    it('should return home when zooming out to 1x', () => {
+        expect(zoomTowards(2, { x: 100, y: 50 }, 1, { x: 200, y: 0 }, VP)).toEqual({ zoom: 1, pan: { x: 0, y: 0 } })
+    })
+})
+
+describe('dragPan', () => {
+    it('should add the drag delta and clamp', () => {
+        expect(dragPan(2, { x: 0, y: 0 }, 30, -20, VP)).toEqual({ x: 30, y: -20 })
+        expect(dragPan(2, { x: 490, y: 0 }, 100, 0, VP)).toEqual({ x: 500, y: 0 })
+    })
+    it('should not pan at 1x', () => {
+        expect(dragPan(1, { x: 0, y: 0 }, 30, 30, VP)).toEqual({ x: 0, y: 0 })
+    })
+})
+
+describe('classifyPointer', () => {
+    it('should call a short still press a click', () => {
+        expect(classifyPointer(2, 120)).toBe('click')
+    })
+    it('should call movement of 5 px or more a drag', () => {
+        expect(CLICK_MAX_DISTANCE_PX).toBe(5)
+        expect(classifyPointer(5, 100)).toBe('drag')
+        expect(classifyPointer(4.9, 100)).toBe('click')
+    })
+    it('should call a long press a drag (not a click)', () => {
+        expect(CLICK_MAX_DURATION_MS).toBe(300)
+        expect(classifyPointer(0, 300)).toBe('drag')
+    })
+})
+
+describe('wheelZoomFactor', () => {
+    it('should zoom in for negative deltaY and out for positive', () => {
+        expect(wheelZoomFactor(-100)).toBeGreaterThan(1)
+        expect(wheelZoomFactor(100)).toBeLessThan(1)
+        expect(wheelZoomFactor(0)).toBe(1)
+    })
+    it('should be reversible', () => {
+        expect(wheelZoomFactor(40) * wheelZoomFactor(-40)).toBeCloseTo(1)
+    })
+})

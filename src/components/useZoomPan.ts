@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { clampPan, clampZoom, nextZoom, settleZoom, type Pan } from '../utils/zoom'
+import { zoomTowards, clampPan, clampZoom, nextZoom, settleZoom, type Pan } from '../utils/zoom'
 
 type Viewport = { width: number; height: number }
 type View = { zoom: number; pan: Pan }
@@ -10,6 +10,8 @@ export type ZoomPan = View & {
     panBy: (dx: number, dy: number) => void
     pinchTo: (zoom: number) => void
     pinchEnd: () => void
+    /** Multiply the zoom by `factor`, keeping the point under `cursor` (offset from the viewport centre) fixed. */
+    zoomAt: (factor: number, cursor: Pan) => void
 }
 
 const HOME: View = { zoom: 1, pan: { x: 0, y: 0 } }
@@ -28,5 +30,10 @@ export function useZoomPan(getViewport: () => Viewport): ZoomPan {
     const pinchTo = useCallback((zoom: number) => setView((v) => withZoom(clampZoom(zoom), v.pan)), [withZoom])
     const pinchEnd = useCallback(() => setView((v) => withZoom(settleZoom(v.zoom), v.pan)), [withZoom])
 
-    return useMemo(() => ({ ...view, cycle, reset, panBy, pinchTo, pinchEnd }), [view, cycle, reset, panBy, pinchTo, pinchEnd])
+    const zoomAt = useCallback((factor: number, cursor: Pan) => setView((v) => {
+        const r = zoomTowards(v.zoom, v.pan, v.zoom * factor, cursor, getViewport())
+        return r.zoom <= 1 ? HOME : r
+    }), [getViewport])
+
+    return useMemo(() => ({ ...view, cycle, reset, panBy, pinchTo, pinchEnd, zoomAt }), [view, cycle, reset, panBy, pinchTo, pinchEnd, zoomAt])
 }
