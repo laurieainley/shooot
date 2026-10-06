@@ -50,6 +50,7 @@ function MenuBody() {
             {ITEMS.map(([label, panel]) => (
                 <button key={panel} type="button" role="menuitem" onClick={() => useAppState.getState().openPanel(panel)}>{label}</button>
             ))}
+            <button type="button" role="menuitem" onClick={() => useAppState.getState().openPanel('send')}>Send project to another device</button>
             <ProjectIO menu />
         </div>
     )
