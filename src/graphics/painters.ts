@@ -15,7 +15,7 @@ function painter(o: OverlaySpec, assets: PaintAssets): Painter {
         case 'caption':
             return (ctx, t) => paintOps(ctx, captionLayout(o.spec, o.clock.offsetSec + t * o.clock.rate, logo, o.clock.totalSec, measureWith(ctx), o.anchored), assets)
         case 'replayTag':
-            return (ctx, t) => paintOps(ctx, replayTagLayout(t, o.durationSec), assets)
+            return (ctx, t) => paintOps(ctx, replayTagLayout(t, o.durationSec, measureWith(ctx)), assets)
         case 'scoreBug':
             return (ctx, t) => {
                 const at = o.startSec + t

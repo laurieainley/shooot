@@ -143,6 +143,32 @@ describe('captionLayout', () => {
     })
 })
 
+describe('text centring in panels', () => {
+    const bug: BugSpec = { left: 'WH', right: 'CO', leftColour: '#f5f5f5', rightColour: '#c2364a', text: '2–1' }
+    const panelOf = (ops: DrawOp[], t: TextOp): RectOp =>
+        ops.filter((o): o is RectOp => o.kind === 'rect' && o.x <= t.x + 1 && t.y > o.y && t.y < o.y + o.h && o.h > 20).sort((a, b) => a.w * a.h - b.w * b.h)[0]
+
+    it('should anchor the score bug and REPLAY texts exactly on the vertical centre of their panel (the painter centres the ink from measured metrics)', () => {
+        const ops = [...scoreBugLayout(bug, 3, 10, true, false), ...replayTagLayout(1, 6)]
+        const middle = texts(ops).filter((o) => o.baseline === 'middle')
+        expect(middle).toHaveLength(4)
+        for (const t of middle) {
+            const p = panelOf(ops, t)
+            expect(t.y).toBeCloseTo(p.y + p.h / 2, 5)
+        }
+    })
+
+    it('should centre the event line in its own row and the note in its own band', () => {
+        const ops = captionLayout({ label: 'GOAL', person: 'SAM', note: 'TOP BINS', stripe: '#fff', bug }, 2.5, true)
+        const top = 54 + Math.round(64 * 1.4) + Math.round(4 * 1.4)
+        const eventH = Math.round(72 * 1.4)
+        const noteH = Math.round(50 * 1.4)
+        expect(texts(ops).find((o) => o.text === 'GOAL')!.y).toBe(top + eventH / 2)
+        expect(texts(ops).find((o) => o.text === 'SAM')!.y).toBe(top + eventH / 2)
+        expect(texts(ops).find((o) => o.text === 'TOP BINS')!.y).toBe(top + eventH + noteH / 2)
+    })
+})
+
 describe('scoreBugLayout', () => {
     const bug: BugSpec = { left: 'WH', right: 'CO', leftColour: '#f5f5f5', rightColour: '#c2364a', text: '2–1' }
 
@@ -184,6 +210,15 @@ describe('replayTagLayout', () => {
         }
         const x = (t: number): number => Math.min(...replayTagLayout(t, 6).filter((o): o is RectOp => o.kind === 'rect').map((o) => o.x))
         expect(x(0)).toBe(x(3))
+    })
+
+    it('should widen to fit its text in a wider fallback font and stay inside the title-safe margin', () => {
+        const wide = (text: string, size: number): number => text.length * size * 0.6
+        const box = replayTagLayout(1, 6, wide).find((o): o is RectOp => o.kind === 'rect')!
+        const narrow = replayTagLayout(1, 6).find((o): o is RectOp => o.kind === 'rect')!
+        expect(box.w).toBeGreaterThan(narrow.w)
+        expect(box.x + box.w).toBe(1824)
+        expect(box.w).toBeGreaterThanOrEqual(wide('REPLAY', 67))
     })
 
     it('should be scaled up like the captions (≥ 26 px text on a 768×432 reel)', () => {

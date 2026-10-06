@@ -99,7 +99,7 @@ function bugRow(bug: BugSpec, hasLogo: boolean, measure: MeasureText): { ops: Dr
     const initialsSize = k(44)
     const scoreSize = k(50)
     const y = SAFE_Y
-    const cy = y + BUG_H / 2 + k(3)
+    const cy = y + BUG_H / 2
     let x = SAFE_X
     const ops: DrawOp[] = []
     if (hasLogo) {
@@ -156,13 +156,13 @@ export function captionLayout(spec: CaptionSpec, t: number, hasLogo: boolean, du
     const event: DrawOp[] = [
         { kind: 'rect', x: SAFE_X, y: top, w: stripeW, h, fill: spec.stripe },
         { kind: 'rect', x: SAFE_X + stripeW, y: top, w: right - SAFE_X - stripeW, h, fill: NAVY },
-        { kind: 'text', text: spec.label, x: textX, y: top + EVENT_H / 2 + k(4), size: labelSize, color: ORANGE, align: 'left', baseline: 'middle' },
+        { kind: 'text', text: spec.label, x: textX, y: top + EVENT_H / 2, size: labelSize, color: ORANGE, align: 'left', baseline: 'middle' },
     ]
     if (spec.person) {
-        event.push({ kind: 'text', text: spec.person, x: personX, y: top + EVENT_H / 2 + k(4), size: labelSize, color: WHITE, align: 'left', baseline: 'middle', maxWidth: Math.max(80, right - pad - personX) })
+        event.push({ kind: 'text', text: spec.person, x: personX, y: top + EVENT_H / 2, size: labelSize, color: WHITE, align: 'left', baseline: 'middle', maxWidth: Math.max(80, right - pad - personX) })
     }
     if (spec.note) {
-        event.push({ kind: 'text', text: spec.note, x: textX, y: top + EVENT_H + NOTE_H / 2 - k(6), size: noteSize, color: '#c9d6ea', align: 'left', baseline: 'middle', maxWidth: Math.max(80, right - pad - textX) })
+        event.push({ kind: 'text', text: spec.note, x: textX, y: top + EVENT_H + NOTE_H / 2, size: noteSize, color: '#c9d6ea', align: 'left', baseline: 'middle', maxWidth: Math.max(80, right - pad - textX) })
     }
     const m = motion(t, duration)
     const bugOps = bug ? (anchored ? bug.ops.map((o) => (o.kind === 'cardBackground' ? o : { ...o, alpha: 1 })) : withMotion(bug.ops, m.alpha, m.dx)) : []
@@ -173,16 +173,17 @@ export function captionLayout(spec: CaptionSpec, t: number, hasLogo: boolean, du
 export const REPLAY_ROWS: [number, number] = [SAFE_Y - 8, SAFE_Y + k(64) + 14]
 
 /** Small "REPLAY" tag, top right, shown instantly for the length of a slowed replay (broadcast convention; captions are top left), for the length of a slowed replay. */
-export function replayTagLayout(t: number, duration: number): DrawOp[] {
-    const w = k(150)
-    const h = k(64)
+export function replayTagLayout(t: number, duration: number, measure: MeasureText = estimateTextWidth): DrawOp[] {
     const bar = k(8)
+    // Wide enough for the text in whatever font is in use (a fallback face is wider than Bebas Neue).
+    const w = Math.max(k(150), bar + measure('REPLAY', k(48)) + 2 * k(16))
+    const h = k(64)
     const x = DESIGN_W - SAFE_X - w
     const y = SAFE_Y
     const ops: DrawOp[] = [
         { kind: 'rect', x, y, w, h, fill: NAVY },
         { kind: 'rect', x, y, w: bar, h, fill: ORANGE },
-        { kind: 'text', text: 'REPLAY', x: x + bar + (w - bar) / 2, y: y + h / 2 + k(4), size: k(48), color: WHITE, align: 'center', baseline: 'middle' },
+        { kind: 'text', text: 'REPLAY', x: x + bar + (w - bar) / 2, y: y + h / 2, size: k(48), color: WHITE, align: 'center', baseline: 'middle' },
     ]
     // Appears and disappears instantly (no fade or slide), unlike the captions.
     void t
