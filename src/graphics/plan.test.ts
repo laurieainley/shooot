@@ -64,6 +64,11 @@ describe('buildGraphicsSpec', () => {
         ])
     })
 
+    it('should carry a goal note on the caption', () => {
+        const spec = build([ev('a', 20, { team: 'Walford Town', scorer: 'Sam', notes: 'top corner' })])
+        expect(spec.overlays[0]).toMatchObject({ spec: { label: 'GOAL', person: 'SAM', note: 'TOP CORNER' } })
+    })
+
     it('should credit an own goal to the team it counts for', () => {
         const spec = build([ev('a', 20, { type: 'own_goal', team: 'Walford Town', scorer: 'Smith' })])
         expect(spec.overlays[0]).toMatchObject({ spec: { label: 'OWN GOAL', person: 'SMITH', stripe: '#ec5fa4', bug: { text: '0–1' } } })
