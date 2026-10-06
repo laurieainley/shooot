@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppState } from '../state'
 import { nearbyMark } from '../utils/duplicates'
-import { PICKER_OPTIONS, eventIcon, eventLabel } from '../utils/eventTypes'
+import { PICKER_OPTIONS, controlLabel, eventIcon } from '../utils/eventTypes'
 import { SKIP, initialPickerState, pickerReducer, scorerCandidates, type PickerInput, type PickerState } from '../utils/eventPicker'
 import { teamShortcuts } from '../utils/roster'
 import { formatHMS } from '../utils/timeline'
@@ -93,7 +93,7 @@ export function EventPicker() {
             <div className="event-picker__title">{title}{state.team ? ` · ${state.team}` : ''}{event.scorer ? ` · ${event.scorer}` : ''}</div>
             {near && state.step === 'type' && (
                 <p role="alert" className="event-picker__warn">
-                    {eventLabel(near.event)} already marked {near.deltaSec === 0 ? 'at this second' : `${Math.abs(near.deltaSec)} s ${near.deltaSec < 0 ? 'earlier' : 'later'}`}
+                    {controlLabel(near.event)} already marked {near.deltaSec === 0 ? 'at this second' : `${Math.abs(near.deltaSec)} s ${near.deltaSec < 0 ? 'earlier' : 'later'}`}
                     {' · '}{coarse ? 'Cancel' : <kbd>⌫</kbd>} if this was a double tap
                 </p>
             )}

@@ -2,7 +2,7 @@ import type { MatchEvent, Team } from '../types'
 import { PICKER_OPTIONS, type PickerOption } from './eventTypes'
 import { rosterTeamFor } from './roster'
 
-/** The picker option an existing event corresponds to (a penalty goal is "Goal (pen)"). */
+/** The picker option an existing event corresponds to (a penalty goal is "Penalty goal"). */
 export function optionForEvent(e: Pick<MatchEvent, 'type' | 'pen'>): PickerOption {
     const id = e.type === 'goal' ? (e.pen ? 'goal_pen' : 'goal') : e.type
     return PICKER_OPTIONS.find((o) => o.id === id) ?? PICKER_OPTIONS[0]

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { selectMatchStartSec, useAppState } from '../state'
 import type { MatchEvent, Team } from '../types'
-import { eventIcon, eventLabel, isMarker, shortNote } from '../utils/eventTypes'
+import { controlLabel, eventIcon, isMarker, shortNote } from '../utils/eventTypes'
 import { watchFromSec } from '../utils/markers'
 import { wantsReplay } from '../utils/replays'
 import { filterRoster, rosterTeamFor } from '../utils/roster'
@@ -182,7 +182,7 @@ interface EventRowProps {
 function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, onSelect, onWatch, onEdit, onToggleReplay, onRemove, restoreFocus, touch = false }: EventRowProps) {
     const team = teams.find((t) => t.name === e.team)
     const replay = wantsReplay(e)
-    const label = `${eventLabel(e)}${e.scorer ? ` · ${e.scorer}` : ''}`
+    const label = `${controlLabel(e)}${e.scorer ? ` · ${e.scorer}` : ''}`
     const note = shortNote(e.notes)
     const stop = (ev: React.SyntheticEvent): void => ev.stopPropagation()
     const done = (): void => { onEdit(null); restoreFocus() }
@@ -284,7 +284,7 @@ function MarkerRow({ event: e, selected, clock, fileTag, editing, onSelect, onWa
                 <span className="tc text-[13px]" onDoubleClick={(ev) => { stop(ev); onEdit('time') }} title="Double-click to edit time (in file)">{clock}</span>
             )}
             <span className="marker-flag" aria-hidden="true">{eventIcon(e)}</span>
-            <span className="event-row__label truncate text-[13px]">{eventLabel(e)}</span>
+            <span className="event-row__label truncate text-[13px]">{controlLabel(e)}</span>
             <span className="flex items-center gap-1.5">
                 {e.unlinked ? <span className="tag tag-warn" title={e.sourceFileKey}>file missing</span> : fileTag && <span className="tag">{fileTag}</span>}
                 <WatchButton onWatch={onWatch} disabled={e.unlinked} />

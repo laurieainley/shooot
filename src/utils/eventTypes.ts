@@ -46,7 +46,7 @@ const OPTIONAL_ALL: Base = { pen: false, askTeam: true, teamOptional: true, askS
 
 export const PICKER_OPTIONS: PickerOption[] = [
     { ...SCORER, id: 'goal',            type: 'goal',            key: 'g', label: 'Goal',            personLabel: 'Scorer' },
-    { ...SCORER, id: 'goal_pen',        type: 'goal',            key: 'p', label: 'Goal (pen)',      personLabel: 'Penalty taker', pen: true },
+    { ...SCORER, id: 'goal_pen',        type: 'goal',            key: 'p', label: 'Penalty goal',     personLabel: 'Penalty taker', pen: true },
     { ...SCORER, id: 'own_goal',        type: 'own_goal',        key: 'o', label: 'Own goal',        personLabel: 'Own goal by' },
     { ...SCORER, id: 'penalty_awarded', type: 'penalty_awarded', key: 'a', label: 'Penalty awarded', askScorer: false },
     { ...SCORER, id: 'penalty_missed',  type: 'penalty_missed',  key: 'x', label: 'Penalty missed',  personLabel: 'Taker' },
@@ -63,8 +63,14 @@ export function optionForKey(key: string): PickerOption | undefined {
     return PICKER_OPTIONS.find((o) => o.key === k)
 }
 
+/** Broadcast-style label for outputs: chapters, descriptions, captions. */
 export function eventLabel(e: Pick<MatchEvent, 'type' | 'pen'>): string {
     return e.type === 'goal' && e.pen ? 'Goal (pen)' : EVENT_META[e.type].label
+}
+
+/** The label in the app's own controls (picker, edit sheet, event log): "Penalty goal", not "Goal (pen)". */
+export function controlLabel(e: Pick<MatchEvent, 'type' | 'pen'>): string {
+    return e.type === 'goal' && e.pen ? 'Penalty goal' : EVENT_META[e.type].label
 }
 
 /** A note squeezed onto one line, cut at a word with an ellipsis when longer than `max`. */

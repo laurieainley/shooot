@@ -34,7 +34,7 @@ describe('EventLog rows', () => {
         render(<EventLog />)
         const [row] = rows()
         expect(within(row).getByText('23:41')).toBeInTheDocument()
-        expect(within(row).getByText('Goal (pen) · Jo')).toBeInTheDocument()
+        expect(within(row).getByText('Penalty goal · Jo')).toBeInTheDocument()
         expect(row.querySelector('[data-team-dot]')).toHaveStyle({ background: '#c2364a' })
     })
 
