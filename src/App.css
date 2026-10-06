@@ -577,8 +577,9 @@
   flex: 1 1 0; border-width: 1px 0 0; border-radius: 0; padding: 10px 12px 0;
   padding-right: max(12px, env(safe-area-inset-right, 0px));
 }
-.event-picker--column .event-picker__title, .event-picker--compact .event-picker__title { flex: none; font-size: 16px; padding: 0 2px 2px; }
-.event-picker--column .event-picker__prompt, .event-picker--compact .event-picker__prompt { flex: none; padding: 0 2px 8px; }
+.event-picker__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex: none; padding-bottom: 4px; }
+.event-picker--column .event-picker__title, .event-picker--compact .event-picker__title { font-size: 16px; padding: 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.event-picker--column .event-picker__prompt, .event-picker--compact .event-picker__prompt { padding: 0 2px; font-size: 16px; text-align: right; white-space: nowrap; }
 .event-picker--column .event-picker__body, .event-picker--compact .event-picker__body {
   flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain;
 }
@@ -604,8 +605,8 @@
 .event-picker__person .event-picker__input { order: 2; }
 .event-picker__person .event-picker__list { order: 1; }
 /* The type list: vertical, grouped, icon + label. */
-.event-picker__groups { display: flex; flex-direction: column; gap: 4px; }
-.event-picker__group { display: flex; flex-direction: column; gap: 6px; }
+.event-picker__groups { display: flex; flex-direction: column; gap: 2px; }
+.event-picker__group { display: flex; flex-direction: column; gap: 4px; }
 .event-picker__group-title {
   padding: 8px 2px 0; font-family: var(--font-display); font-weight: 600; font-size: 14px; line-height: 1.1;
   text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
@@ -619,7 +620,6 @@
   border-width: 1px 0 0 1px; border-radius: 10px 0 0 0; padding: 8px 10px 0; box-shadow: -6px -6px 22px rgb(0 0 0 / 0.35);
   padding-right: max(10px, env(safe-area-inset-right, 0px)); font-size: 15px;
 }
-.event-picker--compact .event-picker__prompt { display: none; }
 .event-picker--compact .event-picker__groups { flex-direction: row; flex-wrap: wrap; gap: 6px; }
 .event-picker--compact .event-picker__group { display: contents; }
 .event-picker--compact .event-picker__group-title { display: none; }
@@ -644,7 +644,7 @@
 .shell--phone:has(.panel-slot > *) { height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
 .shell--phone:has(.panel-slot > *) .stack { flex: 1 1 0; min-height: 0; }
 .shell--phone:has(.panel-slot > *) .panel-slot { flex: 1 1 0; }
-.shell--tablet .stack > .rail > .panel-slot, .shell--phone .stack > .rail > .panel-slot { margin-top: 0; }
+.stack > .rail > .panel-slot { flex: 1 1 0; }
 
 /* Container fullscreen (see components/fullscreen.ts) */
 .player-container:fullscreen { width: 100vw; height: 100vh; border-radius: 0; background: #000; }
@@ -852,3 +852,8 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .row-btn.watch-btn svg { margin-left: 1px; }
 .column-panel__body .sheet__actions { margin: 12px -14px 0; padding-inline: 14px; }
 .column-panel__head .floating__title { font-size: 15px; }
+
+/* Wide panels (upright tablet: the events area is the full screen width): two columns of groups, so all ten fit. */
+.shell--tablet .event-picker__groups { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; row-gap: 2px; align-items: end; }
+@media (max-height: 500px) { .event-picker--column .event-picker__prompt { display: none; } }
+.rail { grid-template-columns: minmax(0, 1fr); } /* a wide panel inside never widens the rail */

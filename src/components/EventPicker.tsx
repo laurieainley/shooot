@@ -116,8 +116,10 @@ export function EventPicker() {
 
     const ui = (
         <div className={`event-picker event-picker--${placement}`} role="dialog" aria-label="Event details">
-            <div className="event-picker__title">{title}{state.team ? ` · ${state.team}` : ''}{event.scorer ? ` · ${event.scorer}` : ''}</div>
-            {coarse && <div className="event-picker__prompt">{prompt}</div>}
+            <div className="event-picker__head">
+                <div className="event-picker__title">{title}{state.team ? ` · ${state.team}` : ''}{event.scorer ? ` · ${event.scorer}` : ''}</div>
+                {coarse && <div className="event-picker__prompt">{prompt}</div>}
+            </div>
             <div className="event-picker__body">
             {near && state.step === 'type' && (
                 <p role="alert" className="event-picker__warn">
