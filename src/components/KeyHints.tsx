@@ -1,6 +1,6 @@
 const HINTS: [string[], string][] = [
     [['G'], 'mark'], [['⇧←', '⇧→'], '1s'], [['↑', '↓'], 'frame'], [[',', '.'], 'speed'],
-    [['Home'], 'kick-off'], [['Z'], 'zoom'], [['L'], 'log'], [['⌘Z'], 'undo'],
+    [['Home'], 'kick-off'], [['Z'], 'zoom'], [['[', ']'], 'file'], [['L'], 'log'], [['⌘Z'], 'undo'],
 ]
 
 /** One line of the shortcuts that matter while marking (desktop only). */

@@ -31,6 +31,13 @@
   border: 0; border-radius: 3px; background: transparent; color: var(--muted); cursor: pointer; font-size: 15px;
 }
 .btn-icon:hover:not(:disabled) { background: var(--sunk); color: var(--ink); }
+/* Close (✕) of sheets, panels and dialogs: 20 px icon, 44 px hit area, on every pointer. */
+.close-btn {
+  display: inline-grid; place-items: center; flex: none; width: 44px; height: 44px; padding: 0; margin: -8px -10px -8px 0;
+  border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.close-btn:hover { background: var(--sunk); color: var(--ink); }
+.close-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .btn-quiet:disabled, .btn-primary:disabled, .btn-icon:disabled, .row-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .field {

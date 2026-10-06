@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -55,7 +56,7 @@ export function FloatingPanel({ label, anchorRef, placement, onClose, children, 
         <div ref={panelRef} role="dialog" aria-label={label} tabIndex={-1} className={`floating ${className}`} style={pos}>
             <div className="floating__head">
                 <h2 className="floating__title">{label}</h2>
-                <button type="button" aria-label="Close" className="btn-icon" onClick={onClose}>×</button>
+                <CloseButton onClick={onClose} />
             </div>
             <div className="floating__body">{children}</div>
         </div>,
