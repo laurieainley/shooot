@@ -39,7 +39,7 @@ export function ProjectIO({ menu = false }: ProjectIOProps) {
             const left = typeof data.whitesAttackLeft === 'boolean' ? data.whitesAttackLeft : true
             const start = typeof data.matchStartTimeSec === 'number' ? data.matchStartTimeSec : 0
             // Older projects kept kick-off as a start time: it becomes a Kick off event.
-            if (imported) st.setEvents(withMigratedKickOff(imported.map((e: unknown) => migrateEvent(e as Parameters<typeof migrateEvent>[0], left)), start))
+            if (imported) st.setEvents(withMigratedKickOff(imported.map((e: unknown) => migrateEvent(e as Parameters<typeof migrateEvent>[0], left, Array.isArray(data.teams) && data.teams.length === 2 ? data.teams : st.teams)), start))
             else if (start > 0) st.setEvents(withMigratedKickOff(st.events, start))
             if (Array.isArray(data.teams) && data.teams.length === 2) st.setTeams(data.teams)
             if ('goalAreas' in data) st.setGoalAreas(normaliseAreas(data.goalAreas, left))

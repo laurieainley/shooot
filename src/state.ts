@@ -497,7 +497,7 @@ export const useAppState = create<AppState>()(
                 goalAreas: state.goalAreas,
                 barCollapsed: state.barCollapsed,
             }),
-            version: 13,
+            version: 14,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -521,7 +521,7 @@ export const useAppState = create<AppState>()(
 
                 // Ensure every event has a current type (legacy moment/card → highlight/foul) (v9)
                 if (state.events) {
-                    state.events = (state.events as any[]).map((e: any) => migrateEvent(e, state.whitesAttackLeft ?? true))
+                    state.events = (state.events as any[]).map((e: any) => migrateEvent(e, state.whitesAttackLeft ?? true, Array.isArray(state.teams) ? state.teams : []))
                 }
 
                 // Match setup's start time became the Kick off event (v10).

@@ -147,10 +147,23 @@ describe('teams and picker', () => {
 
     it('should migrate v8 legacy event types and persist teams (v9+)', () => {
         const opts = useAppState.persist.getOptions()
-        expect(opts.version).toBe(13)
+        expect(opts.version).toBe(14)
         const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
         expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
         expect(opts.partialize!(s())).toHaveProperty('teams')
+    })
+
+    it('should turn persisted penalty_awarded events into penalty_conceded with the team flipped (v14)', () => {
+        const teams = [{ name: 'Whites', color: '#fff', roster: ['Sam'] }, { name: 'Colours', color: '#f00', roster: ['Jo'] }]
+        const old = { teams, events: [
+            { id: 'a', matchTimeSec: 1, type: 'penalty_awarded', team: 'Whites', scorer: 'Sam' },
+            { id: 'b', matchTimeSec: 2, type: 'penalty_awarded' },
+        ] }
+        const out = useAppState.persist.getOptions().migrate!(old, 13) as { events: MatchEvent[] }
+        expect(out.events[0]).toMatchObject({ type: 'penalty_conceded', team: 'Colours' })
+        expect(out.events[0].scorer).toBeUndefined()
+        expect(out.events[1]).toMatchObject({ type: 'penalty_conceded' })
+        expect(out.events[1].team).toBeUndefined()
     })
 
     it('should switch on the replay tag and set the full-match score bug to after goals once (v13)', () => {

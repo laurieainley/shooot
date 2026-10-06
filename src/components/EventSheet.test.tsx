@@ -41,10 +41,10 @@ describe('EventSheet', () => {
         expect(screen.getByRole('textbox', { name: 'Goalkeeper' })).toBeInTheDocument()
     })
 
-    it('should hide the person field for a type without one', async () => {
-        await userEvent.click(screen.getByRole('button', { name: 'Penalty awarded' }))
-        expect(ev()?.scorer).toBeUndefined()
-        expect(screen.queryByRole('textbox', { name: /scorer|taker/i })).not.toBeInTheDocument()
+    it('should relabel the person field "Conceded by" for a conceded penalty', async () => {
+        await userEvent.click(screen.getByRole('button', { name: 'Penalty conceded' }))
+        expect(ev()).toMatchObject({ type: 'penalty_conceded', scorer: 'Sam Taylor' })
+        expect(screen.getByRole('textbox', { name: 'Conceded by' })).toHaveValue('Sam Taylor')
     })
 
     it('should change the team, and clear it with None', async () => {

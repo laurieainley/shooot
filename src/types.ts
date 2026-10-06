@@ -18,7 +18,7 @@ export type TimelineFile = VideoSourceFile & {
 
 export type EventType =
     | 'goal' | 'own_goal'
-    | 'penalty_awarded' | 'penalty_missed'
+    | 'penalty_conceded' | 'penalty_missed'
     | 'highlight' | 'foul' | 'save'
     | 'kick_off' | 'half_time' | 'final_whistle'   // match markers: never scored, never highlights
 

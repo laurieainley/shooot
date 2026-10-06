@@ -28,10 +28,10 @@ describe('wantsLowerThird', () => {
         expect(wantsLowerThird({ type: 'highlight', notes: '  ' })).toBe(true)
     })
 
-    it('should skip saves, fouls and awarded penalties', () => {
+    it('should skip saves, fouls and conceded penalties', () => {
         expect(wantsLowerThird({ type: 'save' })).toBe(false)
         expect(wantsLowerThird({ type: 'foul', notes: 'late' })).toBe(false)
-        expect(wantsLowerThird({ type: 'penalty_awarded' })).toBe(false)
+        expect(wantsLowerThird({ type: 'penalty_conceded' })).toBe(false)
     })
 })
 

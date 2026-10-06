@@ -20,7 +20,7 @@ const OTHER: Record<GoalTeam, GoalTeam> = { team1: 'team2', team2: 'team1' }
  * Which goal a replay of this event zooms to by default: 'team1' / 'team2' = the goal that team defends (each box is
  * the goal its team defends at kick-off), 'full' = the whole frame (location unknown).
  * Goals, penalties and own goals credit the attacking team: the goal is the one the other team defends.
- * A save credits the saving team: its own goal. Fouls and highlights have no known location.
+ * A save credits the saving team: its own goal; a conceded penalty is taken at the conceding team's own goal. Fouls and highlights have no known location.
  * After a Half time marker the teams have swapped ends, so each team's goal is the other box.
  * `timeSec` is the event's time on the whole timeline; `halfTimeSec` is null when there is no Half time marker.
  */
@@ -34,8 +34,8 @@ export function replayGoalFor(
     const team: GoalTeam = idx === 0 ? 'team1' : 'team2'
     let defending: GoalTeam
     switch (e.type) {
-        case 'goal': case 'own_goal': case 'penalty_awarded': case 'penalty_missed': defending = OTHER[team]; break
-        case 'save': defending = team; break
+        case 'goal': case 'own_goal': case 'penalty_missed': defending = OTHER[team]; break
+        case 'save': case 'penalty_conceded': defending = team; break
         default: return 'full'
     }
     return halfTimeSec !== null && e.timeSec >= halfTimeSec ? OTHER[defending] : defending
