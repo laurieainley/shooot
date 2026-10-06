@@ -115,6 +115,7 @@
 }
 .file-pill:hover { border-color: color-mix(in srgb, var(--ink) 45%, var(--line)); }
 .file-pill[aria-current="true"] { border-color: var(--ink); color: var(--ink); box-shadow: inset 0 -2px 0 var(--accent); }
+.file-pill__num { flex: none; color: var(--muted); }
 .file-pill__name { max-width: 22ch; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 .file-pill__dur { font-size: 11px; color: var(--muted); }
 .file-pill__tools { display: inline-flex; gap: 0; }

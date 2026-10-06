@@ -58,7 +58,7 @@ function FileRow({ file: f, index: i, count, current, onPlay, onError }: FileRow
     return (
         <li aria-label={f.name} aria-current={current ? 'true' : undefined} className="file-row">
             <button type="button" aria-label={`Play ${f.name}`} onClick={onPlay} className="file-row__main">
-                <span className="file-row__index tc">V{i + 1}</span>
+                <span className="file-row__index tc">{i + 1} ·</span>
                 <span className="file-row__name">{f.name}</span>
                 {f.durationSec != null && <span className="file-pill__dur tc">{formatHMS(f.durationSec)}</span>}
                 {fileBadges(f).map((b) => <span key={b} className={`tag ${b === "can't play here" ? 'tag-warn' : ''}`}>{b}</span>)}

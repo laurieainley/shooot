@@ -66,6 +66,7 @@ export function FilePills() {
                     className="file-pill"
                     title={f.name}
                 >
+                    <span className="file-pill__num tc">{i + 1} ·</span>
                     <span className="file-pill__name">{f.name}</span>
                     {f.durationSec != null && <span className="file-pill__dur tc">{formatHMS(f.durationSec)}</span>}
                     {fileBadges(f).map((b) => (
