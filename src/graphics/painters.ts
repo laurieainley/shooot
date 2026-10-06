@@ -45,6 +45,8 @@ export function toRenderGraphics(spec: GraphicsSpec, assets: PaintAssets): Rende
         paint: painter(o, assets),
         ...(o.kind === 'scoreBug' && !o.fadeIn && !o.fadeOut ? { anchor: 'wholeCut' as const } : {}),
         ...(o.kind === 'caption' && o.fromCutStart ? { anchor: 'fromCutStart' as const } : {}),
+        ...(o.kind === 'caption' && o.toCutEnd ? { anchor: 'toCutEnd' as const } : {}),
+        ...(o.kind === 'caption' && o.fromCutStart && o.clock.offsetSec > 0 ? { follows: o.clock } : {}),
         ...(o.kind === 'replayTag' ? { anchor: 'stretchToCut' as const } : {}),
     }))
     return {

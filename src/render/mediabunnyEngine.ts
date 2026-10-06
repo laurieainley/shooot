@@ -8,6 +8,7 @@ import { fileSource } from './fileSource'
 import { openGraphicsSession, type GraphicsSession, type OutItem } from './graphicsSession'
 import { hasInbandParams, planJoin, profileOf, type JoinPlan } from './joinParams'
 import { craToBla, lengthSize, withInbandParams } from './nal'
+import { clipPartSeconds, replayPartAfter } from './captionJoin'
 import { mixedSizeNotice } from './outputSize'
 import { overlayRegions } from './overlayRegions'
 import { encodeReplayAudio } from './replayAudio'
@@ -296,6 +297,23 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             cursor += length
         }
 
+        // Real extent of a cut (key frame before its start, whole GOPs), for overlays that follow it across a join.
+        const extentOf = async (ci: number): Promise<{ cutStart: number; realEnd: number } | null> => {
+            const c = cuts[ci]
+            const s = opened[c.sourceIndex]
+            const sink = new EncodedPacketSink(s.video)
+            const k = await sink.getKeyPacket(c.startSec) ?? await sink.getFirstKeyPacket()
+            if (!k) return null
+            const kEnd = await sink.getKeyPacket(Math.min(c.endSec, s.endSec))
+            const stop = kEnd && kEnd.timestamp > k.timestamp ? await sink.getNextKeyPacket(kEnd) : await sink.getNextKeyPacket(k)
+            return { cutStart: k.timestamp, realEnd: stop ? stop.timestamp : s.endSec }
+        }
+        /** How much of a carried-on caption its clip part shows: up to the clip's real end. */
+        const clipShown = async (o: RenderOverlay, ci: number): Promise<number> => {
+            const ext = await extentOf(ci)
+            return clipPartSeconds(o.startSec, o.durationSec, ext?.realEnd ?? o.startSec + o.durationSec, o.follows?.totalSec ?? 5)
+        }
+
         const renderCut = async (ci: number, cut: Cut): Promise<void> => {
             if (signal?.aborted) throw new DOMException('Render cancelled', 'AbortError')
             const src = opened[cut.sourceIndex]
@@ -330,19 +348,32 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             let items: AsyncIterable<OutItem> | OutItem[]
             // Overlays tied to the cut follow its real extent (key frame before the requested start, whole GOPs).
             const realEnd = kStop ? kStop.timestamp : src.endSec
-            let overlays = overlaysByCut.get(ci)?.map((o): RenderOverlay => {
-                const length = Math.max(1e-3, realEnd - cutStart)
-                if (o.anchor === 'fromCutStart') return { ...o, startSec: cutStart }
-                if (o.anchor === 'wholeCut') {
-                    const shift = cutStart - o.startSec
-                    return { ...o, startSec: cutStart, durationSec: length + 1, paint: (ctx, t) => o.paint(ctx, t + shift) }
+            const planned = overlaysByCut.get(ci)
+            let overlays: RenderOverlay[] | undefined
+            if (planned) {
+                overlays = []
+                for (const o of planned) {
+                    const length = Math.max(1e-3, realEnd - cutStart)
+                    if (o.anchor === 'fromCutStart') {
+                        // The replay part of a caption carried on from the clip: it continues from where the clip part really ended.
+                        const prev = o.follows ? overlaysByCut.get(ci - 1)?.find((x) => x.anchor === 'toCutEnd' && x.label === o.label) : undefined
+                        if (o.follows && prev) {
+                            const after = replayPartAfter({ shownSec: await clipShown({ ...prev, follows: o.follows }, ci - 1), plannedOffsetSec: o.follows.offsetSec, totalSec: o.follows.totalSec, rate: o.follows.rate, replaySec: length })
+                            if (after) overlays.push({ ...o, startSec: cutStart, durationSec: after.durationSec, paint: (ctx, t) => o.paint(ctx, t + after.paintShiftSec) })
+                            continue
+                        }
+                        overlays.push({ ...o, startSec: cutStart })
+                    } else if (o.anchor === 'toCutEnd') {
+                        overlays.push({ ...o, durationSec: await clipShown(o, ci) })
+                    } else if (o.anchor === 'wholeCut') {
+                        const shift = cutStart - o.startSec
+                        overlays.push({ ...o, startSec: cutStart, durationSec: length + 1, paint: (ctx, t) => o.paint(ctx, t + shift) })
+                    } else if (o.anchor === 'stretchToCut') {
+                        const k = o.durationSec / length
+                        overlays.push({ ...o, startSec: cutStart, durationSec: length + 1, paint: (ctx, t) => o.paint(ctx, Math.min(o.durationSec, t * k)) })
+                    } else overlays.push(o)
                 }
-                if (o.anchor === 'stretchToCut') {
-                    const k = o.durationSec / length
-                    return { ...o, startSec: cutStart, durationSec: length + 1, paint: (ctx, t) => o.paint(ctx, Math.min(o.durationSec, t * k)) }
-                }
-                return o
-            })
+            }
             if (session && cut.crop) overlays = [...(overlays ?? []), cropOverlayFor(cut, ci, cutStart, realEnd)]
             // Footage of another frame size: every picture is re-encoded (the whole cut is one window that draws nothing).
             const rescale = !!session && session.rescales(src)
