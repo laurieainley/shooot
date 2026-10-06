@@ -24,8 +24,9 @@ describe('highlightsDescription', () => {
             '00:30 Goal 1-1 (Colours) Priya',
             '00:45 Highlight',
             '',
-            'Priya 1',
-            'Sam 1',
+            'Goalscorers',
+            "Priya: 1 ('10)",
+            "Sam: 1 ('3)",
         ])
     })
 
@@ -46,8 +47,9 @@ describe('fullMatchDescription', () => {
             '05:30 Highlight Jo: nutmeg',
             '09:10 Goal 1-1 (Colours) Priya',
             '',
-            'Priya 1',
-            'Sam 1',
+            'Goalscorers',
+            "Priya: 1 ('10)",
+            "Sam: 1 ('3)",
         ])
     })
 

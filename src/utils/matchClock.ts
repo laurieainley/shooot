@@ -14,6 +14,11 @@ export function kickOffSec(events: MatchEvent[], offsets: number[]): number {
     return markerGlobalSec(events, offsets, 'kick_off') ?? 0
 }
 
+/** Football minute of a moment: whole minutes since kick-off plus one (the 13th minute is 12:00 to 12:59); at least 1. */
+export function matchMinute(absSec: number, kickOffSec: number): number {
+    return Math.max(1, Math.floor((absSec - kickOffSec) / 60) + 1)
+}
+
 /** Half time on the whole timeline, or null when it is not marked (no halves are assumed then). */
 export function halfTimeSec(events: MatchEvent[], offsets: number[]): number | null {
     return markerGlobalSec(events, offsets, 'half_time')
