@@ -107,7 +107,9 @@ describe('buildGraphicsSpec — score always on screen', () => {
         const spec = build([ev('a', 20, { team: "Ryan's Rovers" }), ev('b', 60, { team: 'Walford Town' })], ON)
         const [c0, c1, c2] = bugs(spec)
         expect(c0).toMatchObject({ cutIndex: 0, startSec: 10, durationSec: 14, fadeIn: false, fadeOut: false, hide: [[20, 24]] })
-        expect(c1).toMatchObject({ cutIndex: 1, hide: [[16, 16.5]] })
+        // a caption carried on over a replay starts with the replay's real first frame: the bug stays drawn under it
+        // (the anchored caption repeats the same bug row), so there is never a frame with neither
+        expect(c1).toMatchObject({ cutIndex: 1, hide: [] })
         expect(c0.kind === 'scoreBug' && c0.scores.map((x) => [x.fromSec, x.bug.text])).toEqual([[10, '0–0'], [20, '1–0']])
         // the replay of the first goal shows the score after it throughout
         expect(c1.kind === 'scoreBug' && c1.scores.map((x) => [x.fromSec, x.bug.text])).toEqual([[16, '1–0']])

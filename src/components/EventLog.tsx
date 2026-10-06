@@ -8,6 +8,7 @@ import { filterRoster, rosterTeamFor } from '../utils/roster'
 import { formatScore, scoresAfter } from '../utils/score'
 import { formatEventClock } from '../utils/timeline'
 import { TimeInput } from './TimeInput'
+import { RelinkBanner } from './RelinkBanner'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 
 type Field = 'scorer' | 'team' | 'time' | 'notes'
@@ -120,6 +121,7 @@ export function EventLog() {
                 <button type="button" aria-label="Undo" title="Undo (⌘Z)" onClick={() => useAppState.getState().undo()} disabled={!canUndo} className="btn-icon"><UndoIcon /></button>
                 <button type="button" aria-label="Redo" title="Redo (⇧⌘Z)" onClick={() => useAppState.getState().redo()} disabled={!canRedo} className="btn-icon"><UndoIcon redo /></button>
             </header>
+            <RelinkBanner />
 
             {events.length === 0 ? (
                 <p className="m-0 px-3 py-4 text-[13px] text-muted">

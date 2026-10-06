@@ -118,7 +118,7 @@ export function buildGraphicsSpec(args: {
                 }
                 scores.sort((x, y) => x.fromSec - y.fromSec)
             }
-            const hide = captions.filter((o) => o.cutIndex === cutIndex).map((o): [number, number] => [o.startSec, o.startSec + o.durationSec])
+            const hide = captions.filter((o) => o.cutIndex === cutIndex && !o.fromCutStart).map((o): [number, number] => [o.startSec, o.startSec + o.durationSec])
             spec.overlays.push({ kind: 'scoreBug', cutIndex, startSec: c.startSec, durationSec: c.endSec - c.startSec, scores, fadeIn: false, fadeOut: false, hide, label: 'Score bug' })
         })
     }

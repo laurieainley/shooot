@@ -5,6 +5,7 @@ import { fileBadges } from '../utils/fileBadges'
 import { formatHMS } from '../utils/timeline'
 import { addPickedFiles } from './addFiles'
 import { OpeningStatus } from './OpeningStatus'
+import { filePicker, pickWithHandles } from '../files/handleStore'
 
 interface AddFilesButtonProps {
     label?: string
@@ -17,7 +18,17 @@ export function AddFilesButton({ label = '+ files', className = 'file-add', onEr
     const busy = useAppState((s) => s.opening !== null)
     return (
         <>
-            <button type="button" onClick={() => inputRef.current?.click()} disabled={busy} className={className}>{label}</button>
+            <button type="button" disabled={busy} className={className} onClick={async () => {
+                // Desktop Chrome / Edge: the system picker gives handles we keep, so a reload can relink in one click.
+                if (filePicker()) {
+                    try {
+                        const files = await pickWithHandles()
+                        if (files) onError?.(await addPickedFiles(files))
+                        return
+                    } catch { /* fall back to the plain input */ }
+                }
+                inputRef.current?.click()
+            }}>{label}</button>
             <input
                 ref={inputRef}
                 type="file"
