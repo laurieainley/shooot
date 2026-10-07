@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildGraphicsSpec, fullMatchGraphicsSpec, wantsLowerThird, type GraphicsSettings } from './plan'
+import { buildGraphicsSpec, fullMatchCaptionWindows, fullMatchGraphicsSpec, wantsFullMatchCaption, wantsLowerThird, type GraphicsSettings } from './plan'
 import type { MatchEvent, Team } from '../types'
 import type { Cut } from '../render/types'
 
@@ -143,5 +143,97 @@ describe('fullMatchGraphicsSpec', () => {
         expect(fullMatchGraphicsSpec(args).intro).toMatchObject({ heading: 'CUP', centre: 'VS' })
         expect(fullMatchGraphicsSpec(args).outro).toMatchObject({ heading: 'FULL TIME', centre: '1 - 0' })
         expect(fullMatchGraphicsSpec({ ...args, cards: false }).intro).toBeUndefined()
+    })
+})
+
+describe('wantsFullMatchCaption', () => {
+    it('should cover goals, penalties, own goals, conceded and missed penalties only', () => {
+        for (const e of [{ type: 'goal' }, { type: 'goal', pen: true }, { type: 'own_goal' }, { type: 'penalty_conceded' }, { type: 'penalty_missed' }] as const) expect(wantsFullMatchCaption(e)).toBe(true)
+        for (const e of [{ type: 'save' }, { type: 'foul' }, { type: 'highlight', notes: 'x' }, { type: 'kick_off' }] as const) expect(wantsFullMatchCaption(e)).toBe(false)
+    })
+})
+
+describe('fullMatchCaptionWindows', () => {
+    it('should start 1 s after the moment for 5 s on the whole timeline, cut short by the next caption', () => {
+        const w = fullMatchCaptionWindows([ev('a', 50, {}), ev('b', 53, { type: 'penalty_missed' }), ev('c', 5, { sourceFileIndex: 1 })], [0, 100])
+        expect(w.map((x) => [x.event.id, x.startSec, x.durationSec])).toEqual([['a', 51, 3], ['b', 54, 5], ['c', 106, 5]])
+    })
+})
+
+describe('fullMatchGraphicsSpec event captions', () => {
+    const cutsFm: Cut[] = [{ sourceIndex: 0, startSec: 30, endSec: 100 }, { sourceIndex: 1, startSec: 0, endSec: 50 }]
+    const base = { teams, cuts: cutsFm, cumulativeOffsets: [0, 100], cards: false, matchday: 'Cup', windows: [], captions: true }
+    const caps = (events: MatchEvent[], extra = {}) => fullMatchGraphicsSpec({ ...base, events, ...extra }).overlays.filter((o) => o.kind === 'caption')
+    const R = "Ryan's Rovers"
+    const W = 'Walford Town'
+
+    it('should caption a goal with scorer, assist and the score after it, 1 s after for 5 s', () => {
+        const [c] = caps([ev('g', 60, { team: R, scorer: 'Sam', assist: 'Jo', notes: 'Top bin' })])
+        expect(c).toMatchObject({ kind: 'caption', cutIndex: 0, startSec: 61, durationSec: 5, clock: { offsetSec: 0, rate: 1, totalSec: 5 } })
+        expect(c.kind === 'caption' && c.spec).toMatchObject({ label: 'GOAL', person: 'SAM', assist: 'JO', note: 'TOP BIN', stripe: '#f0f0f0' })
+        expect(c.kind === 'caption' && c.spec.bug?.text).toBe('1–0')
+    })
+
+    it('should label a penalty goal with its taker and no assist', () => {
+        const [c] = caps([ev('g', 60, { team: R, scorer: 'Sam', assist: 'Jo', pen: true })])
+        expect(c.kind === 'caption' && c.spec).toMatchObject({ label: 'GOAL (PEN)', person: 'SAM' })
+        expect(c.kind === 'caption' && c.spec.assist).toBeUndefined()
+    })
+
+    it('should credit an own goal to the team it is credited to', () => {
+        const [c] = caps([ev('o', 60, { type: 'own_goal', team: W, scorer: 'Ned' })])
+        expect(c.kind === 'caption' && c.spec).toMatchObject({ label: 'OWN GOAL', person: 'NED' })
+        expect(c.kind === 'caption' && c.spec.bug?.text).toBe('0–1')
+    })
+
+    it('should caption a conceded penalty with who conceded it, without changing the score', () => {
+        const [c] = caps([ev('p', 60, { type: 'penalty_conceded', team: W, scorer: 'Bo' })])
+        expect(c.kind === 'caption' && c.spec).toMatchObject({ label: 'PENALTY CONCEDED', person: 'BO' })
+        expect(c.kind === 'caption' && c.spec.bug?.text).toBe('0–0')
+    })
+
+    it('should caption a missed penalty with its taker', () => {
+        const [c] = caps([ev('m', 60, { type: 'penalty_missed', team: R, scorer: 'Cy' })])
+        expect(c.kind === 'caption' && c.spec).toMatchObject({ label: 'PENALTY MISSED', person: 'CY' })
+    })
+
+    it('should not caption saves, fouls or highlights', () => {
+        expect(caps([ev('s', 60, { type: 'save' }), ev('f', 62, { type: 'foul' }), ev('h', 70, { type: 'highlight', notes: 'x' })])).toEqual([])
+    })
+
+    it('should add nothing when captions are off', () => {
+        expect(caps([ev('g', 60, { team: R })], { captions: false })).toEqual([])
+        expect(caps([ev('g', 60, { team: R })], { captions: undefined })).toEqual([])
+    })
+
+    it('should not caption events outside the cuts (before kick-off)', () => {
+        expect(caps([ev('g', 10, { team: R })])).toEqual([])
+    })
+
+    it('should split a caption across a file join with one continuous clock and no gap', () => {
+        const o = caps([ev('g', 97, { team: R })])
+        expect(o).toHaveLength(2)
+        expect(o[0]).toMatchObject({ cutIndex: 0, startSec: 98, durationSec: 2, toCutEnd: true, clock: { offsetSec: 0, totalSec: 5 } })
+        expect(o[1]).toMatchObject({ cutIndex: 1, startSec: 0, durationSec: 3, fromCutStart: true, clock: { offsetSec: 2, rate: 1, totalSec: 5 } })
+    })
+
+    it('should cut a caption short when the next one begins', () => {
+        const o = caps([ev('a', 60, { team: R }), ev('b', 63, { type: 'penalty_missed', team: W })])
+        expect(o.map((x) => [x.startSec, x.durationSec])).toEqual([[61, 3], [64, 5]])
+        expect(o[0].kind === 'caption' && o[0].clock.totalSec).toBe(3)
+    })
+
+    it('should replace the score bug where a caption overlaps it', () => {
+        const windows = [{ startSec: 60, durationSec: 10, score: [1, 0] as [number, number] }]
+        const spec = fullMatchGraphicsSpec({ ...base, events: [ev('g', 60, { team: R })], windows })
+        const bugs = spec.overlays.filter((o) => o.kind === 'scoreBug').map((o) => [o.startSec, o.durationSec])
+        expect(bugs).toEqual([[60, 1], [66, 4]])
+        expect(spec.overlays.filter((o) => o.kind === 'caption')).toHaveLength(1)
+    })
+
+    it('should leave score bug windows alone when captions are off', () => {
+        const windows = [{ startSec: 60, durationSec: 10, score: [1, 0] as [number, number] }]
+        const spec = fullMatchGraphicsSpec({ ...base, captions: false, events: [ev('g', 60, { team: R })], windows })
+        expect(spec.overlays.map((o) => [o.kind, o.startSec, o.durationSec])).toEqual([['scoreBug', 60, 10]])
     })
 })

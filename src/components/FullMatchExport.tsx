@@ -76,6 +76,10 @@ export function FullMatchExport() {
                 <input type="checkbox" checked={fullMatch.cards} onChange={(e) => setFullMatch({ cards: e.target.checked })} />
                 <span className="toggle-row__text">Title &amp; full-time cards<span className="toggle-row__hint">VS card before kick-off, final score after the whistle</span></span>
             </label>
+            <label className="toggle-row">
+                <input type="checkbox" checked={fullMatch.captions} onChange={(e) => setFullMatch({ captions: e.target.checked })} />
+                <span className="toggle-row__text">Event captions<span className="toggle-row__hint">Goals with assists, own goals, penalties conceded / missed, 5 s from 1 s after the moment (replace the score bug there)</span></span>
+            </label>
             <fieldset className="segmented-field">
                 <legend>Score bug</legend>
                 <div className="segmented" role="radiogroup" aria-label="Score bug">

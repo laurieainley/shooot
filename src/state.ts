@@ -417,7 +417,7 @@ export const useAppState = create<AppState>()(
             openPicker: (eventId) => set({ picker: { eventId }, panel: null }),
             closePicker: () => set({ picker: null }),
             setGraphics: (partial) => set({ graphics: normaliseGraphics({ ...get().graphics, ...partial }, get().graphics) }),
-            fullMatch: { cards: true, scoreBug: 'goals', intervalMin: 5 },
+            fullMatch: { cards: true, scoreBug: 'goals', intervalMin: 5, captions: true },
             exportTab: 'highlights',
             setExportTab: (tab) => set({ exportTab: tab }),
             setFullMatch: (partial) => set({ fullMatch: { ...get().fullMatch, ...partial } }),
@@ -497,7 +497,7 @@ export const useAppState = create<AppState>()(
                 goalAreas: state.goalAreas,
                 barCollapsed: state.barCollapsed,
             }),
-            version: 14,
+            version: 15,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -561,6 +561,9 @@ export const useAppState = create<AppState>()(
                     if (state.graphics) state.graphics = { ...state.graphics, replayTag: true }
                     if (state.fullMatch) state.fullMatch = { ...state.fullMatch, scoreBug: 'goals' }
                 }
+
+                // Full-match event captions (v15): on for saved settings.
+                if (version < 15 && state.fullMatch) state.fullMatch = { ...state.fullMatch, captions: true }
 
                 return state
             },

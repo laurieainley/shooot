@@ -3,7 +3,7 @@ import type { Cut } from '../render/types'
 import { assistOf, eventLabel, eventSummary, isScoring, shortNote } from '../utils/eventTypes'
 import { linkedEvents } from '../utils/relink'
 import { finalScore, formatScore, scoreAt, scoresAfter, type Score } from '../utils/score'
-import type { ScoreBugWindow } from '../utils/scoreBug'
+import { subtractIntervals, type ScoreBugWindow } from '../utils/scoreBug'
 import { CAPTION_DELAY_SEC, CAPTION_SEC } from './layout'
 import { ORANGE, teamBadge } from './teamStyle'
 import type { BugSpec, CaptionClock, CaptionSpec, CardSpec, GraphicsSpec, OverlaySpec } from './types'
@@ -42,6 +42,26 @@ function cards(teams: Team[], events: MatchEvent[], matchday: string): Pick<Grap
     return { intro, outro: { ...intro, heading: 'FULL TIME', centre: `${a} - ${b}` } }
 }
 
+
+/** Caption content for one event (shared by highlights and the full match): label, person, assist, note and the score bug (given score). */
+function eventCaptionSpec(e: MatchEvent, teams: Team[], score: Score | undefined): CaptionSpec {
+    const team = teams.find((x) => x.name === e.team)
+    const cs: CaptionSpec = { label: eventLabel(e).toUpperCase(), stripe: team?.color ?? ORANGE }
+    const person = upper(e.scorer)
+    if (person) cs.person = person
+    const assist = upper(assistOf(e))
+    if (assist) cs.assist = assist
+    const note = upper(shortNote(e.notes, 60))
+    if (note) cs.note = note
+    if (score) cs.bug = bugFor(teams, score)
+    return cs
+}
+
+/** The full match captions goals (incl. penalties, own goals), conceded and missed penalties; not highlights, saves or fouls. */
+export function wantsFullMatchCaption(e: Pick<MatchEvent, 'type' | 'notes' | 'pen'>): boolean {
+    return isScoring(e) || e.type === 'penalty_missed' || e.type === 'penalty_conceded'
+}
+
 type CaptionOverlay = Extract<OverlaySpec, { kind: 'caption' }>
 
 export function buildGraphicsSpec(args: {
@@ -71,15 +91,7 @@ export function buildGraphicsSpec(args: {
             const cutIndex = cuts.findIndex((c) => c.sourceIndex === src && (c.speed ?? 1) === 1 && c.startSec <= t && t < c.endSec)
             if (cutIndex === -1) continue
             const cut = cuts[cutIndex]
-            const team = teams.find((x) => x.name === e.team)
-            const cs: CaptionSpec = { label: eventLabel(e).toUpperCase(), stripe: team?.color ?? ORANGE }
-            const person = upper(e.scorer)
-            if (person) cs.person = person
-            const assist = upper(assistOf(e))
-            if (assist) cs.assist = assist
-            const note = upper(shortNote(e.notes, 60))
-            if (note) cs.note = note
-            if (both) cs.bug = bugFor(teams, after.get(e.id) ?? scoreAt(events, teams, cumulativeOffsets, globalOf(src, t)))
+            const cs = eventCaptionSpec(e, teams, both ? (after.get(e.id) ?? scoreAt(events, teams, cumulativeOffsets, globalOf(src, t))) : undefined)
             // Goals etc.: 1 s after the event; what the clip cannot hold carries on over the start of its replay.
             // Highlights: from the start of their clip (the moment itself is the whole point of the clip).
             const atClipStart = e.type === 'highlight'
@@ -125,6 +137,24 @@ export function buildGraphicsSpec(args: {
     return spec
 }
 
+export type FullMatchCaptionWindow = { event: MatchEvent; eventSec: number; startSec: number; durationSec: number }
+
+/**
+ * When the full match shows each event caption, on the whole timeline: from CAPTION_DELAY_SEC after the moment for
+ * CAPTION_SEC, cut short where the next caption begins.
+ */
+export function fullMatchCaptionWindows(events: MatchEvent[], cumulativeOffsets: number[]): FullMatchCaptionWindow[] {
+    const list = events
+        .filter(wantsFullMatchCaption)
+        .map((event) => {
+            const eventSec = (cumulativeOffsets[event.sourceFileIndex ?? 0] ?? 0) + event.matchTimeSec
+            return { event, eventSec, startSec: eventSec + CAPTION_DELAY_SEC, durationSec: CAPTION_SEC }
+        })
+        .sort((x, y) => x.startSec - y.startSec)
+    for (let i = 0; i + 1 < list.length; i++) list[i].durationSec = Math.min(list[i].durationSec, list[i + 1].startSec - list[i].startSec)
+    return list.filter((c) => c.durationSec > 0)
+}
+
 /**
  * Graphics for the full match: optional VS / full-time cards and the score bug windows (whole-timeline seconds,
  * see utils/scoreBug.ts) placed on the cuts. A window across a file join is split there without a fade.
@@ -137,13 +167,35 @@ export function fullMatchGraphicsSpec(args: {
     cards: boolean
     matchday: string
     windows: ScoreBugWindow[]
+    /** Event captions (same content and timing as the highlights); they replace the score bug where they overlap it. */
+    captions?: boolean
 }): GraphicsSpec {
     const { teams, cuts, cumulativeOffsets } = args
     const events = linkedEvents(args.events)
     const spec: GraphicsSpec = { overlays: [] }
     if (teams.length < 2) return spec
     if (args.cards) Object.assign(spec, cards(teams, events, args.matchday))
-    for (const w of args.windows) {
+    const after = scoresAfter(events, teams, cumulativeOffsets)
+    const captionTimes = args.captions ? fullMatchCaptionWindows(events, cumulativeOffsets) : []
+    for (const c of captionTimes) {
+        const e = c.event
+        const cs = eventCaptionSpec(e, teams, after.get(e.id) ?? scoreAt(events, teams, cumulativeOffsets, c.eventSec))
+        const a = c.startSec
+        const b = a + c.durationSec
+        const label = `Caption: ${eventSummary(e)}`
+        cuts.forEach((cut, cutIndex) => {
+            const off = cumulativeOffsets[cut.sourceIndex] ?? 0
+            const s0 = Math.max(a, off + cut.startSec)
+            const s1 = Math.min(b, off + cut.endSec)
+            if (s1 - s0 < 0.05) return
+            spec.overlays.push({
+                kind: 'caption', cutIndex, startSec: s0 - off, durationSec: s1 - s0, spec: cs, label,
+                clock: { offsetSec: s0 - a, rate: 1, totalSec: b - a },
+                ...(s0 - a > 0.05 ? { fromCutStart: true } : {}), ...(b - s1 > 0.05 ? { toCutEnd: true } : {}),
+            })
+        })
+    }
+    for (const w of subtractIntervals(args.windows, captionTimes)) {
         const a = w.startSec
         const b = w.startSec + w.durationSec
         cuts.forEach((c, cutIndex) => {

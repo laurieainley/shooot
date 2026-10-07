@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { scoreBugWindows } from './scoreBug'
+import { scoreBugWindows, subtractIntervals } from './scoreBug'
 import type { MatchEvent, Team } from '../types'
 
 const teams: Team[] = [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }]
@@ -48,5 +48,21 @@ describe('scoreBugWindows', () => {
     it('should use the end of the footage when there is no final whistle', () => {
         const w = scoreBugWindows({ ...base, finalWhistleSec: 420, events: [], mode: 'periodic' })
         expect(spans(w)).toEqual([[100, 8, '0-0'], [400, 5, '0-0']])
+    })
+})
+
+describe('subtractIntervals', () => {
+    const w = (startSec: number, durationSec: number) => ({ startSec, durationSec, score: [1, 0] as [number, number] })
+    it('should split a window around an interval keeping its score', () => {
+        expect(subtractIntervals([w(60, 10)], [{ startSec: 61, durationSec: 5 }])).toEqual([w(60, 1), w(66, 4)])
+    })
+    it('should drop a window an interval covers and keep untouched ones', () => {
+        expect(subtractIntervals([w(60, 4), w(100, 5)], [{ startSec: 59, durationSec: 6 }])).toEqual([w(100, 5)])
+    })
+    it('should trim a window start or end and handle several intervals', () => {
+        expect(subtractIntervals([w(60, 20)], [{ startSec: 50, durationSec: 15 }, { startSec: 70, durationSec: 2 }, { startSec: 78, durationSec: 10 }])).toEqual([w(65, 5), w(72, 6)])
+    })
+    it('should return the windows unchanged without intervals', () => {
+        expect(subtractIntervals([w(1, 2)], [])).toEqual([w(1, 2)])
     })
 })

@@ -14,7 +14,7 @@ const state = (extra: Partial<ExportState> = {}): ExportState => ({
     lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5,
     graphics: { cards: true, lowerThirds: true, replayTag: false },
     teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }],
-    matchdayLabel: null, fullMatch: { cards: true, scoreBug: 'periodic', intervalMin: 5 },
+    matchdayLabel: null, fullMatch: { cards: true, scoreBug: 'periodic', intervalMin: 5, captions: false },
     ...extra,
 })
 
@@ -33,7 +33,13 @@ describe('fullMatchExport', () => {
         const p = fullMatchExport(state(), 'full')
         expect(p.spec?.intro?.heading).toBe('MATCH')
         expect(p.spec?.overlays.map((o) => [o.cutIndex, o.startSec, o.durationSec])).toEqual([[0, 30, 8], [0, 60, 10]])
-        expect(fullMatchExport(state({ fullMatch: { cards: false, scoreBug: 'off', intervalMin: 5 } }), 'full').spec).toBeUndefined()
+        expect(fullMatchExport(state({ fullMatch: { cards: false, scoreBug: 'off', intervalMin: 5, captions: false } }), 'full').spec).toBeUndefined()
+    })
+
+    it('should plan event captions only when the full-match setting is on', () => {
+        const s = state({ events: [...state().events, { id: 'g9', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: state().teams[0].name }], fullMatch: { cards: false, scoreBug: 'off', intervalMin: 5, captions: true } })
+        expect(fullMatchExport(s, 'full').spec?.overlays.map((o) => o.kind)).toContain('caption')
+        expect(fullMatchExport({ ...s, fullMatch: { ...s.fullMatch, captions: false } }, 'full').spec).toBeUndefined()
     })
 
     it('should need the full files of a proxy timeline, unless rendering a preview', () => {
@@ -45,7 +51,7 @@ describe('fullMatchExport', () => {
     it('should change signature when the plan changes', () => {
         const a = fullMatchExport(state(), 'full').signature
         expect(fullMatchExport(state(), 'full').signature).toBe(a)
-        expect(fullMatchExport(state({ fullMatch: { cards: true, scoreBug: 'goals', intervalMin: 5 } }), 'full').signature).not.toBe(a)
+        expect(fullMatchExport(state({ fullMatch: { cards: true, scoreBug: 'goals', intervalMin: 5, captions: false } }), 'full').signature).not.toBe(a)
     })
 })
 
