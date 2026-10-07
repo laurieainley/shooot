@@ -3,6 +3,7 @@ import {
     EncodedVideoPacketSource, Input, Mp4OutputFormat, Output, StreamTarget,
     type InputAudioTrack, type InputVideoTrack, type StreamTargetChunk, type Target,
 } from 'mediabunny'
+import { RenderDiagnostics, describeParams, errorInfo, publishReport } from './diagnostics'
 import { cropLabels, cropOverlayFor } from './cropOverlay'
 import { fileSource } from './fileSource'
 import { openGraphicsSession, type GraphicsSession, type OutItem } from './graphicsSession'
@@ -122,26 +123,60 @@ async function muxUnits(name: string, unitCount: number, first: OpenSource, vide
     }
 }
 
+/** Diagnostics only: what this source file is, as the browser and Mediabunny see it. Never fails the render. */
+async function recordSource(diag: RenderDiagnostics, index: number, src: RenderSource, o: OpenSource): Promise<void> {
+    try {
+        const cs = o.config.colorSpace
+        let frameRate: number | null = null
+        try { frameRate = (await o.video.computePacketStats(90)).averagePacketRate } catch { /* unknown */ }
+        diag.source({
+            index, name: src.name, sizeBytes: src.file.size, videoCodec: o.video.codec, codec: o.config.codec, description: o.config.description,
+            codedWidth: o.video.codedWidth, codedHeight: o.video.codedHeight, displayWidth: o.video.displayWidth, displayHeight: o.video.displayHeight,
+            frameRate, colorSpace: cs ? { primaries: cs.primaries, transfer: cs.transfer, matrix: cs.matrix, fullRange: cs.fullRange } : null,
+        })
+    } catch (e) {
+        diag.note(`Could not describe source #${index}: ${errorInfo(e).message}`)
+    }
+}
+
 const hasGraphics = (g: RenderGraphics | undefined): g is RenderGraphics => !!g && (!!g.intro || !!g.outro || g.overlays.length > 0)
 const graphicLabels = (g: RenderGraphics): string[] => [g.intro?.label, ...g.overlays.map((o) => o.label), g.outro?.label].filter((l): l is string => !!l)
 const errorText = (e: unknown): string => (e instanceof Error ? e.message : String(e))
 const isAbort = (e: unknown): boolean => e instanceof DOMException && e.name === 'AbortError'
 
 export const renderReel: RenderFn = async (cuts, sources, opts) => {
+    const diag = new RenderDiagnostics({ kind: opts.resumable?.kind ?? 'highlights', outputName: opts.outputName ?? OUTPUT_NAME })
+    const endTotal = diag.begin('total')
+    try {
+        const out = await renderGraphicsFirst(cuts, sources, opts, diag)
+        endTotal()
+        publishReport(diag.report('done'), { onReport: opts.onDiagnostics })
+        return out
+    } catch (e) {
+        endTotal()
+        publishReport(diag.report(isAbort(e) ? 'cancelled' : 'failed', e), { onReport: opts.onDiagnostics })
+        throw e
+    }
+}
+
+async function renderGraphicsFirst(cuts: Cut[], sources: RenderSource[], opts: RenderOptions, diag: RenderDiagnostics): Promise<File | Blob> {
     // Replay crops are drawn by the graphics session too: they make the render a graphics render even without any graphics.
     const crops = cropLabels(cuts)
     const g = opts.graphics ?? (crops.length > 0 ? { overlays: [] } : undefined)
-    if (!hasGraphics(g) && crops.length === 0) return renderOnce(cuts, sources, opts, null)
+    if (!hasGraphics(g) && crops.length === 0) return renderOnce(cuts, sources, opts, null, diag)
     const report: GraphicsReport = { applied: [], skipped: [] }
     try {
-        const out = await renderOnce(cuts, sources, opts, { graphics: g ?? { overlays: [] }, report })
+        const out = await renderOnce(cuts, sources, opts, { graphics: g ?? { overlays: [] }, report }, diag)
         opts.onGraphics?.(report)
         return out
     } catch (e) {
         if (isAbort(e)) throw e
         // Graphics (and crops) must never cost the reel: render it again without them and say why.
         console.warn('Graphics failed, rendering without them', e)
-        const out = await renderOnce(cuts.map(({ crop, cropLabel, ...c }) => { void crop; void cropLabel; return c }), sources, opts, null)
+        diag.note('Graphics failed: the reel was rendered again without them')
+        diag.clearApplied()
+        for (const label of [...(g ? graphicLabels(g) : []), ...crops]) diag.graphicSkipped(label, errorText(e), e)
+        const out = await renderOnce(cuts.map(({ crop, cropLabel, ...c }) => { void crop; void cropLabel; return c }), sources, opts, null, diag)
         opts.onGraphics?.({ applied: [], skipped: [...(g ? graphicLabels(g) : []), ...crops].map((label) => ({ label, reason: errorText(e) })) })
         return out
     }
@@ -149,7 +184,7 @@ export const renderReel: RenderFn = async (cuts, sources, opts) => {
 
 type GraphicsRun = { graphics: RenderGraphics; report: GraphicsReport }
 
-async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOptions, runIn: GraphicsRun | null): Promise<File | Blob> {
+async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOptions, runIn: GraphicsRun | null, diag: RenderDiagnostics): Promise<File | Blob> {
     let run = runIn
     const { onProgress, signal } = opts
     const outputName = opts.outputName ?? OUTPUT_NAME
@@ -157,9 +192,12 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
     const used = new Set(cuts.map((c) => c.sourceIndex))
     const opened: OpenSource[] = []
     try {
+        const endOpen = diag.begin('openSources')
         for (const [i, s] of sources.entries()) {
             if (used.has(i)) opened[i] = await openSource(s)
         }
+        endOpen()
+        for (const i of used) await recordSource(diag, i, sources[i], opened[i])
         assertCompatible(opened, used)
 
         const first = opened[cuts[0].sourceIndex]
@@ -174,17 +212,23 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             })), first.video.codedWidth, first.video.codedHeight)
             if (opts.confirmMixedSizes && !(await opts.confirmMixedSizes(notice))) throw new DOMException('Render cancelled', 'AbortError')
         }
-        const skip = (labels: string[], reason: string): void => { run?.report.skipped.push(...labels.filter(Boolean).map((label) => ({ label, reason }))) }
+        const skip = (labels: string[], reason: string, error?: unknown): void => {
+            run?.report.skipped.push(...labels.filter(Boolean).map((label) => ({ label, reason })))
+            if (run) for (const label of labels) diag.graphicSkipped(label, reason, error)
+        }
+        diag.outputSize(first.video.codedWidth, first.video.codedHeight)
 
         // Graphics: one encoder for the reel, a sample entry that covers it and every clip, or none at all.
         let session: GraphicsSession | null = null
         if (run) {
+            const endSession = diag.begin('graphicsSession')
             try {
-                session = await openGraphicsSession([...used].map((i) => opened[i]), first)
+                session = await openGraphicsSession([...used].map((i) => opened[i]), first, diag)
             } catch (e) {
                 if (odd.length > 0) throw new Error(`Clips have different frame sizes and cannot be scaled in this browser: ${errorText(e)}`)
-                skip([...graphicLabels(run.graphics), ...cropLabels(cuts)], errorText(e))
+                skip([...graphicLabels(run.graphics), ...cropLabels(cuts)], errorText(e), e)
             }
+            endSession()
         }
         const overlaysByCut = new Map<number, RenderOverlay[]>()
         for (const o of session ? run!.graphics.overlays : []) {
@@ -200,13 +244,17 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
         // Cards are encoded before anything is written, so a failure just leaves the card out.
         const encodeCard = async (card: RenderCard | undefined, stage: string): Promise<EncodedPacket[] | null> => {
             if (!session || !card) return null
+            const endCard = diag.begin('cards')
             try {
                 const packets = await session.card(card, (f) => onProgress({ cutIndex: 0, cutCount: cuts.length, fraction: Math.min(1, (done + f * card.durationSec) / total), stage }))
                 run!.report.applied.push(card.label)
+                diag.graphicApplied(card.label)
                 return packets
             } catch (e) {
-                skip([card.label], errorText(e))
+                skip([card.label], errorText(e), e)
                 return null
+            } finally {
+                endCard()
             }
         }
         // Plain stream-copy of several files: each key frame carries its own file's parameter sets and the sample entry
@@ -215,6 +263,10 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
         const join: JoinPlan | null = !session && usedList.length > 1 ? planJoin(usedList.map((i) => opened[i].config.description), first.video.codec === 'hevc') : null
         const joinParams = new Map(usedList.map((i, k) => [opened[i], join?.params[k]] as const))
         const vConfig = session ? session.entry : join ? joinEntryConfig(join, opened[usedList[join.entry]].config, first.video.codec === 'hevc') : first.config
+        diag.sampleEntry({
+            mode: session ? 'graphics' : join ? 'join' : 'copy', codec: vConfig.codec, params: describeParams(vConfig.description, first.video.codec === 'hevc'),
+            ...(join ? { joinEntrySource: usedList[join.entry], joinLimits: join.limits } : {}),
+        })
         const aConfig = first.audio ? (await first.audio.getDecoderConfig())! : null
         const hasAudio = !!first.audio?.codec
 
@@ -274,7 +326,12 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
         let cursor = journal?.state.cursor ?? 0
         if (journal && startUnit > 0) {
             done = journal.state.done
-            if (run && journal.state.report) { run.report.applied.push(...journal.state.report.applied); run.report.skipped.push(...journal.state.report.skipped) }
+            if (run && journal.state.report) {
+                run.report.applied.push(...journal.state.report.applied); run.report.skipped.push(...journal.state.report.skipped)
+                for (const l of journal.state.report.applied) diag.graphicApplied(l)
+                for (const g of journal.state.report.skipped) diag.graphicSkipped(g.label, g.reason)
+            }
+            diag.note(`Resumed after unit ${startUnit}: earlier graphics outcomes come from the saved progress (no stack traces)`)
         }
         let vFirst = true
         let aFirst = true
@@ -494,7 +551,8 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                         await addCard(intro)
                     }
                 } else if (u <= cuts.length) {
-                    await renderCut(u - 1, cuts[u - 1])
+                    const endCut = diag.begin('cuts')
+                    try { await renderCut(u - 1, cuts[u - 1]) } finally { endCut() }
                 } else {
                     if (!copied) throw new Error('Nothing to render: every cut is outside its file')
                     const outro = await encodeCard(run?.graphics.outro, 'Full-time card')
@@ -508,12 +566,17 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             }
             if (journal) {
                 onProgress({ cutIndex: cuts.length - 1, cutCount: cuts.length, fraction: 1, stage: 'Saving' })
+                const endMux = diag.begin('finalize')
                 const file = await muxUnits(journal.state.outputName, unitCount, first, journal.state.video!, journal.state.audio, signal)
                 await discardJob()
+                endMux()
                 return file
             }
+            const endFin = diag.begin('finalize')
             await direct!.output.finalize()
-            return await direct!.result()
+            const file = await direct!.result()
+            endFin()
+            return file
         } catch (e) {
             await unitWriter?.abort()
             if (direct) {

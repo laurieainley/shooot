@@ -1,3 +1,4 @@
+import type { DiagnosticsReport } from './diagnostics'
 export type Cut = {
     sourceIndex: number
     startSec: number
@@ -70,6 +71,8 @@ export type RenderOptions = {
     /** Optional match graphics. Any that cannot be made are left out (never failing the render) and reported. */
     graphics?: RenderGraphics
     onGraphics?: (report: GraphicsReport) => void
+    /** Called once at the end of every render (done, failed or cancelled) with the diagnostics report. */
+    onDiagnostics?: (report: DiagnosticsReport) => void
     /**
      * Called before anything is rendered when some used files have another frame size than the first: they will be
      * re-encoded scaled to cover it. Resolve false to cancel the render.

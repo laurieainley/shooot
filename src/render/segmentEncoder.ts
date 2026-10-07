@@ -1,6 +1,7 @@
 // WebCodecs encoding of generated video (cards, frames with overlays) that will be spliced into stream-copied
 // footage. See the title-card spike for why the codec string, colour space and parameter sets matter.
 import { EncodedPacket } from 'mediabunny'
+import { describeParams, errorInfo, type EncoderTry } from './diagnostics'
 import { lengthSize, paramSets, spsLimits, spsOf, type SpsLimits } from './nal'
 
 export type EncoderSetup = {
@@ -93,13 +94,13 @@ export function describeOutput(description: Uint8Array, hevc: boolean): Pick<Enc
  * 'quality' then 'realtime' latency, which can change the reference count). Each is checked by encoding one
  * frame, which also tells us the parameter sets it will produce.
  */
-export async function* probeEncoders(t: EncoderTarget): AsyncGenerator<EncoderSetup> {
+export async function* probeEncoders(t: EncoderTarget, onTry?: (t: EncoderTry) => void): AsyncGenerator<EncoderSetup> {
     if (typeof globalThis.VideoEncoder === 'undefined' || typeof globalThis.VideoFrame === 'undefined') return
     for (const codec of encoderCandidates(t.codec, t.hevc)) {
         for (const latencyMode of ['quality', 'realtime'] as LatencyMode[]) {
             const config = encoderConfig(t, codec, latencyMode)
             const support = await VideoEncoder.isConfigSupported(config).catch(() => ({ supported: false }))
-            if (!support.supported) continue
+            if (!support.supported) { onTry?.({ codec, latencyMode, supported: false, outcome: 'unsupported', config }); continue }
             try {
                 // A black frame in the same format and colour space as real generated frames, so the
                 // parameter sets (incl. VUI) match what cards and overlays will produce.
@@ -109,9 +110,11 @@ export async function* probeEncoders(t: EncoderTarget): AsyncGenerator<EncoderSe
                 const out = await encodeSegment(config, async (encode) => {
                     await encode(i420Frame(black, t.width, t.height, 0, Math.round(1e6 / t.frameRate), t.colorSpace), true)
                 })
-                if (!out.description) continue
+                if (!out.description) { onTry?.({ codec, latencyMode, supported: true, outcome: 'no-description', config }); continue }
+                onTry?.({ codec, latencyMode, supported: true, outcome: 'ok', config, output: { codec: out.codec ?? codec, params: describeParams(out.description, t.hevc) } })
                 yield { config, output: { codec: out.codec ?? codec, description: out.description }, ...describeOutput(out.description, t.hevc) }
-            } catch {
+            } catch (e) {
+                onTry?.({ codec, latencyMode, supported: true, outcome: 'encode-failed', config, error: errorInfo(e) })
                 continue
             }
         }

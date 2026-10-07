@@ -3,6 +3,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import type { GraphicsReport } from './render/types'
+import type { DiagnosticsReport } from './render/diagnostics'
 import type { Cut, RenderFn, RenderGraphics, RenderSource } from './render/types'
 import type { JobKind } from './render/renderJob'
 import type { RenderQuality } from './utils/renderSources'
@@ -29,6 +30,8 @@ export type RenderJob = {
     fraction: number
     status: string
     report: GraphicsReport | null
+    /** Diagnostics of this render, set when it ends (done, failed or cancelled). */
+    diagnostics?: DiagnosticsReport | null
     result: { file: File; url: string; downloaded: boolean } | null
     error: string | null
     /** Waiting for the user: footage of another frame size will be re-encoded (Render / Cancel). */
@@ -83,7 +86,7 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                 const startedAt = deps.now()
                 controller = new AbortController()
                 const signal = controller.signal
-                set({ conflict: false, job: { id, kind, quality, phase: 'running', startedAt, fraction: 0, status: 'Preparing…', report: null, result: null, error: null, notice: null, finishedAt: null } })
+                set({ conflict: false, job: { id, kind, quality, phase: 'running', startedAt, fraction: 0, status: 'Preparing…', report: null, diagnostics: null, result: null, error: null, notice: null, finishedAt: null } })
                 try {
                     const req = await prepare()
                     if (signal.aborted) throw new DOMException('Render cancelled', 'AbortError')
@@ -98,6 +101,7 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                         ...(req.resumable ? { resumable: req.resumable } : {}),
                         // Reports also come for replay crops, which are drawn even when there are no graphics.
                         onGraphics: (report) => patch(id, { report }),
+                        onDiagnostics: (diagnostics) => patch(id, { diagnostics }),
                         ...(req.graphics ? { graphics: req.graphics } : {}),
                     })
                     const file = out instanceof File && out.name === req.outputName ? out : new File([out], req.outputName, { type: 'video/mp4' })
