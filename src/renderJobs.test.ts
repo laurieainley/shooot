@@ -18,6 +18,50 @@ const deferred = <T,>() => {
     return { promise, resolve, reject }
 }
 
+describe('render job wake lock', () => {
+    const lockFor = () => ({ acquire: vi.fn(async () => {}), release: vi.fn(async () => {}), status: vi.fn(() => 'held') })
+    const withLock = (render: RenderJobDeps['render']) => {
+        const lock = lockFor()
+        const deps: RenderJobDeps = { render, download: vi.fn(() => true), notify: vi.fn(), now: vi.fn(() => 0), createUrl: vi.fn(() => 'blob:x'), revokeUrl: vi.fn(), wakeLock: () => lock }
+        return { store: createRenderJobs(deps), lock }
+    }
+    it('should hold the lock while rendering and release it when done', async () => {
+        const gate = deferred<Blob>()
+        const { store, lock } = withLock(async () => gate.promise)
+        const p = store.getState().start({ kind: 'highlights', quality: 'full' }, async () => req())
+        await vi.waitFor(() => expect(lock.acquire).toHaveBeenCalled())
+        expect(lock.release).not.toHaveBeenCalled()
+        gate.resolve(new Blob(['x']))
+        await p
+        expect(lock.release).toHaveBeenCalledTimes(1)
+    })
+    it('should release the lock when the render fails', async () => {
+        const { store, lock } = withLock(async () => { throw new Error('boom') })
+        await store.getState().start({ kind: 'highlights', quality: 'full' }, async () => req())
+        expect(lock.release).toHaveBeenCalledTimes(1)
+    })
+    it('should release the lock when cancelled', async () => {
+        const { store, lock } = withLock((_c, _s, o) => new Promise((_r, rej) => o.signal?.addEventListener('abort', () => rej(new DOMException('x', 'AbortError')))))
+        const p = store.getState().start({ kind: 'highlights', quality: 'full' }, async () => req())
+        await vi.waitFor(() => expect(lock.acquire).toHaveBeenCalled())
+        store.getState().cancel()
+        await p
+        expect(lock.release).toHaveBeenCalledTimes(1)
+    })
+    it('should hand the lock status to the engine', async () => {
+        let status: string | undefined
+        const { store } = withLock(async (_c, _s, o) => { status = o.wakeLockStatus?.(); return new Blob(['x']) })
+        await store.getState().start({ kind: 'highlights', quality: 'full' }, async () => req())
+        expect(status).toBe('held')
+    })
+    it('should render when the lock cannot be taken', async () => {
+        const { store, lock } = withLock(async () => new Blob(['x']))
+        lock.acquire.mockRejectedValue(new Error('no'))
+        await store.getState().start({ kind: 'highlights', quality: 'full' }, async () => req())
+        expect(store.getState().job?.phase).toBe('done')
+    })
+})
+
 describe('render job manager', () => {
     let gate: ReturnType<typeof deferred<Blob>>
     beforeEach(() => { gate = deferred<Blob>() })

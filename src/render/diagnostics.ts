@@ -1,5 +1,6 @@
 // Render diagnostics: a collector the engine and graphics session fill during a render (collection only, it never changes
 // what is rendered), the readable text report, and the last report kept in localStorage so it survives a reload.
+import { trackVisibility, type VisibilityDoc } from './visibility'
 import { paramSets, spsLimits, spsOf, toU8, type SpsLimits } from './nal'
 
 export type ErrorInfo = { message: string; name?: string; stack?: string }
@@ -122,15 +123,21 @@ export type DiagnosticsReport = {
     generated: { what: string; params: ParamsInfo | null; error?: ErrorInfo }[]
     graphics: { applied: string[]; skipped: GraphicOutcome[] }
     timingsMs: Record<string, number>
+    /** Chrome throttles hidden tabs: how often the page was hidden during the render, and the screen wake lock outcome. */
+    background?: { hiddenCount: number; hiddenMs: number; wakeLock: string }
     notes: string[]
 }
 
 export class RenderDiagnostics {
     private data: DiagnosticsReport
     private readonly now: () => number
+    private readonly visibility: { stop: () => { hiddenCount: number; hiddenMs: number } }
+    private readonly wakeLock: () => string
 
-    constructor(o: { kind: 'highlights' | 'fullMatch'; outputName: string; now?: () => number; environment?: Environment }) {
+    constructor(o: { kind: 'highlights' | 'fullMatch'; outputName: string; now?: () => number; environment?: Environment; visibilityDoc?: VisibilityDoc; wakeLock?: () => string }) {
         this.now = o.now ?? Date.now
+        this.visibility = trackVisibility('visibilityDoc' in o ? o.visibilityDoc : typeof document === 'undefined' ? undefined : document, this.now)
+        this.wakeLock = o.wakeLock ?? (() => 'not requested')
         this.data = {
             version: 1, kind: o.kind, outputName: o.outputName, startedAt: this.now(), finishedAt: null, outcome: 'running',
             environment: o.environment ?? collectEnvironment(), sources: [], output: { width: null, height: null, cardCodec: null },
@@ -179,7 +186,8 @@ export class RenderDiagnostics {
     }
 
     report(outcome: Outcome, error?: unknown): DiagnosticsReport {
-        return { ...this.data, outcome, finishedAt: this.now(), ...(error === undefined ? {} : { error: errorInfo(error) }) }
+        const background = { ...this.visibility.stop(), wakeLock: this.wakeLock() }
+        return { ...this.data, background, outcome, finishedAt: this.now(), ...(error === undefined ? {} : { error: errorInfo(error) }) }
     }
 }
 
@@ -226,6 +234,11 @@ export function formatReport(r: DiagnosticsReport): string {
     for (const g of r.graphics.skipped) L.push(`  ${g.label} — ${g.reason}`, ...(g.error?.stack ? [`    ${g.error.stack.split('\n').join('\n    ')}`] : g.error ? [`    ${g.error.message}`] : []))
     h('TIMINGS')
     for (const [k, v] of Object.entries(r.timingsMs)) L.push(`  ${k}: ${(v / 1000).toFixed(2)} s`)
+    if (r.background) {
+        const b = r.background
+        h('BACKGROUND')
+        L.push(`Hidden during the render: ${b.hiddenCount} time${b.hiddenCount === 1 ? '' : 's'}, ${(b.hiddenMs / 1000).toFixed(1)} s`, `Screen wake lock: ${b.wakeLock}`)
+    }
     if (r.notes.length) { h('NOTES'); L.push(...r.notes.map((n) => `  ${n}`)) }
     h('JSON')
     L.push('```json', JSON.stringify(r, null, 2), '```')

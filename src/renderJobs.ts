@@ -8,6 +8,7 @@ import type { Cut, RenderFn, RenderGraphics, RenderSource } from './render/types
 import type { JobKind } from './render/renderJob'
 import type { RenderQuality } from './utils/renderSources'
 import { formatRenderProgress } from './utils/renderSources'
+import { createRenderWakeLock, type RenderWakeLock } from './renderWakeLock'
 import { recoverFromStaleChunk } from './staleBuildRecovery'
 
 export type RenderRequest = {
@@ -48,6 +49,8 @@ export type RenderJobDeps = {
     now: () => number
     createUrl: (file: File) => string
     revokeUrl: (url: string) => void
+    /** Keeps the screen awake while a render runs (default: the browser's Screen Wake Lock). */
+    wakeLock?: () => RenderWakeLock
 }
 
 export type RenderJobsState = {
@@ -85,6 +88,8 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                 const id = ++seq
                 const startedAt = deps.now()
                 controller = new AbortController()
+                const lock = deps.wakeLock?.()
+                void lock?.acquire().catch(() => {})
                 const signal = controller.signal
                 set({ conflict: false, job: { id, kind, quality, phase: 'running', startedAt, fraction: 0, status: 'Preparing…', report: null, diagnostics: null, result: null, error: null, notice: null, finishedAt: null } })
                 try {
@@ -93,6 +98,7 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                     const out = await deps.render(req.cuts, req.sources, {
                         onProgress: (p) => patch(id, { fraction: p.fraction, status: formatRenderProgress(p) }),
                         signal,
+                        ...(lock ? { wakeLockStatus: () => lock.status() } : {}),
                         confirmMixedSizes: (notice) => new Promise<boolean>((resolve) => {
                             pending = resolve
                             patch(id, { notice, status: 'Waiting for you' })
@@ -117,6 +123,7 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                         patch(id, { phase: 'failed', error: e instanceof Error ? e.message : String(e), status: 'Render failed', finishedAt: deps.now() })
                     }
                 } finally {
+                    void lock?.release().catch(() => {})
                     if (seq === id) controller = null
                 }
                 return 'started'
@@ -179,6 +186,7 @@ export function renderJobs(): StoreApi<RenderJobsState> {
             now: () => Date.now(),
             createUrl: (f) => URL.createObjectURL(f),
             revokeUrl: (u) => URL.revokeObjectURL(u),
+            wakeLock: () => createRenderWakeLock(),
         }
         instance = createRenderJobs(defaultDeps)
     }

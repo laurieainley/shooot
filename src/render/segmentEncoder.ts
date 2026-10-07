@@ -3,6 +3,7 @@
 import { EncodedPacket } from 'mediabunny'
 import { describeParams, errorInfo, type EncoderTry } from './diagnostics'
 import { lengthSize, paramSets, spsLimits, spsOf, type SpsLimits } from './nal'
+import { waitForQueue } from './yield'
 
 export type EncoderSetup = {
     config: VideoEncoderConfig
@@ -51,6 +52,7 @@ export async function encodeSegment(
     let description: Uint8Array | null = null
     let codec: string | null = null
     let failure: unknown = null
+    const failed = new AbortController()
     const enc = new VideoEncoder({
         output: (chunk, meta) => {
             const data = new Uint8Array(chunk.byteLength)
@@ -60,14 +62,14 @@ export async function encodeSegment(
             if (meta?.decoderConfig && !codec) codec = meta.decoderConfig.codec
             if (d && !description) description = d instanceof Uint8Array ? d.slice() : new Uint8Array(ArrayBuffer.isView(d) ? d.buffer.slice(d.byteOffset, d.byteOffset + d.byteLength) : d.slice(0))
         },
-        error: (e) => { failure = e },
+        error: (e) => { failure = e; failed.abort() },
     })
     try {
         enc.configure(config)
         await produce(async (frame, keyFrame) => {
             if (failure) { frame.close(); throw failure }
             try { enc.encode(frame, { keyFrame }) } finally { frame.close() }
-            while (enc.encodeQueueSize > 4 && !failure) await new Promise((r) => setTimeout(r, 1))
+            await waitForQueue(enc, 4, failed.signal)
         })
         await enc.flush()
     } finally {

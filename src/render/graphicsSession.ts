@@ -12,6 +12,7 @@ import { coverRect } from './outputSize'
 import { describeOutput, encodeSegment, i420Frame, probeEncoders, withBitrate, type EncoderSetup } from './segmentEncoder'
 import { applyOverlay, convertRange, fadeI420, i420Layout, isYuv420, matrixOf, prepareOverlay, rgbaToI420, targetColorSpace, type PlaneLayout, type PreparedOverlay, type YuvPlanes } from './yuvBlend'
 import type { RenderCard, RenderOverlay } from './types'
+import { waitForQueue } from './yield'
 
 export type GraphicsSource = { video: InputVideoTrack; config: VideoDecoderConfig; nalLength: number }
 
@@ -31,7 +32,6 @@ function sameWords(a: Uint32Array, b: Uint32Array): boolean {
 }
 
 const message = (e: unknown): string => (e instanceof Error ? e.message : String(e))
-const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
 
 export class GraphicsSession {
     readonly hevc: boolean
@@ -212,7 +212,9 @@ export class GraphicsSession {
 
         const queue: VideoFrame[] = []
         let decodeError: unknown = null
-        const decoder = new VideoDecoder({ output: (f) => queue.push(f), error: (e) => { decodeError = e } })
+        // Wakes the queue wait below when a frame arrives or the decoder fails (both need handling before more input).
+        let wake: AbortController | null = null
+        const decoder = new VideoDecoder({ output: (f) => { queue.push(f); wake?.abort() }, error: (e) => { decodeError = e; wake?.abort() } })
         let canvas: OffscreenCanvas | null = null
         let ctx: OffscreenCanvasRenderingContext2D | null = null
         let encodedCount = 0
@@ -240,7 +242,12 @@ export class GraphicsSession {
                     if (decodeError) throw decodeError
                     decoder.decode(p.toEncodedVideoChunk())
                     while (queue.length) await process(queue.shift()!)
-                    while (decoder.decodeQueueSize > 4 && !decodeError) { await tick(); while (queue.length) await process(queue.shift()!) }
+                    while (decoder.decodeQueueSize > 4 && !decodeError) {
+                        wake = new AbortController()
+                        await waitForQueue(decoder, 4, wake.signal)
+                        wake = null
+                        while (queue.length) await process(queue.shift()!)
+                    }
                 }
                 await decoder.flush()
                 while (queue.length) await process(queue.shift()!)
