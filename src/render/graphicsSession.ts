@@ -4,6 +4,7 @@
 import { EncodedPacket, type InputVideoTrack } from 'mediabunny'
 import { ensureGraphicsFonts } from '../graphics/assets'
 import { frameDuration, presentationRanks } from './frameGrid'
+import { describeParams, type RenderDiagnostics } from './diagnostics'
 import { covers, craToBla, paramSets, pickSampleEntry, raiseEntry, raisedLimits, spsLimits, spsOf, withInbandParams, type SpsLimits } from './nal'
 import { overlaySpans, type Gop, type ReencodeSpan } from './overlayWindow'
 import { cropPixels } from '../utils/crop'
@@ -45,11 +46,13 @@ export class GraphicsSession {
     private readonly entryLimits: SpsLimits
     private readonly footageParams: Map<GraphicsSource, Uint8Array[]>
     private readonly rescaled: Set<GraphicsSource>
+    private readonly diag: RenderDiagnostics | undefined
 
     constructor(o: {
         hevc: boolean; entry: VideoDecoderConfig; frameSec: number; width: number; height: number
-        colorSpace: VideoColorSpaceInit; setup: EncoderSetup; entryLimits: SpsLimits; footageParams: Map<GraphicsSource, Uint8Array[]>; rescaled: Set<GraphicsSource>
+        colorSpace: VideoColorSpaceInit; setup: EncoderSetup; entryLimits: SpsLimits; footageParams: Map<GraphicsSource, Uint8Array[]>; rescaled: Set<GraphicsSource>; diag?: RenderDiagnostics
     }) {
+        this.diag = o.diag
         this.hevc = o.hevc
         this.entry = o.entry
         this.frameSec = o.frameSec
@@ -75,8 +78,9 @@ export class GraphicsSession {
     }
 
     /** Checks an encoded run against the sample entry and puts its parameter sets on its key frames. */
-    private finish(packets: EncodedPacket[], description: Uint8Array | null, nalLength: number): EncodedPacket[] {
+    private finish(packets: EncodedPacket[], description: Uint8Array | null, nalLength: number, what: string): EncodedPacket[] {
         if (!description) throw new Error('the encoder gave no parameter sets')
+        this.diag?.generated(what, describeParams(description, this.hevc))
         const out = describeOutput(description, this.hevc)
         if (out.nalLength !== nalLength) throw new Error('the encoder changed its NAL length size')
         if (!covers(this.entryLimits, out.limits)) throw new Error('the encoder changed its frame size or reference count')
@@ -128,7 +132,7 @@ export class GraphicsSession {
         if (packets.length !== n) throw new Error(`the encoder returned ${packets.length} of ${n} frames`)
         const ranks = presentationRanks(packets.map((p) => p.timestamp))
         const timed = packets.map((p, i) => p.clone({ timestamp: ranks[i] * frameSec, duration: frameSec }))
-        return this.finish(timed, description, this.setup.nalLength)
+        return this.finish(timed, description, this.setup.nalLength, `card: ${card.label}`)
     }
 
     /**
@@ -154,8 +158,10 @@ export class GraphicsSession {
                 const out = await this.reencodeSpan(src, packets, keyIdx, span, mine)
                 replaced.set(keyIdx[span.from], { span, packets: out })
                 result.applied.push(...mine.map((o) => o.label))
+                for (const o of mine) this.diag?.graphicApplied(o.label)
             } catch (e) {
                 result.skipped.push(...mine.map((o) => ({ label: o.label, reason: message(e) })))
+                for (const o of mine) this.diag?.graphicSkipped(o.label, message(e), e)
             }
         }
         for (let i = 0; i < packets.length;) {
@@ -243,7 +249,7 @@ export class GraphicsSession {
             if (encodedCount !== wanted.length || encoded.length !== wanted.length) throw new Error(`re-encoded ${encoded.length} of ${wanted.length} frames`)
             // Back onto the source's exact timestamps.
             const timed = encoded.map((p) => { const s = nearest(p.timestamp * 1e6); return p.clone({ timestamp: s.timestamp, duration: s.duration }) })
-            return this.finish(timed, description, this.rescaled.has(src) ? this.setup.nalLength : src.nalLength)
+            return this.finish(timed, description, this.rescaled.has(src) ? this.setup.nalLength : src.nalLength, `overlay span: ${overlays.map((o) => o.label).filter(Boolean).join(', ') || 'rescale/crop'}`)
         } finally {
             for (const f of queue) f.close()
             if (decoder.state !== 'closed') decoder.close()
@@ -332,7 +338,7 @@ export class GraphicsSession {
 }
 
 /** Sets up graphics for these sources, or throws with the reason they cannot be made. */
-export async function openGraphicsSession(sources: GraphicsSource[], first: GraphicsSource): Promise<GraphicsSession> {
+export async function openGraphicsSession(sources: GraphicsSource[], first: GraphicsSource, diag?: RenderDiagnostics): Promise<GraphicsSession> {
     if (typeof VideoEncoder === 'undefined' || typeof VideoDecoder === 'undefined' || typeof OffscreenCanvas === 'undefined') {
         throw new Error('this browser cannot encode video')
     }
@@ -361,11 +367,11 @@ export async function openGraphicsSession(sources: GraphicsSource[], first: Grap
     const colorSpace = targetColorSpace(first.config.colorSpace)
     const cardBitrate = Math.max(2e6, Math.min(12e6, (width * height) / (1920 * 1080) * 10e6))
     let reason = 'no encoder for this video in this browser'
-    for await (const setup of probeEncoders({ codec: first.config.codec, hevc, width, height, frameRate: 1 / frameSec, bitrate: cardBitrate, colorSpace })) {
-        if (setup.nalLength !== first.nalLength) { reason = 'the encoder uses a different NAL length size'; continue }
+    for await (const setup of probeEncoders({ codec: first.config.codec, hevc, width, height, frameRate: 1 / frameSec, bitrate: cardBitrate, colorSpace }, diag && ((t) => diag.encoderTry(t)))) {
+        if (setup.nalLength !== first.nalLength) { reason = 'the encoder uses a different NAL length size'; diag?.rejectLastEncoder(reason); continue }
         const all = [...limits, setup.limits]
         const idx = pickSampleEntry(all)
-        if (idx === -1) { reason = 'the encoder and the footage need different decoder sizes'; continue }
+        if (idx === -1) { reason = 'the encoder and the footage need different decoder sizes'; diag?.rejectLastEncoder(reason); continue }
         const copied = sources.filter((s) => !rescaled.has(s))
         const base: VideoDecoderConfig = idx < copied.length
             ? copied[idx].config
@@ -374,8 +380,21 @@ export async function openGraphicsSession(sources: GraphicsSource[], first: Grap
         // a card encoded at level 5.0 would otherwise hide level 6.0 footage).
         const entry = raiseEntry(base, hevc, all[idx], all)
         const entryLimits = raisedLimits(all[idx], all)
-        if (!all.every((l) => covers(entryLimits, l))) { reason = 'no single decoder setup covers the encoder and the footage'; continue }
-        return new GraphicsSession({ hevc, entry, frameSec, width, height, colorSpace, setup, entryLimits, footageParams, rescaled })
+        if (!all.every((l) => covers(entryLimits, l))) { reason = 'no single decoder setup covers the encoder and the footage'; diag?.rejectLastEncoder(reason); continue }
+        if (diag) {
+            const copiedNames = copied.map((_, k) => `footage #${k}`)
+            diag.cardCodec(setup.output.codec)
+            diag.finalEncoder(setup.config)
+            diag.sampleEntryDecision({
+                candidates: all.map((l, k) => ({ from: k < copied.length ? copiedNames[k] : 'encoder', limits: l })),
+                picked: idx, pickedFrom: idx < copied.length ? copiedNames[idx] : 'encoder',
+                why: 'first SPS that covers every other in profile, coded size and reference frames',
+                levelBefore: all[idx].level, levelAfter: entryLimits.level, tierBefore: all[idx].tier, tierAfter: entryLimits.tier,
+                baseCodec: base.codec, entryCodec: entry.codec,
+                baseHeader: describeParams(base.description, hevc), entryHeader: describeParams(entry.description, hevc),
+            })
+        }
+        return new GraphicsSession({ hevc, entry, frameSec, width, height, colorSpace, setup, entryLimits, footageParams, rescaled, ...(diag ? { diag } : {}) })
     }
     throw new Error(reason)
 }

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { JobKind } from '../render/renderJob'
 import { renderJobs, useRenderJobs } from '../renderJobs'
+import { loadLastReport } from '../render/diagnostics'
+import { CopyDiagnostics } from './CopyDiagnostics'
 
 interface RenderStatusProps {
     /** Which export this panel section belongs to: it shows that render, and notes when the other one is running. */
@@ -8,6 +10,7 @@ interface RenderStatusProps {
 }
 
 const CONFIRM_AFTER_MS = 10_000
+const dedupe = (skipped: { label: string; reason: string }[]): { label: string; reason: string }[] => [...new Map(skipped.map((g) => [`${g.label}|${g.reason}`, g])).values()]
 const NAMES: Record<JobKind, string> = { highlights: 'highlights', fullMatch: 'full match' }
 
 /** The render's progress, Cancel (confirmed after 10 s), skipped graphics, and the downloaded file. */
@@ -16,6 +19,8 @@ export function RenderStatus({ kind }: RenderStatusProps) {
     const conflict = useRenderJobs((s) => s.conflict)
     const [confirming, setConfirming] = useState(false)
     const [, tick] = useState(0)
+    // The last render's report, kept across reloads (the engine saves it when a render ends).
+    const [stored] = useState(() => loadLastReport())
     useEffect(() => { if (job?.phase !== 'running') setConfirming(false) }, [job?.phase])
     useEffect(() => {
         if (job?.phase !== 'running') return
@@ -45,9 +50,17 @@ export function RenderStatus({ kind }: RenderStatusProps) {
             </div>
         )
     }
-    if (!job) return null
+    if (!job) {
+        if (!stored || stored.kind !== kind) return null
+        return (
+            <>
+                <SkippedList skipped={dedupe(stored.graphics.skipped)} note={`from the last render, ${new Date(stored.finishedAt ?? stored.startedAt).toLocaleString()}`} />
+                <CopyDiagnostics report={stored} />
+            </>
+        )
+    }
     const canShare = job.result != null && typeof navigator.canShare === 'function' && navigator.canShare({ files: [job.result.file] })
-    const skipped = job.report ? [...new Map(job.report.skipped.map((g) => [`${g.label}|${g.reason}`, g])).values()] : []
+    const skipped = dedupe(job.report?.skipped ?? job.diagnostics?.graphics.skipped ?? [])
     if (job.phase === 'running' && job.notice) {
         return (
             <div className="render-busy" role="alertdialog" aria-label="Different frame sizes">
@@ -68,14 +81,7 @@ export function RenderStatus({ kind }: RenderStatusProps) {
                 </div>
             )}
             <div role="status" className="tc text-[12px] text-muted">{job.phase === 'failed' ? `Render failed: ${job.error}` : job.status}</div>
-            {skipped.length > 0 && (
-                <div className="rounded border border-line p-2 text-[12px] text-muted">
-                    <p className="m-0 mb-1">Rendered without:</p>
-                    <ul className="m-0 list-disc pl-4">
-                        {skipped.map((g, i) => <li key={i}>{g.label} — {g.reason}</li>)}
-                    </ul>
-                </div>
-            )}
+            <SkippedList skipped={skipped} />
             {job.result && (
                 <div className="render-done">
                     <span>{job.result.downloaded ? `Downloaded ${job.result.file.name}` : `${job.result.file.name} is ready`}</span>
@@ -88,6 +94,19 @@ export function RenderStatus({ kind }: RenderStatusProps) {
                     )}
                 </div>
             )}
+            {job.diagnostics && job.phase !== 'running' && <CopyDiagnostics report={job.diagnostics} />}
         </>
+    )
+}
+
+function SkippedList({ skipped, note }: { skipped: { label: string; reason: string }[]; note?: string }) {
+    if (skipped.length === 0) return null
+    return (
+        <div className="rounded border border-line p-2 text-[12px] text-muted">
+            <p className="m-0 mb-1">Rendered without:{note && <span className="font-normal"> ({note})</span>}</p>
+            <ul className="m-0 list-disc pl-4">
+                {skipped.map((g, i) => <li key={i}>{g.label} — {g.reason}</li>)}
+            </ul>
+        </div>
     )
 }

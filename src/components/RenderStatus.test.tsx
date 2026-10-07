@@ -8,6 +8,7 @@ vi.mock('../render', () => ({ renderReel: (...a: unknown[]) => renderReel(...a) 
 
 import { renderJobs, resetRenderJobs } from '../renderJobs'
 import { RenderStatus } from './RenderStatus'
+import { RenderDiagnostics, saveLastReport, type DiagnosticsReport } from '../render/diagnostics'
 
 const start = (kind: 'highlights' | 'fullMatch' = 'fullMatch') =>
     renderJobs().getState().start({ kind, quality: 'full' }, async () => ({ cuts: [], sources: [], outputName: 'full-match.mp4' }))
@@ -74,5 +75,75 @@ describe('RenderStatus', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
         await done
         expect(renderJobs().getState().job).toBeNull()
+    })
+
+    describe('diagnostics', () => {
+        const writeText = vi.fn().mockResolvedValue(undefined)
+        const makeReport = (kind: 'highlights' | 'fullMatch' = 'highlights', outcome: 'done' | 'failed' = 'done'): DiagnosticsReport => {
+            const d = new RenderDiagnostics({ kind, outputName: 'highlights.mp4', now: () => Date.UTC(2026, 9, 7, 12, 30, 0) })
+            d.graphicSkipped('Goal 3', 'the encoder changed its frame size', new Error('covers failed'))
+            return d.report(outcome, outcome === 'failed' ? new Error('mux broke') : undefined)
+        }
+        beforeEach(() => {
+            localStorage.clear()
+            writeText.mockClear()
+            Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+        })
+
+        it('should offer Copy diagnostics after a render and copy the readable report', async () => {
+            renderReel.mockImplementation(async (_c, _s, o: { onDiagnostics: (r: DiagnosticsReport) => void; onGraphics: (r: unknown) => void }) => {
+                o.onGraphics({ applied: [], skipped: [{ label: 'Goal 3', reason: 'the encoder changed its frame size' }] })
+                o.onDiagnostics(makeReport())
+                return new Blob(['x'])
+            })
+            await start('highlights')
+            render(<RenderStatus kind="highlights" />)
+            expect(screen.getByText(/Goal 3 — the encoder changed its frame size/)).toBeInTheDocument()
+            await userEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' }))
+            expect(writeText).toHaveBeenCalledOnce()
+            expect(writeText.mock.calls[0][0]).toContain('Shooot render diagnostics')
+            expect(writeText.mock.calls[0][0]).toContain('```json')
+            expect(await screen.findByText('Copied')).toBeInTheDocument()
+        })
+
+        it('should offer Copy diagnostics when the render failed', async () => {
+            renderReel.mockImplementation(async (_c, _s, o: { onDiagnostics: (r: DiagnosticsReport) => void }) => {
+                o.onDiagnostics(makeReport('highlights', 'failed'))
+                throw new Error('mux broke')
+            })
+            await start('highlights')
+            render(<RenderStatus kind="highlights" />)
+            expect(screen.getByText(/Render failed: mux broke/)).toBeInTheDocument()
+            await userEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' }))
+            expect(writeText.mock.calls[0][0]).toContain('Outcome: failed')
+        })
+
+        it('should keep Rendered without visible after a reload, from the saved report, with its time', () => {
+            saveLastReport(makeReport())
+            render(<RenderStatus kind="highlights" />)
+            expect(screen.getByText('Rendered without:')).toBeInTheDocument()
+            expect(screen.getByText(/Goal 3 — the encoder changed its frame size/)).toBeInTheDocument()
+            expect(screen.getByText(/last render/i)).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Copy diagnostics' })).toBeInTheDocument()
+        })
+
+        it('should show a saved report only in the export it belongs to', () => {
+            saveLastReport(makeReport('highlights'))
+            render(<RenderStatus kind="fullMatch" />)
+            expect(screen.queryByRole('button', { name: 'Copy diagnostics' })).not.toBeInTheDocument()
+        })
+
+        it('should show nothing without a job or a saved report', () => {
+            const { container } = render(<RenderStatus kind="highlights" />)
+            expect(container).toBeEmptyDOMElement()
+        })
+
+        it('should show the text to copy by hand when the clipboard is refused', async () => {
+            writeText.mockRejectedValueOnce(new Error('denied'))
+            saveLastReport(makeReport())
+            render(<RenderStatus kind="highlights" />)
+            await userEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' }))
+            expect(((await screen.findByLabelText('Diagnostics report')) as HTMLTextAreaElement).value).toContain('Shooot render diagnostics')
+        })
     })
 })
