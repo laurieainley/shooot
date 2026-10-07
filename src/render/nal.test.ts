@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { unescape, codecWithLevel, covers, craToBla, lengthSize, nalType, paramSets, pickSampleEntry, raiseLevel, spsLimits, withInbandParams } from './nal'
+import { unescape, codecWithLevel, covers, maxBitrateForLevel, craToBla, lengthSize, nalType, paramSets, pickSampleEntry, raiseLevel, spsLimits, withInbandParams } from './nal'
 import { GOPRO4K_HVCC, X264_AVCC, X264_REF1_AVCC, X265_HVCC, VT_AVCC, VT_HVCC, hex } from './nal.fixtures'
 
 const sps = (desc: string, hevc: boolean): Uint8Array => paramSets(hex(desc), hevc).find((n) => nalType(n, hevc) === (hevc ? 33 : 7))!
@@ -212,5 +212,27 @@ describe('codecWithLevel', () => {
         expect(codecWithLevel('hvc1.1.6.L120.90', true, 150, 1)).toBe('hvc1.1.6.H150.90')
         expect(codecWithLevel('avc1.640028', false, 51, 0)).toBe('avc1.640033')
         expect(codecWithLevel('vp09.00.10.08', false, 51, 0)).toBe('vp09.00.10.08')
+    })
+})
+
+describe('maxBitrateForLevel', () => {
+    it('should give the HEVC Main tier limit for the level byte (level × 30)', () => {
+        expect(maxBitrateForLevel({ level: 180, tier: 0 }, true)).toBe(60e6) // 6.0: GoPro 4K
+        expect(maxBitrateForLevel({ level: 153, tier: 0 }, true)).toBe(40e6) // 5.1: GoPro 1080p
+        expect(maxBitrateForLevel({ level: 183, tier: 0 }, true)).toBe(120e6)
+    })
+
+    it('should give the HEVC High tier limit', () => {
+        expect(maxBitrateForLevel({ level: 180, tier: 1 }, true)).toBe(240e6)
+    })
+
+    it('should give the H.264 limit for level_idc (level × 10)', () => {
+        expect(maxBitrateForLevel({ level: 42, tier: 0 }, false)).toBe(50e6)
+        expect(maxBitrateForLevel({ level: 51, tier: 0 }, false)).toBe(240e6)
+    })
+
+    it('should not cap an unknown level', () => {
+        expect(maxBitrateForLevel({ level: 0, tier: 0 }, true)).toBe(Infinity)
+        expect(maxBitrateForLevel({ level: 255, tier: 0 }, false)).toBe(Infinity)
     })
 })

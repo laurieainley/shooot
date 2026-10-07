@@ -170,6 +170,25 @@ export function pickSampleEntry(limits: SpsLimits[]): number {
     return limits.findIndex((a) => limits.every((b) => coversGeometry(a, b)))
 }
 
+// Max video bitrates (bit/s) per level: HEVC Table A.8 (Main / High tier, level byte = level × 30), H.264 Table A-1 (level_idc = level × 10).
+const HEVC_MAX_BR: Record<number, [number, number]> = {
+    30: [128e3, 128e3], 60: [1.5e6, 1.5e6], 63: [3e6, 3e6], 90: [6e6, 6e6], 93: [10e6, 10e6], 120: [12e6, 30e6], 123: [20e6, 50e6],
+    150: [25e6, 100e6], 153: [40e6, 160e6], 156: [60e6, 240e6], 180: [60e6, 240e6], 183: [120e6, 480e6], 186: [240e6, 800e6],
+}
+const AVC_MAX_BR: Record<number, number> = {
+    10: 64e3, 9: 128e3, 11: 192e3, 12: 384e3, 13: 768e3, 20: 2e6, 21: 4e6, 22: 4e6, 30: 10e6, 31: 14e6, 32: 20e6, 40: 20e6,
+    41: 50e6, 42: 50e6, 50: 135e6, 51: 240e6, 52: 240e6, 60: 240e6, 61: 240e6, 62: 240e6,
+}
+
+/**
+ * The highest bitrate a stream of this level and tier may have (Infinity for an unknown level). An encoder asked for more
+ * labels its output with a higher level, which the sample entry would no longer cover.
+ */
+export function maxBitrateForLevel(l: Pick<SpsLimits, 'level' | 'tier'>, hevc: boolean): number {
+    if (hevc) return HEVC_MAX_BR[l.level]?.[l.tier ? 1 : 0] ?? Infinity
+    return AVC_MAX_BR[l.level] ?? Infinity
+}
+
 /** The entry's limits once its level and tier are raised to the highest among all SPS in the track. */
 export function raisedLimits(entry: SpsLimits, all: SpsLimits[]): SpsLimits {
     return { ...entry, tier: Math.max(entry.tier, ...all.map((l) => l.tier)), level: Math.max(entry.level, ...all.map((l) => l.level)) }
