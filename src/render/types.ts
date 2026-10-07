@@ -73,6 +73,8 @@ export type RenderOptions = {
     onGraphics?: (report: GraphicsReport) => void
     /** Called once at the end of every render (done, failed or cancelled) with the diagnostics report. */
     onDiagnostics?: (report: DiagnosticsReport) => void
+    /** What the screen wake lock did for this render (shown in the diagnostics). */
+    wakeLockStatus?: () => string
     /**
      * Called before anything is rendered when some used files have another frame size than the first: they will be
      * re-encoded scaled to cover it. Resolve false to cancel the render.

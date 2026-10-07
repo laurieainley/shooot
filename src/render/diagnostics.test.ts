@@ -50,6 +50,26 @@ describe('describeParams', () => {
     })
 })
 
+describe('RenderDiagnostics background', () => {
+    it('should report hidden time and the wake lock status', () => {
+        let t = 0
+        const doc = Object.assign(new EventTarget(), { visibilityState: 'visible' })
+        const d = new RenderDiagnostics({ kind: 'highlights', outputName: 'a.mp4', now: () => t, visibilityDoc: doc, wakeLock: () => 'held' })
+        t = 100; doc.visibilityState = 'hidden'; doc.dispatchEvent(new Event('visibilitychange'))
+        t = 600; doc.visibilityState = 'visible'; doc.dispatchEvent(new Event('visibilitychange'))
+        const r = d.report('done')
+        expect(r.background).toEqual({ hiddenCount: 1, hiddenMs: 500, wakeLock: 'held' })
+        expect(formatReport(r)).toContain('Hidden during the render: 1 time, 0.5 s')
+        expect(formatReport(r)).toContain('Screen wake lock: held')
+    })
+    it('should format an older saved report without background info', () => {
+        const d = new RenderDiagnostics({ kind: 'highlights', outputName: 'a.mp4', visibilityDoc: undefined })
+        const r = { ...d.report('done') }
+        delete r.background
+        expect(() => formatReport(r)).not.toThrow()
+    })
+})
+
 describe('RenderDiagnostics', () => {
     it('should record graphics outcomes with full errors, per label', () => {
         const d = new RenderDiagnostics({ kind: 'highlights', outputName: 'highlights.mp4', now: () => 1000 })

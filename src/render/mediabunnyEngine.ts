@@ -145,7 +145,7 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message : Stri
 const isAbort = (e: unknown): boolean => e instanceof DOMException && e.name === 'AbortError'
 
 export const renderReel: RenderFn = async (cuts, sources, opts) => {
-    const diag = new RenderDiagnostics({ kind: opts.resumable?.kind ?? 'highlights', outputName: opts.outputName ?? OUTPUT_NAME })
+    const diag = new RenderDiagnostics({ kind: opts.resumable?.kind ?? 'highlights', outputName: opts.outputName ?? OUTPUT_NAME, ...(opts.wakeLockStatus ? { wakeLock: opts.wakeLockStatus } : {}) })
     const endTotal = diag.begin('total')
     try {
         const out = await renderGraphicsFirst(cuts, sources, opts, diag)
