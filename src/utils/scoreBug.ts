@@ -61,3 +61,25 @@ export function scoreBugWindows(args: {
     }
     return out
 }
+
+/**
+ * Score bug windows with the given intervals (event captions, which carry their own score bug) cut out: a window
+ * across one is split into the part before and the part after, same score; parts under 0.05 s are dropped.
+ */
+export function subtractIntervals(windows: ScoreBugWindow[], intervals: { startSec: number; durationSec: number }[]): ScoreBugWindow[] {
+    const cuts = [...intervals].sort((x, y) => x.startSec - y.startSec)
+    const out: ScoreBugWindow[] = []
+    for (const w of windows) {
+        let from = w.startSec
+        const end = w.startSec + w.durationSec
+        for (const c of cuts) {
+            const c0 = c.startSec
+            const c1 = c.startSec + c.durationSec
+            if (c1 <= from || c0 >= end) continue
+            if (c0 - from >= 0.05) out.push({ startSec: from, durationSec: c0 - from, score: w.score })
+            from = Math.max(from, c1)
+        }
+        if (end - from >= 0.05) out.push({ startSec: from, durationSec: end - from, score: w.score })
+    }
+    return out
+}

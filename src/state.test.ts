@@ -147,7 +147,7 @@ describe('teams and picker', () => {
 
     it('should migrate v8 legacy event types and persist teams (v9+)', () => {
         const opts = useAppState.persist.getOptions()
-        expect(opts.version).toBe(14)
+        expect(opts.version).toBe(15)
         const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
         expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
         expect(opts.partialize!(s())).toHaveProperty('teams')
@@ -166,11 +166,18 @@ describe('teams and picker', () => {
         expect(out.events[1].team).toBeUndefined()
     })
 
+    it('should switch on full-match event captions once (v15)', () => {
+        const migrate = useAppState.persist.getOptions().migrate!
+        const out = migrate({ fullMatch: { cards: true, scoreBug: 'off', intervalMin: 5, captions: false } }, 14) as { fullMatch: { captions: boolean } }
+        expect(out.fullMatch.captions).toBe(true)
+        expect((migrate({ fullMatch: { cards: true, scoreBug: 'off', intervalMin: 5, captions: false } }, 15) as { fullMatch: { captions: boolean } }).fullMatch.captions).toBe(false)
+    })
+
     it('should switch on the replay tag and set the full-match score bug to after goals once (v13)', () => {
         const migrate = useAppState.persist.getOptions().migrate!
         const out = migrate({ graphics: { cards: true, lowerThirds: true, replayTag: false }, fullMatch: { cards: false, scoreBug: 'periodic', intervalMin: 7 } }, 12) as { graphics: { replayTag: boolean }; fullMatch: unknown }
         expect(out.graphics.replayTag).toBe(true)
-        expect(out.fullMatch).toEqual({ cards: false, scoreBug: 'goals', intervalMin: 7 })
+        expect(out.fullMatch).toEqual({ cards: false, scoreBug: 'goals', intervalMin: 7, captions: true })
         const fresh = migrate({}, 12) as Record<string, unknown>
         expect(fresh.graphics).toBeUndefined()
         expect(fresh.fullMatch).toBeUndefined()

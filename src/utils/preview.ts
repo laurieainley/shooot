@@ -35,3 +35,9 @@ export function buildPreviewPlan(segments: HighlightSegment[], durationsSec: num
 export function shouldAdvance(timeSec: number, step: PreviewStep, armed: boolean): boolean {
     return armed && timeSec >= step.endSec - 0.05
 }
+
+/** The volume (0–1) to play a step at: the viewer's own volume times the step's gain (replays 0.5, as rendered). */
+export function previewVolume(userVolume: number, step: Pick<PreviewStep, 'gain'>): number {
+    const base = Number.isFinite(userVolume) ? userVolume : 1
+    return Math.min(1, Math.max(0, base * step.gain))
+}

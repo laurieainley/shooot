@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildPreviewPlan, shouldAdvance, type PreviewStep } from './preview'
+import { buildPreviewPlan, shouldAdvance, previewVolume, type PreviewStep } from './preview'
 import type { HighlightSegment } from './highlights'
 import type { MatchEvent } from '../types'
 
@@ -47,5 +47,24 @@ describe('shouldAdvance', () => {
     it('should never advance before the seek to the step start has landed', () => {
         // e.g. the playhead was at 10:00 when preview started: clip 1 must still play
         expect(shouldAdvance(600, step, false)).toBe(false)
+    })
+})
+
+describe('previewVolume', () => {
+    const step = (gain: number): PreviewStep => ({ sourceIndex: 0, startSec: 0, endSec: 5, speed: gain < 1 ? 0.5 : 1, gain, replay: gain < 1, clipIndex: 0 })
+
+    it('should play a replay at half the volume the viewer chose, as rendered', () => {
+        expect(previewVolume(0.8, step(0.5))).toBeCloseTo(0.4)
+        expect(previewVolume(1, step(0.5))).toBe(0.5)
+    })
+
+    it('should leave a clip at the chosen volume', () => {
+        expect(previewVolume(0.8, step(1))).toBe(0.8)
+    })
+
+    it('should stay within 0 to 1 whatever the inputs', () => {
+        expect(previewVolume(2, step(1))).toBe(1)
+        expect(previewVolume(-1, step(1))).toBe(0)
+        expect(previewVolume(Number.NaN, step(0.5))).toBe(0.5)
     })
 })

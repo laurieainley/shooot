@@ -37,7 +37,7 @@ describe('FullMatchExport', () => {
                 { id: 'w', type: 'final_whistle', matchTimeSec: 540, sourceFileIndex: 1 },
             ],
             teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }],
-            fullMatch: { cards: false, scoreBug: 'off', intervalMin: 5 }, matchdayLabel: null,
+            fullMatch: { cards: false, scoreBug: 'off', intervalMin: 5, captions: false }, matchdayLabel: null,
         })
     })
 

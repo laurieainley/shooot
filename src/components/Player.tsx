@@ -17,7 +17,8 @@ import { useTouchScrub } from './useTouchScrub'
 import { PlayIndicator } from './PlayIndicator'
 import { formatClock, formatEventClock } from '../utils/timeline'
 import { playerOptions } from '../utils/playerOptions'
-import { shouldAdvance } from '../utils/preview'
+import { previewVolume, shouldAdvance } from '../utils/preview'
+import { setGraphGain } from './previewGain'
 
 // video.js shows "0:05 / 24:00"; every time on screen uses the project's fixed width format instead.
 videojs.setFormatTime((seconds: number, guide: number) => formatClock(seconds, selectClockLong(useAppState.getState()) || guide >= 3600))
@@ -169,10 +170,12 @@ export function Player() {
     useEffect(() => {
         const p = playerRef.current
         if (!p) return
+        const tech = containerRef.current?.querySelector<HTMLMediaElement>('.vjs-tech') ?? null
         if (!isPreviewMode) {
             p.controls(true)
             const before = beforePreviewRef.current
             if (before) { p.playbackRate(before.rate); p.volume(before.volume) }
+            if (before && tech) setGraphGain(tech, 1)
             beforePreviewRef.current = null
             return
         }
@@ -187,7 +190,9 @@ export function Player() {
             previewLoadingRef.current = false
             p.currentTime(step.startSec)
             p.playbackRate(step.speed) // pitch is preserved by the browser
-            p.volume((beforePreviewRef.current?.volume ?? 1) * step.gain)
+            const level = previewVolume(beforePreviewRef.current?.volume ?? 1, step)
+            p.volume(level)
+            if (tech) setGraphGain(tech, step.gain) // iOS ignores volume: the same gain through Web Audio
             void Promise.resolve(p.play()).catch(() => undefined)
         }
         if (step.sourceIndex !== useAppState.getState().currentFileIndex) {
