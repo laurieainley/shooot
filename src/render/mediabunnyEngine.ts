@@ -518,6 +518,8 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                         packets = await encodeReplayAudio(src.audio, { startSec: cutStart, endSec: cutEnd, speed, gain, outDurationSec: outSpan })
                             .catch((e: unknown) => { console.warn('Replay audio: re-encoding failed, using silence', e); return null })
                     }
+                    // Never full-volume (or unscaled) audio under a replay: when it can't be re-encoded it is silent.
+                    if (!packets && reencode && src.audio) diag.note(`Replay audio at ${cutStart.toFixed(1)} s of source #${cut.sourceIndex} could not be re-encoded at half volume: replaced by silence`)
                     packets ??= await silencePackets(outSpan)
                     for (const p of packets ?? []) await addAudio(p.clone({ timestamp: cursor + p.timestamp }))
                 }
