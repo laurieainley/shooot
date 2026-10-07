@@ -5,7 +5,7 @@ import { EncodedPacket, type InputVideoTrack } from 'mediabunny'
 import { ensureGraphicsFonts } from '../graphics/assets'
 import { frameDuration, presentationRanks } from './frameGrid'
 import { describeParams, type RenderDiagnostics } from './diagnostics'
-import { covers, craToBla, paramSets, pickSampleEntry, raiseEntry, raisedLimits, spsLimits, spsOf, withInbandParams, type SpsLimits } from './nal'
+import { covers, craToBla, maxBitrateForLevel, paramSets, pickSampleEntry, raiseEntry, raisedLimits, spsLimits, spsOf, withInbandParams, type SpsLimits } from './nal'
 import { overlaySpans, type Gop, type ReencodeSpan } from './overlayWindow'
 import { cropPixels } from '../utils/crop'
 import { coverRect } from './outputSize'
@@ -203,7 +203,10 @@ export class GraphicsSession {
         const bytes = packets.slice(keyIdx[span.from], end).reduce((a, p) => a + p.data.byteLength, 0)
         const fromBytes = Math.max(1e6, (bytes * 8 * 1.3) / Math.max(this.frameSec, span.outEnd - span.outStart))
         // Rescaled footage is smaller than its source: cap at what the output size needs.
-        const bitrate = this.rescaled.has(src) ? Math.min(fromBytes, Math.max(8e6, (this.width * this.height) / (1920 * 1080) * 25e6)) : fromBytes
+        const wantedRate = this.rescaled.has(src) ? Math.min(fromBytes, Math.max(8e6, (this.width * this.height) / (1920 * 1080) * 25e6)) : fromBytes
+        // Never above what the sample entry's level allows: asked for more (GoPro 4K: ~90 Mbps × 1.3), the encoder labels
+        // the span a higher level (6.1 under a 6.0 entry) and it cannot be spliced in.
+        const bitrate = Math.min(wantedRate, maxBitrateForLevel(this.entryLimits, this.hevc))
         const nearest = (us: number): EncodedPacket => {
             let best = wanted[0]
             for (const p of wanted) if (Math.abs(p.timestamp * 1e6 - us) < Math.abs(best.timestamp * 1e6 - us)) best = p
