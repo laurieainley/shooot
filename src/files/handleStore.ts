@@ -2,6 +2,7 @@
 // reload with one click (and one permission prompt). Not available on Android Chrome or Safari: there, Relink opens
 // the normal picker and events find their files again by name.
 import { del, get, set } from 'idb-keyval'
+import { VIDEO_EXTENSIONS } from '../utils/fileAccept'
 
 const KEY = 'file-handles'
 
@@ -67,7 +68,7 @@ export async function pickWithHandles(): Promise<File[] | null> {
     const pick = filePicker()
     if (!pick) return null
     try {
-        const handles = await pick({ multiple: true, types: [{ description: 'Match videos', accept: { 'video/mp4': ['.mp4', '.MP4', '.lrv', '.LRV'] } }] })
+        const handles = await pick({ multiple: true, types: [{ description: 'Match videos', accept: { 'video/mp4': VIDEO_EXTENSIONS.filter((e) => !/mov/i.test(e)), 'video/quicktime': ['.mov', '.MOV'] } }] })
         const files = await Promise.all(handles.map((h) => h.getFile()))
         await rememberHandles(handles)
         return files

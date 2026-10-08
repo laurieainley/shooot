@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isAcceptedVideo, FILE_INPUT_ACCEPT, fileInputAccept, isIOS } from './fileAccept'
+import { isAcceptedVideo, FILE_INPUT_ACCEPT, VIDEO_EXTENSIONS, fileInputAccept, isIOS } from './fileAccept'
 
 describe('isAcceptedVideo', () => {
     it('should accept by MIME type', () => {
@@ -12,6 +12,13 @@ describe('isAcceptedVideo', () => {
         expect(isAcceptedVideo('x.mp4', 'application/octet-stream')).toBe(true)
     })
 
+    it('should accept MOV and M4V files, by MIME type or extension', () => {
+        expect(isAcceptedVideo('IMG_0412.MOV', '')).toBe(true)
+        expect(isAcceptedVideo('clip', 'video/quicktime')).toBe(true)
+        expect(isAcceptedVideo('holiday.m4v', 'video/x-m4v')).toBe(true)
+        expect(isAcceptedVideo('holiday.M4V', '')).toBe(true)
+    })
+
     it('should reject other files', () => {
         expect(isAcceptedVideo('GX010226.THM', '')).toBe(false)
         expect(isAcceptedVideo('notes.txt', 'text/plain')).toBe(false)
@@ -20,7 +27,7 @@ describe('isAcceptedVideo', () => {
 
 describe('FILE_INPUT_ACCEPT', () => {
     it('should list extensions only (no MIME wildcards that trigger the Android Photo Picker)', () => {
-        expect(FILE_INPUT_ACCEPT).toBe('.mp4,.MP4,.lrv,.LRV')
+        expect(FILE_INPUT_ACCEPT).toBe('.mp4,.MP4,.m4v,.M4V,.mov,.MOV,.lrv,.LRV')
     })
 })
 
@@ -47,5 +54,11 @@ describe('isIOS', () => {
     it('should detect iPadOS desktop mode', () => {
         expect(isIOS({ userAgent: 'Macintosh', platform: 'MacIntel', maxTouchPoints: 5 })).toBe(true)
         expect(isIOS({ userAgent: 'Windows', platform: 'Win32', maxTouchPoints: 10 })).toBe(false)
+    })
+})
+
+describe('VIDEO_EXTENSIONS', () => {
+    it('should list every accepted extension in both cases for the file picker', () => {
+        expect(VIDEO_EXTENSIONS).toEqual(['.mp4', '.MP4', '.m4v', '.M4V', '.mov', '.MOV', '.lrv', '.LRV'])
     })
 })

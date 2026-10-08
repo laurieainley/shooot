@@ -2,13 +2,13 @@
 
 ## Project Overview
 
-Shot Stopper (branded "SHOOOT") is a browser-based video highlight editor. Users load one or more MP4 files, scrub through the footage, mark events (goals, key moments) at specific timestamps — either manually or via keyboard shortcuts — and render a concatenated highlight reel. The render uses Mediabunny to remux the encoded packets of each segment into one MP4 (no decode, no re-encode), keeping output fast and lossless relative to the source. GoPro HEVC MP4s and their `.LRV` proxies load directly.
+Shot Stopper (branded "SHOOOT") is a browser-based video highlight editor. Users load one or more video files (MP4/MOV, H.264/HEVC + AAC, from phones or cameras), scrub through the footage, mark events (goals, key moments) at specific timestamps — either manually or via keyboard shortcuts — and render a concatenated highlight reel. The render uses Mediabunny to remux the encoded packets of each segment into one MP4 (no decode, no re-encode), keeping output fast and lossless relative to the source. iPhone MOV, Android MP4 (incl. variable frame rate), action-camera files and GoPro `.LRV` proxies load directly; files without audio get silence in the reel.
 
 The tool is designed around football/soccer match footage (the primary use case is marking goals), but the workflow is deliberately generic — any MP4 content with discrete moments worth clipping works the same way.
 
 ### Core workflow
 
-1. **Load MP4s** — drag/drop or file picker; multiple files form a single ordered timeline.
+1. **Load videos** — drag/drop or file picker; multiple files form a single ordered timeline (default order: GoPro chapter order for GoPro names, else recording time from the container, else `lastModified`, else natural name order; reorderable).
 2. **Mark events** — press **G** while playing to add a goal at the current playback position, or enter timestamps manually. Each event records the time, source file, and optional team/scorer metadata.
 3. **Configure clip padding** — set how many seconds before and after each event to include (defaults: 10s before, 4s after). Overlapping segments are automatically merged. Scoring events also get a silent **slow-mo replay** (default 3 s before → 1 s after the moment at 0.5×, configurable in Clip settings; per-event ↻ toggle overrides the default) placed straight after their clip.
 4. **Preview** — step through the generated segments in-player before committing to a render.
@@ -94,8 +94,10 @@ src/
     roster.ts       # parseRoster(), filterRoster(), teamShortcuts(), rosterTeamFor()
     markers.ts      # markersForFile(), startInFile(), homeTarget()
     probe.ts        # codec/duration via Mediabunny + browser playability
-    gopro.ts        # parseGoProName(), pairFiles() — LRV proxy ↔ GX/GH MP4
-    fileAccept.ts   # isAcceptedVideo(), FILE_INPUT_ACCEPT (extension-only for Android)
+    gopro.ts        # parseGoProName(), pairFiles() — LRV proxy ↔ GX/GH MP4 (GoPro-specific feature; everything else is generic)
+    fileOrder.ts    # orderEntries(), naturalCompare(): default timeline order of a batch of files
+    footageSupport.ts # unsupportedReason() (codec messages), plausibleRecordingTime()
+    fileAccept.ts   # isAcceptedVideo(), VIDEO_EXTENSIONS, FILE_INPUT_ACCEPT (.mp4 .m4v .mov .lrv; extension-only for Android)
     renderPlan.ts   # buildRenderPlan(): segments → cuts (cross-file split, clamping, replay cuts)
     replays.ts      # wantsReplay(): explicit override or isScoring()
     crop.ts         # replay zoom rect maths: aspect lock (h = w as fractions), clamp, zoom around centre, cropTransform()
@@ -105,6 +107,7 @@ src/
   render/           # Rendering engine behind renderReel()
     mediabunnyEngine.ts # Packet remux → OPFS; slow-mo cuts stretch timestamps by 1/speed
     silentAudio.ts  # makeSilentAudio(): silent AAC frames via WebCodecs AudioEncoder (null if unavailable)
+    audioPlan.ts    # planAudio(): which source's audio the reel follows; sources without audio get silence
     fileSource.ts   # 8 MB aligned block reader for File input
 ```
 
@@ -170,8 +173,8 @@ Half time / Final whistle (picker keys only; not global).
 
 ### Rendering (Mediabunny)
 - Rendering lives behind `renderReel()` in `src/render/`. It remuxes encoded packets (no decode, no re-encode) from each cut into one MP4, streamed to OPFS so memory stays flat. Replay cuts (`speed < 1`, `silent`) re-emit the same video packets with timestamps/durations scaled by `1/speed` and fill their audio with silent AAC frames (or leave a gap when the browser has no AAC encoder).
-- Cuts snap to keyframes (GoPro: 1.001 s GOP) and are clamped to the real end of each file. Audio is copied, so all clips in one render must share codec and audio parameters; mixed inputs are rejected with a message.
-- GoPro `.LRV` proxies are paired with `GX`/`GH` MP4s by `src/utils/gopro.ts`; edit on proxies, render from `fullFile`.
+- Cuts snap to the key packets of the footage itself (any GOP length: phones 1–4 s, GoPro 1 s) and are clamped to the real end of each file. Frame timing always comes from the packets (variable-frame-rate phone footage copies and re-encodes on its own timestamps; card frame rate is the measured average, clamped 5–240 fps). Only the primary video and audio tracks are written; data/timecode tracks are dropped. Audio is copied, so all clips in one render must share codec and audio parameters; mixed inputs are rejected with a message.
+- GoPro `.LRV` proxies are paired with `GX`/`GH` MP4s by `src/utils/gopro.ts`; edit on proxies, render from `fullFile`. Event↔file keys (`utils/fileKey.ts`) are the file name (GoPro: chapter+recording); files that share a name (two phones) get size added so events stay on the right file.
 - Read `File`s through `fileSource()` (`src/render/fileSource.ts`), never `BlobSource`: on Android every read from USB storage costs ~0.25 s, so it reads few, large (8 MB) aligned blocks.
 - Replay zoom (sub-project K): `Cut.crop` (from `MatchEvent.replayCrop`, else the scoring team's attacking goal area from Match setup) makes the engine open the graphics session even without graphics; the replay's GOPs are decoded, the crop is drawn scaled to the full frame on a canvas (`imageSmoothingQuality 'high'`, GPU canvas + `rgbaToI420` in the footage's matrix/range), and re-encoded like an overlay (`cropOverlay.ts` makes the whole-cut overlay). A failed crop leaves the replay uncropped and is listed under "Rendered without". Preview applies the same rect through the player's CSS transform (`cropTransform`). Footage without colour tags (no VUI) gets a small hue shift in cropped replays (measured on synthetic untagged HEVC: pure red came back as 253,23,0; tagged BT.709 footage round-trips exactly), probably a matrix assumption mismatch between the browser's decode and our RGB-to-YUV; camera files are tagged.
 - Show progress for renders; never block the UI silently.
@@ -220,7 +223,7 @@ describe('mergeOverlappingGoalSegments', () => {
 
 ## Constraints & Gotchas
 
-- **MP4 input required** — H.264 or HEVC video with AAC audio in MP4 containers (`.MP4` / GoPro `.LRV`). HEVC may not play in every browser; pair it with its LRV to edit.
+- **Input** — video files (MP4 / MOV / M4V, H.264 or HEVC video, AAC audio or none) from phones or cameras; GoPro `.LRV` proxies supported. Other video codecs (ProRes, AV1, VP9) and non-AAC audio are rejected with a message naming the codec. HEVC may not play in every browser; where the camera makes proxies (GoPro LRV) pair them to edit. Mixed audio formats in one render are rejected; clips without audio are filled with silence.
 - **HTTPS is required** (secure context for OPFS, and for testing from a phone). Dev server uses a self-signed cert (`localhost+2.pem`). New devs need to run `mkcert localhost 127.0.0.1 ::1` to generate their own certs.
 - **No COOP/COEP headers** are needed any more (no SharedArrayBuffer).
 - **File objects are not serializable** — `VideoSourceFile.file` (a `File`) cannot be stored in IndexedDB directly. Only goal metadata is persisted; files must be re-loaded on each session.

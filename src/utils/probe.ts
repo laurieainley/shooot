@@ -2,25 +2,44 @@ import { ALL_FORMATS, Input } from 'mediabunny'
 import { fileSource } from '../render/fileSource'
 import { isAcceptedVideo } from './fileAccept'
 import { codecStringVariants } from './codecSupport'
+import { plausibleRecordingTime, unsupportedReason } from './footageSupport'
 
 export type ProbedMetadata = {
     durationSec?: number
     width?: number
     height?: number
     codec?: 'h264' | 'hevc'
+    /** True when the file has an audio track (AAC); renders fill silence for files without one. */
+    hasAudio?: boolean
+    /** When it was recorded, from the container's creation date (ms since epoch), if it has a plausible one. */
+    recordedAtMs?: number
     accepted: boolean
     playable: boolean
     error?: string
 }
 
-async function readTrackInfo(file: File): Promise<Pick<ProbedMetadata, 'codec' | 'durationSec' | 'width' | 'height'> & { codecString?: string }> {
+type TrackInfo = Pick<ProbedMetadata, 'codec' | 'durationSec' | 'width' | 'height' | 'hasAudio' | 'recordedAtMs'> & {
+    codecString?: string
+    /** Raw Mediabunny codec names ('avc', 'hevc', 'prores', …); null = no such track. */
+    videoCodec: string | null
+    audioCodec: string | null
+}
+
+async function readTrackInfo(file: File): Promise<TrackInfo> {
     const input = new Input({ source: fileSource(file), formats: ALL_FORMATS })
     try {
         const v = await input.getPrimaryVideoTrack()
-        if (!v) return {}
+        const a = await input.getPrimaryAudioTrack()
+        const audioCodec = a ? (a.codec ?? 'unknown') : null
+        if (!v) return { videoCodec: null, audioCodec }
         const codec = v.codec === 'hevc' ? 'hevc' : v.codec === 'avc' ? 'h264' : undefined
+        const tags = await input.getMetadataTags().catch(() => undefined)
         return {
+            videoCodec: v.codec ?? 'unknown',
+            audioCodec,
             codec,
+            hasAudio: !!a,
+            recordedAtMs: plausibleRecordingTime(tags?.date),
             codecString: (await v.getCodecParameterString()) ?? undefined,
             durationSec: await input.computeDuration(),
             width: v.displayWidth,
@@ -51,11 +70,12 @@ function loadsInVideoElement(file: File): Promise<boolean> {
 
 export async function probeVideoFile(file: File): Promise<ProbedMetadata> {
     if (!isAcceptedVideo(file.name, file.type)) {
-        return { accepted: false, playable: false, error: `${file.name}: not an MP4/LRV file` }
+        return { accepted: false, playable: false, error: `${file.name}: not an MP4, MOV or LRV video file` }
     }
     try {
-        const info = await readTrackInfo(file)
-        if (!info.codec) return { accepted: false, playable: false, error: `${file.name}: no H.264/HEVC video track` }
+        const { videoCodec, audioCodec, ...info } = await readTrackInfo(file)
+        const reason = unsupportedReason(file.name, { videoCodec, audioCodec })
+        if (reason || !info.codec) return { accepted: false, playable: false, error: reason ?? `${file.name}: no H.264/HEVC video track` }
         // canPlayType is only a hint (browsers disagree on hev1/hvc1 spellings and some answer '' for codecs they
         // play); actually loading the file decides. Log the hint for diagnosis.
         const v = document.createElement('video')

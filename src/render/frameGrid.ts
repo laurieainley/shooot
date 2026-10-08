@@ -3,6 +3,8 @@ const RATES = [24000 / 1001, 24, 25, 30000 / 1001, 30, 48, 50, 60000 / 1001, 60,
 /** Frame duration for a measured packet rate, snapped to a standard rate (e.g. 29.97 → 1001/30000 s). */
 export function frameDuration(rate: number): number {
     if (!Number.isFinite(rate) || rate <= 0) return 1001 / 30000
+    // A variable-frame-rate average can be anything; cards still need a rate encoders accept.
+    rate = Math.min(240, Math.max(5, rate))
     const near = RATES.find((r) => Math.abs(r - rate) / r < 0.002)
     if (near === undefined) return 1 / rate
     const ntsc = [24000, 30000, 60000, 120000, 240000].find((n) => Math.abs(n / 1001 - near) < 1e-9)

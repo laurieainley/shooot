@@ -16,6 +16,18 @@ describe('frameDuration', () => {
     })
 })
 
+describe('frameDuration (variable frame rate)', () => {
+    it('should use the measured average of phone footage that is not on a standard rate', () => {
+        expect(frameDuration(27.4)).toBeCloseTo(1 / 27.4, 6)
+        expect(frameDuration(23.1)).toBeCloseTo(1 / 23.1, 6)
+    })
+
+    it('should keep a card frame rate an encoder can take for extreme averages', () => {
+        expect(frameDuration(0.2)).toBeCloseTo(1 / 5, 6)
+        expect(frameDuration(900)).toBeCloseTo(1 / 240, 4)
+    })
+})
+
 describe('presentationRanks', () => {
     it('should give each packet (decode order) its position in presentation order', () => {
         expect(presentationRanks([0, 0.1, 0.033, 0.066])).toEqual([0, 3, 1, 2])

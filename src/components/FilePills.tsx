@@ -70,7 +70,7 @@ export function FilePills() {
                     <span className="file-pill__name">{f.name}</span>
                     {f.durationSec != null && <span className="file-pill__dur tc">{formatHMS(f.durationSec)}</span>}
                     {fileBadges(f).map((b) => (
-                        <span key={b} title={b === "can't play here" ? `${f.playbackIssue} — add the matching GL….LRV` : undefined}
+                        <span key={b} title={b === "can't play here" ? `${f.playbackIssue} — add a proxy file, or render on a computer` : undefined}
                             className={`tag ${b === "can't play here" ? 'tag-warn' : ''}`}>
                             {b}
                         </span>

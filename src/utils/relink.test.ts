@@ -48,4 +48,19 @@ describe('linkedEvents', () => {
         const r = linkedEvents([ev('a', {}), ev('b', { unlinked: true })])
         expect(r.map((e) => e.id)).toEqual(['a'])
     })
+
+    it('should keep events on the right file when two files share a name', () => {
+        const two = [{ name: 'IMG_1.MOV', file: { size: 10 } }, { name: 'IMG_1.MOV', file: { size: 20 } }]
+        const [a, b] = relinkEvents([ev('a', { sourceFileIndex: 0 }), ev('b', { sourceFileIndex: 1 })], two)
+        expect([a.sourceFileKey, b.sourceFileKey]).toEqual(['IMG_1.MOV@10', 'IMG_1.MOV@20'])
+        const swapped = relinkEvents([a, b], [two[1], two[0]])
+        expect([swapped[0].sourceFileIndex, swapped[1].sourceFileIndex]).toEqual([1, 0])
+    })
+
+    it('should still find a file by the plain name saved before a same-named file was added', () => {
+        const two = [{ name: 'IMG_1.MOV', file: { size: 10 } }, { name: 'IMG_1.MOV', file: { size: 20 } }]
+        const r = relinkEvents([ev('a', { sourceFileIndex: 0, sourceFileKey: 'IMG_1.MOV' })], two)
+        expect(r[0].unlinked).toBeUndefined()
+        expect(r[0].sourceFileIndex).toBe(0)
+    })
 })
