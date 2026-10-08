@@ -2,7 +2,7 @@
  * Dark is the default theme. Light applies with [data-theme="light"],
  * or automatically via prefers-color-scheme unless [data-theme="dark"] is set.
  */
-@import url("https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,100..900;1,62..125,100..900&family=Big+Shoulders+Display:wght@500..900&family=JetBrains+Mono:wght@400;700&display=swap");
+/* Fonts are self-hosted by the app (src/index.css): no Google Fonts request. */
 
 :root {
   /* Brand constants (never change per theme) */

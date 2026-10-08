@@ -86,7 +86,7 @@ export function MatchGraphicsSetup() {
                     <input ref={pickRef} aria-label="Logo file" type="file" accept="image/*" onChange={(e) => void onPick(e)} className="sr-only" tabIndex={-1} />
                 </div>
             </div>
-            {logoError && <p role="alert" className="m-0 text-[12px] text-danger">{logoError}</p>}
+            {logoError && <p role="alert" className="m-0 text-[12px] msg-warn">{logoError}</p>}
         </section>
     )
 }

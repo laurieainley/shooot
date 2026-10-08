@@ -3,7 +3,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { selectClockLong, useAppState } from '../state'
 import { nearbyMark } from '../utils/duplicates'
-import { PICKER_GROUPS, PICKER_OPTIONS, assistOf, controlLabel, eventIcon, EVENT_META, type PickerOption } from '../utils/eventTypes'
+import { EventTag } from './EventTag'
+import { PICKER_GROUPS, PICKER_OPTIONS, assistOf, controlLabel, eventIcon, type PickerOption } from '../utils/eventTypes'
 import { SKIP, initialPickerState, pickerReducer, touchPickerState, scorerCandidates, type PickerInput, type PickerState } from '../utils/eventPicker'
 import { teamShortcuts } from '../utils/roster'
 import { formatClock } from '../utils/timeline'
@@ -140,8 +141,7 @@ export function EventPicker() {
                                 return (
                                     <div key={o.id} role="option" aria-selected={o.id === highlightedId} tabIndex={-1}
                                         className="event-picker__item event-picker__item--type" onClick={() => dispatch({ kind: 'choose', value: o.id })}>
-                                        <span className="event-picker__icon" aria-hidden="true">{EVENT_META[o.type].icon}</span>
-                                        <span>{o.label}</span>
+                                        <EventTag event={{ type: o.type, pen: o.pen }}>{o.label}</EventTag>
                                     </div>
                                 )
                             })}
@@ -153,7 +153,7 @@ export function EventPicker() {
                     {PICKER_OPTIONS.map((o, i) => (
                         <li key={o.id} role="option" aria-selected={i === state.highlighted}
                             className="event-picker__item" onClick={() => dispatch({ kind: 'choose', value: o.id })}>
-                            <span>{o.label}</span>{' '}
+                            <EventTag event={{ type: o.type, pen: o.pen }}>{o.label}</EventTag>{' '}
                             <kbd>{o.id === 'goal' ? '⏎ G' : o.key.toUpperCase()}</kbd>
                         </li>
                     ))}
@@ -166,7 +166,7 @@ export function EventPicker() {
                         <li key={n} role="option" aria-selected={!coarse && i === state.highlighted}
                             className="event-picker__item" onClick={() => dispatch({ kind: 'choose', value: n })}>
                             {coarse && <span className="team-dot" style={{ background: teamBackground(teams[i].color) }} />}
-                            <span>{n}</span>{' '}
+                            <span className="voice-scoreboard">{n}</span>{' '}
                             {!coarse && <kbd>{shortcuts[i].toUpperCase()}</kbd>}
                         </li>
                     ))}
@@ -189,7 +189,7 @@ export function EventPicker() {
                         {candidates.map((n, i) => (
                             <li key={n} role="option" aria-selected={!coarse && i === state.highlighted}
                                 className="event-picker__item" onClick={() => dispatch({ kind: 'choose', value: n })}>
-                                <span>{n}</span>
+                                <span className="voice-shirt event-picker__person-name">{n}</span>
                             </li>
                         ))}
                         {state.query.trim() && candidates.length === 0 && (

@@ -1,5 +1,6 @@
 // The one render that can run at a time, kept outside the Export panel: closing the panel, playing the video or
 // opening sheets never touches it. Components subscribe; the panel, the top-bar chip and the fullscreen chip all show it.
+import { PRODUCT_NAME } from './brand'
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import type { GraphicsReport } from './render/types'
@@ -176,7 +177,7 @@ export function renderJobs(): StoreApi<RenderJobsState> {
                     engine = await import('./render')
                 } catch (e) {
                     // This tab is running an older build whose engine file is gone after a deploy.
-                    if (recoverFromStaleChunk(e)) throw new Error('A new version of Shooot is available — reloading…')
+                    if (recoverFromStaleChunk(e)) throw new Error(`A new version of ${PRODUCT_NAME} is available — reloading…`)
                     throw e
                 }
                 return engine.renderReel(...args)

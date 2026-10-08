@@ -42,9 +42,9 @@ describe('buildMatchStrip', () => {
         expect(s.clips).toEqual([])
     })
 
-    it('should place event dots in global time with team colour, skipping unlinked', () => {
+    it('should place event ticks in global time, lime for goals, skipping unlinked', () => {
         const s = buildMatchStrip({ ...base, events: [ev('a', 1, 100, { team: 'Colours' }), ev('b', 0, 50, { unlinked: true })] })
-        expect(s.events).toEqual([{ id: 'a', leftPct: 70, color: '#c2364a', title: expect.stringContaining('Goal'), kind: 'goal' }])
+        expect(s.events).toEqual([{ id: 'a', leftPct: 70, tick: 'goal', title: expect.stringContaining('Goal'), kind: 'goal' }])
     })
 
     it('should add a shortened note to the dot title', () => {
@@ -52,9 +52,10 @@ describe('buildMatchStrip', () => {
         expect(s.events[0].title).toMatch(/Foul – Colours — late tackle$/)
     })
 
-    it('should draw events without a team in the neutral muted token', () => {
-        const s = buildMatchStrip({ ...base, events: [ev('h', 0, 50, { type: 'highlight' })] })
-        expect(s.events[0].color).toBe('var(--muted)')
+    it('should draw other moments as grey ticks and own goals with an OG label, ignoring team colours', () => {
+        const s = buildMatchStrip({ ...base, events: [ev('h', 0, 50, { type: 'highlight', team: 'Colours' }), ev('o', 0, 60, { type: 'own_goal' }), ev('m', 0, 70, { type: 'penalty_missed' })] })
+        expect(s.events.map((e) => [e.id, e.tick, e.label])).toEqual([['h', 'other', undefined], ['o', 'own-goal', 'OG'], ['m', 'miss', undefined]])
+        expect(s.events[0]).not.toHaveProperty('color')
     })
 
     it('should draw clip spans from merged segments, splitting across files', () => {

@@ -49,7 +49,9 @@ describe('EventLog rows', () => {
         render(<EventLog />)
         const [row] = rows()
         expect(within(row).getByText('23:41')).toBeInTheDocument()
-        expect(within(row).getByText('Penalty goal · Jo')).toBeInTheDocument()
+        expect(within(row).getByText('Penalty goal')).toHaveClass('ev-tag__text')
+        expect(within(row).getByText('Penalty goal').closest('.ev-tag')).toHaveClass('ev-tag--pen-goal')
+        expect(within(row).getByText('Jo')).toHaveClass('ev-person')
         expect(row.querySelector('[data-team-dot]')).toHaveStyle({ background: '#c2364a' })
     })
 
@@ -294,7 +296,8 @@ describe('EventLog details & running score', () => {
     it('should show the person and a shortened note', () => {
         setup([{ id: 'a', matchTimeSec: 30, type: 'highlight', team: 'Whites', scorer: 'Sam', notes: 'nutmeg on the wing' }])
         render(<EventLog />)
-        expect(within(rows()[0]).getByText('Highlight · Sam')).toBeInTheDocument()
+        expect(within(rows()[0]).getByText('Highlight').closest('.ev-tag')).toHaveClass('ev-tag--other')
+        expect(within(rows()[0]).getByText('Sam')).toBeInTheDocument()
         expect(within(rows()[0]).getByText('nutmeg on the wing')).toBeInTheDocument()
     })
 

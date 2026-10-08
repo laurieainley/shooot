@@ -36,13 +36,14 @@ describe('MatchStrip', () => {
         expect(seekToGoal).toHaveBeenLastCalledWith(0, 250)
     })
 
-    it('should draw file bands, the kick-off flag, event dots in team colour and the playhead', () => {
+    it('should draw file bands, the kick-off flag, lime goal ticks (not the kit colour) and the playhead', () => {
         render(<MatchStrip />)
         expect(screen.getByText('GX010226.MP4')).toBeInTheDocument()
         expect(screen.getByText('GX020226.MP4')).toBeInTheDocument()
         expect(screen.getByTitle(/^Kick off/)).toHaveStyle({ left: '10%' })
         const dot = screen.getByRole('button', { name: /Goal – Colours/ })
-        expect(dot).toHaveStyle({ left: '70%', background: '#c2364a' })
+        expect(dot).toHaveStyle({ left: '70%' })
+        expect(dot).toHaveAttribute('data-tick', 'goal')
         expect(track()).toHaveAttribute('aria-valuenow', '50')
     })
 

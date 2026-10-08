@@ -42,7 +42,7 @@ export function DescriptionCopy({ kind }: DescriptionCopyProps) {
                 className="btn-quiet">
                 Copy goalscorers
             </button>
-            {copied && <span role="status" className="text-[12px] text-accent">{copied} copied</span>}
+            {copied && <span role="status" className="text-[12px] text-lime-text">{copied} copied</span>}
         </div>
     )
 }

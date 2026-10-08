@@ -1,5 +1,6 @@
 // Render diagnostics: a collector the engine and graphics session fill during a render (collection only, it never changes
 // what is rendered), the readable text report, and the last report kept in localStorage so it survives a reload.
+import { PRODUCT_NAME } from '../brand'
 import { trackVisibility, type VisibilityDoc } from './visibility'
 import { paramSets, spsLimits, spsOf, toU8, type SpsLimits } from './nal'
 
@@ -203,7 +204,7 @@ const paramsLine = (p: ParamsInfo): string =>
 export function formatReport(r: DiagnosticsReport): string {
     const L: string[] = []
     const h = (t: string): void => { L.push('', t) }
-    L.push('Shooot render diagnostics', `Render: ${r.kind} -> ${r.outputName}`, `Started: ${hms(r.startedAt)}${r.finishedAt ? `   Finished: ${hms(r.finishedAt)}` : ''}`, `Outcome: ${r.outcome}`)
+    L.push(`${PRODUCT_NAME} render diagnostics`, `Render: ${r.kind} -> ${r.outputName}`, `Started: ${hms(r.startedAt)}${r.finishedAt ? `   Finished: ${hms(r.finishedAt)}` : ''}`, `Outcome: ${r.outcome}`)
     if (r.error) L.push(`Error: ${r.error.message}`, ...(r.error.stack ? [r.error.stack] : []))
     h('ENVIRONMENT')
     const e = r.environment
@@ -298,7 +299,7 @@ type ConsoleLike = Pick<Console, 'groupCollapsed' | 'log' | 'groupEnd'>
 export function publishReport(r: DiagnosticsReport, o: { storage?: KeyValueStorage | null; console?: ConsoleLike; onReport?: (r: DiagnosticsReport) => void } = {}): void {
     const con = o.console ?? console
     try {
-        con.groupCollapsed('[shooot] render diagnostics')
+        con.groupCollapsed(`[${PRODUCT_NAME.toLowerCase()}] render diagnostics`)
         con.log(r)
         con.log(formatReport(r))
         con.groupEnd()

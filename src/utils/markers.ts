@@ -1,6 +1,6 @@
-import { solidTeamColor } from './teamColor'
 import type { MarkerType, MatchEvent, Team } from '../types'
-import { EVENT_META, eventIcon, eventLabel, isMarker, shortNote } from './eventTypes'
+import { eventTone, type EventTone } from './eventStyle'
+import { eventIcon, eventLabel, isMarker, shortNote } from './eventTypes'
 import { linkedEvents } from './relink'
 import { formatHMS } from './timeline'
 
@@ -9,7 +9,8 @@ export type Marker = {
     kind: 'event' | MarkerType
     leftPct: number
     icon: string
-    color: string
+    /** How the scrubber draws it: lime goal tick, chalk own goal, grey tick, or a chalk flag. Never the team's kit colour. */
+    tone: EventTone
     title: string
 }
 
@@ -25,18 +26,17 @@ export function markersForFile(args: {
     teams: Team[]
     cumulativeOffsets: number[]
 }): Marker[] {
-    const { events, fileIndex, durationSec, teams } = args
+    const { events, fileIndex, durationSec } = args
     if (!durationSec) return []
     const pct = (t: number): number => Math.min(100, Math.max(0, (t / durationSec) * 100))
     const inFile = linkedEvents(events).filter((e) => e.globalTimeSec === undefined && (e.sourceFileIndex ?? 0) === fileIndex)
     // Flags first so event markers draw on top of them.
     const out: Marker[] = inFile.filter(isMarker).map((e) => ({
-        id: e.id, kind: e.type, leftPct: pct(e.matchTimeSec), icon: eventIcon(e), color: EVENT_META[e.type].color,
+        id: e.id, kind: e.type, leftPct: pct(e.matchTimeSec), icon: eventIcon(e), tone: eventTone(e),
         title: `${eventLabel(e)} ${formatHMS(e.matchTimeSec)}`,
     }))
     for (const e of inFile) {
         if (isMarker(e)) continue
-        const team = teams.find((t) => t.name === e.team)
         const who = e.team ? ` – ${e.team}${e.scorer ? ` (${e.scorer})` : ''}` : e.scorer ? ` – ${e.scorer}` : ''
         const note = shortNote(e.notes)
         out.push({
@@ -44,7 +44,7 @@ export function markersForFile(args: {
             kind: 'event',
             leftPct: pct(e.matchTimeSec),
             icon: eventIcon(e),
-            color: solidTeamColor(team?.color, EVENT_META[e.type].color),
+            tone: eventTone(e),
             title: `${formatHMS(e.matchTimeSec)} ${eventLabel(e)}${who}${note ? ` — ${note}` : ''}`,
         })
     }

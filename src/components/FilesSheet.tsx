@@ -36,7 +36,7 @@ export function FilesSheet({ onClose }: FilesSheetProps) {
                 <AddFilesButton label="Add files" className="btn-quiet" onError={setMessage} />
                 <OpeningStatus />
             </div>
-            {message && <p className="m-0 pt-2 text-[12px] text-danger">{message}</p>}
+            {message && <p className="m-0 pt-2 text-[12px] msg-warn">{message}</p>}
         </Sheet>
     )
 }
