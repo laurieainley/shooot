@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildGraphicsSpec, fullMatchCaptionWindows, fullMatchGraphicsSpec, wantsFullMatchCaption, wantsLowerThird, type GraphicsSettings } from './plan'
+import { buildGraphicsSpec, captionWord, scorerColumns, fullMatchCaptionWindows, fullMatchGraphicsSpec, wantsFullMatchCaption, wantsLowerThird, type GraphicsSettings } from './plan'
 import type { MatchEvent, Team } from '../types'
 import type { Cut } from '../render/types'
 
@@ -58,25 +58,25 @@ describe('buildGraphicsSpec', () => {
         const bug = (text: string) => ({ left: 'RR', right: 'WT', leftColour: '#f0f0f0', rightColour: '#ec5fa4', text })
         expect(spec.overlays).toEqual([
             // starts 1 s after the goal; 3 s left in the clip, then it carries on over the start of its replay (slowed 2×)
-            expect.objectContaining({ kind: 'caption', cutIndex: 0, startSec: 21, durationSec: 3, toCutEnd: true, clock: { offsetSec: 0, rate: 1, totalSec: 5 }, spec: { label: 'GOAL', person: 'SAM', stripe: '#f0f0f0', bug: bug('1–0') } }),
+            expect.objectContaining({ kind: 'caption', cutIndex: 0, startSec: 21, durationSec: 3, toCutEnd: true, clock: { offsetSec: 0, rate: 1, totalSec: 5 }, spec: { label: 'GOAL!', tone: 'goal', person: 'SAM', stripe: '#f0f0f0', bug: bug('1–0') } }),
             expect.objectContaining({ kind: 'caption', cutIndex: 1, startSec: 16, durationSec: 1, clock: { offsetSec: 3, rate: 2, totalSec: 5 }, fromCutStart: true }),
-            expect.objectContaining({ kind: 'caption', cutIndex: 2, startSec: 56, durationSec: 5, spec: expect.objectContaining({ label: 'GOAL (PEN)', person: 'ALEX', stripe: '#ec5fa4', bug: bug('1–1') }) }),
+            expect.objectContaining({ kind: 'caption', cutIndex: 2, startSec: 56, durationSec: 5, spec: expect.objectContaining({ label: 'PEN GOAL', person: 'ALEX', stripe: '#ec5fa4', bug: bug('1–1') }) }),
         ])
     })
 
     it('should carry a goal note on the caption', () => {
         const spec = build([ev('a', 20, { team: 'Walford Town', scorer: 'Sam', notes: 'top corner' })])
-        expect(spec.overlays[0]).toMatchObject({ spec: { label: 'GOAL', person: 'SAM', note: 'TOP CORNER' } })
+        expect(spec.overlays[0]).toMatchObject({ spec: { label: 'GOAL!', person: 'SAM', note: 'TOP CORNER' } })
     })
 
     it('should credit an own goal to the team it counts for', () => {
         const spec = build([ev('a', 20, { type: 'own_goal', team: 'Walford Town', scorer: 'Smith' })])
-        expect(spec.overlays[0]).toMatchObject({ spec: { label: 'OWN GOAL', person: 'SMITH', stripe: '#ec5fa4', bug: { text: '0–1' } } })
+        expect(spec.overlays[0]).toMatchObject({ spec: { label: 'OWN GOAL', tone: 'ownGoal', person: 'SMITH', stripe: '#ec5fa4', bug: { text: '0–1' } } })
     })
 
-    it('should show the current score on a highlight caption, and use orange without a team', () => {
+    it('should show the current score on a highlight caption, and use muted grey without a team', () => {
         const spec = build([ev('g', 20, { team: 'Walford Town' }), ev('h', 52, { type: 'highlight', scorer: 'Jo', notes: 'nutmeg on the wing' })], { ...ALL })
-        expect(spec.overlays.at(-1)).toMatchObject({ cutIndex: 2, startSec: 50, spec: { label: 'HIGHLIGHT', person: 'JO', note: 'NUTMEG ON THE WING', stripe: '#f28c28', bug: { text: '0–1' } } })
+        expect(spec.overlays.at(-1)).toMatchObject({ cutIndex: 2, startSec: 50, spec: { label: 'HIGHLIGHT', person: 'JO', note: 'NUTMEG ON THE WING', stripe: '#8E9A92', bug: { text: '0–1' } } })
     })
 
     it('should show a highlight caption at the start of its clip for 5 s, with the note', () => {
@@ -118,7 +118,7 @@ describe('buildGraphicsSpec', () => {
 
     it('should tag replays when asked', () => {
         const spec = build([], { cards: false, lowerThirds: false, replayTag: true })
-        expect(spec.overlays).toEqual([expect.objectContaining({ kind: 'replayTag', cutIndex: 1, startSec: 16, durationSec: 5 })])
+        expect(spec.overlays).toEqual([expect.objectContaining({ kind: 'replayTag', cutIndex: 1, startSec: 16, durationSec: 5, speed: 0.5 })])
     })
 })
 
@@ -170,13 +170,13 @@ describe('fullMatchGraphicsSpec event captions', () => {
     it('should caption a goal with scorer, assist and the score after it, 1 s after for 5 s', () => {
         const [c] = caps([ev('g', 60, { team: R, scorer: 'Sam', assist: 'Jo', notes: 'Top bin' })])
         expect(c).toMatchObject({ kind: 'caption', cutIndex: 0, startSec: 61, durationSec: 5, clock: { offsetSec: 0, rate: 1, totalSec: 5 } })
-        expect(c.kind === 'caption' && c.spec).toMatchObject({ label: 'GOAL', person: 'SAM', assist: 'JO', note: 'TOP BIN', stripe: '#f0f0f0' })
+        expect(c.kind === 'caption' && c.spec).toMatchObject({ label: 'GOAL!', person: 'SAM', assist: 'JO', note: 'TOP BIN', stripe: '#f0f0f0' })
         expect(c.kind === 'caption' && c.spec.bug?.text).toBe('1–0')
     })
 
     it('should label a penalty goal with its taker and no assist', () => {
         const [c] = caps([ev('g', 60, { team: R, scorer: 'Sam', assist: 'Jo', pen: true })])
-        expect(c.kind === 'caption' && c.spec).toMatchObject({ label: 'GOAL (PEN)', person: 'SAM' })
+        expect(c.kind === 'caption' && c.spec).toMatchObject({ label: 'PEN GOAL', person: 'SAM' })
         expect(c.kind === 'caption' && c.spec.assist).toBeUndefined()
     })
 
@@ -235,5 +235,76 @@ describe('fullMatchGraphicsSpec event captions', () => {
         const windows = [{ startSec: 60, durationSec: 10, score: [1, 0] as [number, number] }]
         const spec = fullMatchGraphicsSpec({ ...base, captions: false, events: [ev('g', 60, { team: R })], windows })
         expect(spec.overlays.map((o) => [o.kind, o.startSec, o.durationSec])).toEqual([['scoreBug', 60, 10]])
+    })
+})
+
+describe('captionWord', () => {
+    it('should use the brand words for each event', () => {
+        expect(captionWord({ type: 'goal' })).toBe('GOAL!')
+        expect(captionWord({ type: 'goal', pen: true })).toBe('PEN GOAL')
+        expect(captionWord({ type: 'own_goal' })).toBe('OWN GOAL')
+        expect(captionWord({ type: 'penalty_missed' })).toBe('PENALTY MISSED')
+        expect(captionWord({ type: 'save' })).toBe('SAVE')
+        expect(captionWord({ type: 'highlight' })).toBe('HIGHLIGHT')
+    })
+})
+
+describe('caption minute and tone', () => {
+    const kick = ev('k', 10, { type: 'kick_off' })
+
+    it('should show the match minute once kick-off is marked (kick-off is minute 1)', () => {
+        const spec = build([kick, ev('a', 20, { team: "Ryan's Rovers", scorer: 'Sam' }), ev('b', 55, { team: 'Walford Town', scorer: 'Alex' })])
+        const specs = spec.overlays.filter((o) => o.kind === 'caption').map((o) => o.kind === 'caption' && o.spec.minute)
+        expect(new Set(specs)).toEqual(new Set(["'1"]))
+        const late = build([kick, ev('a', 10 + 61 * 60, { team: "Ryan's Rovers", scorer: 'Sam' })], ALL, [{ sourceIndex: 0, startSec: 3600, endSec: 3900 }])
+        expect(late.overlays[0].kind === 'caption' && late.overlays[0].spec.minute).toBe("'62")
+    })
+
+    it('should leave the minute out without a kick-off', () => {
+        const cap = build([ev('a', 20, { team: "Ryan's Rovers" })]).overlays[0]
+        expect(cap.kind === 'caption' && cap.spec.minute).toBeUndefined()
+    })
+
+    it('should tone goals lime, own goals chalk and the rest dark', () => {
+        const tone = (e: Partial<MatchEvent>) => {
+            const c = build([ev('x', 20, { team: "Ryan's Rovers", ...e })]).overlays[0]
+            return c.kind === 'caption' ? c.spec.tone : undefined
+        }
+        expect(tone({})).toBe('goal')
+        expect(tone({ pen: true })).toBe('goal')
+        expect(tone({ type: 'own_goal' })).toBe('ownGoal')
+        expect(tone({ type: 'penalty_missed' })).toBe('other')
+    })
+})
+
+describe('scorerColumns', () => {
+    const R = "Ryan's Rovers"
+    const W = 'Walford Town'
+
+    it('should list scorers per team with minutes, pens marked, in order of first goal', () => {
+        const events = [
+            ev('k', 0, { type: 'kick_off' }),
+            ev('a', 12 * 60, { team: R, scorer: 'Sam Taylor' }),
+            ev('b', 20 * 60, { team: W, scorer: 'Alex' }),
+            ev('c', 43 * 60 + 5, { team: R, scorer: 'sam taylor', pen: true }),
+            ev('d', 50 * 60, { team: R }),
+        ]
+        expect(scorerColumns(events, teams, [0])).toEqual({
+            left: [{ name: 'SAM TAYLOR', minutes: "'13 '44 PEN" }],
+            right: [{ name: 'ALEX', minutes: "'21" }],
+        })
+    })
+
+    it('should put an own goal under the credited team, marked OG', () => {
+        const cols = scorerColumns([ev('o', 60, { type: 'own_goal', team: W, scorer: 'Smith' })], teams, [0])
+        expect(cols.right).toEqual([{ name: 'SMITH (OG)', minutes: "'2" }])
+        expect(cols.left).toEqual([])
+    })
+
+    it('should put the scorers on the full-time card only, and only when someone is named', () => {
+        const spec = build([ev('a', 20, { team: R, scorer: 'Sam' })])
+        expect(spec.outro?.scorers?.left).toEqual([{ name: 'SAM', minutes: "'1" }])
+        expect(spec.intro?.scorers).toBeUndefined()
+        expect(build([ev('a', 20, { team: R })]).outro?.scorers).toBeUndefined()
     })
 })

@@ -1,9 +1,8 @@
 // Executes layout draw ops on a canvas. The 1920×1080 design is scaled uniformly and centred in the frame.
 import { DESIGN_H, DESIGN_W, type DrawOp, type MeasureText } from './layout'
+import { C, SKEW } from './brandColors'
+import { VOICES, fontCss, type FontVoice } from './fonts'
 import { stripeBands, teamFill } from './teamFill'
-import { NAVY, NAVY_DARK } from './teamStyle'
-
-export const DISPLAY_FONT = '"Bebas Neue", "Oswald", "Arial Narrow", sans-serif'
 
 export type PaintAssets = { logo: ImageBitmap | null }
 type Ctx = OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D
@@ -32,16 +31,22 @@ export function clampInto(box: Box, inner: Box): Box {
     return { x, y, w, h }
 }
 
+/** Sets a voice's font (and its letter spacing, where the canvas supports it) on the context. */
+function setVoice(ctx: Ctx, voice: FontVoice, size: number): void {
+    ctx.font = fontCss(voice, size)
+    if ('letterSpacing' in ctx) ctx.letterSpacing = VOICES[voice].letterSpacing
+}
+
 /** Reference glyphs: capitals and digits, which is all the graphics draw (no descenders to skew the centring). */
 const INK_REFERENCE = 'H0'
 
 /**
  * Ascent / descent of the display font's capitals at `size`, measured by the platform rather than guessed, so text
- * centres the same with Bebas Neue as with a fallback (font metrics and 'middle' baselines differ per platform).
+ * centres the same with the brand font as with a fallback (font metrics and 'middle' baselines differ per platform).
  */
-export function textInkMetrics(ctx: Ctx, size: number): { ascent: number; descent: number } {
+export function textInkMetrics(ctx: Ctx, size: number, voice: FontVoice = 'stadium'): { ascent: number; descent: number } {
     ctx.save()
-    ctx.font = `${size}px ${DISPLAY_FONT}`
+    setVoice(ctx, voice, size)
     ctx.textBaseline = 'alphabetic'
     const m = ctx.measureText(INK_REFERENCE)
     ctx.restore()
@@ -73,40 +78,43 @@ function fillShape(ctx: Ctx, fill: string, box: Box, hasPath: boolean): void {
     ctx.restore()
 }
 
-function shieldPath(ctx: Ctx, cx: number, cy: number, w: number, h: number): void {
+function polyPath(ctx: Ctx, points: [number, number][]): void {
     ctx.beginPath()
-    ctx.moveTo(cx - w / 2, cy - h / 2)
-    ctx.lineTo(cx + w / 2, cy - h / 2)
-    ctx.lineTo(cx + w / 2, cy + h * 0.12)
-    ctx.lineTo(cx, cy + h / 2)
-    ctx.lineTo(cx - w / 2, cy + h * 0.12)
+    points.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)))
     ctx.closePath()
 }
 
 function background(ctx: Ctx, x0: number, y0: number, x1: number, y1: number): void {
     const g = ctx.createLinearGradient(0, y0, 0, y1)
-    g.addColorStop(0, NAVY)
-    g.addColorStop(1, NAVY_DARK)
+    g.addColorStop(0, C.ground)
+    g.addColorStop(1, C.surface)
     ctx.fillStyle = g
     ctx.fillRect(x0, y0, x1 - x0, y1 - y0)
-    // Faint wide diagonal stripes.
-    ctx.fillStyle = 'rgba(255,255,255,0.025)'
-    for (let x = x0 - 1200; x < x1; x += 360) {
-        ctx.beginPath()
-        ctx.moveTo(x, y1)
-        ctx.lineTo(x + 180, y1)
-        ctx.lineTo(x + 180 + (y1 - y0), y0)
-        ctx.lineTo(x + (y1 - y0), y0)
-        ctx.closePath()
-        ctx.fill()
-    }
+}
+
+/** Faint pitch markings (no mowing stripes): touchlines, halfway line, centre circle, both penalty and six-yard boxes. */
+function pitch(ctx: Ctx): void {
+    ctx.save()
+    ctx.strokeStyle = C.pitch
+    ctx.fillStyle = C.pitch
+    ctx.lineWidth = 6
+    const L = 64, T = 64, R = DESIGN_W - 64, B = DESIGN_H - 64, mx = DESIGN_W / 2, my = DESIGN_H / 2
+    ctx.strokeRect(L, T, R - L, B - T)
+    ctx.beginPath(); ctx.moveTo(mx, T); ctx.lineTo(mx, B); ctx.stroke()
+    ctx.beginPath(); ctx.arc(mx, my, 210, 0, Math.PI * 2); ctx.stroke()
+    ctx.beginPath(); ctx.arc(mx, my, 10, 0, Math.PI * 2); ctx.fill()
+    ctx.strokeRect(L, my - 330, 330, 660)
+    ctx.strokeRect(R - 330, my - 330, 330, 660)
+    ctx.strokeRect(L, my - 150, 120, 300)
+    ctx.strokeRect(R - 120, my - 150, 120, 300)
+    ctx.restore()
 }
 
 /** Real text widths for layouts, from the canvas's font metrics. */
 export function measureWith(ctx: Ctx): MeasureText {
-    return (text, size) => {
+    return (text, size, voice = 'shirt') => {
         ctx.save()
-        ctx.font = `${size}px ${DISPLAY_FONT}`
+        setVoice(ctx, voice, size)
         const w = ctx.measureText(text).width
         ctx.restore()
         return w
@@ -123,30 +131,50 @@ export function paintOps(ctx: Ctx, ops: DrawOp[], assets: PaintAssets): void {
             background(ctx, -ox / s, -oy / s, (width - ox) / s, (height - oy) / s)
             continue
         }
+        if (op.kind === 'pitch') {
+            ctx.globalAlpha = 1
+            pitch(ctx)
+            continue
+        }
         ctx.globalAlpha = op.alpha ?? 1
         if (ctx.globalAlpha <= 0) continue
+        const leaning = (op.kind === 'rect' || op.kind === 'text' || op.kind === 'logo') && op.skew !== undefined
+        if (leaning) {
+            ctx.save()
+            // skewX(-10deg) about the pivot row: x' = x - SKEW × (y - pivot)
+            ctx.transform(1, 0, -SKEW, 1, SKEW * op.skew!, 0)
+        }
         switch (op.kind) {
             case 'rect':
                 fillShape(ctx, op.fill, op, false)
                 break
-            case 'shield': {
-                const r = op.box ? clampInto(op.box, { x: op.cx - op.w / 2, y: op.cy - op.h / 2, w: op.w, h: op.h }) : { x: op.cx - op.w / 2, y: op.cy - op.h / 2, w: op.w, h: op.h }
-                shieldPath(ctx, r.x + r.w / 2, r.y + r.h / 2, r.w, r.h)
-                fillShape(ctx, op.fill, r, true)
-                shieldPath(ctx, r.x + r.w / 2, r.y + r.h / 2, r.w, r.h) // stripes leave their last band as the current path
-                ctx.lineWidth = op.lineWidth
-                ctx.strokeStyle = op.stroke
-                ctx.stroke()
+            case 'poly': {
+                const xs = op.points.map((p) => p[0])
+                const ys = op.points.map((p) => p[1])
+                const box = { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }
+                polyPath(ctx, op.points)
+                fillShape(ctx, op.fill, box, true)
                 break
             }
+            case 'circle':
+                ctx.beginPath()
+                ctx.arc(op.cx, op.cy, op.r, 0, Math.PI * 2)
+                ctx.fillStyle = op.fill
+                ctx.fill()
+                if (op.stroke) {
+                    ctx.lineWidth = op.lineWidth ?? 4
+                    ctx.strokeStyle = op.stroke
+                    ctx.stroke()
+                }
+                break
             case 'text': {
                 ctx.fillStyle = op.color
-                ctx.font = `${op.size}px ${DISPLAY_FONT}`
+                setVoice(ctx, op.voice, op.size)
                 ctx.textAlign = op.align
                 ctx.textBaseline = 'alphabetic'
                 let y = op.y
                 if (op.baseline === 'middle') {
-                    const m = textInkMetrics(ctx, op.size)
+                    const m = textInkMetrics(ctx, op.size, op.voice)
                     y = centredBaseline(op.y, m.ascent, m.descent)
                 }
                 if (op.outline) {
@@ -170,6 +198,7 @@ export function paintOps(ctx: Ctx, ops: DrawOp[], assets: PaintAssets): void {
                 break
             }
         }
+        if (leaning) ctx.restore()
     }
     ctx.restore()
 }

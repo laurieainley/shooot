@@ -15,7 +15,7 @@ function painter(o: OverlaySpec, assets: PaintAssets): Painter {
         case 'caption':
             return (ctx, t) => paintOps(ctx, captionLayout(o.spec, o.clock.offsetSec + t * o.clock.rate, logo, o.clock.totalSec, measureWith(ctx)), assets)
         case 'replayTag':
-            return (ctx, t) => paintOps(ctx, replayTagLayout(t, o.durationSec, measureWith(ctx)), assets)
+            return (ctx, t) => paintOps(ctx, replayTagLayout(t, o.durationSec, measureWith(ctx), o.speed), assets)
         case 'scoreBug':
             return (ctx, t) => {
                 const at = o.startSec + t
@@ -30,7 +30,7 @@ function card(spec: CardSpec, label: string, assets: PaintAssets) {
     // Drawn once fully visible; the engine applies the fade (cheaper than converting every frame).
     return {
         label, durationSec: CARD_SEC,
-        paint: (ctx: OffscreenCanvasRenderingContext2D) => paintOps(ctx, cardLayout(spec, CARD_SEC / 2, CARD_SEC, !!assets.logo), assets),
+        paint: (ctx: OffscreenCanvasRenderingContext2D) => paintOps(ctx, cardLayout(spec, CARD_SEC / 2, CARD_SEC, !!assets.logo, measureWith(ctx)), assets),
         fade: (t: number) => cardFade(t, CARD_SEC),
     }
 }

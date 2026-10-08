@@ -9,7 +9,7 @@ const spec: GraphicsSpec = {
     outro: { heading: 'FULL TIME', centre: '0 - 0', left: badge, right: badge },
     overlays: [
         { kind: 'caption', cutIndex: 2, startSec: 20, durationSec: 5, spec: { label: 'GOAL', stripe: '#fff' }, clock: { offsetSec: 0, rate: 1, totalSec: 5 }, label: 'Caption: Goal' },
-        { kind: 'replayTag', cutIndex: 3, startSec: 16, durationSec: 5, label: 'Replay tag' },
+        { kind: 'replayTag', cutIndex: 3, startSec: 16, durationSec: 5, speed: 0.5, label: 'Replay tag' },
     ],
 }
 
@@ -48,7 +48,7 @@ describe('score bug painter', () => {
         const drawn: string[] = []
         const ctx = {
             canvas: { width: 1920, height: 1080 }, globalAlpha: 1, fillStyle: '', font: '', textAlign: 'left', textBaseline: 'alphabetic', lineWidth: 1, strokeStyle: '',
-            save() {}, restore() {}, setTransform() {}, fillRect() {}, beginPath() {}, moveTo() {}, lineTo() {}, closePath() {}, fill() {}, stroke() {}, drawImage() {},
+            save() {}, restore() {}, setTransform() {}, transform() {}, letterSpacing: '0px', arc() {}, fillRect() {}, beginPath() {}, moveTo() {}, lineTo() {}, closePath() {}, fill() {}, stroke() {}, drawImage() {},
             measureText: (t: string) => ({ width: t.length * 20 }),
             fillText: (t: string) => { drawn.push(t) },
         }
@@ -83,5 +83,20 @@ describe('score bug painter', () => {
         expect(clip.follows).toBeUndefined()
         expect(replay.anchor).toBe('fromCutStart')
         expect(replay.follows).toEqual({ offsetSec: 3, rate: 2, totalSec: 5 })
+    })
+})
+
+describe('replay tag painter', () => {
+    it('should write the actual speed of the replay', () => {
+        const drawn: string[] = []
+        const ctx = {
+            canvas: { width: 1920, height: 1080 }, globalAlpha: 1, fillStyle: '', font: '', textAlign: 'left', textBaseline: 'alphabetic', letterSpacing: '0px',
+            save() {}, restore() {}, setTransform() {}, transform() {}, fillRect() {}, beginPath() {}, moveTo() {}, lineTo() {}, closePath() {}, fill() {}, stroke() {}, arc() {},
+            measureText: (t: string) => ({ width: t.length * 20 }),
+            fillText: (t: string) => { drawn.push(t) },
+        } as unknown as OffscreenCanvasRenderingContext2D
+        const [tag] = toRenderGraphics({ overlays: [{ kind: 'replayTag', cutIndex: 0, startSec: 0, durationSec: 4, speed: 0.25, label: 'Replay tag' }] }, { logo: null }).overlays
+        tag.paint(ctx, 1)
+        expect(drawn).toEqual(['REPLAY 0.25×'])
     })
 })

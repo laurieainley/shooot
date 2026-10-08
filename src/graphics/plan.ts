@@ -1,12 +1,14 @@
 import type { MatchEvent, Team } from '../types'
 import type { Cut } from '../render/types'
-import { assistOf, eventLabel, eventSummary, isScoring, shortNote } from '../utils/eventTypes'
+import { assistOf, eventSummary, isScoring, shortNote } from '../utils/eventTypes'
+import { markerGlobalSec, matchMinute } from '../utils/matchClock'
 import { linkedEvents } from '../utils/relink'
 import { finalScore, formatScore, scoreAt, scoresAfter, type Score } from '../utils/score'
 import { subtractIntervals, type ScoreBugWindow } from '../utils/scoreBug'
 import { CAPTION_DELAY_SEC, CAPTION_SEC } from './layout'
-import { ORANGE, teamBadge } from './teamStyle'
-import type { BugSpec, CaptionClock, CaptionSpec, CardSpec, GraphicsSpec, OverlaySpec } from './types'
+import { C } from './brandColors'
+import { teamBadge } from './teamStyle'
+import type { BugSpec, CaptionClock, CaptionSpec, CaptionTone, CardSpec, GraphicsSpec, OverlaySpec, ScorerLine } from './types'
 
 export type GraphicsSettings = {
     cards: boolean
@@ -36,23 +38,71 @@ function bugFor(teams: Team[], score: Score): BugSpec {
     return { left: a.initials, right: b.initials, leftColour: a.colour, rightColour: b.colour, text: formatScore(score) }
 }
 
-function cards(teams: Team[], events: MatchEvent[], matchday: string): Pick<GraphicsSpec, 'intro' | 'outro'> {
-    const intro: CardSpec = { heading: matchday.trim().toUpperCase() || 'MATCH', centre: 'VS', left: teamBadge(teams[0]), right: teamBadge(teams[1]) }
-    const [a, b] = finalScore(events, teams)
-    return { intro, outro: { ...intro, heading: 'FULL TIME', centre: `${a} - ${b}` } }
+const absTime = (e: MatchEvent, offsets: number[]): number => e.globalTimeSec ?? (offsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec
+
+/** The event word of a caption, in the stadium voice. */
+export function captionWord(e: Pick<MatchEvent, 'type' | 'pen'>): string {
+    switch (e.type) {
+        case 'goal': return e.pen ? 'PEN GOAL' : 'GOAL!'
+        case 'own_goal': return 'OWN GOAL'
+        case 'penalty_missed': return 'PENALTY MISSED'
+        case 'penalty_conceded': return 'PENALTY CONCEDED'
+        case 'save': return 'SAVE'
+        case 'foul': return 'FOUL'
+        case 'highlight': return 'HIGHLIGHT'
+        default: return e.type.replace(/_/g, ' ').toUpperCase()
+    }
 }
 
+const captionTone = (e: Pick<MatchEvent, 'type'>): CaptionTone => (e.type === 'goal' ? 'goal' : e.type === 'own_goal' ? 'ownGoal' : 'other')
 
-/** Caption content for one event (shared by highlights and the full match): label, person, assist, note and the score bug (given score). */
-function eventCaptionSpec(e: MatchEvent, teams: Team[], score: Score | undefined): CaptionSpec {
+/** `'34`: the match minute, only when kick-off is marked (minutes from the start of a file would mislead). */
+function minuteOf(e: MatchEvent, events: MatchEvent[], offsets: number[]): string | undefined {
+    const kickOff = markerGlobalSec(events, offsets, 'kick_off')
+    return kickOff === null ? undefined : `'${matchMinute(absTime(e, offsets), kickOff)}`
+}
+
+/**
+ * Who scored for each team, for the full-time card: chronological by first goal, minutes after the name (`'13 '44 PEN`),
+ * own goals under the team that was credited (`SMITH (OG)`). Goals without a name only count in the score.
+ */
+export function scorerColumns(events: MatchEvent[], teams: Team[], offsets: number[]): { left: ScorerLine[]; right: ScorerLine[] } {
+    const kickOff = markerGlobalSec(events, offsets, 'kick_off') ?? 0
+    const cols: { left: Map<string, ScorerLine>; right: Map<string, ScorerLine> } = { left: new Map(), right: new Map() }
+    const scoring = events.filter((e) => isScoring(e) && !e.unlinked).sort((a, b) => absTime(a, offsets) - absTime(b, offsets))
+    for (const e of scoring) {
+        const side = e.team === teams[0].name ? cols.left : e.team === teams[1].name ? cols.right : null
+        const who = e.scorer?.trim().toUpperCase()
+        if (!side || !who) continue
+        const name = e.type === 'own_goal' ? `${who} (OG)` : who
+        const mark = `'${matchMinute(absTime(e, offsets), kickOff)}${e.pen ? ' PEN' : ''}`
+        const line = side.get(name)
+        if (line) line.minutes += ` ${mark}`
+        else side.set(name, { name, minutes: mark })
+    }
+    return { left: [...cols.left.values()], right: [...cols.right.values()] }
+}
+
+function cards(teams: Team[], events: MatchEvent[], matchday: string, offsets: number[]): Pick<GraphicsSpec, 'intro' | 'outro'> {
+    const intro: CardSpec = { heading: matchday.trim().toUpperCase() || 'MATCH', centre: 'VS', left: teamBadge(teams[0]), right: teamBadge(teams[1]) }
+    const [a, b] = finalScore(events, teams)
+    const scorers = scorerColumns(events, teams, offsets)
+    const hasScorers = scorers.left.length + scorers.right.length > 0
+    return { intro, outro: { ...intro, heading: 'FULL TIME', centre: `${a} - ${b}`, ...(hasScorers ? { scorers } : {}) } }
+}
+
+/** Caption content for one event (shared by highlights and the full match): word, person, assist, note, minute and the score bug (given score). */
+function eventCaptionSpec(e: MatchEvent, teams: Team[], score: Score | undefined, events: MatchEvent[], offsets: number[]): CaptionSpec {
     const team = teams.find((x) => x.name === e.team)
-    const cs: CaptionSpec = { label: eventLabel(e).toUpperCase(), stripe: team?.color ?? ORANGE }
+    const cs: CaptionSpec = { label: captionWord(e), tone: captionTone(e), stripe: team?.color ?? C.muted }
     const person = upper(e.scorer)
     if (person) cs.person = person
     const assist = upper(assistOf(e))
     if (assist) cs.assist = assist
     const note = upper(shortNote(e.notes, 60))
     if (note) cs.note = note
+    const minute = minuteOf(e, events, offsets)
+    if (minute) cs.minute = minute
     if (score) cs.bug = bugFor(teams, score)
     return cs
 }
@@ -78,7 +128,7 @@ export function buildGraphicsSpec(args: {
     const both = teams.length >= 2
     const globalOf = (src: number, t: number): number => (cumulativeOffsets[src] ?? 0) + t
 
-    if (settings.cards && both) Object.assign(spec, cards(teams, events, args.matchday))
+    if (settings.cards && both) Object.assign(spec, cards(teams, events, args.matchday, cumulativeOffsets))
 
     const captions: CaptionOverlay[] = []
     if (settings.lowerThirds) {
@@ -91,7 +141,7 @@ export function buildGraphicsSpec(args: {
             const cutIndex = cuts.findIndex((c) => c.sourceIndex === src && (c.speed ?? 1) === 1 && c.startSec <= t && t < c.endSec)
             if (cutIndex === -1) continue
             const cut = cuts[cutIndex]
-            const cs = eventCaptionSpec(e, teams, both ? (after.get(e.id) ?? scoreAt(events, teams, cumulativeOffsets, globalOf(src, t))) : undefined)
+            const cs = eventCaptionSpec(e, teams, both ? (after.get(e.id) ?? scoreAt(events, teams, cumulativeOffsets, globalOf(src, t))) : undefined, events, cumulativeOffsets)
             // Goals etc.: 1 s after the event; what the clip cannot hold carries on over the start of its replay.
             // Highlights: from the start of their clip (the moment itself is the whole point of the clip).
             const atClipStart = e.type === 'highlight'
@@ -131,7 +181,7 @@ export function buildGraphicsSpec(args: {
 
     if (settings.replayTag) {
         cuts.forEach((c, cutIndex) => {
-            if ((c.speed ?? 1) < 1) spec.overlays.push({ kind: 'replayTag', cutIndex, startSec: c.startSec, durationSec: c.endSec - c.startSec, label: 'Replay tag' })
+            if ((c.speed ?? 1) < 1) spec.overlays.push({ kind: 'replayTag', cutIndex, startSec: c.startSec, durationSec: c.endSec - c.startSec, speed: c.speed ?? 1, label: 'Replay tag' })
         })
     }
     return spec
@@ -174,12 +224,12 @@ export function fullMatchGraphicsSpec(args: {
     const events = linkedEvents(args.events)
     const spec: GraphicsSpec = { overlays: [] }
     if (teams.length < 2) return spec
-    if (args.cards) Object.assign(spec, cards(teams, events, args.matchday))
+    if (args.cards) Object.assign(spec, cards(teams, events, args.matchday, cumulativeOffsets))
     const after = scoresAfter(events, teams, cumulativeOffsets)
     const captionTimes = args.captions ? fullMatchCaptionWindows(events, cumulativeOffsets) : []
     for (const c of captionTimes) {
         const e = c.event
-        const cs = eventCaptionSpec(e, teams, after.get(e.id) ?? scoreAt(events, teams, cumulativeOffsets, c.eventSec))
+        const cs = eventCaptionSpec(e, teams, after.get(e.id) ?? scoreAt(events, teams, cumulativeOffsets, c.eventSec), events, cumulativeOffsets)
         const a = c.startSec
         const b = a + c.durationSec
         const label = `Caption: ${eventSummary(e)}`
