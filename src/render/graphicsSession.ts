@@ -1,9 +1,9 @@
 // Generated video spliced into stream-copied footage (cards and overlays), following the spike's three rules:
 // parameter sets in-band on every key frame, a sample entry whose SPS covers every other SPS in the track,
 // and generated frames tagged with the footage colour space.
-import { EncodedPacket, type InputVideoTrack } from 'mediabunny'
+import { EncodedPacket, EncodedPacketSink, type InputVideoTrack } from 'mediabunny'
 import { ensureGraphicsFonts } from '../graphics/assets'
-import { frameDuration, presentationRanks } from './frameGrid'
+import { frameDuration, nominalFrameRate, presentationRanks } from './frameGrid'
 import { describeParams, type RenderDiagnostics } from './diagnostics'
 import { covers, craToBla, maxBitrateForLevel, paramSets, pickSampleEntry, raiseEntry, raisedLimits, spsLimits, spsOf, withInbandParams, type SpsLimits } from './nal'
 import { overlaySpans, type Gop, type ReencodeSpan } from './overlayWindow'
@@ -372,8 +372,15 @@ export async function openGraphicsSession(sources: GraphicsSource[], first: Grap
         footageParams.set(s, params)
         limits.push(spsLimits(sps, hevc))
     }
-    const stats = await first.video.computePacketStats(90)
-    const frameSec = frameDuration(stats.averagePacketRate)
+    // Cards run at the footage's usual frame rate (median gap), not its average: variable-frame-rate phone clips
+    // average something odd (27.4 fps) while nearly every frame sits on a 30 fps grid.
+    const sample: number[] = []
+    for await (const p of new EncodedPacketSink(first.video).packets(undefined, undefined, { metadataOnly: true })) {
+        sample.push(p.timestamp)
+        if (sample.length >= 120) break
+    }
+    const measured = nominalFrameRate(sample)
+    const frameSec = frameDuration(measured > 0 ? measured : (await first.video.computePacketStats(90)).averagePacketRate)
     const colorSpace = targetColorSpace(first.config.colorSpace)
     const cardBitrate = Math.max(2e6, Math.min(12e6, (width * height) / (1920 * 1080) * 10e6))
     let reason = 'no encoder for this video in this browser'

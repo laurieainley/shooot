@@ -2,6 +2,7 @@ import { ALL_FORMATS, Input } from 'mediabunny'
 import { fileSource } from '../render/fileSource'
 import { isAcceptedVideo } from './fileAccept'
 import { codecStringVariants } from './codecSupport'
+import { readRecordingMs } from './mp4Meta'
 import { plausibleRecordingTime, unsupportedReason } from './footageSupport'
 
 export type ProbedMetadata = {
@@ -39,7 +40,8 @@ async function readTrackInfo(file: File): Promise<TrackInfo> {
             audioCodec,
             codec,
             hasAudio: !!a,
-            recordedAtMs: plausibleRecordingTime(tags?.date),
+            // Container tags when Mediabunny has a date (e.g. iPhone), else the movie header's creation time.
+            recordedAtMs: plausibleRecordingTime(tags?.date) ?? plausibleRecordingTime(await readRecordingMs(file).then((ms) => (ms === undefined ? undefined : new Date(ms)))),
             codecString: (await v.getCodecParameterString()) ?? undefined,
             durationSec: await input.computeDuration(),
             width: v.displayWidth,
