@@ -46,3 +46,4 @@ Thumbs.db
 localhost+2.pem
 localhost+2-key.pem
 public/default-video.mp4
+.env*
