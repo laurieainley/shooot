@@ -10,7 +10,7 @@
   cursor: pointer; text-decoration: none;
 }
 .btn-quiet:hover:not(:disabled) { border-color: var(--sh-text); }
-/* Primary: lime fill, on-lime text, 800 italic uppercase, at least 44px, radius 10 (Export, Render, Mark event). */
+/* Primary: lime fill, on-lime text, 800 italic uppercase, at least 44px, radius 10 (Export, Render, Tag event). */
 .btn-primary {
   min-height: 44px; padding: 0 20px; border-color: var(--sh-lime); background: var(--sh-lime); color: var(--sh-on-lime);
   font-weight: 800; font-style: italic; font-size: 14px; letter-spacing: 0.02em; text-transform: uppercase;
@@ -1045,7 +1045,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .render-ready { display: flex; align-items: center; gap: 10px; flex-basis: 100%; margin: 0; }
 .render-ready span:last-child { font-size: 15px; line-height: 1.2; }
 .opening-status .sh-net { flex: none; }
-/* "Goal marked." over the picture, a beat after a scoring event is added. */
+/* "Goal tagged." over the picture, a beat after a scoring event is added. */
 .goal-marked {
   position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 25; pointer-events: none;
   display: inline-flex; align-items: center; gap: 8px; padding: 4px 16px 4px 8px; border-radius: 999px;
@@ -1058,7 +1058,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .render-chip__text::before, .spinner, .btn-primary.export-btn::before { animation: none !important; }
 }
 
-/* Mark event: lime primary with the REC dot (red = recording this moment). Mouse: 36px in the dense log header; touch gets 44px. */
+/* Tag event: lime primary with the REC dot (red = recording this moment). Mouse: 36px in the dense log header; touch gets 44px. */
 .btn-primary.mark-btn { gap: 8px; }
 .btn-primary.mark-btn::before { content: ''; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--sh-rec); box-shadow: 0 0 0 2px var(--sh-lime); }
 @media (pointer: fine) { .event-log > header .btn-primary { min-height: 36px; padding: 0 14px; } }

@@ -2,14 +2,14 @@
 
 ## Project Overview
 
-Shot Stopper (branded "SHOOOT") is a browser-based video highlight editor. Users load one or more video files (MP4/MOV, H.264/HEVC + AAC, from phones or cameras), scrub through the footage, mark events (goals, key moments) at specific timestamps — either manually or via keyboard shortcuts — and render a concatenated highlight reel. The render uses Mediabunny to remux the encoded packets of each segment into one MP4 (no decode, no re-encode), keeping output fast and lossless relative to the source. iPhone MOV, Android MP4 (incl. variable frame rate), action-camera files and GoPro `.LRV` proxies load directly; files without audio get silence in the reel.
+Shot Stopper (branded "SHOOOT") is a browser-based video highlight editor. Users load one or more video files (MP4/MOV, H.264/HEVC + AAC, from phones or cameras), scrub through the footage, tag events (goals, key moments) at specific timestamps — either manually or via keyboard shortcuts — and render a concatenated highlight reel. The render uses Mediabunny to remux the encoded packets of each segment into one MP4 (no decode, no re-encode), keeping output fast and lossless relative to the source. iPhone MOV, Android MP4 (incl. variable frame rate), action-camera files and GoPro `.LRV` proxies load directly; files without audio get silence in the reel.
 
 The tool is designed around football/soccer match footage (the primary use case is marking goals), but the workflow is deliberately generic — any MP4 content with discrete moments worth clipping works the same way.
 
 ### Core workflow
 
 1. **Load videos** — drag/drop or file picker; multiple files form a single ordered timeline (default order: GoPro chapter order for GoPro names, else recording time from the container, else `lastModified`, else natural name order; reorderable).
-2. **Mark events** — press **G** while playing to add a goal at the current playback position, or enter timestamps manually. Each event records the time, source file, and optional team/scorer metadata.
+2. **Tag events** — press **G** while playing to tag a goal at the current playback position, or enter timestamps manually. Each event records the time, source file, and optional team/scorer metadata.
 3. **Configure clip padding** — set how many seconds before and after each event to include (defaults: 10s before, 4s after). Overlapping segments are automatically merged. Scoring events also get a silent **slow-mo replay** (default 3 s before → 1 s after the moment at 0.5×, configurable in Clip settings; per-event ↻ toggle overrides the default) placed straight after their clip.
 4. **Preview** — step through the generated segments in-player before committing to a render.
 5. **Render** — `renderReel()` copies each segment's video and audio packets (snapped to keyframes) into a single MP4 streamed to OPFS, then offers a download / share. With LRV proxies there is a quick **Preview reel** (from the proxies) and a **Full quality render** (from the paired MP4s).
@@ -70,8 +70,8 @@ src/
     FloatingPanel.tsx         # Anchored popover on desktop, bottom sheet on phone (portalled to body)
     ProjectIO.tsx   # Export / import project JSON
     KeyHints.tsx    # One-line shortcut hints (desktop)
-    Fab.tsx         # Phone ＋ mark-event button
-    Player.tsx      # Video.js player with hotkeys (G mark, Z zoom, 0 reset zoom, <> speed, etc.)
+    Fab.tsx         # Phone ＋ tag-event button
+    Player.tsx      # Video.js player with hotkeys (G tag, Z zoom, 0 reset zoom, <> speed, etc.)
     useZoomPan.ts   # Zoom 1/1.5/2×, clamped pan, pinch (used by Player); ZoomChip.tsx shows the level
     useMediaQuery.ts          # matchMedia hook; DESKTOP_QUERY = (min-width: 900px)
     addFiles.ts     # addPickedFiles(): attach full MP4s to loaded proxies, probe + append the rest
@@ -130,7 +130,7 @@ event picker or a sheet / panel is open (those have their own keys). `components
 | Key | Action |
 |-----|--------|
 | **Space** | Play / pause (also with a button focused: the key-up click is suppressed) |
-| **G** | Add an event at the current playback time (opens the picker) |
+| **G** | Tag an event at the current playback time (opens the picker) |
 | **M** | Mute |
 | **, / .** | Decrease / increase playback speed (0.25x steps) |
 | **/** | Reset playback speed to 1x |
@@ -250,6 +250,6 @@ All UI, copy and rendered video graphics follow `brand/shooot/BRAND.md` (skill: 
 
 - `src/index.css` imports `brand/shooot/tokens.css` + `motion.css` (Google Fonts `@import` removed from the pack; fonts are self-hosted) and maps them into Tailwind `@theme` (`bg-surface`, `text-muted`, `text-lime-text`, ...). `App.css` uses `var(--sh-*)` only; the picture well and overlays use `--sh-video` / `--sh-on-video` / `--sh-scrim`.
 - Voices: `.voice-heading`, `.voice-scoreboard`, `.voice-shirt` (index.css); clocks and scores `.tc` (mono).
-- Red only for REC meanings: playhead, the mark button's dot, render chip / dot. Warnings and destructive actions are chalk with an icon (`.msg-warn`, `.btn-danger`).
+- Red only for REC meanings: playhead, the tag button's dot, render chip / dot. Warnings and destructive actions are chalk with an icon (`.msg-warn`, `.btn-danger`).
 - Goals are lime ticks on the strip and scrubber; own goals chalk + "OG"; kit colours only as dots on rows and the score badge.
 - Copy for empty / progress / success states lives in `utils/voice.ts`; check key colour pairs with `node scripts/check-contrast.mjs`.

@@ -8,7 +8,7 @@ export function Fab() {
     return (
         <button
             type="button"
-            aria-label="Mark event"
+            aria-label="Tag event"
             className="fab"
             onClick={() => { const st = useAppState.getState(); st.markEvent(st.currentTimeInFileSec, { deferred: true }) }}
         >

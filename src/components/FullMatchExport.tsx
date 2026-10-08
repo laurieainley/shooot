@@ -66,7 +66,7 @@ export function FullMatchExport() {
             <div className="full-match-summary">
                 <p className="m-0"><b>{from} → {to}</b></p>
                 <p className="m-0 tc text-muted">{formatReelLength(plan.seconds)} · about {formatBytes(plan.bytes)} · stream copied, not re-encoded</p>
-                {(!hasKickOff || !hasWhistle) && <p className="m-0 text-muted">Mark Kick off (K) and Final whistle (W) to trim the warm-up and the end.</p>}
+                {(!hasKickOff || !hasWhistle) && <p className="m-0 text-muted">Tag Kick off (K) and Final whistle (W) to trim the warm-up and the end.</p>}
             </div>
             {phone && plan.bytes > PHONE_SIZE_WARNING && (
                 <p role="alert" className="export-note">This file will be over 2 GB ({formatBytes(plan.bytes)}): make sure the phone has room, or render the preview from the proxies.</p>

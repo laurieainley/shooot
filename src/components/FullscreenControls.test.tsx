@@ -90,10 +90,10 @@ describe('FullscreenControls', () => {
         useAppState.setState({ events: [], picker: null, currentFileIndex: 0, currentTimeInFileSec: 20, files: [{ id: 'a', name: 'a.mp4', url: '', file: new File([''], 'a.mp4'), kind: 'full' }] })
         const { getByRole, queryByRole } = render(<FullscreenControls playerRef={{ current: player }} isFullscreen />)
         expect(queryByRole('button', { name: 'Event' })).toBeNull()
-        fireEvent.click(getByRole('button', { name: 'Mark event' }))
+        fireEvent.click(getByRole('button', { name: 'Tag event' }))
         expect(useAppState.getState().events).toEqual([])
         expect(useAppState.getState().picker?.pending).toEqual({ matchTimeSec: 20, sourceFileIndex: 0 })
-        expect(queryByRole('button', { name: 'Mark event' })).toBeNull()
+        expect(queryByRole('button', { name: 'Tag event' })).toBeNull()
     })
 
     it('should keep the tap zones but leave marking to the ＋ button on a phone outside fullscreen', () => {

@@ -5,7 +5,7 @@ import { NetBulge } from './NetBulge'
 
 const SHOW_MS = 1600
 
-/** A brief "Goal marked." with the net bulge, over the picture, each time one scoring event is added (not on import, undo or delete). */
+/** A brief "Goal tagged." with the net bulge, over the picture, each time one scoring event is added (not on import, undo or delete). */
 export function GoalMarked() {
     const events = useAppState((s) => s.events)
     const prev = useRef(events)

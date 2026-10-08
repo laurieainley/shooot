@@ -19,7 +19,7 @@ describe('voice', () => {
 
     it('should word the done and goal-marked states', () => {
         expect(REEL_READY).toBe("Reel ready. Group chat won't know what's hit it.")
-        expect(GOAL_MARKED).toBe('Goal marked.')
+        expect(GOAL_MARKED).toBe('Goal tagged.')
     })
 })
 
