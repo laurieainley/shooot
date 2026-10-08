@@ -168,24 +168,35 @@
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Score: team names in the display face, digits on a little scoreboard panel. */
-.score-badge { display: inline-flex; align-items: center; gap: 8px; flex: none; }
-.score-name { font-family: var(--sh-font); font-weight: 800; font-style: italic; font-stretch: var(--sh-stretch-scoreboard); text-transform: uppercase; font-size: 18px; line-height: 1; }
-/* Scorebug: team names in the scoreboard voice, the score in mono on lime, leaning forward. */
-.scoreboard {
-  display: inline-flex; align-items: center; gap: 3px; transform: skewX(var(--sh-skew));
-  background: var(--sh-lime); color: var(--sh-on-lime); border-radius: var(--sh-radius-sm);
-  padding: 3px 9px; font-size: 16px; font-weight: 700; line-height: 1.1; letter-spacing: 0.04em;
+/* Scorebug on the picture (Scorebug.tsx), proportions of the rendered graphics bug (64 px tall on a 1920 px frame). */
+.scorebug-layer {
+  position: absolute; z-index: 25; inset: 0; pointer-events: none; container-type: inline-size;
 }
-.score-sep { opacity: 0.6; }
-.score-final { font-size: 13px; color: var(--sh-muted); }
-/* Fullscreen: the compact badge as a chip over the picture (never takes taps). */
-.overlay-controls.score-chip { pointer-events: none; }
-.overlay-controls.score-chip > * { pointer-events: none; }
-.score-chip .score-badge {
-  gap: 6px; padding: 5px 8px; border-radius: var(--sh-radius-sm); background: var(--sh-scrim); color: var(--sh-on-video);
+.scorebug {
+  --u: max(calc(100cqw / 1920), 0.34px); /* one design pixel (cqw = the layer's width); keeps text >= 14px on phones */
+  position: absolute; display: flex; align-items: center; gap: calc(var(--u) * 20);
+  top: calc(var(--u) * 28 + env(safe-area-inset-top, 0px)); left: calc(var(--u) * 40 + env(safe-area-inset-left, 0px) + 6px);
 }
-.score-chip .score-final { color: var(--sh-on-video); opacity: 0.75; }
+.scorebug__strip {
+  display: inline-flex; align-items: stretch; height: calc(var(--u) * 67); transform: skewX(var(--sh-skew)); transform-origin: left center;
+  background: var(--sh-surface); color: var(--sh-text); overflow: hidden;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.35);
+}
+.scorebug__bar { flex: none; width: 5px; }
+.scorebug__initials {
+  display: grid; place-items: center; padding: 0 calc(var(--u) * 17); min-width: 2.2ch;
+  font-family: var(--sh-font); font-weight: 800; font-style: italic; font-stretch: var(--sh-stretch-scoreboard); text-transform: uppercase;
+  font-size: calc(var(--u) * 46); line-height: 1;
+}
+.scorebug__score {
+  display: grid; place-items: center; padding: 0 calc(var(--u) * 17); min-width: calc(var(--u) * 84);
+  background: var(--sh-lime); color: var(--sh-on-lime); font-family: var(--sh-font-mono); font-weight: 700; font-size: calc(var(--u) * 48); line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.scorebug__clock {
+  font-family: var(--sh-font-mono); font-weight: 700; font-size: max(14px, calc(var(--u) * 40)); color: var(--sh-on-video); opacity: 0.8;
+  text-shadow: 0 1px 4px rgb(0 0 0 / 0.7);
+}
 
 /* ---------- landscape phone: the desktop bay under a 44px top bar, no page scroll ---------- */
 .shell--landscape {
@@ -293,12 +304,6 @@
 .shell--phone .event-log ol { overflow: visible; padding-bottom: 16px; }
 .shell--phone .event-row { min-height: 44px; }
 /* Phone rows are narrow: let a note wrap onto a second line instead of vanishing into an ellipsis. */
-
-/* Goal assists: "Goal · Sam (assist Jo)" in full; on narrow (phone / landscape) rows the short "Goal · Sam, Jo" (the title has the full text). */
-.event-row__assist-short { display: none; }
-@container event-log (max-width: 520px) { .event-row__assist { display: none; } .event-row__assist-short { display: inline; } }
-.shell--phone .event-row__assist, .shell--landscape .event-row__assist { display: none; }
-.shell--phone .event-row__assist-short, .shell--landscape .event-row__assist-short { display: inline; }
 
 .clip-summary {
   display: grid; gap: 3px; width: 100%; text-align: left; cursor: pointer;
@@ -542,7 +547,7 @@
 .player-container--zoomed .vjs-tech { cursor: grab; }
 .player-container--zoomed.zoom-dragging .vjs-tech { cursor: grabbing; }
 .zoom-chip {
-  position: absolute; top: 10px; left: 10px; z-index: 30; /* top-right is the touch fullscreen button */
+  position: absolute; bottom: 54px; left: 10px; z-index: 30; /* top-left is the scorebug, top-right the touch fullscreen button */
   border: 1px solid rgb(243 241 234 / 0.3); border-radius: var(--sh-radius-sm); padding: 2px 8px;
   background: var(--sh-scrim); color: var(--sh-lime); font-family: var(--sh-font-mono); font-size: 13px; cursor: pointer;
 }
@@ -734,7 +739,6 @@
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 html:has(.player-container--immersive), body:has(.player-container--immersive) { overflow: hidden; }
-.player-container:fullscreen .zoom-chip, .player-container--immersive .zoom-chip { top: auto; bottom: 64px; }
 .player-container:fullscreen .video-js { width: 100%; height: 100%; }
 
 /* Scrubber markers */
@@ -805,7 +809,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .btn-quiet, .btn-primary, .file-add, .field, .tag, .row-score, .menu > button, .menu-item,
   .clip-summary, .export-section__title, .settings-group legend, .export-section__hint, .toggle-row__hint, .settings-field, .settings-field .unit,
   .strip-label, .strip-file__name, .graphics-setup__field, .opening-status, .event-picker__hint, .event-picker__title, .event-picker__warn,
-  .control-btn, .score-final, .file-row__index, .file-pill, .file-pill__dur, .key-hints,
+  .control-btn, .file-row__index, .file-pill, .file-pill__dur, .key-hints,
   .player-container .video-js .vjs-time-control { font-size: 14px; }
   .tag { line-height: 18px; }
   .zoom-chip { min-width: 44px; min-height: 44px; font-size: 14px; }
@@ -1069,8 +1073,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .shell--phone .wordmark img { height: 20px; }
   .shell--phone .top-bar { gap: 8px; }
   .shell--phone .top-bar .btn-primary { padding: 0 14px; font-size: 13px; }
-  .shell--phone .top-bar .score-final { display: none; }
-}
+  }
 
 /* Narrow event labels (landscape phone, desktop rail): a tighter tag so "Pen goal" and a name both fit. */
 .shell--landscape .ev-tag { font-size: 12px; padding: 1px 6px; margin-right: 6px; }
@@ -1082,10 +1085,24 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --sh-lime-edge: var(--sh-text); } }
 .strip-dot[data-tick="goal"]::before { box-shadow: 0 0 0 1px var(--sh-lime-edge), 0 0 0 2.5px var(--sh-ground); }
 
-/* Labels never ellipsize: tag, person, assist and note wrap onto further lines (the row grows). */
-.event-row__label { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; display: block !important; line-height: 1.35; min-width: 0; overflow-wrap: break-word; }
-.event-row { white-space: normal; }
+/* Event rows: [clock] [dot] [content] [score] [file] [buttons]. Fixed-width slots keep every row aligned; the content column takes the rest.
+   Line 1 = tag + person (the person wraps whole onto the next line when it does not fit), line 2 = "Assist: Jo" and / or the note. Nothing is clipped. */
+.event-row { white-space: normal; font-size: 13px; min-height: 42px; column-gap: 8px; }
 .event-row > .tc, .event-row > .team-dot, .event-row > .marker-flag { white-space: nowrap; }
+.event-row .clock { min-width: calc(var(--clock-ch, 6) * 1ch); }
+.event-row__content { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; }
+.event-row__main { display: flex; flex-wrap: wrap; align-items: center; row-gap: 2px; min-width: 0; }
+.event-row__main .ev-tag { flex: none; }
+.event-row__main .ev-person { flex: 0 1 auto; min-width: 0; line-height: 1.15; overflow-wrap: break-word; }
+.event-row__label { white-space: nowrap; }
+.event-row__sub { display: flex; flex-wrap: wrap; column-gap: 8px; min-width: 0; font-size: 12px; line-height: 1.3; color: var(--sh-muted); overflow-wrap: break-word; }
+.event-row__assist, .event-row__note { min-width: 0; }
+.event-row__end { display: flex; align-items: center; justify-content: flex-end; gap: 2px; }
+.event-row__end .row-score { flex: none; min-width: 4.5ch; margin-right: 4px; text-align: right; }
+.event-row__end .row-file { flex: none; min-width: 2.4em; margin-right: 4px; text-align: center; }
+.event-row__end .row-btn { flex: none; }
+.row-btn--gap { visibility: hidden; pointer-events: none; }
+@media (pointer: fine) { .event-row__end .row-btn { width: 28px; height: 28px; } }
 .row-btn .ev-icon, .row-btn svg { flex: none; }
 .row-btn.watch-btn svg { width: 16px; height: 16px; }
 .row-btn.framing-btn, .row-btn.replay-btn { font-size: 20px; }

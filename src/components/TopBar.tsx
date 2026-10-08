@@ -5,7 +5,6 @@ import { ExportPanel } from './ExportPanel'
 import { FilePills } from './FilePills'
 import { OverflowMenu } from './OverflowMenu'
 import { Wordmark } from './Wordmark'
-import { ScoreBadge } from './ScoreBadge'
 import { RenderChip } from './RenderChip'
 import type { Layout } from './useMediaQuery'
 
@@ -43,7 +42,6 @@ export function TopBar({ layout }: TopBarProps) {
             {layout === 'desktop' || layout === 'tablet' ? (
                 <>
                     <div className="top-bar__files"><FilePills /></div>
-                    <ScoreBadge />
                     <span className="top-bar__actions">
                         <RenderChip />
                         <button type="button" onClick={() => useAppState.getState().openPanel('match')} className="btn-quiet">Match</button>
@@ -54,7 +52,6 @@ export function TopBar({ layout }: TopBarProps) {
             ) : (
                 <>
                     <span className="flex-1" />
-                    <ScoreBadge compact />
                     <RenderChip />
                     <ExportPanel />
                     <OverflowMenu />

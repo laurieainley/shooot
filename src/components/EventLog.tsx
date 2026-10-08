@@ -1,16 +1,17 @@
 import { teamBackground } from '../utils/teamColor'
 import { shouldHandleShortcut } from '../utils/shortcuts'
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import type { MatchEvent, Team } from '../types'
 import { emptyLogLine } from '../utils/voice'
-import { assistOf, controlSummary, controlLabel, isMarker, shortNote } from '../utils/eventTypes'
+import { controlLabel, isMarker } from '../utils/eventTypes'
+import { eventRowParts } from '../utils/eventRow'
 import { EventIcon, EventTag } from './EventTag'
 import { watchFromSec } from '../utils/markers'
 import { wantsReplay } from '../utils/replays'
 import { filterRoster, rosterTeamFor } from '../utils/roster'
 import { formatScore, scoresAfter } from '../utils/score'
-import { formatEventClock } from '../utils/timeline'
+import { clockWidthCh, formatEventClock } from '../utils/timeline'
 import { TimeInput } from './TimeInput'
 import { RelinkBanner } from './RelinkBanner'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
@@ -137,7 +138,8 @@ export function EventLog() {
                     {' '}{empty.key ? <>{empty.hint} <kbd>{empty.key}</kbd> {empty.tail}</> : empty.hint}
                 </p>
             ) : (
-                <ol ref={listRef} role="listbox" aria-label="Event list" className="m-0 min-h-0 flex-1 list-none overflow-y-auto overscroll-contain p-0">
+                <ol ref={listRef} role="listbox" aria-label="Event list" className="m-0 min-h-0 flex-1 list-none overflow-y-auto overscroll-contain p-0"
+                    style={{ '--clock-ch': clockWidthCh(clockLong, true) } as CSSProperties}>
                     {events.map((e) => (
                         <EventRow
                             key={e.id}
@@ -147,6 +149,7 @@ export function EventLog() {
                             clock={formatEventClock((offsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec, e.matchTimeSec, matchStartTimeSec, clockLong)}
                             score={scores.get(e.id)}
                             fileTag={files.length > 1 ? `V${(e.sourceFileIndex ?? 0) + 1}` : null}
+                            fileSlot={files.length > 1}
                             editing={editing?.id === e.id ? editing.field : null}
                             onSelect={() => {
                                 setSelectedId(e.id)
@@ -175,6 +178,8 @@ interface EventRowProps {
     clock: string
     score?: [number, number]
     fileTag: string | null
+    /** More than one file: every row keeps a badge column so rows line up. */
+    fileSlot: boolean
     editing: Field | null
     onSelect: () => void
     onWatch: () => void
@@ -187,18 +192,16 @@ interface EventRowProps {
     touch?: boolean
 }
 
-function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, onSelect, onWatch, onEdit, onToggleReplay, onFraming, onRemove, restoreFocus, touch = false }: EventRowProps) {
+function EventRow({ event: e, teams, selected, clock, score, fileTag, fileSlot, editing, onSelect, onWatch, onEdit, onToggleReplay, onFraming, onRemove, restoreFocus, touch = false }: EventRowProps) {
     const team = teams.find((t) => t.name === e.team)
     const replay = wantsReplay(e)
-    const summary = controlSummary(e)
-    const label = summary.full
-    const assist = assistOf(e)
-    const note = shortNote(e.notes)
+    const parts = eventRowParts(e)
+    const title = `${parts.title}${e.team ? ` – ${e.team}` : ''}`
     const stop = (ev: React.SyntheticEvent): void => ev.stopPropagation()
     const done = (): void => { onEdit(null); restoreFocus() }
     const update = useAppState((s) => s.updateEvent)
 
-    if (isMarker(e)) return <MarkerRow event={e} selected={selected} clock={clock} fileTag={fileTag} editing={editing} onSelect={onSelect} onWatch={onWatch} onEdit={onEdit} onRemove={onRemove} restoreFocus={restoreFocus} touch={touch} />
+    if (isMarker(e)) return <MarkerRow event={e} selected={selected} clock={clock} fileTag={fileTag} fileSlot={fileSlot} editing={editing} onSelect={onSelect} onWatch={onWatch} onEdit={onEdit} onRemove={onRemove} restoreFocus={restoreFocus} touch={touch} />
 
     return (
         <li
@@ -250,34 +253,31 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, o
             ) : editing === 'notes' ? (
                 <NoteEdit event={e} onDone={done} />
             ) : (
-                <span className="event-row__label truncate text-[13px]" title={`${label}${e.team ? ` – ${e.team}` : ''}${e.notes ? ` — ${e.notes}` : ''}`}>
-                    <span onDoubleClick={(ev) => { stop(ev); onEdit('scorer') }}>
+                <span className="event-row__content" title={title}>
+                    <span className="event-row__main" onDoubleClick={(ev) => { stop(ev); onEdit('scorer') }}>
                         <EventTag event={e} short />
-                        {e.scorer && <span className="ev-person voice-shirt">{e.scorer}</span>}
-                        {assist && <>
-                            <span className="event-row__assist"> (assist {assist})</span>
-                            <span className="event-row__assist-short" aria-hidden="true">, {assist}</span>
-                        </>}
+                        {parts.person && <span className="ev-person voice-shirt">{parts.person}</span>}
                     </span>
-                    {note && <>
-                        <span className="text-muted"> — </span>
-                        <span className="text-muted" onDoubleClick={(ev) => { stop(ev); onEdit('notes') }}>{note}</span>
-                    </>}
+                    {parts.sub.length > 0 && (
+                        <span className="event-row__sub">
+                            {parts.sub.map((part) => part.startsWith('—')
+                                ? <span key={part} className="event-row__note" onDoubleClick={(ev) => { stop(ev); onEdit('notes') }}>{part}</span>
+                                : <span key={part} className="event-row__assist">{part}</span>)}
+                        </span>
+                    )}
                 </span>
             )}
 
-            <span className="flex items-center gap-1.5">
-                {score && <span data-score className="tc row-score" title="Score after this goal">{formatScore(score)}</span>}
-                {e.unlinked
-                    ? <span className="tag tag-warn" title={e.sourceFileKey}>file missing</span>
-                    : fileTag && <span className="tag">{fileTag}</span>}
+            <span className="event-row__end">
+                <span {...(score ? { 'data-score': '' } : {})} className="tc row-score" title={score ? 'Score after this goal' : undefined}>{score ? formatScore(score) : null}</span>
+                <FileSlot unlinked={e.unlinked} fileKey={e.sourceFileKey} fileTag={fileTag} show={fileSlot} />
                 <WatchButton onWatch={onWatch} disabled={e.unlinked} />
                 <button type="button" aria-label="Replay" aria-pressed={replay} title={replay ? 'Slow-mo replay on (R)' : 'Slow-mo replay off (R)'}
                     tabIndex={-1} onClick={(ev) => { stop(ev); onToggleReplay() }} className="row-btn replay-btn">↻</button>
-                {!touch && replay && (
+                {!touch && (replay ? (
                     <button type="button" aria-label="Replay framing" title="Replay framing (zoom to the goal)" tabIndex={-1}
                         onClick={(ev) => { stop(ev); onFraming() }} className="row-btn framing-btn">⌖</button>
-                )}
+                ) : <span className="row-btn row-btn--gap" aria-hidden="true" />)}
                 {!touch && (
                     <button type="button" aria-label="Delete event" title="Delete (⌫)" tabIndex={-1}
                         onClick={(ev) => { stop(ev); onRemove() }} className="row-btn delete-btn">×</button>
@@ -287,10 +287,10 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, o
     )
 }
 
-type MarkerRowProps = Pick<EventRowProps, 'event' | 'selected' | 'clock' | 'fileTag' | 'editing' | 'onSelect' | 'onWatch' | 'onEdit' | 'onRemove' | 'restoreFocus' | 'touch'>
+type MarkerRowProps = Pick<EventRowProps, 'event' | 'selected' | 'clock' | 'fileTag' | 'fileSlot' | 'editing' | 'onSelect' | 'onWatch' | 'onEdit' | 'onRemove' | 'restoreFocus' | 'touch'>
 
 /** Kick off / Half time / Final whistle: a flag, the label and the time — no team, person, score or replay. */
-function MarkerRow({ event: e, selected, clock, fileTag, editing, onSelect, onWatch, onEdit, onRemove, restoreFocus, touch = false }: MarkerRowProps) {
+function MarkerRow({ event: e, selected, clock, fileTag, fileSlot, editing, onSelect, onWatch, onEdit, onRemove, restoreFocus, touch = false }: MarkerRowProps) {
     const stop = (ev: React.SyntheticEvent): void => ev.stopPropagation()
     const update = useAppState((s) => s.updateEvent)
     return (
@@ -305,10 +305,13 @@ function MarkerRow({ event: e, selected, clock, fileTag, editing, onSelect, onWa
                 <span className="tc clock text-[13px]" onDoubleClick={(ev) => { stop(ev); onEdit('time') }} title="Double-click to edit time (in file)">{clock}</span>
             )}
             <span className="marker-flag" aria-hidden="true"><EventIcon type={e.type} /></span>
-            <span className="event-row__label truncate text-[13px]">{controlLabel(e)}</span>
-            <span className="flex items-center gap-1.5">
-                {e.unlinked ? <span className="tag tag-warn" title={e.sourceFileKey}>file missing</span> : fileTag && <span className="tag">{fileTag}</span>}
+            <span className="event-row__content"><span className="event-row__main event-row__label">{controlLabel(e)}</span></span>
+            <span className="event-row__end">
+                <span className="row-score" aria-hidden="true" />
+                <FileSlot unlinked={e.unlinked} fileKey={e.sourceFileKey} fileTag={fileTag} show={fileSlot} />
                 <WatchButton onWatch={onWatch} disabled={e.unlinked} />
+                <span className="row-btn row-btn--gap" aria-hidden="true" />
+                {!touch && <span className="row-btn row-btn--gap" aria-hidden="true" />}
                 {!touch && (
                     <button type="button" aria-label="Delete event" title="Delete (⌫)" tabIndex={-1}
                         onClick={(ev) => { stop(ev); onRemove() }} className="row-btn delete-btn">×</button>
@@ -316,6 +319,20 @@ function MarkerRow({ event: e, selected, clock, fileTag, editing, onSelect, onWa
             </span>
         </li>
     )
+}
+
+interface FileSlotProps {
+    unlinked?: boolean
+    fileKey?: string
+    fileTag: string | null
+    show: boolean
+}
+
+/** The file badge column: "V2" with several files, "file missing" when unlinked, empty space otherwise so rows line up. */
+function FileSlot({ unlinked, fileKey, fileTag, show }: FileSlotProps) {
+    if (unlinked) return <span className="tag tag-warn" title={fileKey}>file missing</span>
+    if (!show) return null
+    return <span className="tag row-file">{fileTag}</span>
 }
 
 interface WatchButtonProps {

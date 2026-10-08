@@ -29,13 +29,31 @@ function setup(events: MatchEvent[], extra: Partial<ReturnType<typeof useAppStat
 }
 
 describe('EventLog rows', () => {
-    it('should show the assist in full with the full text in the title, and a short form for narrow rows', () => {
-        setup([{ id: 'a', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites', scorer: 'Sam', assist: 'Jo' }, kickOff(0)])
+    it('should put tag and person on line 1 and a labelled assist on line 2, with the full text in the title', () => {
+        setup([{ id: 'a', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites', scorer: 'James', assist: 'Joe' }, kickOff(0)])
         render(<EventLog />)
         const [row] = rows()
-        expect(within(row).getByText('(assist Jo)', { exact: false })).toBeInTheDocument()
-        expect(row.querySelector('.event-row__assist-short')).toHaveTextContent(', Jo')
-        expect(row.querySelector('.event-row__label')).toHaveAttribute('title', expect.stringContaining('Goal · Sam (assist Jo)'))
+        expect(row.querySelector('.event-row__main')).toHaveTextContent('GoalJames')
+        expect(row.querySelector('.event-row__sub')).toHaveTextContent('Assist: Joe')
+        expect(row.querySelector('.event-row__main')).not.toHaveTextContent(',')
+        expect(row.querySelector('.event-row__content')).toHaveAttribute('title', expect.stringContaining('Goal · James · Assist: Joe'))
+    })
+
+    it('should keep the assist and the note together on line 2', () => {
+        setup([{ id: 'a', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites', scorer: 'James', assist: 'Joe', notes: 'long range' }, kickOff(0)])
+        render(<EventLog />)
+        expect(rows()[0].querySelector('.event-row__sub')).toHaveTextContent('Assist: Joe— long range')
+    })
+
+    it('should give every row the same slots so buttons line up (placeholders for the absent ones)', () => {
+        setup([
+            { id: 'a', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites', scorer: 'James', replay: false },
+            { id: 'b', matchTimeSec: 200, sourceFileIndex: 0, type: 'save', team: 'Whites' },
+            { id: 'ko', matchTimeSec: 0, sourceFileIndex: 0, type: 'kick_off' },
+        ])
+        render(<EventLog />)
+        const kids = rows().map((r) => r.querySelector('.event-row__end')!.children.length)
+        expect(new Set(kids).size).toBe(1)
     })
 
     it('should not show an assist on a penalty goal', () => {
@@ -298,7 +316,7 @@ describe('EventLog details & running score', () => {
         render(<EventLog />)
         expect(within(rows()[0]).getByText('Highlight').closest('.ev-tag')).toHaveClass('ev-tag--other')
         expect(within(rows()[0]).getByText('Sam')).toBeInTheDocument()
-        expect(within(rows()[0]).getByText('nutmeg on the wing')).toBeInTheDocument()
+        expect(within(rows()[0]).getByText('— nutmeg on the wing')).toBeInTheDocument()
     })
 
     it('should edit the note with N and save on Enter', async () => {
@@ -316,10 +334,10 @@ describe('EventLog details & running score', () => {
     it('should edit the note on double-click, clear it when emptied and cancel on Escape', async () => {
         setup([{ id: 'a', matchTimeSec: 30, type: 'highlight', notes: 'header' }])
         render(<EventLog />)
-        await userEvent.dblClick(within(rows()[0]).getByText('header'))
+        await userEvent.dblClick(within(rows()[0]).getByText('— header'))
         await userEvent.type(screen.getByRole('textbox', { name: 'Note' }), 'xx{Escape}')
         expect(byId('a')?.notes).toBe('header')
-        await userEvent.dblClick(within(rows()[0]).getByText('header'))
+        await userEvent.dblClick(within(rows()[0]).getByText('— header'))
         await userEvent.clear(screen.getByRole('textbox', { name: 'Note' }))
         await userEvent.keyboard('{Enter}')
         expect(byId('a')?.notes).toBeUndefined()

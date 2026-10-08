@@ -12,6 +12,7 @@ import { cropTransform } from '../utils/crop'
 import { classifyPointer, wheelZoomFactor } from '../utils/zoom'
 import { useZoomPan, type ZoomPan } from './useZoomPan'
 import { ZoomChip } from './ZoomChip'
+import { Scorebug } from './Scorebug'
 import { RenderChip } from './RenderChip'
 import { useTouchScrub } from './useTouchScrub'
 import { PlayIndicator } from './PlayIndicator'
@@ -382,6 +383,7 @@ export function Player() {
                 </div>
             )}
             <PlayIndicator visible={paused && !scrub} />
+            <Scorebug />
             <ZoomChip zoom={zoomPan.zoom} onReset={zoomPan.reset} />
             {(isFullscreen || immersive) && <RenderChip variant="overlay" />}
             {scrub && <div className="scrub-bubble tc clock" style={{ left: scrub.leftPx }}>{formatEventClock(fileOffset + scrub.timeSec, scrub.timeSec, matchStartSec, clockLong)}</div>}
