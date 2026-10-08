@@ -69,6 +69,6 @@ describe('file inputs on iPadOS', () => {
         ipad.unmount()
         vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (Windows NT 10.0)', platform: 'Win32', maxTouchPoints: 0 })
         const pc = render(<AddFilesButton />)
-        expect(pc.container.querySelector('input[type=file]')).toHaveAttribute('accept', '.mp4,.MP4,.lrv,.LRV')
+        expect(pc.container.querySelector('input[type=file]')).toHaveAttribute('accept', '.mp4,.MP4,.m4v,.M4V,.mov,.MOV,.lrv,.LRV')
     })
 })

@@ -1,6 +1,7 @@
 import type { VideoSourceFile } from '../types'
 import { probeVideoFile, type ProbedMetadata } from './probe'
 import { pairFiles } from './gopro'
+import { orderEntries } from './fileOrder'
 
 export type ProcessResult = {
     files: VideoSourceFile[]
@@ -25,7 +26,9 @@ export async function processVideoFiles(
     }
 
     const files: VideoSourceFile[] = []
-    for (const [idx, entry] of pairFiles(probed).entries()) {
+    // Default order: GoPro chapters, else recording time (container date, else lastModified), else name.
+    const ordered = orderEntries(pairFiles(probed), (p) => ({ name: p.name, timeMs: p.meta.recordedAtMs ?? (p.file.lastModified || undefined) }))
+    for (const [idx, entry] of ordered.entries()) {
         const useProxy = entry.proxy && (entry.proxy.meta.playable || !entry.full?.meta.playable)
         const play = (useProxy ? entry.proxy : entry.full)!
         files.push({

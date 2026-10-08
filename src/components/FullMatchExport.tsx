@@ -69,7 +69,7 @@ export function FullMatchExport() {
                 {(!hasKickOff || !hasWhistle) && <p className="m-0 text-muted">Mark Kick off (K) and Final whistle (W) to trim the warm-up and the end.</p>}
             </div>
             {phone && plan.bytes > PHONE_SIZE_WARNING && (
-                <p role="alert" className="export-note">This file will be over 2 GB ({formatBytes(plan.bytes)}): make sure the phone has room, or render the preview from the LRVs.</p>
+                <p role="alert" className="export-note">This file will be over 2 GB ({formatBytes(plan.bytes)}): make sure the phone has room, or render the preview from the proxies.</p>
             )}
 
             <label className="toggle-row">
@@ -110,7 +110,7 @@ export function FullMatchExport() {
                     onResume={() => run(matchingQuality!)} onDiscard={() => void saved.discard()} />
             )}
             {hasProxies && (
-                <button type="button" onClick={() => run('preview')} disabled={disabled} className="btn-quiet w-full justify-center">Preview full match (LRV)</button>
+                <button type="button" onClick={() => run('preview')} disabled={disabled} className="btn-quiet w-full justify-center">Preview full match (proxies)</button>
             )}
             <button type="button" onClick={() => run('full')} disabled={disabled} className="btn-primary w-full justify-center">
                 {hasProxies ? 'Render full match (full quality)' : 'Render full match'}

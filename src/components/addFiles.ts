@@ -25,7 +25,7 @@ async function openFiles(files: File[]): Promise<{ files: VideoSourceFile[]; err
 }
 
 /**
- * Adds picked or dropped files to the timeline. Full-quality GoPro MP4s whose proxy (LRV) is already
+ * Adds picked or dropped files to the timeline. Full-quality videos whose proxy (a GoPro .LRV preview) is already
  * loaded are attached to it for rendering; everything else is probed and appended. Returns an error message, if any.
  */
 export async function addPickedFiles(picked: File[]): Promise<string | null> {

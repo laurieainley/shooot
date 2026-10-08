@@ -41,7 +41,7 @@ export function RenderHighlights() {
             )}
             {hasProxies && (
                 <button onClick={() => run('preview')} disabled={disabled} className="btn-quiet w-full justify-center">
-                    Preview reel (LRV)
+                    Preview reel (proxies)
                 </button>
             )}
             <button onClick={() => run('full')} disabled={disabled} className="btn-primary w-full justify-center">
