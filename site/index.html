@@ -136,7 +136,8 @@
   .faq details[open] summary::after { content: "–"; }
   .faq p { margin: 0 0 18px; color: var(--sh-muted); }
 
-  .final { text-align: center; }
+  .final { position: relative; overflow: hidden; text-align: center; }
+  .final .wrap { position: relative; }
   .final .sub { margin-left: auto; margin-right: auto; }
   .final .ctas { justify-content: center; margin-top: 28px; }
 
@@ -156,11 +157,6 @@
 
 <main id="top">
   <div class="hero">
-    <div class="pitch" aria-hidden="true">
-      <span style="left: 3%; right: 3%; top: 6%; bottom: 6%"></span>
-      <span style="left: 50%; top: 6%; bottom: 6%; width: 0; border-width: 0 0 0 2px"></span>
-      <span style="left: calc(50% - 110px); top: calc(50% - 110px); width: 220px; height: 220px; border-radius: 50%"></span>
-    </div>
     <div class="wrap">
       <div>
         <span class="eyebrow"><span class="sh-rec-dot"></span><span>Five-a-side highlights</span></span>
@@ -200,7 +196,7 @@
 
   <section>
     <div class="wrap">
-      <h2 class="display">Monday Night Football. Sunday League effort.</h2>
+      <h2 class="display">Monday Night Football.<br>Sunday League effort.</h2>
       <p class="sub">The graphics, replays and full-time card you’d see on Match of the Day, on your own footage.</p>
       <ul class="feats">
         <li><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--sh-lime-text)" stroke-width="2" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg><div><b>Slow-mo replays</b><span>Zoomed in on the goal mouth, every time.</span></div></li>
@@ -251,6 +247,11 @@
   </section>
 
   <section class="final">
+    <div class="pitch" aria-hidden="true">
+      <span style="left: 3%; right: 3%; top: 10%; bottom: 10%"></span>
+      <span style="left: 50%; top: 10%; bottom: 10%; width: 0; border-width: 0 0 0 2px"></span>
+      <span style="left: calc(50% - 90px); top: calc(50% - 90px); width: 180px; height: 180px; border-radius: 50%"></span>
+    </div>
     <div class="wrap">
       <h2 class="display">Get in early.</h2>
       <p class="sub">Join the waitlist for free early access. One email when it’s ready.</p>

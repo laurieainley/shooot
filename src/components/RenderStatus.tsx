@@ -5,6 +5,7 @@ import { loadLastReport } from '../render/diagnostics'
 import { REEL_READY, POLISHING } from '../utils/voice'
 import { CopyDiagnostics } from './CopyDiagnostics'
 import { NetBulge } from './NetBulge'
+import { keepOpenNotice } from '../utils/renderNotice'
 
 interface RenderStatusProps {
     /** Which export this panel section belongs to: it shows that render, and notes when the other one is running. */
@@ -78,7 +79,7 @@ export function RenderStatus({ kind }: RenderStatusProps) {
         <>
             {job.phase === 'running' && (
                 <div className="render-busy">
-                    <p className="m-0">Keep this screen open until the render finishes.{conflict ? ' One render at a time.' : ''}</p>
+                    <p className="m-0">{keepOpenNotice(navigator)}{conflict ? ' One render at a time.' : ''}</p>
                     {cancelControls}
                 </div>
             )}

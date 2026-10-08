@@ -74,7 +74,7 @@ describe('ExportPanel', () => {
         useAppState.setState({ panel: null })
         await userEvent.click(screen.getByRole('button', { name: 'Export' }))
         expect(screen.getByText(/42%/)).toBeInTheDocument()
-        expect(screen.getByText(/keep this screen open/i)).toBeInTheDocument()
+        expect(screen.getByText(/until the render finishes/i)).toBeInTheDocument()
         finish(new Blob(['x'], { type: 'video/mp4' }))
         expect(await screen.findByText('Downloaded highlights-preview.mp4')).toBeInTheDocument()
         expect(click).toHaveBeenCalledTimes(1)
