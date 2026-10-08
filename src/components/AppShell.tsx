@@ -5,6 +5,7 @@ import { ClipSummary } from './ClipSummary'
 import { EmptyPlayer } from './EmptyPlayer'
 import { EventLog } from './EventLog'
 import { Fab } from './Fab'
+import { GoalMarked } from './GoalMarked'
 import { KeyHints } from './KeyHints'
 import { MatchStrip } from './MatchStrip'
 import { Panels } from './Panels'
@@ -57,6 +58,7 @@ export function AppShell() {
             {hasFiles ? <Player /> : <EmptyPlayer />}
             {sideBySide && isPreviewMode && <div className="preview-bar"><PreviewControls /></div>}
             {collapsed && <RenderChip variant="overlay" />}
+            {hasFiles && <GoalMarked />}
         </div>
     )
 

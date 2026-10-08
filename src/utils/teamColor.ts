@@ -10,7 +10,7 @@ const MULTI_BACKGROUND = `linear-gradient(135deg, ${MULTI_STRIPES.map((c, i) => 
 export const isMultiColor = (color: string | undefined): boolean => color === MULTI_COLOR
 
 /** CSS `background` for a team dot / swatch: the colour itself, or the stripes for the multicolour kit. */
-export function teamBackground(color: string | undefined, fallback = 'var(--muted)'): string {
+export function teamBackground(color: string | undefined, fallback = 'var(--sh-muted)'): string {
     if (isMultiColor(color)) return MULTI_BACKGROUND
     return color || fallback
 }

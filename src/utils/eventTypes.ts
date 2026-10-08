@@ -4,6 +4,7 @@ import type { EventType, MarkerType, MatchEvent, Team } from '../types'
 export type EventMeta = {
     label: string
     icon: string
+    /** Legacy tint, now a brand token: lime for goals, chalk for flags, muted otherwise. */
     color: string
     scoring: boolean
     /** Kick off / Half time / Final whistle: one each, no details, never in the highlights. */
@@ -11,16 +12,16 @@ export type EventMeta = {
 }
 
 export const EVENT_META: Record<EventType, EventMeta> = {
-    goal:            { label: 'Goal',            icon: '⚽', color: '#f72585', scoring: true },
-    own_goal:        { label: 'Own goal',        icon: '⚽', color: '#e63946', scoring: true },
-    penalty_conceded: { label: 'Penalty conceded', icon: 'Ⓟ', color: '#fee440', scoring: false },
-    penalty_missed:  { label: 'Penalty missed',  icon: 'Ⓟ', color: '#a0a0a0', scoring: false },
-    highlight:       { label: 'Highlight',       icon: '★', color: '#4cc9f0', scoring: false },
-    foul:            { label: 'Foul',            icon: '🟨', color: '#f4a261', scoring: false },
-    save:            { label: 'Save',            icon: '🧤', color: '#4cc9f0', scoring: false },
-    kick_off:        { label: 'Kick off',        icon: '⚑', color: '#22c55e', scoring: false, marker: true },
-    half_time:       { label: 'Half time',       icon: '⏸', color: '#f59e0b', scoring: false, marker: true },
-    final_whistle:   { label: 'Final whistle',   icon: '🏁', color: '#e5e5e5', scoring: false, marker: true },
+    goal:            { label: 'Goal',            icon: '⚽', color: 'var(--sh-lime)', scoring: true },
+    own_goal:        { label: 'Own goal',        icon: '⚽', color: 'var(--sh-text)', scoring: true },
+    penalty_conceded: { label: 'Penalty conceded', icon: 'Ⓟ', color: 'var(--sh-muted)', scoring: false },
+    penalty_missed:  { label: 'Penalty missed',  icon: 'Ⓟ', color: 'var(--sh-muted)', scoring: false },
+    highlight:       { label: 'Highlight',       icon: '★', color: 'var(--sh-muted)', scoring: false },
+    foul:            { label: 'Foul',            icon: '🟨', color: 'var(--sh-muted)', scoring: false },
+    save:            { label: 'Save',            icon: '🧤', color: 'var(--sh-muted)', scoring: false },
+    kick_off:        { label: 'Kick off',        icon: '⚑', color: 'var(--sh-text)', scoring: false, marker: true },
+    half_time:       { label: 'Half time',       icon: '⏸', color: 'var(--sh-muted)', scoring: false, marker: true },
+    final_whistle:   { label: 'Final whistle',   icon: '🏁', color: 'var(--sh-text)', scoring: false, marker: true },
 }
 
 export type PickerOptionId = 'goal' | 'goal_pen' | 'own_goal' | 'penalty_conceded' | 'penalty_missed' | 'highlight' | 'foul' | 'save' | MarkerType

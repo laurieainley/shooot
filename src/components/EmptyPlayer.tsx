@@ -34,7 +34,7 @@ export function EmptyPlayer() {
                 <p className="m-0 text-[13px] text-muted">Drop your match videos here — any order. MP4 or MOV from a phone or camera.</p>
                 <AddFilesButton label="Choose files" className="btn-primary" onError={setError} />
                 <OpeningStatus />
-                {error && <p className="m-0 text-[12px] text-danger">{error}</p>}
+                {error && <p className="m-0 text-[12px] msg-warn">{error}</p>}
                 <dl className="empty-player__keys">
                     {HINTS.map(([k, v]) => (
                         <div key={k}><dt><kbd>{k}</kbd></dt><dd>{v}</dd></div>

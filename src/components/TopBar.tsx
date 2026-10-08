@@ -4,6 +4,7 @@ import { nextBarVisible } from '../utils/barScroll'
 import { ExportPanel } from './ExportPanel'
 import { FilePills } from './FilePills'
 import { OverflowMenu } from './OverflowMenu'
+import { Wordmark } from './Wordmark'
 import { ScoreBadge } from './ScoreBadge'
 import { RenderChip } from './RenderChip'
 import type { Layout } from './useMediaQuery'
@@ -38,7 +39,7 @@ export function TopBar({ layout }: TopBarProps) {
 
     return (
         <header className={`top-bar${hidden ? ' top-bar--hidden' : ''}`}>
-            <span className="brand" aria-label="Shooot">SHOOOT</span>
+            <span className="brand"><Wordmark /></span>
             {layout === 'desktop' || layout === 'tablet' ? (
                 <>
                     <div className="top-bar__files"><FilePills /></div>

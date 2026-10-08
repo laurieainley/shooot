@@ -1,6 +1,8 @@
 import { createPortal } from 'react-dom'
 import { useAppState } from '../state'
 import { markersForFile } from '../utils/markers'
+import { EventIcon } from './EventTag'
+import type { EventType } from '../types'
 
 interface TimelineMarkersProps {
     host: HTMLElement | null
@@ -25,7 +27,8 @@ export function TimelineMarkers({ host, durationSec }: TimelineMarkersProps) {
                     key={m.id}
                     type="button"
                     className={`timeline-marker timeline-marker--${m.kind}`}
-                    style={{ left: `${m.leftPct}%`, color: m.color }}
+                    data-tone={m.tone}
+                    style={{ left: `${m.leftPct}%` }}
                     title={m.title}
                     aria-label={m.title}
                     onMouseDown={stop}
@@ -37,7 +40,7 @@ export function TimelineMarkers({ host, durationSec }: TimelineMarkersProps) {
                         if (ev) useAppState.getState().seekToGoal(fileIndex, Math.max(0, ev.matchTimeSec - (m.kind === 'event' ? before : 0)))
                     }}
                 >
-                    {m.icon}
+                    {m.kind !== 'event' && <EventIcon type={m.kind as EventType} />}
                 </button>
             ))}
         </>,

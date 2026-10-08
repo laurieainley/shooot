@@ -24,7 +24,7 @@ export function MatchSetup({ onClose }: MatchSetupProps) {
         <Sheet label="Match setup" onClose={onClose}>
                 <div className="team-grid">
                     {teams.map((team, i) => (
-                        <div key={i} className="team-card" style={{ borderTopColor: solidTeamColor(team.color, 'var(--accent)') }}>
+                        <div key={i} className="team-card" style={{ borderTopColor: solidTeamColor(team.color, 'var(--sh-muted)') }}>
                             <input
                                 aria-label={`Team ${i + 1} name`}
                                 value={names[i]}
@@ -32,7 +32,7 @@ export function MatchSetup({ onClose }: MatchSetupProps) {
                                 onBlur={() => {
                                     if (names[i].trim() && names[i] !== team.name) renameTeam(i, names[i].trim())
                                 }}
-                                className="field font-display text-[18px] font-semibold"
+                                className="field voice-scoreboard text-[18px]"
                             />
                             <div className="swatches flex flex-wrap gap-1.5">
                                 {SWATCHES.map((c) => (

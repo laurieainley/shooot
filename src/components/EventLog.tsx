@@ -3,7 +3,9 @@ import { shouldHandleShortcut } from '../utils/shortcuts'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import type { MatchEvent, Team } from '../types'
-import { assistOf, controlSummary, controlLabel, eventIcon, isMarker, shortNote } from '../utils/eventTypes'
+import { emptyLogLine } from '../utils/voice'
+import { assistOf, controlSummary, controlLabel, isMarker, shortNote } from '../utils/eventTypes'
+import { EventIcon, EventTag } from './EventTag'
 import { watchFromSec } from '../utils/markers'
 import { wantsReplay } from '../utils/replays'
 import { filterRoster, rosterTeamFor } from '../utils/roster'
@@ -35,6 +37,7 @@ export function EventLog() {
     const rootRef = useRef<HTMLElement | null>(null)
     const listRef = useRef<HTMLOListElement | null>(null)
 
+    const empty = emptyLogLine(coarse, files.length === 0)
     const selectedIndex = events.findIndex((e) => e.id === selectedId)
     const scores = useMemo(() => scoresAfter(events, teams, offsets), [events, teams, offsets])
 
@@ -115,13 +118,13 @@ export function EventLog() {
             className="event-log group/log flex min-h-0 flex-col outline-none"
         >
             <header className="flex items-center gap-1 border-b border-line px-3 py-2">
-                <h2 className="m-0 mr-auto font-display text-[15px] font-semibold uppercase tracking-[0.08em]">
+                <h2 className="m-0 mr-auto voice-heading text-[15px]">
                     Events <span className="tc text-[13px] font-normal tracking-normal text-muted">· {events.length}</span>
                 </h2>
                 {!coarse && (
                     <button type="button" onClick={() => { const st = useAppState.getState(); st.markEvent(st.currentTimeInFileSec) }}
                         disabled={files.length === 0}
-                        className="btn-quiet">+ Event</button>
+                        className="btn-primary mark-btn">+ Event</button>
                 )}
                 <button type="button" aria-label="Undo" title="Undo (⌘Z)" onClick={() => useAppState.getState().undo()} disabled={!canUndo} className="btn-icon"><UndoIcon /></button>
                 <button type="button" aria-label="Redo" title="Redo (⇧⌘Z)" onClick={() => useAppState.getState().redo()} disabled={!canRedo} className="btn-icon"><UndoIcon redo /></button>
@@ -129,10 +132,9 @@ export function EventLog() {
             <RelinkBanner />
 
             {events.length === 0 ? (
-                <p className="m-0 px-3 py-4 text-[13px] text-muted">
-                    {coarse
-                        ? <>No events yet. {files.length === 0 ? 'Load a video, then tap ＋ while it plays.' : 'Tap ＋ while the video plays.'}</>
-                        : <>No events yet. {files.length === 0 ? 'Load a video, then press ' : 'Press '}<kbd>G</kbd> while it plays.</>}
+                <p className="empty-log m-0 px-3 py-4 text-[13px] text-muted">
+                    <strong className="empty-log__lead voice-heading">{empty.lead}</strong>
+                    {' '}{empty.key ? <>{empty.hint} <kbd>{empty.key}</kbd> {empty.tail}</> : empty.hint}
                 </p>
             ) : (
                 <ol ref={listRef} role="listbox" aria-label="Event list" className="m-0 min-h-0 flex-1 list-none overflow-y-auto overscroll-contain p-0">
@@ -191,7 +193,6 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, o
     const summary = controlSummary(e)
     const label = summary.full
     const assist = assistOf(e)
-    const base = `${controlLabel(e)}${e.scorer ? ` · ${e.scorer}` : ''}`
     const note = shortNote(e.notes)
     const stop = (ev: React.SyntheticEvent): void => ev.stopPropagation()
     const done = (): void => { onEdit(null); restoreFocus() }
@@ -251,7 +252,8 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, editing, o
             ) : (
                 <span className="event-row__label truncate text-[13px]" title={`${label}${e.team ? ` – ${e.team}` : ''}${e.notes ? ` — ${e.notes}` : ''}`}>
                     <span onDoubleClick={(ev) => { stop(ev); onEdit('scorer') }}>
-                        {base}
+                        <EventTag event={e} short />
+                        {e.scorer && <span className="ev-person voice-shirt">{e.scorer}</span>}
                         {assist && <>
                             <span className="event-row__assist"> (assist {assist})</span>
                             <span className="event-row__assist-short" aria-hidden="true">, {assist}</span>
@@ -302,7 +304,7 @@ function MarkerRow({ event: e, selected, clock, fileTag, editing, onSelect, onWa
             ) : (
                 <span className="tc clock text-[13px]" onDoubleClick={(ev) => { stop(ev); onEdit('time') }} title="Double-click to edit time (in file)">{clock}</span>
             )}
-            <span className="marker-flag" aria-hidden="true">{eventIcon(e)}</span>
+            <span className="marker-flag" aria-hidden="true"><EventIcon type={e.type} /></span>
             <span className="event-row__label truncate text-[13px]">{controlLabel(e)}</span>
             <span className="flex items-center gap-1.5">
                 {e.unlinked ? <span className="tag tag-warn" title={e.sourceFileKey}>file missing</span> : fileTag && <span className="tag">{fileTag}</span>}

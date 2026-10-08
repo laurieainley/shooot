@@ -23,7 +23,7 @@ export function MissingFullFiles({ missing, onChange, onPreviewInstead }: Missin
     }
     if (missing.length === 0) return null
     return (
-        <div className="rounded border border-danger/50 p-2 text-[13px] text-muted">
+        <div className="rounded border border-muted p-2 text-[13px] text-muted">
             <p className="mb-1">Full-quality files needed for:</p>
             <ul className="mb-2 list-disc pl-4">{missing.map((m) => <li key={m}>{m}</li>)}</ul>
             <div className="flex gap-2">

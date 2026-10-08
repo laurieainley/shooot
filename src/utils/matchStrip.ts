@@ -1,13 +1,14 @@
-import { teamBackground } from './teamColor'
 import type { MarkerType, MatchEvent, Team } from '../types'
 import { eventLabel, isMarker, shortNote } from './eventTypes'
+import { stripTick, type StripTick } from './eventStyle'
 import { mergeOverlappingGoalSegments } from './highlights'
 import { linkedEvents } from './relink'
 import { formatHMS } from './timeline'
 
 export type StripFile = { name: string; leftPct: number; widthPct: number }
 export type StripSpan = { leftPct: number; widthPct: number }
-export type StripEvent = { id: string; leftPct: number; color: string; title: string; kind: MatchEvent['type'] }
+/** `tick` is how the mark is drawn (lime goal, chalk own goal + label, open ring, grey): kit colours stay on rows and the score badge. */
+export type StripEvent = { id: string; leftPct: number; tick: StripTick; label?: string; title: string; kind: MatchEvent['type'] }
 export type StripFlag = { id: string; kind: MarkerType; leftPct: number; title: string }
 export type MatchStrip = {
     totalSec: number
@@ -39,7 +40,7 @@ export function buildMatchStrip(args: {
     before: number
     after: number
 }): MatchStrip {
-    const { files, cumulativeOffsets, events, teams, currentFileIndex, currentTimeSec, before, after } = args
+    const { files, cumulativeOffsets, events, currentFileIndex, currentTimeSec, before, after } = args
     const durations = files.map((f) => f.durationSec ?? 0)
     const totalSec = durations.reduce((a, b) => a + b, 0)
     if (totalSec <= 0) return { totalSec: 0, files: [], clips: [], events: [], flags: [], playheadPct: 0 }
@@ -56,13 +57,12 @@ export function buildMatchStrip(args: {
     const globalOf = (e: MatchEvent): number => e.globalTimeSec ?? (cumulativeOffsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec
     const flags = linked.filter(isMarker).map((e) => ({ id: e.id, kind: e.type, leftPct: pct(globalOf(e)), title: `${eventLabel(e)} ${formatHMS(globalOf(e))}` }))
     const stripEvents = linked.filter((e) => !isMarker(e)).map((e) => {
-        const team = teams.find((t) => t.name === e.team)
         const g = (cumulativeOffsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec
         const note = shortNote(e.notes)
         return {
             id: e.id,
             leftPct: pct(g),
-            color: teamBackground(team?.color),
+            ...stripTick(e),
             title: `${formatHMS(g)} ${eventLabel(e)}${e.team ? ` – ${e.team}` : ''}${e.scorer ? ` (${e.scorer})` : ''}${note ? ` — ${note}` : ''}`,
             kind: e.type,
         }

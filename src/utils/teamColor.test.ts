@@ -11,7 +11,7 @@ describe('teamBackground', () => {
         for (const c of MULTI_STRIPES) expect(css).toContain(c)
     })
     it('should use the fallback without a colour', () => {
-        expect(teamBackground(undefined)).toBe('var(--muted)')
+        expect(teamBackground(undefined)).toBe('var(--sh-muted)')
         expect(teamBackground('', 'red')).toBe('red')
     })
 })

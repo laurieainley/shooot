@@ -28,6 +28,7 @@ The tool is designed around football/soccer match footage (the primary use case 
 - **Vite 7** — dev server runs on `https://localhost:5174` (HTTPS required: OPFS and phone testing need a secure context)
 - **Zustand 5** — global state (`src/state.ts`)
 - **Mediabunny** — in-browser MP4 demux/remux for probing and rendering (packet copy, no re-encode)
+- **Fonts** — self-hosted via `@fontsource-variable/archivo` (wght + wdth), `@fontsource-variable/big-shoulders-display`, `@fontsource/jetbrains-mono` (no Google Fonts request)
 - **Video.js 8** — player with keyboard hotkeys (`videojs-hotkeys`)
 - **idb-keyval** — IndexedDB persistence for goals and settings
 - **Vitest + React Testing Library + happy-dom** — unit and integration tests (see Testing below)
@@ -49,6 +50,7 @@ npm run test:ui   # Vitest UI
 ```
 src/
   types.ts          # Shared types: Goal, VideoSourceFile, TimelineFile
+  brand.ts          # PRODUCT_NAME ('Shooot') — the only place the name is spelled; wordmark art lives in brand/shooot/assets
   state.ts          # Zustand store — single source of truth
   App.tsx           # Undo/redo keys, default-video loader, renders <AppShell/>
   index.css         # Theme tokens (light + dark via prefers-color-scheme) mapped into Tailwind @theme; fonts
@@ -56,6 +58,9 @@ src/
   components/       # One component per file, named exports
     AppShell.tsx    # Edit-bay grid: ≥900px one screen (player + strip | event rail, key hints); <900px stacked + FAB
     TopBar.tsx      # Wordmark, FilePills, ScoreBadge, Match, Export (phone: files + Match in ⋯ sheet)
+    Wordmark.tsx    # Outlined wordmark, one SVG per theme
+    EventTag.tsx    # Skewed event-type tag + line icons (utils/eventStyle.ts decides tone)
+    NetBulge.tsx / GoalMarked.tsx # Brand net-bulge motion: loading, goal marked, reel ready
     ScoreBadge.tsx  # Team dots + names + scoreboard digits
     MatchStrip.tsx  # Whole-match overview: files end to end, clip spans, event dots, kick-off flag, playhead; click/drag seeks
     EventLog.tsx    # Dense keyboard event list (L focus, ↑↓, ⏎, ⌫, R replay, E scorer, T team, Esc), inline edit, paste list
@@ -92,6 +97,8 @@ src/
     eventTypes.ts   # Event type metadata, picker options, isScoring(), migrateEvent()
     eventPicker.ts  # Pure picker reducer (type → team → scorer)
     roster.ts       # parseRoster(), filterRoster(), teamShortcuts(), rosterTeamFor()
+    eventStyle.ts   # eventTone(), tagText(), stripTick(): tag and tick style by event type
+    voice.ts        # Brand-voice strings for empty / progress / success states
     markers.ts      # markersForFile(), startInFile(), homeTarget()
     probe.ts        # codec/duration via Mediabunny + browser playability
     gopro.ts        # parseGoProName(), pairFiles() — LRV proxy ↔ GX/GH MP4 (GoPro-specific feature; everything else is generic)
@@ -229,3 +236,20 @@ describe('mergeOverlappingGoalSegments', () => {
 - **File objects are not serializable** — `VideoSourceFile.file` (a `File`) cannot be stored in IndexedDB directly. Only goal metadata is persisted; files must be re-loaded on each session.
 - Goal timestamps are stored as absolute `matchTimeSec` relative to the full multi-file timeline, computed via `computeCumulativeOffsets()`.
 - **Cross-file segments** — when a goal's padding window spans two source files, `buildRenderPlan()` splits it into the previous file's tail and the current file's head; both are copied (no re-encode).
+
+## Brand
+
+All UI, copy and rendered video graphics follow `brand/shooot/BRAND.md` (skill: `shooot-brand`).
+- Use the CSS variables in `brand/shooot/tokens.css` (`--sh-*`), never hard-coded hex values.
+- Red (`--sh-rec`) is only for the REC dot (live/now/record); goals are lime.
+- Lime is never text on light backgrounds (use `--sh-lime-text`).
+- Player names and numbers use the shirt font (Big Shoulders); everything else is Archivo; clocks are JetBrains Mono.
+- Keep the product name in one config constant and the logo in `brand/shooot/assets/`, so a rename is a one-line change.
+
+### Brand in this app
+
+- `src/index.css` imports `brand/shooot/tokens.css` + `motion.css` (Google Fonts `@import` removed from the pack; fonts are self-hosted) and maps them into Tailwind `@theme` (`bg-surface`, `text-muted`, `text-lime-text`, ...). `App.css` uses `var(--sh-*)` only; the picture well and overlays use `--sh-video` / `--sh-on-video` / `--sh-scrim`.
+- Voices: `.voice-heading`, `.voice-scoreboard`, `.voice-shirt` (index.css); clocks and scores `.tc` (mono).
+- Red only for REC meanings: playhead, the mark button's dot, render chip / dot. Warnings and destructive actions are chalk with an icon (`.msg-warn`, `.btn-danger`).
+- Goals are lime ticks on the strip and scrubber; own goals chalk + "OG"; kit colours only as dots on rows and the score badge.
+- Copy for empty / progress / success states lives in `utils/voice.ts`; check key colour pairs with `node scripts/check-contrast.mjs`.

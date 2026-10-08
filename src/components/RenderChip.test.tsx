@@ -21,16 +21,16 @@ describe('RenderChip', () => {
     it('should show the progress and open Export on the render’s tab', () => {
         renderJobs().setState({ job: job({}) })
         render(<RenderChip />)
-        fireEvent.click(screen.getByRole('button', { name: /rendering 42%/i }))
+        fireEvent.click(screen.getByRole('button', { name: /polishing… 42%/i }))
         expect(useAppState.getState()).toMatchObject({ panel: 'export', exportTab: 'fullMatch' })
     })
 
-    it('should say Done briefly after the render finishes', () => {
+    it('should say the reel is ready briefly after the render finishes', () => {
         vi.useFakeTimers()
         renderJobs().setState({ job: job({ phase: 'done', finishedAt: Date.now() }) })
         render(<RenderChip />)
-        expect(screen.getByRole('button', { name: /done/i })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /reel ready/i })).toBeInTheDocument()
         act(() => { vi.advanceTimersByTime(5000) })
-        expect(screen.queryByRole('button', { name: /done/i })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /reel ready/i })).not.toBeInTheDocument()
     })
 })

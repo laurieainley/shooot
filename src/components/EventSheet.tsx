@@ -4,6 +4,7 @@ import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import type { MarkerType, MatchEvent, Team } from '../types'
 import { assistEdit, optionForEvent, personEdit, typeChangePatch } from '../utils/eventEdit'
 import { PICKER_OPTIONS, isMarker } from '../utils/eventTypes'
+import { EventTag } from './EventTag'
 import { watchFromSec } from '../utils/markers'
 import { wantsReplay } from '../utils/replays'
 import { filterRoster, rosterTeamFor } from '../utils/roster'
@@ -117,7 +118,7 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
                                 // Kick off / Final whistle: single instance, so the store moves an existing one.
                                 if (o.marker) useAppState.getState().placeMarker(e.id, o.type as MarkerType)
                                 else update(typeChangePatch(e, o))
-                            }}>{o.label}</button>
+                            }}><EventTag event={{ type: o.type, pen: o.pen }}>{o.label}</EventTag></button>
                     ))}
                 </div>
             </fieldset>
@@ -155,7 +156,7 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
                     {suggestions.length > 0 && (
                         <div className="chips">
                             {suggestions.map((n) => (
-                                <button key={n} type="button" className="chip" aria-pressed={e.scorer === n}
+                                <button key={n} type="button" className="chip chip--person" aria-pressed={e.scorer === n}
                                     onMouseDown={(ev) => ev.preventDefault()}
                                     onClick={() => { setPerson(n); savePerson(n) }}>{n}</button>
                             ))}
@@ -181,7 +182,7 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
                     {assistSuggestions.length > 0 && (
                         <div className="chips">
                             {assistSuggestions.map((n) => (
-                                <button key={n} type="button" className="chip" aria-pressed={e.assist === n}
+                                <button key={n} type="button" className="chip chip--person" aria-pressed={e.assist === n}
                                     onMouseDown={(ev) => ev.preventDefault()}
                                     onClick={() => { const next = e.assist === n ? '' : n; setAssist(next); saveAssist(next) }}>{n}</button>
                             ))}

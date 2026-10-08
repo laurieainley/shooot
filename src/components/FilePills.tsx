@@ -88,7 +88,7 @@ export function FilePills() {
             ))}
             <AddFilesButton onError={setMessage} />
             <OpeningStatus />
-            {message && <span className="text-[12px] text-danger">{message}</span>}
+            {message && <span className="text-[12px] msg-warn">{message}</span>}
         </div>
     )
 }
