@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en-GB" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Join the waitlist · Shooot</title>
+<meta name="description" content="Get free early access to Shooot: five-a-side highlights, as seen on telly.">
+<meta name="theme-color" content="#0B0F0D">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="motion.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; background: var(--sh-ground); color: var(--sh-text); font-family: var(--sh-font); font-size: 17px; line-height: 1.5; -webkit-font-smoothing: antialiased; position: relative; overflow-x: hidden; }
+  .pitch { position: fixed; inset: 0; pointer-events: none; }
+  .pitch span { position: absolute; border: 2px solid var(--sh-pitch); }
+  header, main, footer { position: relative; }
+  header { padding: 20px 16px; display: flex; justify-content: space-between; align-items: center; max-width: 1120px; width: 100%; margin: 0 auto; }
+  header img { height: 26px; width: auto; display: block; }
+  header a.back { color: var(--sh-muted); font-size: 15px; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
+  header a.back:hover { color: var(--sh-text); }
+  main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 16px 16px 48px; }
+  .card { width: 100%; max-width: 460px; }
+  .eyebrow { display: inline-flex; align-items: center; gap: 8px; font: 700 12px/1 var(--sh-font-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--sh-muted); }
+  .eyebrow .sh-rec-dot { width: 9px; height: 9px; }
+  h1 { margin: 16px 0 12px; font: italic 900 clamp(48px, 13vw, 72px)/.95 var(--sh-font); font-stretch: 85%; text-transform: uppercase; letter-spacing: -0.02em; }
+  h1 .hl { color: var(--sh-lime); font-stretch: 115%; }
+  .lede { margin: 0 0 28px; color: var(--sh-muted); }
+  .lede b { color: var(--sh-text); font-weight: 600; }
+  form { display: grid; gap: 16px; }
+  label { display: grid; gap: 8px; font-weight: 600; font-size: 15px; }
+  input { width: 100%; min-height: 54px; padding: 0 16px; border-radius: var(--sh-radius-md); border: 1px solid var(--sh-line); background: var(--sh-surface); color: var(--sh-text); font: 400 17px var(--sh-font); }
+  input::placeholder { color: #66726A; }
+  input:focus { outline: none; border-color: var(--sh-lime); box-shadow: 0 0 0 3px rgba(168, 240, 60, .25); }
+  input[aria-invalid="true"] { border-color: #FF8A7E; }
+  .err { color: #FF8A7E; font-size: 14px; font-weight: 500; min-height: 0; }
+  .err:empty { display: none; }
+  button { min-height: 56px; border: 0; border-radius: var(--sh-radius-md); background: var(--sh-lime); color: var(--sh-on-lime); font: italic 800 17px/1 var(--sh-font); text-transform: uppercase; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 12px; margin-top: 4px; }
+  button:hover { filter: brightness(1.06); }
+  button:focus-visible { outline: 3px solid var(--sh-text); outline-offset: 3px; }
+  button[disabled] { opacity: .7; cursor: progress; }
+  .small { margin: 4px 0 0; color: var(--sh-muted); font-size: 13px; line-height: 1.5; }
+  .perks { list-style: none; margin: 28px 0 0; padding: 20px 0 0; border-top: 1px solid var(--sh-line); display: grid; gap: 10px; color: var(--sh-muted); font-size: 15px; }
+  .perks li { display: flex; gap: 10px; align-items: baseline; }
+  .perks li::before { content: ""; flex-shrink: 0; width: 8px; height: 8px; border-radius: 2px; background: var(--sh-lime); transform: skewX(-10deg) translateY(-1px); }
+
+  .done { text-align: left; }
+  .done .sh-net { margin-bottom: 8px; }
+  .done h1 { font-size: clamp(44px, 12vw, 64px); }
+  .share { margin-top: 24px; background: var(--sh-surface); border: 1px solid var(--sh-line); border-radius: var(--sh-radius-lg); padding: 18px 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+  .share span { font-size: 15px; color: var(--sh-muted); }
+  .share button { min-height: 44px; padding: 0 16px; margin: 0; font-size: 14px; }
+  [hidden] { display: none !important; }
+
+  footer { padding: 20px 16px 28px; text-align: center; color: var(--sh-muted); font-size: 13px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="pitch" aria-hidden="true">
+  <span style="right: -180px; bottom: -180px; width: 420px; height: 420px; border-radius: 50%"></span>
+  <span style="left: -40px; top: 22%; width: 160px; height: 46%; border-left: 0"></span>
+</div>
+
+<header>
+  <a href="index.html" aria-label="Shooot home"><img src="assets/wordmark-on-dark.svg" alt="Shooot" width="140" height="26"></a>
+  <a class="back" href="index.html">← Back</a>
+</header>
+
+<main>
+  <!-- Sign-up -->
+  <div class="card" id="signup">
+    <span class="eyebrow"><span class="sh-rec-dot"></span><span id="eyebrow-text">Waitlist · free early access</span></span>
+    <h1>Get in <span class="hl">early.</span></h1>
+    <p class="lede" id="lede">Be first to turn your five-a-side into <b>proper highlights</b>. Free while we’re in early access. One email when it’s ready.</p>
+
+    <!-- DESIGN ONLY: set data-endpoint to your form handler (e.g. /api/waitlist). Without it, the form shows the success state without sending anything. -->
+    <form id="waitlist" novalidate data-endpoint="">
+      <input type="hidden" name="role" id="role" value="player">
+      <label for="name">Name
+        <input id="name" name="name" type="text" autocomplete="name" placeholder="Kev" required maxlength="80" aria-describedby="name-err">
+        <span class="err" id="name-err" role="alert"></span>
+      </label>
+      <label for="email">Email
+        <input id="email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="kev@example.com" required maxlength="160" aria-describedby="email-err">
+        <span class="err" id="email-err" role="alert"></span>
+      </label>
+      <button type="submit" id="submit">Join the waitlist</button>
+      <p class="small">We’ll only email you about Shooot. Unsubscribe any time. No spam, no transfer-window rumours.</p>
+    </form>
+
+    <ul class="perks">
+      <li>Free early access when we open the gates</li>
+      <li>Works with a GoPro or phone; no special kit</li>
+      <li>Help shape it: early users get a say</li>
+    </ul>
+  </div>
+
+  <!-- Success -->
+  <div class="card done" id="done" hidden aria-live="polite">
+    <span class="sh-net is-playing" role="img" aria-label="Goal!" style="--size: 88px"><span class="sh-net__ring"><span class="sh-net__dot"></span></span></span>
+    <h1 tabindex="-1" id="done-title">You’re on <span class="hl">the list.</span></h1>
+    <p class="lede" id="done-text">Cheers. We’ll shout when it’s ready.</p>
+    <div class="share">
+      <span>Your teammates will want in too.</span>
+      <button type="button" id="share">Share with the group</button>
+    </div>
+  </div>
+</main>
+
+<footer>© 2026 Shooot · Made for five-a-side</footer>
+
+<script>
+(function () {
+  var params = new URLSearchParams(location.search);
+  var form = document.getElementById('waitlist');
+  var role = document.getElementById('role');
+  if (params.get('role') === 'organiser') {
+    role.value = 'organiser';
+    document.getElementById('eyebrow-text').textContent = 'Leagues & tournaments';
+    document.getElementById('lede').innerHTML = 'Highlights for every fixture, in your league’s colours. <b>Leave your details</b> and we’ll be in touch about early access.';
+    document.getElementById('submit').textContent = 'Register interest';
+  }
+
+  function setErr(input, msg) {
+    var el = document.getElementById(input.id + '-err');
+    el.textContent = msg || '';
+    input.setAttribute('aria-invalid', msg ? 'true' : 'false');
+  }
+  function validate() {
+    var name = document.getElementById('name'), email = document.getElementById('email'), ok = true;
+    if (!name.value.trim()) { setErr(name, 'Go on, tell us your name.'); ok = false; } else setErr(name);
+    if (!email.value.trim()) { setErr(email, 'We need an email to tell you when it’s ready.'); ok = false; }
+    else if (!email.checkValidity()) { setErr(email, 'That email looks offside. Check it and try again.'); ok = false; }
+    else setErr(email);
+    if (!ok) (form.querySelector('[aria-invalid="true"]') || name).focus();
+    return ok;
+  }
+
+  function showDone(name) {
+    document.getElementById('signup').hidden = true;
+    var done = document.getElementById('done');
+    done.hidden = false;
+    var first = name.trim().split(/\s+/)[0];
+    document.getElementById('done-text').textContent = 'Cheers, ' + first + '. We’ll shout when it’s ready.';
+    document.getElementById('done-title').focus();
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!validate()) return;
+    var btn = document.getElementById('submit');
+    var data = { name: document.getElementById('name').value.trim(), email: document.getElementById('email').value.trim(), role: role.value };
+    var endpoint = form.dataset.endpoint;
+    if (!endpoint) { showDone(data.name); return; } // design-only mode
+    btn.disabled = true; btn.textContent = 'Adding you…';
+    fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); showDone(data.name); })
+      .catch(function () { btn.disabled = false; btn.textContent = 'Try again'; setErr(document.getElementById('email'), 'Something went wrong our end. Give it another go.'); });
+  });
+  ['name', 'email'].forEach(function (id) {
+    document.getElementById(id).addEventListener('input', function () { if (this.getAttribute('aria-invalid') === 'true') setErr(this); });
+  });
+
+  document.getElementById('share').addEventListener('click', function () {
+    var url = location.origin + location.pathname.replace(/join\.html$/, '');
+    var text = 'Shooot turns our five-a-side footage into proper highlights. Get on the waitlist:';
+    if (navigator.share) { navigator.share({ title: 'Shooot', text: text, url: url }).catch(function () {}); }
+    else { window.open('https://wa.me/?text=' + encodeURIComponent(text + ' ' + url), '_blank', 'noopener'); }
+  });
+})();
+</script>
+</body>
+</html>

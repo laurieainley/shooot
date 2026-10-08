@@ -6,12 +6,15 @@
 
 **Hero line:** Your five-a-side, as seen on telly.
 
-**Summary:** Shooot turns the hour of footage from your weekly five-a-side into a proper highlights show. Drop in your GoPro or phone clips, mark each moment as it happens, and Shooot cuts every goal with a slow-motion replay, a live scorebug and a full-time card, ready for the group chat or YouTube in minutes. It's built for amateur players who want their worldies remembered (and their misses quietly forgotten), and it's growing into a home for match stats, player ratings and AI-spotted highlights across football, padel, tennis and beyond.
+**Landing page (v1):** hero "Your five-a-side, as seen on telly." Steps: Film it · Tag it · Send it. Use "telly" once per page; Match of the Day / Monday Night Football only as comparisons in body copy, never in logos or headlines alongside their branding.
+
+**Summary:** Shooot turns the hour of footage from your weekly five-a-side into a proper highlights show. Drop in your GoPro or phone clips, tag each moment as it happens, and Shooot cuts every goal with a slow-motion replay, a live scorebug and a full-time card, ready for the group chat or YouTube in minutes. It's built for amateur players who want their worldies remembered (and their misses quietly forgotten), and it's growing into a home for match stats, player ratings and AI-spotted highlights across football, padel, tennis and beyond.
 
 **Alternate lines:**
 
-- Sixty minutes in. Six minutes out. *(product)*
-- Shoot the match. Ship the highlights. *(product)*
+- Monday Night Football. Sunday League effort. *(product / features)*
+- No editing. No faff. *(how it works)*
+- Film it. Tag it. Send it. *(the three steps)*
 - Every goal deserves a replay. Even that one. *(self-aware)*
 - From GoPro to group chat before your pint goes flat. *(self-aware)*
 - Bragging rights, rendered. *(short)*

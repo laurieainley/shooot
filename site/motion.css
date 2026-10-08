@@ -1,0 +1,62 @@
+/* Shooot — signature motion. Requires tokens.css.
+ *
+ * 1. Net bulge: the O as a goal. The REC dot is shot into the top corner,
+ *    the O stretches like a net taking the ball, then settles.
+ *    Use for: app launch, loading, "goal marked", "reel ready", ident sign-off.
+ *
+ *    <span class="sh-net" role="img" aria-label="Goal!">
+ *      <span class="sh-net__ring"><span class="sh-net__dot"></span></span>
+ *    </span>
+ *    Add .is-playing to run once; add .is-looping for loaders.
+ *
+ * 2. Shout: the wordmark's Os stretch in turn (SHOT → SHOOT → SHOOOT).
+ *    Markup: see BRAND.md › Logo in motion.
+ *
+ * All motion respects prefers-reduced-motion (final state, no movement).
+ */
+
+.sh-net { --size: 96px; display: inline-flex; align-items: center; justify-content: center; width: var(--size); height: var(--size); }
+.sh-net__ring {
+  position: relative; display: block; box-sizing: border-box;
+  width: calc(var(--size) * .72); height: calc(var(--size) * .62);
+  border: solid var(--sh-lime); border-width: calc(var(--size) * .1) calc(var(--size) * .165);
+  border-radius: 50%; transform: skewX(-10deg); transform-origin: 30% 50%;
+}
+.sh-net__dot {
+  position: absolute; right: 1%; top: 4%; width: calc(var(--size) * .11); height: calc(var(--size) * .11);
+  border-radius: 50%; background: var(--sh-rec); transform: skewX(10deg);
+}
+.sh-net.is-playing .sh-net__ring, .sh-net.is-looping .sh-net__ring { animation: sh-net-ring 900ms var(--sh-ease-out) both; }
+.sh-net.is-playing .sh-net__dot, .sh-net.is-looping .sh-net__dot { animation: sh-net-dot 900ms var(--sh-ease-net) both; }
+.sh-net.is-looping .sh-net__ring, .sh-net.is-looping .sh-net__dot { animation-iteration-count: infinite; animation-duration: 1800ms; }
+
+@keyframes sh-net-ring {
+  0%, 45% { transform: skewX(-10deg) scale(1, 1); }
+  58%     { transform: skewX(-10deg) scale(1.16, 1.04); }
+  72%     { transform: skewX(-10deg) scale(.96, 1); }
+  86%, 100% { transform: skewX(-10deg) scale(1, 1); }
+}
+@keyframes sh-net-dot {
+  0%   { transform: translate(-260%, 240%) skewX(10deg) scale(.5); opacity: 0; }
+  10%  { opacity: 1; }
+  50%  { transform: translate(10%, -6%) skewX(10deg) scale(1.1); opacity: 1; }
+  60%, 100% { transform: translate(0, 0) skewX(10deg) scale(1); opacity: 1; }
+}
+
+/* Shout — wrap the 2nd and 3rd O of the wordmark */
+.sh-shout__o2, .sh-shout__o3 { display: inline-block; overflow: hidden; vertical-align: bottom; }
+.sh-shout.is-playing .sh-shout__o2 { animation: sh-shout-o2 1.2s var(--sh-ease-out) both; }
+.sh-shout.is-playing .sh-shout__o3 { animation: sh-shout-o3 1.6s var(--sh-ease-out) both; }
+@keyframes sh-shout-o2 { 0%, 20% { max-width: 0; font-stretch: 62%; } 60% { max-width: 1.2em; font-stretch: 62%; } 100% { max-width: 1.2em; font-stretch: 90%; } }
+@keyframes sh-shout-o3 { 0%, 40% { max-width: 0; font-stretch: 62%; color: var(--sh-text); } 70% { max-width: 1.6em; font-stretch: 85%; color: var(--sh-text); } 100% { max-width: 1.6em; font-stretch: 125%; color: var(--sh-loud-o); background-color: var(--sh-loud-o-bg); } }
+
+/* Scorer pulse — the REC dot beside the team that just scored */
+.sh-pulse { position: relative; }
+.sh-pulse::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--sh-rec); animation: sh-pulse 1.6s ease-out infinite; }
+@keyframes sh-pulse { from { transform: scale(1); opacity: .7; } to { transform: scale(2.6); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sh-net *, .sh-shout *, .sh-pulse::after { animation: none !important; }
+  .sh-shout__o2 { max-width: 1.2em; font-stretch: 90%; }
+  .sh-shout__o3 { max-width: 1.6em; font-stretch: 125%; color: var(--sh-loud-o); background-color: var(--sh-loud-o-bg); }
+}
