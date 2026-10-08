@@ -1,4 +1,4 @@
-import type { MatchEvent } from '../types'
+import type { EventType, MatchEvent } from '../types'
 import { controlLabel, isMarker } from './eventTypes'
 
 /** How an event reads at a glance (BRAND.md event tags). Colour is never the only signal: every tone also has its own label or shape. */
@@ -22,9 +22,16 @@ export const TONE_CLASS: Record<EventTone, string> = {
     marker: 'ev-tag--marker',
 }
 
-/** Tag text: an own goal is "OG" where space is tight (log rows), the full control label elsewhere. */
+const SHORT_TEXT: Partial<Record<EventType, string>> = { own_goal: 'OG', penalty_conceded: 'Pen conceded', penalty_missed: 'Pen missed' }
+
+/** Tag text: short where space is tight (log rows: "OG", "Pen goal"), the full control label elsewhere. */
 export function tagText(e: Typed, short: boolean): string {
-    return short && e.type === 'own_goal' ? 'OG' : controlLabel({ type: e.type, pen: e.pen })
+    if (short) {
+        if (e.type === 'goal' && e.pen) return 'Pen goal'
+        const s = SHORT_TEXT[e.type]
+        if (s) return s
+    }
+    return controlLabel({ type: e.type, pen: e.pen })
 }
 
 export type StripTick = 'goal' | 'own-goal' | 'miss' | 'other'

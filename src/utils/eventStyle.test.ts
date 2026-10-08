@@ -27,8 +27,14 @@ describe('tagText', () => {
         expect(tagText({ type: 'own_goal' }, true)).toBe('OG')
         expect(tagText({ type: 'own_goal' }, false)).toBe('Own goal')
     })
+    it('should shorten the penalties for tight rows', () => {
+        expect(tagText({ type: 'goal', pen: true }, true)).toBe('Pen goal')
+        expect(tagText({ type: 'penalty_conceded' }, true)).toBe('Pen conceded')
+        expect(tagText({ type: 'penalty_missed' }, true)).toBe('Pen missed')
+    })
+
     it('should use the control label for everything else', () => {
-        expect(tagText({ type: 'goal', pen: true }, true)).toBe('Penalty goal')
+        expect(tagText({ type: 'goal', pen: true }, false)).toBe('Penalty goal')
         expect(tagText({ type: 'goal' }, true)).toBe('Goal')
         expect(tagText({ type: 'save' }, true)).toBe('Save')
     })

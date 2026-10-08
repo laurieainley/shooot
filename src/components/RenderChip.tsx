@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAppState } from '../state'
 import { useRenderJobs } from '../renderJobs'
+import { polishingChip, REEL_READY } from '../utils/voice'
 
 interface RenderChipProps {
     /** 'bar': in the top bar; 'overlay': floating over the picture (folded bar, fullscreen). */
@@ -24,7 +25,7 @@ export function RenderChip({ variant = 'bar' }: RenderChipProps) {
     if (!job) return null
     const recent = finishedAt !== null && Date.now() - finishedAt < SHOW_DONE_MS
     if (job.phase !== 'running' && !recent) return null
-    const label = job.phase === 'running' ? `Rendering ${Math.round(job.fraction * 100)}%` : job.phase === 'done' ? 'Done ✓' : 'Render failed'
+    const label = job.phase === 'running' ? polishingChip(job.fraction) : job.phase === 'done' ? 'Reel ready' : 'Render failed'
     const open = (): void => {
         const st = useAppState.getState()
         st.setExportTab(job.kind)
@@ -32,7 +33,7 @@ export function RenderChip({ variant = 'bar' }: RenderChipProps) {
     }
     return (
         <button type="button" className={`render-chip render-chip--${variant} render-chip--${job.phase}`} onClick={open}
-            aria-label={`${label} — open Export`} title="Open Export">
+            aria-label={`${label} — open Export`} title={job.phase === 'done' ? `${REEL_READY} Open Export` : 'Open Export'}>
             {job.phase === 'running' && <span className="render-chip__bar" style={{ width: `${Math.round(job.fraction * 100)}%` }} aria-hidden="true" />}
             <span className="render-chip__text tc">{label}</span>
         </button>

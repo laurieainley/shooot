@@ -1,4 +1,5 @@
 import { useAppState } from '../state'
+import { NetBulge } from './NetBulge'
 
 /** "Opening GX010226.MP4 (11.9 GB)…" with a spinner while picked files are probed; iPadOS waiting and large-file notes. */
 export function OpeningStatus() {
@@ -10,7 +11,7 @@ export function OpeningStatus() {
         <>
             {text && (
                 <span role="status" className="opening-status">
-                    <span className="spinner" aria-hidden="true" />
+                    <NetBulge mode="loop" size={28} />
                     <span className="opening-status__text">{text}</span>
                 </span>
             )}

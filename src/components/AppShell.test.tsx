@@ -90,7 +90,7 @@ describe('AppShell', () => {
         render(<AppShell />)
         expect(screen.queryByTestId('player')).not.toBeInTheDocument()
         expect(screen.getByText(/drop gopro mp4s/i)).toBeInTheDocument()
-        expect(screen.getByText(/no events yet/i)).toBeInTheDocument()
+        expect(screen.getByText(/no goals yet/i)).toBeInTheDocument()
     })
 
     it('should show the preview controls over the player while previewing', () => {

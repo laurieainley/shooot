@@ -78,7 +78,7 @@
   .row-btn.replay-btn[aria-pressed="false"]:hover { opacity: 1; }
 }
 /* Replay toggle: the state is the fill, driven by aria-pressed only (no sticky hover / focus look on touch). */
-.row-btn.replay-btn[aria-pressed="true"] { background: var(--sh-lime); color: var(--sh-on-lime); font-weight: 700; }
+.row-btn.replay-btn[aria-pressed="true"] { background: var(--sh-surface-2); color: var(--sh-lime-text); font-weight: 700; box-shadow: inset 0 0 0 1.5px var(--sh-lime-text); }
 .row-btn.replay-btn[aria-pressed="false"] { background: transparent; color: var(--sh-muted); opacity: 0.5; }
 .replay-btn:focus:not(:focus-visible) { outline: none; }
 
@@ -274,7 +274,7 @@
 .ev-tag__text { display: inline-flex; align-items: center; gap: 5px; }
 .ev-icon { flex: none; }
 .ev-tag--goal { background: var(--sh-lime); color: var(--sh-on-lime); }
-.ev-tag--pen-goal { border-color: var(--sh-lime-text); color: var(--sh-lime-text); }
+.ev-tag--pen-goal { border-color: var(--sh-lime-text); color: var(--sh-lime-text); background: var(--sh-surface); } /* own fill: 5.3:1 in light even on a selected (surface-2) row */
 .ev-tag--own-goal { background: var(--sh-text); color: var(--sh-ground); }
 .ev-tag--other, .ev-tag--marker { background: var(--sh-surface-2); color: var(--sh-text); border-color: var(--sh-line); }
 .event-row[aria-selected="true"] .ev-tag--other, .event-row[aria-selected="true"] .ev-tag--marker { background: var(--sh-line); }
@@ -1034,3 +1034,46 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .msg-warn { color: var(--sh-text); }
 .msg-warn::before { content: '\26A0\FE0E'; margin-right: 5px; }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Voice states: empty, progress, success. Wit lives here only; errors and instructions stay plain. */
+.empty-log__lead { display: block; margin-bottom: 4px; color: var(--sh-text); font-size: 15px; }
+.render-voice { margin: 0; color: var(--sh-text); font-size: 15px; }
+.render-ready { display: flex; align-items: center; gap: 10px; flex-basis: 100%; margin: 0; }
+.render-ready span:last-child { font-size: 15px; line-height: 1.2; }
+.opening-status .sh-net { flex: none; }
+/* "Goal marked." over the picture, a beat after a scoring event is added. */
+.goal-marked {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 25; pointer-events: none;
+  display: inline-flex; align-items: center; gap: 8px; padding: 4px 16px 4px 8px; border-radius: 999px;
+  background: var(--sh-scrim); color: var(--sh-on-video); border: 1px solid var(--sh-lime); font-weight: 700; font-size: 14px;
+  animation: goal-marked-in 1.6s var(--sh-ease-out) both;
+}
+@keyframes goal-marked-in { 0% { opacity: 0; transform: translate(-50%, -8px); } 12%, 80% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .goal-marked { animation: none; }
+  .render-chip__text::before, .spinner, .btn-primary.export-btn::before { animation: none !important; }
+}
+
+/* Mark event: lime primary with the REC dot (red = recording this moment). Mouse: 36px in the dense log header; touch gets 44px. */
+.btn-primary.mark-btn { gap: 8px; }
+.btn-primary.mark-btn::before { content: ''; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--sh-rec); box-shadow: 0 0 0 2px var(--sh-lime); }
+@media (pointer: fine) { .event-log > header .btn-primary { min-height: 36px; padding: 0 14px; } }
+.event-picker__warn::before { content: '\26A0\FE0E'; margin-right: 6px; }
+
+/* Narrow phones: the wordmark keeps its 96px minimum; the "(final)" score gives way (it stays in the badge's title) so Export and the menu never clip. */
+@media (max-width: 430px) {
+  .shell--phone .wordmark img { height: 20px; }
+  .shell--phone .top-bar { gap: 8px; }
+  .shell--phone .top-bar .btn-primary { padding: 0 14px; font-size: 13px; }
+  .shell--phone .top-bar .score-final { display: none; }
+}
+
+/* Narrow event labels (landscape phone, desktop rail): a tighter tag so "Pen goal" and a name both fit. */
+.shell--landscape .ev-tag { font-size: 12px; padding: 1px 6px; margin-right: 6px; }
+.shell--landscape .ev-person { font-size: 16px; }
+@media (pointer: fine) { .ev-tag { padding: 1px 6px; margin-right: 6px; } .ev-person { font-size: 15px; } }
+/* Lime ticks need an edge on light grounds (lime is a fill there, never a line on its own). */
+:root { --sh-lime-edge: transparent; }
+:root[data-theme="light"] { --sh-lime-edge: var(--sh-text); }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --sh-lime-edge: var(--sh-text); } }
+.strip-dot[data-tick="goal"]::before { box-shadow: 0 0 0 1px var(--sh-lime-edge), 0 0 0 2.5px var(--sh-ground); }

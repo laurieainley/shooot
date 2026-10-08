@@ -3,7 +3,7 @@
 /* Fonts are self-hosted (no Google Fonts request): Archivo (wght + wdth axes), Big Shoulders Display, JetBrains Mono. */
 @import "@fontsource-variable/archivo/wdth.css";
 @import "@fontsource-variable/archivo/wdth-italic.css";
-@import "@fontsource-variable/big-shoulders-display/wght.css";
+@import "@fontsource-variable/big-shoulders-display/wght";
 @import "@fontsource/jetbrains-mono/400.css";
 @import "@fontsource/jetbrains-mono/700.css";
 

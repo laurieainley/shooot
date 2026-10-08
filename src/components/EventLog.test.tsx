@@ -49,8 +49,8 @@ describe('EventLog rows', () => {
         render(<EventLog />)
         const [row] = rows()
         expect(within(row).getByText('23:41')).toBeInTheDocument()
-        expect(within(row).getByText('Penalty goal')).toHaveClass('ev-tag__text')
-        expect(within(row).getByText('Penalty goal').closest('.ev-tag')).toHaveClass('ev-tag--pen-goal')
+        expect(within(row).getByText('Pen goal')).toHaveClass('ev-tag__text')
+        expect(within(row).getByText('Pen goal').closest('.ev-tag')).toHaveClass('ev-tag--pen-goal')
         expect(within(row).getByText('Jo')).toHaveClass('ev-person')
         expect(row.querySelector('[data-team-dot]')).toHaveStyle({ background: '#c2364a' })
     })
@@ -93,7 +93,7 @@ describe('EventLog rows', () => {
     it('should show an empty message when there are no events', () => {
         setup([])
         render(<EventLog />)
-        expect(screen.getByText(/no events yet/i)).toBeInTheDocument()
+        expect(screen.getByText(/no goals yet/i)).toBeInTheDocument()
     })
 })
 
@@ -367,14 +367,14 @@ describe('EventLog empty state', () => {
         setCoarsePointer(true)
         setup([])
         render(<EventLog />)
-        expect(screen.getByText(/no events yet/i)).toHaveTextContent('No events yet. Tap ＋ while the video plays.')
+        expect(screen.getByText(/no goals yet/i).closest('p')).toHaveTextContent('No goals yet. Classic. Tap ＋ while the video plays.')
     })
 
     it('should tell keyboard users to press G', () => {
         setCoarsePointer(false)
         setup([])
         render(<EventLog />)
-        expect(screen.getByText(/no events yet/i)).toHaveTextContent('No events yet. Press G while it plays.')
+        expect(screen.getByText(/no goals yet/i).closest('p')).toHaveTextContent('No goals yet. Classic. Press G while it plays.')
     })
 })
 

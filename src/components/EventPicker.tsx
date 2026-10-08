@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import { selectClockLong, useAppState } from '../state'
 import { nearbyMark } from '../utils/duplicates'
 import { EventTag } from './EventTag'
-import { PICKER_GROUPS, PICKER_OPTIONS, assistOf, controlLabel, eventIcon, type PickerOption } from '../utils/eventTypes'
+import { PICKER_GROUPS, PICKER_OPTIONS, assistOf, controlLabel, type PickerOption } from '../utils/eventTypes'
 import { SKIP, initialPickerState, pickerReducer, touchPickerState, scorerCandidates, type PickerInput, type PickerState } from '../utils/eventPicker'
 import { teamShortcuts } from '../utils/roster'
 import { formatClock } from '../utils/timeline'
@@ -105,7 +105,7 @@ export function EventPicker() {
     const names = teams.map((t) => t.name)
     const shortcuts = teamShortcuts(names)
     const candidates = scorerCandidates(state, { teams })
-    const title = `${formatClock(event.matchTimeSec, clockLong)} ${eventIcon(event)}`
+    const title = formatClock(event.matchTimeSec, clockLong)
     const { option } = state
     const canSkip = (state.step === 'team' && option.teamOptional) || (state.step === 'scorer' && option.personOptional) || state.step === 'assist'
     const personLabel = state.step === 'assist' ? 'Assist' : option.personLabel ?? 'Scorer'

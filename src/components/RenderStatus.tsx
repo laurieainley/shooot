@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import type { JobKind } from '../render/renderJob'
 import { renderJobs, useRenderJobs } from '../renderJobs'
 import { loadLastReport } from '../render/diagnostics'
+import { REEL_READY, POLISHING } from '../utils/voice'
 import { CopyDiagnostics } from './CopyDiagnostics'
+import { NetBulge } from './NetBulge'
 
 interface RenderStatusProps {
     /** Which export this panel section belongs to: it shows that render, and notes when the other one is running. */
@@ -80,10 +82,12 @@ export function RenderStatus({ kind }: RenderStatusProps) {
                     {cancelControls}
                 </div>
             )}
+            {job.phase === 'running' && <p className="render-voice voice-heading">{POLISHING}</p>}
             <div role="status" className="tc text-[12px] text-muted">{job.phase === 'failed' ? `Render failed: ${job.error}` : job.status}</div>
             <SkippedList skipped={skipped} />
             {job.result && (
                 <div className="render-done">
+                    <p className="render-ready"><NetBulge mode="once" size={40} /><span className="voice-heading">{REEL_READY}</span></p>
                     <span>{job.result.downloaded ? `Downloaded ${job.result.file.name}` : `${job.result.file.name} is ready`}</span>
                     <a href={job.result.url} download={job.result.file.name} className={job.result.downloaded ? 'btn-quiet no-underline' : 'btn-primary no-underline'}
                         onClick={(e) => { e.preventDefault(); jobs.downloadAgain() }}>

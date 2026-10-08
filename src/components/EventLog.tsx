@@ -3,6 +3,7 @@ import { shouldHandleShortcut } from '../utils/shortcuts'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import type { MatchEvent, Team } from '../types'
+import { emptyLogLine } from '../utils/voice'
 import { assistOf, controlSummary, controlLabel, isMarker, shortNote } from '../utils/eventTypes'
 import { EventIcon, EventTag } from './EventTag'
 import { watchFromSec } from '../utils/markers'
@@ -36,6 +37,7 @@ export function EventLog() {
     const rootRef = useRef<HTMLElement | null>(null)
     const listRef = useRef<HTMLOListElement | null>(null)
 
+    const empty = emptyLogLine(coarse, files.length === 0)
     const selectedIndex = events.findIndex((e) => e.id === selectedId)
     const scores = useMemo(() => scoresAfter(events, teams, offsets), [events, teams, offsets])
 
@@ -122,7 +124,7 @@ export function EventLog() {
                 {!coarse && (
                     <button type="button" onClick={() => { const st = useAppState.getState(); st.markEvent(st.currentTimeInFileSec) }}
                         disabled={files.length === 0}
-                        className="btn-quiet">+ Event</button>
+                        className="btn-primary mark-btn">+ Event</button>
                 )}
                 <button type="button" aria-label="Undo" title="Undo (⌘Z)" onClick={() => useAppState.getState().undo()} disabled={!canUndo} className="btn-icon"><UndoIcon /></button>
                 <button type="button" aria-label="Redo" title="Redo (⇧⌘Z)" onClick={() => useAppState.getState().redo()} disabled={!canRedo} className="btn-icon"><UndoIcon redo /></button>
@@ -130,10 +132,9 @@ export function EventLog() {
             <RelinkBanner />
 
             {events.length === 0 ? (
-                <p className="m-0 px-3 py-4 text-[13px] text-muted">
-                    {coarse
-                        ? <>No events yet. {files.length === 0 ? 'Load a video, then tap ＋ while it plays.' : 'Tap ＋ while the video plays.'}</>
-                        : <>No events yet. {files.length === 0 ? 'Load a video, then press ' : 'Press '}<kbd>G</kbd> while it plays.</>}
+                <p className="empty-log m-0 px-3 py-4 text-[13px] text-muted">
+                    <strong className="empty-log__lead voice-heading">{empty.lead}</strong>
+                    {' '}{empty.key ? <>{empty.hint} <kbd>{empty.key}</kbd> {empty.tail}</> : empty.hint}
                 </p>
             ) : (
                 <ol ref={listRef} role="listbox" aria-label="Event list" className="m-0 min-h-0 flex-1 list-none overflow-y-auto overscroll-contain p-0">
