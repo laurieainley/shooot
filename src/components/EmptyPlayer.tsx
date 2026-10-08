@@ -5,7 +5,7 @@ import { OpeningStatus } from './OpeningStatus'
 import { rememberHandles, type StoredHandle } from '../files/handleStore'
 
 const HINTS: [string, string][] = [
-    ['G', 'mark an event'], ['⇧← ⇧→', '1 s back / on'], ['↑ ↓', 'frame step'], [', .', 'speed down / up'],
+    ['G', 'tag an event'], ['⇧← ⇧→', '1 s back / on'], ['↑ ↓', 'frame step'], [', .', 'speed down / up'],
     ['/', 'normal speed'], ['[ ]', 'previous / next file'], ['Home', 'kick-off'], ['Z', 'zoom'], ['L', 'event log'],
 ]
 

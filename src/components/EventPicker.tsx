@@ -126,7 +126,7 @@ export function EventPicker() {
             <div className="event-picker__body">
             {near && state.step === 'type' && (
                 <p role="alert" className="event-picker__warn">
-                    {controlLabel(near.event)} already marked {near.deltaSec === 0 ? 'at this second' : `${Math.abs(near.deltaSec)} s ${near.deltaSec < 0 ? 'earlier' : 'later'}`}
+                    {controlLabel(near.event)} already tagged {near.deltaSec === 0 ? 'at this second' : `${Math.abs(near.deltaSec)} s ${near.deltaSec < 0 ? 'earlier' : 'later'}`}
                     {' · '}{coarse ? 'Cancel' : <kbd>⌫</kbd>} if this was a double tap
                 </p>
             )}

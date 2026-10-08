@@ -3,7 +3,7 @@ import { isScoring } from './eventTypes'
 
 /** The brand's voice for empty, loading and success states (BRAND.md). Errors and instructions stay plain; wit lives here only. */
 export const REEL_READY = "Reel ready. Group chat won't know what's hit it."
-export const GOAL_MARKED = 'Goal marked.'
+export const GOAL_MARKED = 'Goal tagged.'
 
 export type EmptyLog = { lead: string; hint: string; key?: string; tail?: string }
 

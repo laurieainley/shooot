@@ -37,22 +37,22 @@ describe('AppShell', () => {
         expect(screen.getByRole('slider', { name: 'Match timeline' })).toBeInTheDocument()
         expect(screen.getByRole('complementary', { name: 'Event rail' })).toContainElement(screen.getByRole('region', { name: 'Events' }))
         expect(screen.getByLabelText('Clip summary')).toBeInTheDocument()
-        expect(screen.getByText('mark')).toBeInTheDocument()
+        expect(screen.getByText('tag')).toBeInTheDocument()
         expect(screen.getByText('GX010226.MP4', { selector: '.file-pill__name' })).toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Mark event' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Tag event' })).not.toBeInTheDocument()
     })
 
     it('should stack the phone layout with a mark-event button under 900px', async () => {
         setWidth(false)
         render(<AppShell />)
         expect(screen.queryByRole('complementary', { name: 'Event rail' })).not.toBeInTheDocument()
-        expect(screen.queryByText('mark')).not.toBeInTheDocument()
+        expect(screen.queryByText('tag')).not.toBeInTheDocument()
         expect(screen.getByRole('region', { name: 'Events' })).toBeInTheDocument()
-        await userEvent.click(screen.getByRole('button', { name: 'Mark event' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Tag event' }))
         // The time is captured, but no event exists until a type is chosen
         expect(useAppState.getState().events).toEqual([])
         expect(useAppState.getState().picker?.pending).toEqual({ matchTimeSec: 12, sourceFileIndex: 0 })
-        expect(screen.queryByRole('button', { name: 'Mark event' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Tag event' })).not.toBeInTheDocument()
     })
 
     it('should keep the files and Match setup behind the overflow menu on the phone', async () => {
@@ -126,7 +126,7 @@ describe('AppShell', () => {
             render(<AppShell />)
             expect(screen.queryByText('GX010226.MP4', { selector: '.file-pill__name' })).not.toBeInTheDocument()
             expect(screen.queryByRole('button', { name: 'Match' })).not.toBeInTheDocument()
-            expect(screen.queryByText('mark')).not.toBeInTheDocument()
+            expect(screen.queryByText('tag')).not.toBeInTheDocument()
             expect(screen.getByRole('button', { name: 'Export' })).toBeInTheDocument()
             expect(screen.getByRole('button', { name: 'Menu' })).toBeInTheDocument()
         })
@@ -134,7 +134,7 @@ describe('AppShell', () => {
         it('should keep the ＋ mark button in the rail, off the video', async () => {
             setLandscape()
             const { container } = render(<AppShell />)
-            const fab = screen.getByRole('button', { name: 'Mark event' })
+            const fab = screen.getByRole('button', { name: 'Tag event' })
             expect(container.querySelector('.stage')).not.toContainElement(fab)
             await userEvent.click(fab)
             expect(useAppState.getState().picker?.pending).toBeDefined()

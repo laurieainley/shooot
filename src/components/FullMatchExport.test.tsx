@@ -51,7 +51,7 @@ describe('FullMatchExport', () => {
         useAppState.setState({ events: [] })
         render(<FullMatchExport />)
         expect(screen.getByText(/Start of V1 → End of V2/)).toBeInTheDocument()
-        expect(screen.getByText(/mark Kick off \(K\) and Final whistle \(W\)/i)).toBeInTheDocument()
+        expect(screen.getByText(/tag Kick off \(K\) and Final whistle \(W\)/i)).toBeInTheDocument()
     })
 
     it('should render kick-off to final whistle as full-match.mp4, resumable', async () => {
