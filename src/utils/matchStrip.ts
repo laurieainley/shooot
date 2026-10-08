@@ -1,14 +1,13 @@
 import type { MarkerType, MatchEvent, Team } from '../types'
 import { eventLabel, isMarker, shortNote } from './eventTypes'
-import { stripTick, type StripTick } from './eventStyle'
 import { mergeOverlappingGoalSegments } from './highlights'
 import { linkedEvents } from './relink'
 import { formatHMS } from './timeline'
 
 export type StripFile = { name: string; leftPct: number; widthPct: number }
 export type StripSpan = { leftPct: number; widthPct: number }
-/** `tick` is how the mark is drawn (lime goal, chalk own goal + label, open ring, grey): kit colours stay on rows and the score badge. */
-export type StripEvent = { id: string; leftPct: number; tick: StripTick; label?: string; title: string; kind: MatchEvent['type'] }
+/** An event icon on the strip: `kind` + `pen` pick the glyph (utils/eventIcon). Kit colours stay on rows and the scorebug. */
+export type StripEvent = { id: string; leftPct: number; pen: boolean; title: string; kind: MatchEvent['type'] }
 export type StripFlag = { id: string; kind: MarkerType; leftPct: number; title: string }
 export type MatchStrip = {
     totalSec: number
@@ -62,11 +61,30 @@ export function buildMatchStrip(args: {
         return {
             id: e.id,
             leftPct: pct(g),
-            ...stripTick(e),
+            pen: e.pen === true,
             title: `${formatHMS(g)} ${eventLabel(e)}${e.team ? ` – ${e.team}` : ''}${e.scorer ? ` (${e.scorer})` : ''}${note ? ` — ${note}` : ''}`,
             kind: e.type,
         }
     })
     const playheadPct = pct((cumulativeOffsets[currentFileIndex] ?? 0) + currentTimeSec)
     return { totalSec, files: stripFiles, clips, events: stripEvents, flags, playheadPct }
+}
+
+/**
+ * Vertical lanes for the event icons so none hides another: left to right, each icon takes the lowest lane whose last icon
+ * is at least `iconPx` away; when every lane is taken it goes on the last lane (still drawn, slightly overlapping).
+ * `leftPcts` are positions in % of a `trackPx` wide strip; the result is in input order.
+ */
+export function stackLanes(leftPcts: number[], trackPx: number, iconPx: number, maxLanes = 3): number[] {
+    const order = leftPcts.map((_, i) => i).sort((a, b) => leftPcts[a] - leftPcts[b])
+    const lastX: number[] = []
+    const lanes: number[] = new Array(leftPcts.length).fill(0)
+    for (const i of order) {
+        const x = (leftPcts[i] / 100) * trackPx
+        let lane = 0
+        while (lane < maxLanes - 1 && lastX[lane] !== undefined && x - lastX[lane] < iconPx) lane++
+        lanes[i] = lane
+        lastX[lane] = x
+    }
+    return lanes
 }

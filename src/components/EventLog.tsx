@@ -6,7 +6,7 @@ import type { MatchEvent, Team } from '../types'
 import { emptyLogLine } from '../utils/voice'
 import { controlLabel, isMarker } from '../utils/eventTypes'
 import { eventRowParts } from '../utils/eventRow'
-import { EventIcon, EventTag } from './EventTag'
+import { EventIcon } from './icons/EventIcon'
 import { watchFromSec } from '../utils/markers'
 import { wantsReplay } from '../utils/replays'
 import { filterRoster, rosterTeamFor } from '../utils/roster'
@@ -237,6 +237,8 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, fileSlot, 
                 onDoubleClick={(ev) => { stop(ev); onEdit('team') }}
             />
 
+            <span className="event-row__icon"><EventIcon event={e} size={touch ? 22 : 18} /></span>
+
             {editing === 'team' ? (
                 <span className="flex min-w-0 gap-1" onClick={stop}>
                     {teams.map((t) => (
@@ -255,8 +257,9 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, fileSlot, 
             ) : (
                 <span className="event-row__content" title={title}>
                     <span className="event-row__main" onDoubleClick={(ev) => { stop(ev); onEdit('scorer') }}>
-                        <EventTag event={e} short />
-                        {parts.person && <span className="ev-person voice-shirt">{parts.person}</span>}
+                        {parts.person
+                            ? <span className="ev-person voice-shirt">{parts.person}</span>
+                            : <span className="event-row__type">{controlLabel(e)}</span>}
                     </span>
                     {parts.sub.length > 0 && (
                         <span className="event-row__sub">
@@ -304,7 +307,8 @@ function MarkerRow({ event: e, selected, clock, fileTag, fileSlot, editing, onSe
             ) : (
                 <span className="tc clock text-[13px]" onDoubleClick={(ev) => { stop(ev); onEdit('time') }} title="Double-click to edit time (in file)">{clock}</span>
             )}
-            <span className="marker-flag" aria-hidden="true"><EventIcon type={e.type} /></span>
+            <span className="team-dot team-dot--none" aria-hidden="true" />
+            <span className="event-row__icon"><EventIcon event={e} size={touch ? 22 : 18} /></span>
             <span className="event-row__content"><span className="event-row__main event-row__label">{controlLabel(e)}</span></span>
             <span className="event-row__end">
                 <span className="row-score" aria-hidden="true" />

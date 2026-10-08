@@ -225,8 +225,8 @@
 }
 .shell--landscape .bay { grid-template-columns: minmax(0, 1fr) var(--rail-w); }
 .shell--landscape .rail { min-width: 0; overflow: hidden; }
-.shell--landscape .event-row { grid-template-columns: auto 10px minmax(0, 1fr) auto; padding-left: 10px; }
-.shell--landscape .bay__left { grid-template-rows: minmax(0, 1fr) 45px; padding-left: env(safe-area-inset-left, 0px); background: var(--sh-video); }
+.shell--landscape .event-row { grid-template-columns: auto 10px 20px minmax(0, 1fr) auto; padding-left: 10px; }
+.shell--landscape .bay__left { grid-template-rows: minmax(0, 1fr) 52px; padding-left: env(safe-area-inset-left, 0px); background: var(--sh-video); }
 .shell--landscape .rail { padding-right: env(safe-area-inset-right, 0px); }
 .shell--landscape .match-strip { grid-template-columns: 84px minmax(0, 1fr); }
 .shell--landscape .strip-label { padding: 0 8px; }
@@ -237,7 +237,7 @@
 
 /* ---------- desktop bay ---------- */
 .bay { display: grid; grid-template-columns: minmax(0, 1fr) clamp(340px, 31vw, 440px); min-height: 0; }
-.bay__left { display: grid; grid-template-rows: minmax(0, 1fr) 56px; min-height: 0; min-width: 0; }
+.bay__left { display: grid; grid-template-rows: minmax(0, 1fr) 64px; min-height: 0; min-width: 0; }
 .rail {
   display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0;
   background: var(--sh-surface); border-left: 1px solid var(--sh-line);
@@ -265,7 +265,7 @@
 .event-log > header { transition: box-shadow 0.15s; }
 .event-log:focus-within > header { box-shadow: inset 0 -2px 0 var(--sh-lime-text); }
 .event-row {
-  display: grid; grid-template-columns: 4.2em 10px minmax(0, 1fr) auto; gap: 6px; align-items: center;
+  display: grid; grid-template-columns: 4.2em 10px 20px minmax(0, 1fr) auto; gap: 6px; align-items: center;
   min-height: 38px; padding: 3px 6px 3px 12px; border-bottom: 1px solid var(--sh-line);
   cursor: pointer; white-space: nowrap; user-select: none;
 }
@@ -276,29 +276,23 @@
 .event-row[aria-disabled="true"] { cursor: default; }
 .event-row[aria-disabled="true"] > :not(:last-child) { opacity: 0.5; }
 .event-row .team-dot { cursor: default; }
-/* Event tags (BRAND.md): Goal lime fill, Penalty goal lime outline, Own goal chalk fill + OG, the rest quiet with an icon. Skewed, never colour alone. */
-.ev-tag {
-  display: inline-flex; align-items: center; vertical-align: middle; margin-right: 8px; padding: 2px 8px; border: 1.5px solid transparent;
-  border-radius: var(--sh-radius-sm); transform: skewX(var(--sh-skew)); font-style: italic; font-weight: 900; font-size: 12px; line-height: 1.2; text-transform: uppercase;
-  letter-spacing: 0.01em; white-space: nowrap;
-}
-.ev-tag__text { display: inline-flex; align-items: center; gap: 5px; }
-.ev-icon { flex: none; }
-.ev-tag--goal { background: var(--sh-lime); color: var(--sh-on-lime); }
-.ev-tag--pen-goal { border-color: var(--sh-lime-text); color: var(--sh-lime-text); background: var(--sh-surface); } /* own fill: 5.3:1 in light even on a selected (surface-2) row */
-.ev-tag--own-goal { background: var(--sh-text); color: var(--sh-ground); }
-.ev-tag--other, .ev-tag--marker { background: var(--sh-surface-2); color: var(--sh-text); border-color: var(--sh-line); }
-.event-row[aria-selected="true"] .ev-tag--other, .event-row[aria-selected="true"] .ev-tag--marker { background: var(--sh-line); }
+/* Event icons (components/icons): chalk line art; only a goal is lime (lime-text on light grounds). Own goal = chalk football with an OG label. */
+.ev-icon { flex: none; color: var(--sh-text); }
+.ev-icon--goal { color: var(--sh-lime-text); }
+.ev-icon--penalty-conceded, .ev-icon--penalty-missed, .ev-icon--save, .ev-icon--foul, .ev-icon--highlight { color: var(--sh-muted); }
+.event-row[aria-selected="true"] .ev-icon:not(.ev-icon--goal) { color: var(--sh-text); }
+.ev-label { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.ev-label__text { min-width: 0; }
+.event-row__icon { display: grid; place-items: center; width: 20px; }
 /* The person is the hero of a row: the shirt font (names only, never UI). */
 .ev-person { font-size: 16px; line-height: 1; letter-spacing: 0.06em; }
-@media (pointer: coarse) { .ev-tag { font-size: 14px; } .ev-person { font-size: 18px; } }
-/* Kick off / Final whistle rows: a flag in the dot column, label in caps, a faint band across the log. */
+@media (pointer: coarse) { .ev-person { font-size: 18px; } .event-row__icon { width: 24px; } }
+/* Kick off / Half time / Final whistle rows: a faint band across the log. */
 .event-row--marker { background: color-mix(in srgb, var(--sh-text) 5%, transparent); }
-.event-row--half_time .marker-flag { color: var(--sh-muted); }
 .event-row--final_whistle { background: color-mix(in srgb, var(--sh-text) 8%, transparent); }
 .event-row--marker .event-row__label { font-weight: 800; font-style: italic; letter-spacing: 0.02em; text-transform: uppercase; font-size: 12px; }
-.marker-flag { width: 10px; font-size: 12px; line-height: 1; text-align: center; overflow: visible; color: var(--sh-text); display: grid; place-items: center; }
-.marker-flag .ev-icon { width: 14px; height: 14px; flex: none; }
+.team-dot--none { visibility: hidden; }
+.event-row__type { font-size: 13px; font-weight: 600; color: var(--sh-muted); }
 .row-score { font-family: var(--sh-font-mono); font-size: 12px; color: var(--sh-muted); font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: no-preference) { .event-row { transition: background-color 0.12s; } }
 .shell--phone .event-log ol { overflow: visible; padding-bottom: 16px; }
@@ -314,75 +308,60 @@
 .clip-summary .kv b { color: var(--sh-text); font-weight: 500; font-family: var(--sh-font-mono); }
 .shell--phone .clip-summary { padding-bottom: 96px; }
 
-/* ---------- match strip (the pitch: files laid end to end, chalk lines between them) ---------- */
+/* ---------- match strip: the one timeline (files end to end; chalk lines between them) ---------- */
 .match-strip { display: grid; grid-template-columns: minmax(96px, auto) minmax(0, 1fr); background: var(--sh-surface); border-top: 1px solid var(--sh-line); min-width: 0; }
-.shell--phone .match-strip { height: 48px; border-bottom: 1px solid var(--sh-line); grid-template-columns: minmax(88px, auto) minmax(0, 1fr); }
+.shell--phone .match-strip { height: 60px; border-bottom: 1px solid var(--sh-line); grid-template-columns: minmax(88px, auto) minmax(0, 1fr); }
 .strip-label {
   display: flex; flex-direction: column; justify-content: center; gap: 1px; padding: 0 12px;
   border-right: 1px solid var(--sh-line); font-size: 11px; color: var(--sh-muted);
 }
 .strip-label__clock { font-size: 15px; font-weight: 700; color: var(--sh-text); line-height: 1.1; }
-.strip-label__clock--accent { color: var(--sh-lime-text); }
+.strip-label__clock--accent { color: var(--sh-text); }
+.strip-wrap { position: relative; min-width: 0; }
 .strip-track {
-  position: relative; overflow: hidden; cursor: pointer; touch-action: none;
-  background:
-    repeating-linear-gradient(90deg, transparent 0 48px, color-mix(in srgb, var(--sh-line) 70%, transparent) 48px 49px),
-    var(--sh-ground);
+  position: absolute; inset: 0; overflow: hidden; cursor: pointer; touch-action: none;
+  background: var(--sh-ground);
 }
+.strip-track:focus-visible { outline: 2px solid var(--sh-text); outline-offset: -2px; }
 .strip-file {
-  position: absolute; top: 0; bottom: 0; box-sizing: border-box;
-  border-right: 2px solid var(--sh-line); padding: 3px 6px; pointer-events: none;
+  position: absolute; top: 0; bottom: 0; box-sizing: border-box; border-right: 1px solid var(--sh-muted); pointer-events: none;
 }
 .strip-file:last-child { border-right: 0; }
-.strip-file--current { background: color-mix(in srgb, var(--sh-surface) 70%, transparent); }
-.strip-file__name { display: block; font-size: 10.5px; color: var(--sh-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.strip-file--current { background: color-mix(in srgb, var(--sh-surface) 80%, transparent); }
+.strip-file__num { position: absolute; bottom: 2px; left: 5px; font-size: 10px; line-height: 1; color: var(--sh-muted); }
+.strip-file--current .strip-file__num { color: var(--sh-text); }
 .strip-clip {
-  position: absolute; top: 48%; height: 30%; border-radius: 2px; pointer-events: none;
-  background: color-mix(in srgb, var(--sh-text) 16%, transparent);
+  position: absolute; top: 0; bottom: 0; pointer-events: none;
+  background: color-mix(in srgb, var(--sh-text) 9%, transparent);
 }
-/* Event ticks: lime for goals (penalties too), grey for other moments, chalk + OG for own goals, an open chalk ring for a missed penalty.
-   The button is a wide hit area; the tick is drawn inside it. Kit colours never appear here. */
+/* Event icons: one glyph per type (components/icons), stacked on lanes so none hides another. Colour = the icon's own (goal lime). */
 .strip-dot {
-  position: absolute; top: 63%; width: 18px; height: 26px; padding: 0; border: 0; background: transparent;
-  transform: translate(-50%, -50%); cursor: pointer; z-index: 2; color: var(--sh-muted);
+  --icon: 16px; --lane-step: 11px;
+  position: absolute; bottom: calc(5px + var(--lane, 0) * var(--lane-step)); width: calc(var(--icon) + 8px); height: calc(var(--icon) + 4px); padding: 0; border: 0; background: transparent;
+  transform: translateX(-50%); display: grid; place-items: center; cursor: pointer; z-index: 2; border-radius: 4px;
 }
-.strip-dot::before {
-  content: ""; position: absolute; left: 50%; top: 50%; width: 3px; height: 14px; margin: -7px 0 0 -1.5px; border-radius: 1px; background: currentColor;
-  box-shadow: 0 0 0 1.5px var(--sh-ground);
-}
-.strip-dot[data-tick="goal"] { color: var(--sh-lime-text); }
-.strip-dot[data-tick="goal"]::before { width: 4px; height: 22px; margin: -11px 0 0 -2px; background: var(--sh-lime); }
-.strip-dot[data-tick="own-goal"] { color: var(--sh-text); }
-.strip-dot[data-tick="own-goal"]::before { width: 4px; height: 22px; margin: -11px 0 0 -2px; }
-.strip-dot[data-tick="miss"]::before { width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: transparent; border: 2px solid var(--sh-text); box-shadow: 0 0 0 1.5px var(--sh-ground); box-sizing: border-box; }
-.strip-dot__label {
-  position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: -4px; font-family: var(--sh-font-mono); font-weight: 700;
-  font-size: 11px; line-height: 1; color: var(--sh-text); text-shadow: 0 0 3px var(--sh-ground), 0 0 3px var(--sh-ground); pointer-events: none;
-}
-.strip-dot:hover::before { filter: brightness(1.2); transform: scaleX(1.5); }
-.strip-dot[data-tick="miss"]:hover::before { transform: scale(1.2); }
-/* Kick off / Half time / Final whistle: flags in chalk and muted, never green or amber. */
-.strip-flag { position: absolute; top: 17px; bottom: 0; border-left: 2px solid var(--sh-text); pointer-events: none; z-index: 1; }
-.strip-flag::after {
-  content: ""; position: absolute; top: 2px; left: 0; width: 9px; height: 7px;
-  background: var(--sh-text); clip-path: polygon(0 0, 100% 50%, 0 100%);
-}
-/* Half time: a pennant in muted chalk. */
-.strip-flag--half_time { border-left-color: var(--sh-muted); }
-.strip-flag--half_time::after { background: var(--sh-muted); clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 25% 50%); }
-/* Final whistle: a chequered flag. */
-.strip-flag--final_whistle { border-left-color: var(--sh-text); }
-.strip-flag--final_whistle::after {
-  width: 10px; height: 8px; clip-path: none;
-  background: conic-gradient(var(--sh-text) 25%, var(--sh-surface) 0 50%, var(--sh-text) 0 75%, var(--sh-surface) 0) 0 0 / 5px 4px;
-  box-shadow: 0 0 0 1px var(--sh-text);
-}
+.strip-dot .ev-icon { filter: drop-shadow(0 0 2px var(--sh-ground)) drop-shadow(0 0 1px var(--sh-ground)); transition: transform 0.1s; }
+.strip-dot:hover .ev-icon, .strip-dot:focus-visible .ev-icon { transform: scale(1.25); }
+.strip-dot:focus-visible { outline: 2px solid var(--sh-text); outline-offset: 0; }
+@media (pointer: coarse) { .strip-dot { --icon: 18px; --lane-step: 12px; } }
+/* Kick off / Half time / Final whistle: small flags on the top edge with a hairline down to the floor. */
+.strip-flag { position: absolute; top: 2px; bottom: 0; transform: translateX(-50%); z-index: 1; color: var(--sh-text); display: flex; justify-content: center; }
+.strip-flag::after { content: ""; position: absolute; top: 15px; bottom: 0; left: 50%; width: 1px; background: color-mix(in srgb, var(--sh-text) 35%, transparent); }
+.strip-flag--half_time { color: var(--sh-muted); }
 /* The playhead is the REC dot's colour: live, now. */
 .strip-head { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px solid var(--sh-rec); margin-left: -1px; pointer-events: none; z-index: 3; }
 .strip-head::before {
-  content: ""; position: absolute; top: 0; left: -6px; width: 10px; height: 6px;
-  background: var(--sh-rec); clip-path: polygon(0 0, 100% 0, 50% 100%);
+  content: ""; position: absolute; top: 0; left: -5px; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--sh-rec); box-shadow: 0 0 0 2px var(--sh-ground);
 }
+/* Hover / drag: the time under the pointer. */
+.strip-bubble {
+  position: absolute; bottom: calc(100% + 6px); transform: translateX(-50%); z-index: 6; pointer-events: none; white-space: nowrap;
+  padding: 4px 9px; border-radius: var(--sh-radius-sm); background: var(--sh-surface-2); color: var(--sh-text); border: 1px solid var(--sh-line);
+  font-size: 13px; font-weight: 700; box-shadow: 0 4px 14px rgb(0 0 0 / 0.35);
+}
+.strip-bubble__file { font-weight: 400; color: var(--sh-muted); }
+@media (pointer: coarse) { .strip-bubble { font-size: 16px; padding: 6px 12px; bottom: calc(100% + 14px); } }
 .kickoff-flag { position: relative; display: inline-block; width: 10px; height: 13px; border-left: 2px solid var(--sh-text); }
 .kickoff-flag::after { content: ""; position: absolute; top: 0; left: 0; width: 8px; height: 7px; background: var(--sh-text); clip-path: polygon(0 0, 100% 50%, 0 100%); }
 
@@ -521,13 +500,9 @@
 /* ---------- player: video.js skin, overlays ---------- */
 .player-container .video-js { width: 100%; height: 100%; background: var(--sh-video); font-family: var(--sh-font); }
 .player-container .video-js .vjs-control-bar { background: linear-gradient(transparent, rgb(5 7 6 / 0.85)); }
-.player-container .video-js .vjs-play-progress, .player-container .video-js .vjs-volume-level { background-color: var(--sh-on-video); }
-.player-container .video-js .vjs-play-progress::before { color: var(--sh-rec); } /* the scrubber's playhead is the REC dot */
-.player-container .video-js .vjs-load-progress { background: rgb(243 241 234 / 0.18); }
-.player-container .video-js .vjs-load-progress div { background: rgb(243 241 234 / 0.12); }
+.player-container .video-js .vjs-volume-level { background-color: var(--sh-on-video); }
 /* Running times keep one width per project (--clock-w is set by AppShell): tabular figures, a reserved box. */
 .clock { display: inline-block; min-width: var(--clock-w, 6ch); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.scrub-bubble.clock { text-align: center; }
 .player-container .video-js .vjs-time-control { font-family: var(--sh-font-mono); font-size: 12px; font-variant-numeric: tabular-nums; }
 .player-container .video-js .vjs-current-time-display, .player-container .video-js .vjs-duration-display { display: inline-block; min-width: var(--clock-w-file, 5ch); text-align: center; }
 /* Elapsed time: current / duration (video.js shows the remaining time by default). */
@@ -550,12 +525,6 @@
   position: absolute; bottom: 54px; left: 10px; z-index: 30; /* top-left is the scorebug, top-right the touch fullscreen button */
   border: 1px solid rgb(243 241 234 / 0.3); border-radius: var(--sh-radius-sm); padding: 2px 8px;
   background: var(--sh-scrim); color: var(--sh-lime); font-family: var(--sh-font-mono); font-size: 13px; cursor: pointer;
-}
-
-.scrub-bubble {
-  position: absolute; bottom: 64px; transform: translateX(-50%); z-index: 40; pointer-events: none;
-  padding: 6px 10px; border-radius: var(--sh-radius-sm); background: rgb(5 7 6 / 0.85); color: var(--sh-lime); font-family: var(--sh-font-mono); font-size: 18px; font-weight: 700;
-  box-shadow: 0 4px 12px rgb(0 0 0 / 0.4);
 }
 
 .speed-indicator {
@@ -623,7 +592,6 @@
 .event-picker__item { display: flex; justify-content: space-between; align-items: center; padding: 5px 8px; border-radius: var(--sh-radius-sm); cursor: pointer; }
 .event-picker__item:hover { background: var(--sh-surface-2); }
 .event-picker__item[aria-selected="true"] { background: var(--sh-surface-2); box-shadow: inset 3px 0 0 var(--sh-lime-text); }
-.event-picker__item .ev-tag { margin-right: 0; }
 .event-picker__input {
   width: 100%; box-sizing: border-box; margin-bottom: 6px; padding: 6px 8px; font: inherit;
   border-radius: var(--sh-radius-sm); border: 1px solid var(--sh-line); background: var(--sh-surface-2); color: var(--sh-text);
@@ -696,7 +664,7 @@
   text-transform: uppercase; color: var(--sh-muted);
 }
 .event-picker__item--type { font-size: 17px; border-left: 4px solid var(--sh-line); }
-.event-picker__item--type .ev-tag { font-size: 15px; padding: 3px 12px; }
+.event-picker__item--type .ev-label { font-weight: 700; }
 .event-picker__person-name { font-size: 17px; line-height: 1.2; }
 .event-picker__item--type[aria-selected="false"] { border-left-color: var(--sh-line); }
 /* Fullscreen: a small panel on the right, at most 40 % of the height, never over the picture's centre. */
@@ -741,18 +709,6 @@
 html:has(.player-container--immersive), body:has(.player-container--immersive) { overflow: hidden; }
 .player-container:fullscreen .video-js { width: 100%; height: 100%; }
 
-/* Scrubber markers */
-.video-js .vjs-progress-holder { overflow: visible; }
-/* Scrubber ticks: lime for goals, chalk for own goals, grey for other moments (kit colours never); flags are chalk line icons. */
-.timeline-marker {
-  position: absolute; bottom: 100%; transform: translateX(-50%); margin-bottom: 2px; padding: 0; width: 18px; height: 24px;
-  border: none; background: none; cursor: pointer; z-index: 2; color: var(--sh-on-video); display: grid; place-items: end center;
-}
-.timeline-marker--event::before { content: ""; display: block; width: 3px; height: 12px; border-radius: 1px; background: var(--sh-muted); box-shadow: 0 0 2px #000; }
-.timeline-marker--event[data-tone="goal"]::before, .timeline-marker--event[data-tone="pen-goal"]::before { width: 4px; height: 18px; background: var(--sh-lime); }
-.timeline-marker--event[data-tone="own-goal"]::before { width: 4px; height: 18px; background: var(--sh-on-video); }
-.timeline-marker .ev-icon { width: 14px; height: 14px; filter: drop-shadow(0 0 2px #000); }
-
 /* Touch: every gesture on the video belongs to the player (taps, double taps, pinch, pan, scrubbing);
    swipes on the picture never scroll or zoom the page. */
 .player-container { touch-action: none; -webkit-tap-highlight-color: transparent; }
@@ -786,7 +742,6 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .player-container .video-js .vjs-control-bar .vjs-button { width: 44px; }
   .player-container .video-js .vjs-control-bar .vjs-button > .vjs-icon-placeholder::before { line-height: 44px; }
   .player-container .video-js .vjs-time-control { line-height: 44px; }
-  .player-container .video-js .vjs-progress-control { min-width: 3em; }
   .row-btn { width: 44px; height: 44px; font-size: 17px; }
   .btn-icon { width: 44px; height: 44px; }
   .event-row { min-height: 48px; }
@@ -808,7 +763,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .text-\[10px\], .text-\[11px\], .text-\[12px\], .text-\[13px\],
   .btn-quiet, .btn-primary, .file-add, .field, .tag, .row-score, .menu > button, .menu-item,
   .clip-summary, .export-section__title, .settings-group legend, .export-section__hint, .toggle-row__hint, .settings-field, .settings-field .unit,
-  .strip-label, .strip-file__name, .graphics-setup__field, .opening-status, .event-picker__hint, .event-picker__title, .event-picker__warn,
+  .strip-label, .strip-file__num, .graphics-setup__field, .opening-status, .event-picker__hint, .event-picker__title, .event-picker__warn,
   .control-btn, .file-row__index, .file-pill, .file-pill__dur, .key-hints,
   .player-container .video-js .vjs-time-control { font-size: 14px; }
   .tag { line-height: 18px; }
@@ -818,7 +773,6 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .strip-label__clock { font-size: 16px; }
   .strip-label__clock--accent { font-size: 14px; }
   .strip-label { overflow: hidden; white-space: nowrap; }
-  .strip-file { padding-top: 2px; }
 }
 
 /* Event edit sheet (touch): chips for type / team / person, inputs, sticky actions. */
@@ -829,7 +783,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   -webkit-tap-highlight-color: transparent;
 }
 .chip[aria-pressed="true"] { border-color: var(--sh-lime-text); background: var(--sh-surface-2); box-shadow: inset 0 0 0 1px var(--sh-lime-text); font-weight: 700; }
-.chip .ev-tag { margin-right: 0; }
+.chip .ev-label { gap: 8px; }
 .chip--person { font-family: var(--sh-font-shirt); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; font-size: 17px; }
 .event-sheet__when { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; font-size: 18px; }
 .event-sheet__when .tc { color: var(--sh-lime-text); font-weight: 700; }
@@ -929,7 +883,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 }
 .shell--tablet .stack { min-height: 0; }
 .shell--tablet .stage { flex: none; aspect-ratio: 16 / 9; width: 100%; max-height: 54dvh; }
-.shell--tablet .match-strip { flex: none; height: 56px; border-bottom: 1px solid var(--sh-line); }
+.shell--tablet .match-strip { flex: none; height: 64px; border-bottom: 1px solid var(--sh-line); }
 .shell--tablet .event-log { flex: 1 1 0; min-height: 0; }
 .shell--tablet .event-log ol { padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
 .shell--tablet .clip-summary { flex: none; }
@@ -1076,23 +1030,15 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   }
 
 /* Narrow event labels (landscape phone, desktop rail): a tighter tag so "Pen goal" and a name both fit. */
-.shell--landscape .ev-tag { font-size: 12px; padding: 1px 6px; margin-right: 6px; }
 .shell--landscape .ev-person { font-size: 16px; }
-@media (pointer: fine) { .ev-tag { padding: 1px 6px; margin-right: 6px; } .ev-person { font-size: 15px; } }
-/* Lime ticks need an edge on light grounds (lime is a fill there, never a line on its own). */
-:root { --sh-lime-edge: transparent; }
-:root[data-theme="light"] { --sh-lime-edge: var(--sh-text); }
-@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --sh-lime-edge: var(--sh-text); } }
-.strip-dot[data-tick="goal"]::before { box-shadow: 0 0 0 1px var(--sh-lime-edge), 0 0 0 2.5px var(--sh-ground); }
-
+@media (pointer: fine) { .ev-person { font-size: 15px; } }
 /* Event rows: [clock] [dot] [content] [score] [file] [buttons]. Fixed-width slots keep every row aligned; the content column takes the rest.
    Line 1 = tag + person (the person wraps whole onto the next line when it does not fit), line 2 = "Assist: Jo" and / or the note. Nothing is clipped. */
 .event-row { white-space: normal; font-size: 13px; min-height: 42px; column-gap: 8px; }
-.event-row > .tc, .event-row > .team-dot, .event-row > .marker-flag { white-space: nowrap; }
+.event-row > .tc, .event-row > .team-dot { white-space: nowrap; }
 .event-row .clock { min-width: calc(var(--clock-ch, 6) * 1ch); }
 .event-row__content { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; }
 .event-row__main { display: flex; flex-wrap: wrap; align-items: center; row-gap: 2px; min-width: 0; }
-.event-row__main .ev-tag { flex: none; }
 .event-row__main .ev-person { flex: 0 1 auto; min-width: 0; line-height: 1.15; overflow-wrap: break-word; }
 .event-row__label { white-space: nowrap; }
 .event-row__sub { display: flex; flex-wrap: wrap; column-gap: 8px; min-width: 0; font-size: 12px; line-height: 1.3; color: var(--sh-muted); overflow-wrap: break-word; }

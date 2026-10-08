@@ -29,11 +29,12 @@ function setup(events: MatchEvent[], extra: Partial<ReturnType<typeof useAppStat
 }
 
 describe('EventLog rows', () => {
-    it('should put tag and person on line 1 and a labelled assist on line 2, with the full text in the title', () => {
+    it('should put icon and person on line 1 and a labelled assist on line 2, with the full text in the title', () => {
         setup([{ id: 'a', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites', scorer: 'James', assist: 'Joe' }, kickOff(0)])
         render(<EventLog />)
         const [row] = rows()
-        expect(row.querySelector('.event-row__main')).toHaveTextContent('GoalJames')
+        expect(within(row).getByRole('img', { name: 'Goal' })).toHaveAttribute('data-icon', 'goal')
+        expect(row.querySelector('.event-row__main')).toHaveTextContent('James')
         expect(row.querySelector('.event-row__sub')).toHaveTextContent('Assist: Joe')
         expect(row.querySelector('.event-row__main')).not.toHaveTextContent(',')
         expect(row.querySelector('.event-row__content')).toHaveAttribute('title', expect.stringContaining('Goal · James · Assist: Joe'))
@@ -67,8 +68,7 @@ describe('EventLog rows', () => {
         render(<EventLog />)
         const [row] = rows()
         expect(within(row).getByText('23:41')).toBeInTheDocument()
-        expect(within(row).getByText('Pen goal')).toHaveClass('ev-tag__text')
-        expect(within(row).getByText('Pen goal').closest('.ev-tag')).toHaveClass('ev-tag--pen-goal')
+        expect(within(row).getByRole('img', { name: 'Penalty goal' })).toHaveAttribute('data-icon', 'penalty_goal')
         expect(within(row).getByText('Jo')).toHaveClass('ev-person')
         expect(row.querySelector('[data-team-dot]')).toHaveStyle({ background: '#c2364a' })
     })
@@ -314,7 +314,7 @@ describe('EventLog details & running score', () => {
     it('should show the person and a shortened note', () => {
         setup([{ id: 'a', matchTimeSec: 30, type: 'highlight', team: 'Whites', scorer: 'Sam', notes: 'nutmeg on the wing' }])
         render(<EventLog />)
-        expect(within(rows()[0]).getByText('Highlight').closest('.ev-tag')).toHaveClass('ev-tag--other')
+        expect(within(rows()[0]).getByRole('img', { name: 'Highlight' })).toHaveAttribute('data-icon', 'highlight')
         expect(within(rows()[0]).getByText('Sam')).toBeInTheDocument()
         expect(within(rows()[0]).getByText('— nutmeg on the wing')).toBeInTheDocument()
     })

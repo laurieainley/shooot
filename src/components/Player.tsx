@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import videojs from 'video.js'
 import 'video.js/dist/video-js.css'
-import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
+import { selectClockLong, useAppState } from '../state'
 import { shortcutFor, shouldHandleShortcut } from '../utils/shortcuts'
 import { runShortcut, type ShortcutPlayer } from './playerShortcuts'
 import { FullscreenControls } from './FullscreenControls'
 import { EventPicker } from './EventPicker'
-import { TimelineMarkers } from './TimelineMarkers'
 import { patchPlayerFullscreen, type FullscreenPlayer } from './fullscreen'
 import { cropTransform } from '../utils/crop'
 import { classifyPointer, wheelZoomFactor } from '../utils/zoom'
@@ -14,9 +13,8 @@ import { useZoomPan, type ZoomPan } from './useZoomPan'
 import { ZoomChip } from './ZoomChip'
 import { Scorebug } from './Scorebug'
 import { RenderChip } from './RenderChip'
-import { useTouchScrub } from './useTouchScrub'
 import { PlayIndicator } from './PlayIndicator'
-import { formatClock, formatEventClock } from '../utils/timeline'
+import { formatClock } from '../utils/timeline'
 import { playerOptions } from '../utils/playerOptions'
 import { previewVolume, shouldAdvance } from '../utils/preview'
 import { setGraphGain } from './previewGain'
@@ -32,9 +30,7 @@ export function Player() {
     const currentFileIndex = useAppState((s) => s.currentFileIndex)
     const setCurrentFileIndex = useAppState((s) => s.setCurrentFileIndex)
     const [isFullscreen, setIsFullscreen] = useState(false)
-    const [durationSec, setDurationSec] = useState(0)
     const [paused, setPaused] = useState(true)
-    const [progressHost, setProgressHost] = useState<HTMLElement | null>(null)
     const [speedIndicator, setSpeedIndicator] = useState<number | null>(null)
     const speedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const setCurrentTimeInFile = useAppState((s) => s.setCurrentTimeInFile)
@@ -51,11 +47,6 @@ export function Player() {
     const zoomPan = useZoomPan(getViewport)
     const zoomRef = useRef<ZoomPan>(zoomPan)
     zoomRef.current = zoomPan
-    const scrub = useTouchScrub(containerRef, playerRef)
-    // The scrub bubble speaks match time (from kick-off), like the strip label and the event log.
-    const matchStartSec = useAppState(selectMatchStartSec)
-    const clockLong = useAppState(selectClockLong)
-    const fileOffset = useAppState((s) => s.cumulativeOffsets[s.currentFileIndex] ?? 0)
 
     // Every player shortcut, wherever focus is (see utils/shortcuts.ts); the event log's own keys stop propagation first.
     useEffect(() => {
@@ -88,13 +79,6 @@ export function Player() {
                 get: () => useAppState.getState().immersive,
                 set: (on) => useAppState.getState().setImmersive(on),
             })
-
-            // Once the player is ready: the progress bar hosts the scrubber markers
-            playerRef.current.ready(() => {
-                if (playerRef.current) {
-                    setProgressHost(playerRef.current.el().querySelector('.vjs-progress-holder'))
-                }
-            })
         }
         const p = playerRef.current
         if (files.length > 0) {
@@ -104,7 +88,6 @@ export function Player() {
             const t = p.currentTime() || 0
             setCurrentTimeInFile(t)
         })
-        p.on('durationchange', () => setDurationSec(p.duration() || 0))
         p.on('ratechange', () => {
             const rate = p.playbackRate()
             setSpeedIndicator(rate)
@@ -382,14 +365,12 @@ export function Player() {
                     {speedIndicator.toFixed(2)}x
                 </div>
             )}
-            <PlayIndicator visible={paused && !scrub} />
+            <PlayIndicator visible={paused} />
             <Scorebug />
             <ZoomChip zoom={zoomPan.zoom} onReset={zoomPan.reset} />
             {(isFullscreen || immersive) && <RenderChip variant="overlay" />}
-            {scrub && <div className="scrub-bubble tc clock" style={{ left: scrub.leftPx }}>{formatEventClock(fileOffset + scrub.timeSec, scrub.timeSec, matchStartSec, clockLong)}</div>}
             <FullscreenControls playerRef={playerRef} isFullscreen={isFullscreen || immersive} />
             <EventPicker />
-            <TimelineMarkers host={progressHost} durationSec={durationSec} />
         </div>
     )
 }
