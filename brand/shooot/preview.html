@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shooot brand kit</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="motion.css">
+<style>
+  body { margin: 0; background: var(--sh-ground); color: var(--sh-text); font-family: var(--sh-font); }
+  main { max-width: 1100px; margin: 0 auto; padding: 48px 16px; display: grid; gap: 40px; }
+  section { display: grid; gap: 16px; }
+  h2 { margin: 0; font: italic 900 22px/1 var(--sh-font); font-stretch: 85%; text-transform: uppercase; }
+  .row { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+  .card { background: var(--sh-surface); border: 1px solid var(--sh-line); border-radius: var(--sh-radius-lg); padding: 24px; }
+  .sw { width: 120px; } .sw div { height: 64px; border-radius: 10px; border: 1px solid var(--sh-line); } .sw span { font: 12px var(--sh-font-mono); color: var(--sh-muted); }
+  .wm { font-weight: 900; font-style: italic; font-size: clamp(56px, 12vw, 140px); line-height: 1; letter-spacing: -0.03em; text-transform: uppercase; display: flex; align-items: baseline; }
+  .only-light { display: none; }
+  [data-theme="light"] .only-light { display: inline; } [data-theme="light"] .only-dark { display: none; }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .only-light { display: inline; } :root:not([data-theme="dark"]) .only-dark { display: none; } }
+  button.toggle { background: transparent; color: var(--sh-text); border: 1px solid var(--sh-line); border-radius: 10px; min-height: 44px; padding: 0 16px; font: 600 14px var(--sh-font); cursor: pointer; }
+</style>
+</head>
+<body>
+<main>
+  <div class="row" style="justify-content: space-between">
+    <span><img class="only-dark" src="assets/wordmark-on-dark.svg" alt="Shooot" height="56"><img class="only-light" src="assets/wordmark-on-light.svg" alt="Shooot" height="56"></span>
+    <button class="toggle" type="button" onclick="document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'">Toggle light / dark</button>
+  </div>
+
+  <section>
+    <h2>Logo in motion · the shout</h2>
+    <div class="card">
+      <div class="wm sh-shout is-playing" id="shout"><span style="font-stretch:72%">Sh</span><span style="font-stretch:62%">O</span><span class="sh-shout__o2">O</span><span class="sh-shout__o3">O</span><span style="font-stretch:72%">T</span><span class="sh-rec-dot" style="width:.16em;height:.16em;margin-left:.05em"></span></div>
+      <button class="toggle" type="button" onclick="const e=document.getElementById('shout');e.classList.remove('is-playing');void e.offsetWidth;e.classList.add('is-playing')">Replay</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Signature move · net bulge</h2>
+    <div class="row">
+      <div class="card row"><span class="sh-net is-looping" role="img" aria-label="Goal!" style="--size:140px"><span class="sh-net__ring"><span class="sh-net__dot"></span></span></span></div>
+      <div class="card row"><span class="sh-net is-looping" role="img" aria-label="Loading" style="--size:48px"><span class="sh-net__ring"><span class="sh-net__dot"></span></span></span><span>Polishing the tap-ins…</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Icons</h2>
+    <div class="row">
+      <img src="assets/icon-app.svg" alt="App icon" width="160" height="160">
+      <img src="assets/icon-app-lime.svg" alt="App icon, lime" width="160" height="160">
+      <img src="assets/favicon-32.png" alt="Favicon 32" width="32" height="32">
+      <img src="assets/favicon-16.png" alt="Favicon 16" width="16" height="16">
+    </div>
+  </section>
+
+  <section>
+    <h2>Colour</h2>
+    <div class="row">
+      <div class="sw"><div style="background:var(--sh-ground)"></div><span>ground</span></div>
+      <div class="sw"><div style="background:var(--sh-surface)"></div><span>surface</span></div>
+      <div class="sw"><div style="background:var(--sh-line)"></div><span>line</span></div>
+      <div class="sw"><div style="background:var(--sh-text)"></div><span>text</span></div>
+      <div class="sw"><div style="background:var(--sh-lime)"></div><span>lime #A8F03C</span></div>
+      <div class="sw"><div style="background:var(--sh-rec)"></div><span>rec #FF3D2E</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Components</h2>
+    <div class="row">
+      <button class="sh-btn-primary" type="button">Render reel</button>
+      <span class="sh-tag sh-tag--goal">Goal!</span>
+      <span class="sh-scoreboard" style="font-size:22px">Whites <span class="sh-mono" style="background:var(--sh-lime);color:var(--sh-on-lime);padding:2px 8px;font-style:normal">7–5</span> Colours</span>
+      <span class="row" style="gap:8px"><span class="sh-shirt-number" style="font-size:44px">9</span><span class="sh-shirt" style="font-size:24px">Kev</span></span>
+    </div>
+  </section>
+</main>
+</body>
+</html>

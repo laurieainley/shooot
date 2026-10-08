@@ -1,0 +1,96 @@
+/* Shooot — design tokens v1 (Night Turf · Lime)
+ * Dark is the default theme. Light applies with [data-theme="light"],
+ * or automatically via prefers-color-scheme unless [data-theme="dark"] is set.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,100..900;1,62..125,100..900&family=Big+Shoulders+Display:wght@500..900&family=JetBrains+Mono:wght@400;700&display=swap");
+
+:root {
+  /* Brand constants (never change per theme) */
+  --sh-lime: #A8F03C;        /* primary accent: buttons, the loud O, goals */
+  --sh-rec: #FF3D2E;         /* the REC dot: live / now / record only */
+  --sh-on-lime: #0A0D12;     /* text on lime, always */
+
+  /* Dark theme (default) */
+  --sh-ground: #0B0F0D;      /* page background, near-black with a hint of turf */
+  --sh-surface: #141B17;     /* cards, panels */
+  --sh-surface-2: #1A2420;   /* hover / selected rows */
+  --sh-line: #24302A;        /* borders, dividers, track */
+  --sh-pitch: rgba(90, 170, 120, 0.18); /* faint pitch markings, hero moments only */
+  --sh-text: #F3F1EA;        /* chalk */
+  --sh-muted: #8E9A92;       /* secondary text (≥4.5:1 on ground) */
+  --sh-lime-text: #A8F03C;   /* lime used AS text: dark theme only */
+  --sh-loud-o: #A8F03C;      /* the loudest O of the wordmark */
+  --sh-loud-o-bg: transparent;
+
+  /* Kit (team) colours: user-picked, used only as dots/bars on scorebugs */
+  --sh-kit-white: #F3F1EA; --sh-kit-black: #1B1F24; --sh-kit-blue: #2F6BDB;
+  --sh-kit-red: #D7263D;   --sh-kit-yellow: #F2C230; --sh-kit-green: #1E9E58;
+  --sh-kit-orange: #F07A1A; --sh-kit-purple: #7E4BD6; --sh-kit-sky: #5DC8E8;
+
+  /* Type */
+  --sh-font: "Archivo", system-ui, sans-serif;          /* brand + UI */
+  --sh-font-shirt: "Big Shoulders Display", "Archivo", sans-serif; /* player names & numbers only */
+  --sh-font-mono: "JetBrains Mono", ui-monospace, monospace;        /* clocks, timecodes, keys */
+  /* Display voices (use with font-family: var(--sh-font)) */
+  --sh-stretch-stadium: 125%;   /* "GOAL!" — 900 italic */
+  --sh-stretch-scoreboard: 72%; /* team names, scorebug — 800 italic */
+  --sh-stretch-heading: 85%;    /* section headings — 900 italic, uppercase */
+
+  /* Scale */
+  --sh-text-xs: 13px; --sh-text-sm: 15px; --sh-text-md: 17px; --sh-text-lg: 20px;
+  --sh-text-xl: 28px; --sh-text-2xl: 40px; --sh-text-3xl: 64px;
+  --sh-radius-sm: 6px; --sh-radius-md: 10px; --sh-radius-lg: 16px; --sh-radius-pill: 999px;
+  --sh-space: 4px; /* everything on a 4px grid */
+  --sh-skew: -10deg; /* tags, lower thirds, scorebugs lean forward */
+  --sh-ease-out: cubic-bezier(.2, .7, .2, 1);
+  --sh-ease-net: cubic-bezier(.3, .6, .3, 1);
+}
+
+[data-theme="light"] {
+  --sh-ground: #F1F3EE;
+  --sh-surface: #FFFFFF;
+  --sh-surface-2: #E8ECE5;
+  --sh-line: #D5DDD3;
+  --sh-pitch: rgba(30, 110, 65, 0.16);
+  --sh-text: #0A0D12;
+  --sh-muted: #56625A;
+  --sh-lime-text: #3F7A00; /* lime never as text on light — use this partner */
+  --sh-loud-o: #0A0D12;
+  --sh-loud-o-bg: #A8F03C;  /* light: the loud O sits on a lime highlight */
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --sh-ground: #F1F3EE;
+    --sh-surface: #FFFFFF;
+    --sh-surface-2: #E8ECE5;
+    --sh-line: #D5DDD3;
+    --sh-pitch: rgba(30, 110, 65, 0.16);
+    --sh-text: #0A0D12;
+    --sh-muted: #56625A;
+    --sh-lime-text: #3F7A00;
+    --sh-loud-o: #0A0D12;
+    --sh-loud-o-bg: #A8F03C;
+  }
+}
+
+/* ---------- Base helpers (optional) ---------- */
+.sh-display { font-family: var(--sh-font); font-weight: 900; font-style: italic; text-transform: uppercase; letter-spacing: -0.02em; }
+.sh-stadium { font-stretch: var(--sh-stretch-stadium); }
+.sh-scoreboard { font-family: var(--sh-font); font-weight: 800; font-style: italic; font-stretch: var(--sh-stretch-scoreboard); text-transform: uppercase; }
+.sh-mono { font-family: var(--sh-font-mono); }
+.sh-shirt { font-family: var(--sh-font-shirt); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.sh-shirt-number { font-family: var(--sh-font-shirt); font-weight: 900; -webkit-text-fill-color: transparent; -webkit-text-stroke: 0.06em currentColor; }
+.sh-skew { transform: skewX(var(--sh-skew)); }
+
+.sh-btn-primary {
+  min-height: 44px; padding: 0 20px; border: 0; border-radius: var(--sh-radius-md);
+  background: var(--sh-lime); color: var(--sh-on-lime);
+  font: italic 800 15px/1 var(--sh-font); text-transform: uppercase; cursor: pointer;
+}
+.sh-tag { display: inline-block; padding: 4px 10px; transform: skewX(var(--sh-skew)); font: italic 900 14px/1.1 var(--sh-font); text-transform: uppercase; }
+.sh-tag--goal { background: var(--sh-lime); color: var(--sh-on-lime); }
+.sh-rec-dot { display: inline-block; width: .5em; height: .5em; border-radius: 50%; background: var(--sh-rec); }
+
+/* The loud O in light mode: lime as a highlighter, never as text */
+.sh-highlight { background: var(--sh-lime); color: var(--sh-on-lime); }
