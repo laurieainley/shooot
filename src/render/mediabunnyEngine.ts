@@ -10,6 +10,7 @@ import { openGraphicsSession, type GraphicsSession, type OutItem } from './graph
 import { hasInbandParams, joinEntryConfig, planJoin, profileOf, type JoinPlan } from './joinParams'
 import { craToBla, lengthSize, withInbandParams } from './nal'
 import { clipPartSeconds, replayPartAfter } from './captionJoin'
+import { planAudio } from './audioPlan'
 import { mixedSizeNotice } from './outputSize'
 import { overlayRegions } from './overlayRegions'
 import { encodeReplayAudio } from './replayAudio'
@@ -83,23 +84,20 @@ async function makeTarget(name: string): Promise<OutputTarget> {
 
 function assertCompatible(sources: OpenSource[], used: Set<number>): void {
     const vc = new Set([...used].map((i) => sources[i].video.codec))
-    const ac = new Set([...used].map((i) => {
-        const a = sources[i].audio
-        return a ? `${a.codec}/${a.sampleRate}/${a.numberOfChannels}` : 'none'
-    }))
     const vp = new Set([...used].map((i) => `${sources[i].video.codec}/${profileOf(sources[i].config.codec)}`))
     if (vc.size === 1 && vp.size > 1) throw new Error('Clips use different video profiles (e.g. 8-bit and 10-bit) and cannot be joined without re-encoding')
     if (vc.size > 1) throw new Error('Clips use different video codecs (e.g. HEVC and H.264) and cannot be joined without re-encoding')
-    if (ac.size > 1) throw new Error('Clips use different audio formats and cannot be joined without re-encoding')
+    // Clips without an audio track are fine (they get silence); the ones with audio must agree.
+    if (!planAudio([...used].map((i) => sources[i].audio)).ok) throw new Error('Clips use different audio formats and cannot be joined without re-encoding')
 }
 
 /** Writes the saved units of a journaled render into the MP4, deleting each log once it is copied. */
-async function muxUnits(name: string, unitCount: number, first: OpenSource, video: VideoDecoderConfig, audio: AudioDecoderConfig | null, signal?: AbortSignal): Promise<File | Blob> {
+async function muxUnits(name: string, unitCount: number, first: OpenSource, audioSource: OpenSource | null, video: VideoDecoderConfig, audio: AudioDecoderConfig | null, signal?: AbortSignal): Promise<File | Blob> {
     const { target, result, discard } = await makeTarget(name)
     const output = new Output({ format: new Mp4OutputFormat({ fastStart: false }), target })
     const vOut = new EncodedVideoPacketSource(first.video.codec!)
     output.addVideoTrack(vOut)
-    const aOut = audio && first.audio?.codec ? new EncodedAudioPacketSource(first.audio.codec) : null
+    const aOut = audio && audioSource?.audio?.codec ? new EncodedAudioPacketSource(audioSource.audio.codec) : null
     if (aOut) output.addAudioTrack(aOut)
     try {
         await output.start()
@@ -267,8 +265,12 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             mode: session ? 'graphics' : join ? 'join' : 'copy', codec: vConfig.codec, params: describeParams(vConfig.description, first.video.codec === 'hevc'),
             ...(join ? { joinEntrySource: usedList[join.entry], joinLimits: join.limits } : {}),
         })
-        const aConfig = first.audio ? (await first.audio.getDecoderConfig())! : null
-        const hasAudio = !!first.audio?.codec
+        // The reel's audio follows the first clip that has any; clips without audio get silence of their length.
+        const cutSources = [...new Set(cuts.map((c) => c.sourceIndex))]
+        const audioPlanned = planAudio(cutSources.map((i) => opened[i].audio))
+        const audioSource = audioPlanned.ok && audioPlanned.reference !== null ? opened[cutSources[audioPlanned.reference]] : null
+        const aConfig = audioSource?.audio ? (await audioSource.audio.getDecoderConfig())! : null
+        const hasAudio = !!audioSource?.audio?.codec
 
         // Journaled (resumable) renders write every unit to its own log and mux at the end; others write the MP4 directly.
         let journal: { state: JobState } | null = null
@@ -301,7 +303,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             const output = new Output({ format: new Mp4OutputFormat({ fastStart: false }), target })
             const vOut = new EncodedVideoPacketSource(first.video.codec!)
             output.addVideoTrack(vOut)
-            const aOut = hasAudio ? new EncodedAudioPacketSource(first.audio!.codec!) : null
+            const aOut = hasAudio ? new EncodedAudioPacketSource(audioSource!.audio!.codec!) : null
             if (aOut) output.addAudioTrack(aOut)
             await output.start()
             direct = { output, vOut, aOut, result, discard }
@@ -316,8 +318,8 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
         let silence: SilentAudio | null | undefined
         const silencePackets = async (durationSec: number): Promise<EncodedPacket[] | null> => {
             if (silence === undefined) {
-                silence = first.audio
-                    ? await makeSilentAudio({ sampleRate: first.audio.sampleRate, numberOfChannels: first.audio.numberOfChannels }).catch(() => null)
+                silence = audioSource?.audio
+                    ? await makeSilentAudio({ sampleRate: audioSource.audio.sampleRate, numberOfChannels: audioSource.audio.numberOfChannels }).catch(() => null)
                     : null
                 if (!silence) console.warn('Replay audio: no AAC encoder, leaving a gap')
             }
@@ -511,7 +513,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             const cutEnd = videoEnd > cutStart ? videoEnd : (kStop ? kStop.timestamp : src.endSec)
 
             const outSpan = (cutEnd - cutStart) / speed
-            if (cut.silent || reencode) {
+            if (cut.silent || reencode || !src.audio) {
                 if (aOut) {
                     let packets: EncodedPacket[] | null = null
                     if (reencode && src.audio) {
@@ -569,7 +571,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             if (journal) {
                 onProgress({ cutIndex: cuts.length - 1, cutCount: cuts.length, fraction: 1, stage: 'Saving' })
                 const endMux = diag.begin('finalize')
-                const file = await muxUnits(journal.state.outputName, unitCount, first, journal.state.video!, journal.state.audio, signal)
+                const file = await muxUnits(journal.state.outputName, unitCount, first, audioSource, journal.state.video!, journal.state.audio, signal)
                 await discardJob()
                 endMux()
                 return file

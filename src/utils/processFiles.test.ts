@@ -31,9 +31,24 @@ describe('processVideoFiles', () => {
     })
 
     it('should drop unaccepted files and report the error', async () => {
-        const probe = async (): Promise<ProbedMetadata> => ({ accepted: false, playable: false, error: 'x.THM: not an MP4/LRV file' })
+        const probe = async (): Promise<ProbedMetadata> => ({ accepted: false, playable: false, error: 'x.THM: not an MP4, MOV or LRV video file' })
         const r = await processVideoFiles([file('x.THM')], probe)
         expect(r.files).toEqual([])
-        expect(r.error).toBe('x.THM: not an MP4/LRV file')
+        expect(r.error).toBe('x.THM: not an MP4, MOV or LRV video file')
+    })
+
+    it('should order non-GoPro files by container recording time, whatever order they were picked in', async () => {
+        const times: Record<string, number> = { 'IMG_2.MOV': 3000, 'IMG_9.MOV': 1000, 'IMG_5.MOV': 2000 }
+        const probe = async (f: File): Promise<ProbedMetadata> => ({ ...ok('hevc'), recordedAtMs: times[f.name] })
+        const r = await processVideoFiles([file('IMG_2.MOV'), file('IMG_9.MOV'), file('IMG_5.MOV')], probe)
+        expect(r.files.map((f) => f.name)).toEqual(['IMG_9.MOV', 'IMG_5.MOV', 'IMG_2.MOV'])
+    })
+
+    it('should fall back to lastModified, then to natural name order', async () => {
+        const dated = (name: string, lastModified: number): File => new File([''], name, { lastModified })
+        const byDate = await processVideoFiles([dated('b.mp4', 2000), dated('a.mp4', 3000), dated('c.mp4', 1000)], async () => ok('h264'))
+        expect(byDate.files.map((f) => f.name)).toEqual(['c.mp4', 'b.mp4', 'a.mp4'])
+        const byName = await processVideoFiles([dated('clip10.mp4', 0), dated('clip2.mp4', 0)], async () => ok('h264'))
+        expect(byName.files.map((f) => f.name)).toEqual(['clip2.mp4', 'clip10.mp4'])
     })
 })

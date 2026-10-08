@@ -89,7 +89,7 @@ describe('AppShell', () => {
         useAppState.setState({ files: [], cumulativeOffsets: [] })
         render(<AppShell />)
         expect(screen.queryByTestId('player')).not.toBeInTheDocument()
-        expect(screen.getByText(/drop gopro mp4s/i)).toBeInTheDocument()
+        expect(screen.getByText(/drop your match videos here.*mp4 or mov from a phone or camera/i)).toBeInTheDocument()
         expect(screen.getByText(/no goals yet/i)).toBeInTheDocument()
     })
 

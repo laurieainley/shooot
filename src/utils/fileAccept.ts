@@ -1,11 +1,15 @@
-const VIDEO_EXT = /\.(mp4|lrv)$/i
+const VIDEO_EXT = /\.(mp4|m4v|mov|lrv)$/i
+const VIDEO_MIME = /mp4|quicktime|m4v/i
+
+/** Picked-file extensions we accept: MP4 / M4V / MOV from phones and cameras, and .LRV proxies (some action cameras). */
+export const VIDEO_EXTENSIONS: string[] = ['.mp4', '.MP4', '.m4v', '.M4V', '.mov', '.MOV', '.lrv', '.LRV']
 
 // Extension-only on purpose: `video/*` makes recent Android Chrome open the
 // Photo Picker, which hides USB storage (SD card readers).
-export const FILE_INPUT_ACCEPT = '.mp4,.MP4,.lrv,.LRV'
+export const FILE_INPUT_ACCEPT = VIDEO_EXTENSIONS.join(',')
 
 export function isAcceptedVideo(name: string, mimeType: string): boolean {
-    return mimeType.includes('mp4') || VIDEO_EXT.test(name)
+    return VIDEO_MIME.test(mimeType) || VIDEO_EXT.test(name)
 }
 
 export interface PickerEnv {
