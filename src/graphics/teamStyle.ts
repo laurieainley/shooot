@@ -1,9 +1,10 @@
 import type { Team } from '../types'
 
-export const NAVY = '#0f2347'
-export const NAVY_DARK = '#0c1a33'
-export const ORANGE = '#f28c28'
-export const BLUE = '#2d9be0'
+import { C } from './themes/shooot/brandColors'
+
+/** Ink on a light kit colour: the brand's on-lime near-black. */
+export const INK_DARK = C.onLime
+/** Ink on a dark or saturated kit colour. */
 export const WHITE = '#ffffff'
 
 export type TeamBadge = { name: string; initials: string; colour: string; ink: string }
@@ -24,9 +25,9 @@ function luminance(hex: string): number {
     return 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255)
 }
 
-/** Initials colour on a team-coloured shield: navy on light kits, white otherwise. */
+/** Initials colour on a team-coloured shield: dark on light kits, white otherwise. */
 export function inkFor(colour: string): string {
-    return luminance(colour) > 0.4 ? NAVY : WHITE
+    return luminance(colour) > 0.4 ? INK_DARK : WHITE
 }
 
 export function teamBadge(t: Team): TeamBadge {

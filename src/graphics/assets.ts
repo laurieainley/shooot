@@ -1,28 +1,29 @@
 // Fonts and logo for match graphics (browser only).
+import { DEFAULT_THEME_ID, getTheme, type GraphicsTheme, type ThemeId } from './themes'
+
 export const DEFAULT_LOGO_URLS = ['/brand/tnf-logo.webp', '/brand/tnf-logo.png']
 
-const FACES: [string, string][] = [
-    ['/fonts/bebas-neue-latin.woff2', 'U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD'],
-    ['/fonts/bebas-neue-latin-ext.woff2', 'U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF'],
-]
+const fontLoads = new Map<ThemeId, Promise<boolean>>()
 
-let fontLoad: Promise<boolean> | null = null
-
-/** Loads Bebas Neue (bundled); resolves false if it could not be loaded (a condensed fallback is used). */
-export function loadGraphicsFont(): Promise<boolean> {
-    fontLoad ??= (async () => {
-        try {
-            const faces = FACES.map(([url, unicodeRange]) => new FontFace('Bebas Neue', `url(${url}) format('woff2')`, { unicodeRange }))
-            for (const f of faces) document.fonts.add(f)
-            await Promise.all(faces.map((f) => f.load()))
-            return true
-        } catch (e) {
-            console.warn('Graphics font could not be loaded', e)
-            fontLoad = null
-            return false
-        }
-    })()
-    return fontLoad
+/** Loads the theme's bundled fonts (only that theme's); resolves false if any could not be loaded (fallbacks are used). */
+export function loadGraphicsFont(theme: GraphicsTheme = getTheme(DEFAULT_THEME_ID)): Promise<boolean> {
+    let load = fontLoads.get(theme.id)
+    if (!load) {
+        load = (async () => {
+            try {
+                const faces = theme.fonts.map((f) => new FontFace(f.family, `url(${f.url}) format('woff2')`, f.unicodeRange ? { unicodeRange: f.unicodeRange } : {}))
+                for (const f of faces) document.fonts.add(f)
+                await Promise.all(faces.map((f) => f.load()))
+                return true
+            } catch (e) {
+                console.warn('Graphics fonts could not be loaded', e)
+                fontLoads.delete(theme.id)
+                return false
+            }
+        })()
+        fontLoads.set(theme.id, load)
+    }
+    return load
 }
 
 /** Resolves true if `work` succeeds within `ms`, false if it fails or is too slow (never rejects, never hangs). */
@@ -33,20 +34,17 @@ export function settleWithin(work: Promise<unknown>, ms: number): Promise<boolea
     })
 }
 
-/** Every character the graphics draw, so the font faces covering them are fetched up front. */
-const GRAPHICS_GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 –-.\'()GOAL REPLAY'
-
 /**
- * Makes sure Bebas Neue is usable before anything is painted (text drawn earlier would silently use a fallback
+ * Makes sure the theme's fonts are usable before anything is painted (text drawn earlier would silently use a fallback
  * font with different metrics, which is what mis-centred captions on some phones). Fail-safe: resolves false after
  * `timeoutMs` and the painters then centre the fallback font from its measured metrics.
  */
-export async function ensureGraphicsFonts(timeoutMs = 8000): Promise<boolean> {
+export async function ensureGraphicsFonts(theme: GraphicsTheme = getTheme(DEFAULT_THEME_ID), timeoutMs = 8000): Promise<boolean> {
     const ok = await settleWithin((async () => {
-        if (!(await loadGraphicsFont())) throw new Error('graphics font unavailable')
-        await document.fonts.load('48px "Bebas Neue"', GRAPHICS_GLYPHS)
+        if (!(await loadGraphicsFont(theme))) throw new Error('graphics fonts unavailable')
+        await Promise.all(theme.fontChecks.map((spec) => document.fonts.load(spec, theme.glyphs)))
     })(), timeoutMs)
-    if (!ok) fontLoad = null
+    if (!ok) fontLoads.delete(theme.id)
     return ok
 }
 

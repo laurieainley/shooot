@@ -2,7 +2,6 @@
 // parameter sets in-band on every key frame, a sample entry whose SPS covers every other SPS in the track,
 // and generated frames tagged with the footage colour space.
 import { EncodedPacket, EncodedPacketSink, type InputVideoTrack } from 'mediabunny'
-import { ensureGraphicsFonts } from '../graphics/assets'
 import { frameDuration, nominalFrameRate, presentationRanks } from './frameGrid'
 import { describeParams, type RenderDiagnostics } from './diagnostics'
 import { covers, craToBla, maxBitrateForLevel, paramSets, pickSampleEntry, raiseEntry, raisedLimits, spsLimits, spsOf, withInbandParams, type SpsLimits } from './nal'
@@ -352,8 +351,7 @@ export async function openGraphicsSession(sources: GraphicsSource[], first: Grap
     if (typeof VideoEncoder === 'undefined' || typeof VideoDecoder === 'undefined' || typeof OffscreenCanvas === 'undefined') {
         throw new Error('this browser cannot encode video')
     }
-    // Fonts must be ready before the first frame is painted (fail-safe: falls back, centred by measured metrics).
-    await ensureGraphicsFonts()
+    // (The theme's fonts are loaded by prepareSpec before the painters are made; see graphics/prepare.ts.)
     const hevc = first.video.codec === 'hevc'
     if (first.video.codec !== 'hevc' && first.video.codec !== 'avc') throw new Error(`${first.video.codec ?? 'this'} video is not supported`)
     const width = first.video.codedWidth

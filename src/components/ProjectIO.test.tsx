@@ -25,6 +25,23 @@ describe('ProjectIO', () => {
         click.mockRestore()
     })
 
+    it('should carry the graphics theme out and back in', async () => {
+        const createObjectURL = vi.fn((b: Blob) => { void b; return 'blob:x' })
+        Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() })
+        const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+        useAppState.getState().setGraphics({ theme: 'classic' })
+        const { container } = render(<ProjectIO />)
+        await userEvent.click(screen.getByRole('button', { name: /export project/i }))
+        const data = JSON.parse(await (createObjectURL.mock.calls[0][0] as Blob).text())
+        expect(data.graphicsTheme).toBe('classic')
+        click.mockRestore()
+        useAppState.getState().setGraphics({ theme: 'shooot' })
+        const input = container.querySelector('input[type="file"]') as HTMLInputElement
+        fireEvent.change(input, { target: { files: [new File([JSON.stringify(data)], 'p.json', { type: 'application/json' })] } })
+        await waitFor(() => expect(useAppState.getState().graphics.theme).toBe('classic'))
+        useAppState.getState().setGraphics({ theme: 'shooot' })
+    })
+
     it('should import events (migrating legacy goals), teams and match start', async () => {
         const { container } = render(<ProjectIO />)
         const input = container.querySelector('input[type="file"]') as HTMLInputElement

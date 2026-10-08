@@ -1,4 +1,8 @@
-Copyright © 2010 by Dharma Type.
+Bebas Neue (Classic look only): Copyright 2010 The Bebas Neue Project Authors (Dharma Type)
+Archivo: Copyright 2019 The Archivo Project Authors (https://github.com/Omnibus-Type/Archivo)
+Big Shoulders Display: Copyright 2019 The Big Shoulders Project Authors (https://github.com/xotypeco/big_shoulders)
+JetBrains Mono: Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
+The woff2 files here are static instances/subsets of those fonts.
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:

@@ -12,7 +12,7 @@ const events: MatchEvent[] = [
 const state = (extra: Partial<ExportState> = {}): ExportState => ({
     files: [file('GX010001.MP4'), file('GX020001.MP4')], events, cumulativeOffsets: [0, 100], adjustTimestampsByOffset: false,
     lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5,
-    graphics: { cards: true, lowerThirds: true, replayTag: false },
+    graphics: { cards: true, lowerThirds: true, replayTag: false, theme: 'shooot' },
     teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }],
     matchdayLabel: null, fullMatch: { cards: true, scoreBug: 'periodic', intervalMin: 5, captions: false },
     ...extra,

@@ -12,7 +12,7 @@ import { parseGoProName } from './utils/gopro'
 import { buildPreviewPlan, type PreviewStep } from './utils/preview'
 import { normaliseGraphics, type GraphicsSettings } from './graphics/plan'
 
-const DEFAULT_GRAPHICS: GraphicsSettings = { cards: true, lowerThirds: true, replayTag: true }
+const DEFAULT_GRAPHICS: GraphicsSettings = { cards: true, lowerThirds: true, replayTag: true, theme: 'shooot' }
 import type { FullMatchSettings } from './utils/exportPlans'
 
 /** Links events to the loaded files: migrated whole-timeline times are placed first, then file keys matched. */
@@ -497,7 +497,7 @@ export const useAppState = create<AppState>()(
                 goalAreas: state.goalAreas,
                 barCollapsed: state.barCollapsed,
             }),
-            version: 15,
+            version: 16,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -564,6 +564,9 @@ export const useAppState = create<AppState>()(
 
                 // Full-match event captions (v15): on for saved settings.
                 if (version < 15 && state.fullMatch) state.fullMatch = { ...state.fullMatch, captions: true }
+
+                // Graphics themes (v16): saved projects get the Shooot look.
+                if (version < 16 && state.graphics) state.graphics = { ...state.graphics, theme: 'shooot' }
 
                 return state
             },

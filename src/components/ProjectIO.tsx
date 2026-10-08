@@ -19,7 +19,7 @@ export function ProjectIO({ menu = false }: ProjectIOProps) {
         const st = useAppState.getState()
         const { teams, goalAreas } = st
         const matchStartTimeSec = selectMatchStartSec(st) // kept for older versions of the app
-        const blob = new Blob([JSON.stringify({ events, goals: events, teams, matchStartTimeSec, goalAreas }, null, 2)], { type: 'application/json' })
+        const blob = new Blob([JSON.stringify({ events, goals: events, teams, matchStartTimeSec, goalAreas, graphicsTheme: st.graphics.theme }, null, 2)], { type: 'application/json' })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
@@ -42,6 +42,7 @@ export function ProjectIO({ menu = false }: ProjectIOProps) {
             if (imported) st.setEvents(withMigratedKickOff(imported.map((e: unknown) => migrateEvent(e as Parameters<typeof migrateEvent>[0], left, Array.isArray(data.teams) && data.teams.length === 2 ? data.teams : st.teams)), start))
             else if (start > 0) st.setEvents(withMigratedKickOff(st.events, start))
             if (Array.isArray(data.teams) && data.teams.length === 2) st.setTeams(data.teams)
+            if (typeof data.graphicsTheme === 'string') st.setGraphics({ theme: data.graphicsTheme as never })
             if ('goalAreas' in data) st.setGoalAreas(normaliseAreas(data.goalAreas, left))
             setMessage(imported ? `Imported ${imported.length} events` : 'Imported')
         } catch {

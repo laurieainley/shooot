@@ -147,7 +147,7 @@ describe('teams and picker', () => {
 
     it('should migrate v8 legacy event types and persist teams (v9+)', () => {
         const opts = useAppState.persist.getOptions()
-        expect(opts.version).toBe(15)
+        expect(opts.version).toBe(16)
         const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
         expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
         expect(opts.partialize!(s())).toHaveProperty('teams')
@@ -175,7 +175,7 @@ describe('teams and picker', () => {
 
     it('should switch on the replay tag and set the full-match score bug to after goals once (v13)', () => {
         const migrate = useAppState.persist.getOptions().migrate!
-        const out = migrate({ graphics: { cards: true, lowerThirds: true, replayTag: false }, fullMatch: { cards: false, scoreBug: 'periodic', intervalMin: 7 } }, 12) as { graphics: { replayTag: boolean }; fullMatch: unknown }
+        const out = migrate({ graphics: { cards: true, lowerThirds: true, replayTag: false, theme: 'shooot' }, fullMatch: { cards: false, scoreBug: 'periodic', intervalMin: 7 } }, 12) as { graphics: { replayTag: boolean }; fullMatch: unknown }
         expect(out.graphics.replayTag).toBe(true)
         expect(out.fullMatch).toEqual({ cards: false, scoreBug: 'goals', intervalMin: 7, captions: true })
         const fresh = migrate({}, 12) as Record<string, unknown>
@@ -394,22 +394,22 @@ describe('preview', () => {
 
 describe('match graphics settings', () => {
     beforeEach(() => {
-        useAppState.setState({ graphics: { cards: true, lowerThirds: true, replayTag: false }, matchdayLabel: null })
+        useAppState.setState({ graphics: { cards: true, lowerThirds: true, replayTag: false, theme: 'shooot' }, matchdayLabel: null })
     })
 
     it('should default to cards and lower thirds on, replay tag off', () => {
-        expect(s().graphics).toEqual({ cards: true, lowerThirds: true, replayTag: false })
+        expect(s().graphics).toEqual({ cards: true, lowerThirds: true, replayTag: false, theme: 'shooot' })
     })
 
     it('should ignore a legacy score-always-on field when graphics are set', () => {
         s().setGraphics({ cards: false, scoreBug: true } as never)
-        expect(s().graphics).toEqual({ cards: false, lowerThirds: true, replayTag: false })
+        expect(s().graphics).toEqual({ cards: false, lowerThirds: true, replayTag: false, theme: 'shooot' })
     })
 
     it('should toggle one graphic at a time', () => {
         s().setGraphics({ replayTag: true })
         s().setGraphics({ cards: false })
-        expect(s().graphics).toEqual({ cards: false, lowerThirds: true, replayTag: true })
+        expect(s().graphics).toEqual({ cards: false, lowerThirds: true, replayTag: true, theme: 'shooot' })
     })
 
     it('should head the card MATCH until a matchday is typed', () => {
@@ -474,7 +474,7 @@ describe('kick-off migration', () => {
 
     it('should drop the removed score-always-on setting and re-encode speed from stored data (v11)', () => {
         const out = migrate({ graphics: { cards: false, lowerThirds: true, replayTag: true, scoreBug: true }, reencodeSecPerSec: 0.7 }, 10)
-        expect(out.graphics).toEqual({ cards: false, lowerThirds: true, replayTag: true })
+        expect(out.graphics).toEqual({ cards: false, lowerThirds: true, replayTag: true, theme: 'shooot' })
         expect(out).not.toHaveProperty('reencodeSecPerSec')
     })
 
@@ -544,5 +544,27 @@ describe('defaults', () => {
         const initial = useAppState.getInitialState()
         expect(initial.graphics.replayTag).toBe(true)
         expect(initial.fullMatch.scoreBug).toBe('goals')
+    })
+})
+
+describe('graphics theme setting', () => {
+    it('should default to the Shooot look and accept classic', () => {
+        s().setGraphics({ theme: 'classic' })
+        expect(s().graphics.theme).toBe('classic')
+        s().setGraphics({ theme: 'shooot' })
+        expect(s().graphics.theme).toBe('shooot')
+    })
+
+    it('should keep the previous theme for an unknown value', () => {
+        s().setGraphics({ theme: 'classic' })
+        s().setGraphics({ theme: 'neon' as never })
+        expect(s().graphics.theme).toBe('classic')
+        s().setGraphics({ theme: 'shooot' })
+    })
+
+    it('should give saved projects without a theme the Shooot look (migration v16)', () => {
+        const migrate = useAppState.persist.getOptions().migrate!
+        const out = migrate({ graphics: { cards: true, lowerThirds: false, replayTag: true } }, 15) as { graphics: unknown }
+        expect(out.graphics).toEqual({ cards: true, lowerThirds: false, replayTag: true, theme: 'shooot' })
     })
 })
