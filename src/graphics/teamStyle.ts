@@ -1,6 +1,6 @@
 import type { Team } from '../types'
 
-import { C } from './brandColors'
+import { C } from './themes/shooot/brandColors'
 
 /** Ink on a light kit colour: the brand's on-lime near-black. */
 export const INK_DARK = C.onLime

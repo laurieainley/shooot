@@ -1,4 +1,5 @@
 import type { TeamBadge } from './teamStyle'
+import type { ThemeId } from './themes/types'
 
 /** One scorer on the full-time card: the name and their minutes, e.g. `'13 '44`. */
 export type ScorerLine = { name: string; minutes: string }
@@ -24,7 +25,7 @@ export type CaptionSpec = {
     /** Goals: shown as a smaller `ASSIST: JO` line under the event line. */
     assist?: string
     note?: string
-    /** Team colour stripe (orange when the event has no team). */
+    /** Team colour stripe (the theme's neutral colour when the event has no team). */
     stripe: string
     /** Score after the event (scoring events) or at it (others); none without two teams. */
     bug?: BugSpec
@@ -50,6 +51,8 @@ export type CaptionClock = { offsetSec: number; rate: number; totalSec: number }
 
 /** What graphics a reel gets, as plain data (see plan.ts); painters.ts turns it into engine graphics. */
 export type GraphicsSpec = {
+    /** The look the painters use (shooot when absent). */
+    theme?: ThemeId
     intro?: CardSpec
     outro?: CardSpec
     overlays: OverlaySpec[]

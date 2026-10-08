@@ -1,3 +1,4 @@
+Bebas Neue (Classic look only): Copyright 2010 The Bebas Neue Project Authors (Dharma Type)
 Archivo: Copyright 2019 The Archivo Project Authors (https://github.com/Omnibus-Type/Archivo)
 Big Shoulders Display: Copyright 2019 The Big Shoulders Project Authors (https://github.com/xotypeco/big_shoulders)
 JetBrains Mono: Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)

@@ -10,7 +10,7 @@ const payload = (over: Partial<TransferPayload> = {}): TransferPayload => ({
     events,
     teams: [{ name: 'Whites', color: '#fff', roster: ['Zoë Ñandú ⚽'] }, { name: 'Colours', color: '#c00', roster: [] }],
     lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5,
-    graphics: { cards: true, lowerThirds: true, replayTag: false },
+    graphics: { cards: true, lowerThirds: true, replayTag: false, theme: 'shooot' },
     fullMatch: { cards: true, scoreBug: 'periodic', intervalMin: 5, captions: false },
     matchdayLabel: 'Matchday 3', goalAreas: null, adjustTimestampsByOffset: false,
     ...over,

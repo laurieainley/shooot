@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { BUG_ROWS, OVERLAY_SCALE, formatSpeed, leanShift, CAPTION_DELAY_SEC, CAPTION_ROWS, CAPTION_SEC, captionLayout, cardFade, cardLayout, replayTagLayout, scoreBugLayout, estimateTextWidth, type DrawOp, type PolyOp, type RectOp, type TextOp } from './layout'
 import { C } from './brandColors'
-import { INK_DARK } from './teamStyle'
-import type { BugSpec, CaptionSpec, CardSpec } from './types'
+import { INK_DARK } from '../../teamStyle'
+import type { BugSpec, CaptionSpec, CardSpec } from '../../types'
 
 const left = { name: "RYAN'S ROVERS", initials: 'RR', colour: '#f0f0f0', ink: INK_DARK }
 const right = { name: 'WALFORD TOWN', initials: 'WT', colour: '#ec5fa4', ink: '#ffffff' }

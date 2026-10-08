@@ -1,0 +1,126 @@
+// Executes layout draw ops on a canvas. The 1920×1080 design is scaled uniformly and centred in the frame.
+import { centredBaseline, clampInto, designFit, fillShape, type Ctx, type PaintAssets } from '../../paint'
+import type { DrawOp, MeasureText } from './layout'
+import { NAVY, NAVY_DARK } from './layout'
+
+export const DISPLAY_FONT = '"Bebas Neue", "Oswald", "Arial Narrow", sans-serif'
+
+/** Reference glyphs: capitals and digits, which is all the graphics draw (no descenders to skew the centring). */
+const INK_REFERENCE = 'H0'
+
+/**
+ * Ascent / descent of the display font's capitals at `size`, measured by the platform rather than guessed, so text
+ * centres the same with Bebas Neue as with a fallback (font metrics and 'middle' baselines differ per platform).
+ */
+export function textInkMetrics(ctx: Ctx, size: number): { ascent: number; descent: number } {
+    ctx.save()
+    ctx.font = `${size}px ${DISPLAY_FONT}`
+    ctx.textBaseline = 'alphabetic'
+    const m = ctx.measureText(INK_REFERENCE)
+    ctx.restore()
+    const hasBox = Number.isFinite(m.actualBoundingBoxAscent) && m.actualBoundingBoxAscent > 0
+    return hasBox
+        ? { ascent: m.actualBoundingBoxAscent, descent: Math.max(0, m.actualBoundingBoxDescent || 0) }
+        : { ascent: size * 0.7, descent: 0 }
+}
+
+function shieldPath(ctx: Ctx, cx: number, cy: number, w: number, h: number): void {
+    ctx.beginPath()
+    ctx.moveTo(cx - w / 2, cy - h / 2)
+    ctx.lineTo(cx + w / 2, cy - h / 2)
+    ctx.lineTo(cx + w / 2, cy + h * 0.12)
+    ctx.lineTo(cx, cy + h / 2)
+    ctx.lineTo(cx - w / 2, cy + h * 0.12)
+    ctx.closePath()
+}
+
+function background(ctx: Ctx, x0: number, y0: number, x1: number, y1: number): void {
+    const g = ctx.createLinearGradient(0, y0, 0, y1)
+    g.addColorStop(0, NAVY)
+    g.addColorStop(1, NAVY_DARK)
+    ctx.fillStyle = g
+    ctx.fillRect(x0, y0, x1 - x0, y1 - y0)
+    // Faint wide diagonal stripes.
+    ctx.fillStyle = 'rgba(255,255,255,0.025)'
+    for (let x = x0 - 1200; x < x1; x += 360) {
+        ctx.beginPath()
+        ctx.moveTo(x, y1)
+        ctx.lineTo(x + 180, y1)
+        ctx.lineTo(x + 180 + (y1 - y0), y0)
+        ctx.lineTo(x + (y1 - y0), y0)
+        ctx.closePath()
+        ctx.fill()
+    }
+}
+
+/** Real text widths for layouts, from the canvas's font metrics. */
+export function measureWith(ctx: Ctx): MeasureText {
+    return (text, size) => {
+        ctx.save()
+        ctx.font = `${size}px ${DISPLAY_FONT}`
+        const w = ctx.measureText(text).width
+        ctx.restore()
+        return w
+    }
+}
+
+export function paintOps(ctx: Ctx, ops: DrawOp[], assets: PaintAssets): void {
+    const { width, height } = ctx.canvas
+    const { s, ox, oy } = designFit(width, height)
+    ctx.save()
+    ctx.setTransform(s, 0, 0, s, ox, oy)
+    for (const op of ops) {
+        if (op.kind === 'cardBackground') {
+            background(ctx, -ox / s, -oy / s, (width - ox) / s, (height - oy) / s)
+            continue
+        }
+        ctx.globalAlpha = op.alpha ?? 1
+        if (ctx.globalAlpha <= 0) continue
+        switch (op.kind) {
+            case 'rect':
+                fillShape(ctx, op.fill, op, false)
+                break
+            case 'shield': {
+                const r = op.box ? clampInto(op.box, { x: op.cx - op.w / 2, y: op.cy - op.h / 2, w: op.w, h: op.h }) : { x: op.cx - op.w / 2, y: op.cy - op.h / 2, w: op.w, h: op.h }
+                shieldPath(ctx, r.x + r.w / 2, r.y + r.h / 2, r.w, r.h)
+                fillShape(ctx, op.fill, r, true)
+                shieldPath(ctx, r.x + r.w / 2, r.y + r.h / 2, r.w, r.h) // stripes leave their last band as the current path
+                ctx.lineWidth = op.lineWidth
+                ctx.strokeStyle = op.stroke
+                ctx.stroke()
+                break
+            }
+            case 'text': {
+                ctx.fillStyle = op.color
+                ctx.font = `${op.size}px ${DISPLAY_FONT}`
+                ctx.textAlign = op.align
+                ctx.textBaseline = 'alphabetic'
+                let y = op.y
+                if (op.baseline === 'middle') {
+                    const m = textInkMetrics(ctx, op.size)
+                    y = centredBaseline(op.y, m.ascent, m.descent)
+                }
+                if (op.outline) {
+                    ctx.save()
+                    ctx.lineJoin = 'round'
+                    ctx.lineWidth = Math.max(2, op.size * 0.09)
+                    ctx.strokeStyle = op.outline
+                    ctx.strokeText(op.text, op.x, y, op.maxWidth)
+                    ctx.restore()
+                }
+                ctx.fillText(op.text, op.x, y, op.maxWidth)
+                break
+            }
+            case 'logo': {
+                const logo = assets.logo
+                if (!logo) break
+                const w = (logo.width / logo.height) * op.h
+                const r = { x: op.align === 'center' ? op.x - w / 2 : op.x, y: op.y, w, h: op.h }
+                const c = op.box ? clampInto(op.box, r) : r
+                ctx.drawImage(logo, c.x, c.y, c.w, c.h)
+                break
+            }
+        }
+    }
+    ctx.restore()
+}

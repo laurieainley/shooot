@@ -956,3 +956,10 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .send-sheet__link { width: 100%; min-height: 36px; padding: 6px 8px; font: 12px/1.2 ui-monospace, monospace; background: var(--sunk); color: var(--text, inherit); border: 1px solid var(--line); border-radius: 4px; text-overflow: ellipsis; }
 .receive-error { position: fixed; z-index: 60; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; background: var(--panel); border: 1px solid var(--danger, #c2364a); border-radius: 6px; font-size: 13px; }
 @media (pointer: coarse) { .send-sheet, .receive-error { font-size: 14px; } .send-sheet__link { min-height: 44px; font-size: 14px; } }
+
+/* Graphics look picker (Export panel → Graphics) */
+.theme-picker { display: flex; gap: 8px; margin-bottom: 8px; }
+.theme-chip { flex: 1; display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--sh-line, currentColor); border-radius: 10px; background: transparent; color: inherit; cursor: pointer; min-height: 44px; }
+.theme-chip[aria-checked='true'] { border-width: 2px; padding: 5px 7px; font-weight: 700; }
+.theme-chip__swatch { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 28px; border-radius: 4px; }
+.theme-chip__swatch > span { font: italic 800 12px/1 monospace; padding: 2px 5px; transform: skewX(-10deg); }

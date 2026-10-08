@@ -16,4 +16,15 @@ describe('applyTransferPayload', () => {
         expect(e).toMatchObject({ type: 'penalty_conceded', team: 'Blues' })
         expect(e.scorer).toBeUndefined()
     })
+
+    it('should carry the graphics theme of a received project, and fall back for one that has none', () => {
+        const base = buildTransferPayload({ ...useAppState.getState(), events: [], teams: [] })
+        applyTransferPayload({ ...base, graphics: { ...useAppState.getState().graphics, theme: 'classic' } })
+        expect(useAppState.getState().graphics.theme).toBe('classic')
+        applyTransferPayload({ ...base, graphics: { cards: true, lowerThirds: true, replayTag: true } as never })
+        expect(useAppState.getState().graphics.theme).toBe('classic') // an old link says nothing about the look: keep the current one
+        applyTransferPayload({ ...base, graphics: { ...useAppState.getState().graphics, theme: 'neon' as never } })
+        expect(useAppState.getState().graphics.theme).toBe('classic')
+        useAppState.getState().setGraphics({ theme: 'shooot' })
+    })
 })

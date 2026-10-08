@@ -81,6 +81,6 @@ export function fullMatchExport(s: ExportState, quality: RenderQuality): ExportP
         events: linked, teams: s.teams, cumulativeOffsets: s.cumulativeOffsets, kickOffSec: span.startSec, finalWhistleSec: span.endSec,
         mode: s.fullMatch.scoreBug, intervalMin: s.fullMatch.intervalMin, gapsSec: recordingGaps(s.files, s.cumulativeOffsets),
     })
-    const spec = nonEmpty(fullMatchGraphicsSpec({ events: linked, teams: s.teams, cuts, cumulativeOffsets: s.cumulativeOffsets, cards: s.fullMatch.cards, captions: s.fullMatch.captions, matchday: matchday(s), windows }))
+    const spec = nonEmpty(fullMatchGraphicsSpec({ events: linked, teams: s.teams, cuts, cumulativeOffsets: s.cumulativeOffsets, cards: s.fullMatch.cards, captions: s.fullMatch.captions, theme: s.graphics.theme, matchday: matchday(s), windows }))
     return finish('fullMatch', quality, s, cuts, spec, 'full-match', true)
 }

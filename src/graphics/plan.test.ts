@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { buildGraphicsSpec, captionWord, scorerColumns, fullMatchCaptionWindows, fullMatchGraphicsSpec, wantsFullMatchCaption, wantsLowerThird, type GraphicsSettings } from './plan'
+import { buildGraphicsSpec, normaliseGraphics, scorerColumns, fullMatchCaptionWindows, fullMatchGraphicsSpec, wantsFullMatchCaption, wantsLowerThird, type GraphicsSettings } from './plan'
+import { captionWord } from './themes/shooot'
+import { classicTheme } from './themes/classic'
+import { getTheme, isThemeId, THEMES } from './themes'
 import type { MatchEvent, Team } from '../types'
 import type { Cut } from '../render/types'
 
@@ -7,7 +10,7 @@ const teams: Team[] = [
     { name: "Ryan's Rovers", color: '#f0f0f0', roster: [] },
     { name: 'Walford Town', color: '#ec5fa4', roster: [], initials: 'WT' },
 ]
-const ALL: GraphicsSettings = { cards: true, lowerThirds: true, replayTag: false }
+const ALL: GraphicsSettings = { cards: true, lowerThirds: true, replayTag: false, theme: 'shooot' }
 const ev = (id: string, t: number, extra: Partial<MatchEvent>): MatchEvent => ({ id, matchTimeSec: t, sourceFileIndex: 0, type: 'goal', ...extra })
 const cuts: Cut[] = [
     { sourceIndex: 0, startSec: 10, endSec: 24 },
@@ -117,7 +120,7 @@ describe('buildGraphicsSpec', () => {
     })
 
     it('should tag replays when asked', () => {
-        const spec = build([], { cards: false, lowerThirds: false, replayTag: true })
+        const spec = build([], { cards: false, lowerThirds: false, replayTag: true, theme: 'shooot' })
         expect(spec.overlays).toEqual([expect.objectContaining({ kind: 'replayTag', cutIndex: 1, startSec: 16, durationSec: 5, speed: 0.5 })])
     })
 })
@@ -306,5 +309,43 @@ describe('scorerColumns', () => {
         expect(spec.outro?.scorers?.left).toEqual([{ name: 'SAM', minutes: "'1" }])
         expect(spec.intro?.scorers).toBeUndefined()
         expect(build([ev('a', 20, { team: R })]).outro?.scorers).toBeUndefined()
+    })
+})
+
+describe('themes', () => {
+    const R = "Ryan's Rovers"
+    const classic: GraphicsSettings = { ...ALL, theme: 'classic' }
+
+    it('should look themes up by id and fall back to Shooot for anything unknown', () => {
+        expect(getTheme('classic').id).toBe('classic')
+        expect(getTheme('shooot').id).toBe('shooot')
+        expect(getTheme('neon').id).toBe('shooot')
+        expect(getTheme(undefined).id).toBe('shooot')
+        expect(isThemeId('classic')).toBe(true)
+        expect(isThemeId('neon')).toBe(false)
+        expect(THEMES.map((t) => t.id)).toEqual(['shooot', 'classic'])
+    })
+
+    it('should ship each theme with its own fonts: Bebas Neue only in Classic', () => {
+        expect(getTheme('classic').fonts.map((f) => f.family)).toEqual(['Bebas Neue', 'Bebas Neue'])
+        expect(getTheme('shooot').fonts.map((f) => f.family).sort()).toEqual(['Shooot Heading', 'Shooot Mono', 'Shooot Scoreboard', 'Shooot Shirt', 'Shooot Stadium'])
+    })
+
+    it('should stamp the selected theme on the spec, normalising unknown values to Shooot', () => {
+        expect(build([ev('a', 20, {})], classic).theme).toBe('classic')
+        expect(build([ev('a', 20, {})]).theme).toBe('shooot')
+        expect(build([ev('a', 20, {})], { ...ALL, theme: 'neon' as never }).theme).toBe('shooot')
+        expect(normaliseGraphics({ theme: 'classic' }, ALL).theme).toBe('classic')
+        expect(normaliseGraphics({ theme: 'neon' }, ALL).theme).toBe('shooot')
+        expect(normaliseGraphics({}, { ...ALL, theme: 'classic' }).theme).toBe('classic')
+        expect(fullMatchGraphicsSpec({ events: [], teams, cuts, cumulativeOffsets: [0], cards: false, matchday: '', windows: [], theme: 'classic' }).theme).toBe('classic')
+    })
+
+    it('should word captions the classic way (GOAL (PEN), no tone, no minute, orange without a team) and add no scorer columns', () => {
+        const spec = build([ev('k', 5, { type: 'kick_off' }), ev('a', 20, { team: R, scorer: 'Sam', pen: true }), ev('h', 52, { type: 'highlight' })], classic)
+        const caps = spec.overlays.filter((o) => o.kind === 'caption').map((o) => (o.kind === 'caption' ? o.spec : null))
+        expect(caps[0]).toEqual({ label: 'GOAL (PEN)', person: 'SAM', stripe: '#f0f0f0', bug: expect.anything() })
+        expect(caps.at(-1)).toMatchObject({ label: 'HIGHLIGHT', stripe: classicTheme.caption.defaultStripe })
+        expect(spec.outro?.scorers).toBeUndefined()
     })
 })

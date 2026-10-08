@@ -1,25 +1,29 @@
 // Fonts and logo for match graphics (browser only).
-import { FONT_VOICES, VOICES, fontCss } from './fonts'
+import { DEFAULT_THEME_ID, getTheme, type GraphicsTheme, type ThemeId } from './themes'
 
 export const DEFAULT_LOGO_URLS = ['/brand/tnf-logo.webp', '/brand/tnf-logo.png']
 
-let fontLoad: Promise<boolean> | null = null
+const fontLoads = new Map<ThemeId, Promise<boolean>>()
 
-/** Loads the brand voices (bundled static instances); resolves false if any could not be loaded (fallbacks are used). */
-export function loadGraphicsFont(): Promise<boolean> {
-    fontLoad ??= (async () => {
-        try {
-            const faces = FONT_VOICES.map((v) => new FontFace(VOICES[v].family, `url(${VOICES[v].url}) format('woff2')`))
-            for (const f of faces) document.fonts.add(f)
-            await Promise.all(faces.map((f) => f.load()))
-            return true
-        } catch (e) {
-            console.warn('Graphics fonts could not be loaded', e)
-            fontLoad = null
-            return false
-        }
-    })()
-    return fontLoad
+/** Loads the theme's bundled fonts (only that theme's); resolves false if any could not be loaded (fallbacks are used). */
+export function loadGraphicsFont(theme: GraphicsTheme = getTheme(DEFAULT_THEME_ID)): Promise<boolean> {
+    let load = fontLoads.get(theme.id)
+    if (!load) {
+        load = (async () => {
+            try {
+                const faces = theme.fonts.map((f) => new FontFace(f.family, `url(${f.url}) format('woff2')`, f.unicodeRange ? { unicodeRange: f.unicodeRange } : {}))
+                for (const f of faces) document.fonts.add(f)
+                await Promise.all(faces.map((f) => f.load()))
+                return true
+            } catch (e) {
+                console.warn('Graphics fonts could not be loaded', e)
+                fontLoads.delete(theme.id)
+                return false
+            }
+        })()
+        fontLoads.set(theme.id, load)
+    }
+    return load
 }
 
 /** Resolves true if `work` succeeds within `ms`, false if it fails or is too slow (never rejects, never hangs). */
@@ -30,20 +34,17 @@ export function settleWithin(work: Promise<unknown>, ms: number): Promise<boolea
     })
 }
 
-/** Every character the graphics draw, so the font faces covering them are fetched up front. */
-const GRAPHICS_GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 –-.'()!:×GOAL REPLAY"
-
 /**
- * Makes sure every brand voice is usable before anything is painted (text drawn earlier would silently use a fallback
+ * Makes sure the theme's fonts are usable before anything is painted (text drawn earlier would silently use a fallback
  * font with different metrics, which is what mis-centred captions on some phones). Fail-safe: resolves false after
  * `timeoutMs` and the painters then centre the fallback font from its measured metrics.
  */
-export async function ensureGraphicsFonts(timeoutMs = 8000): Promise<boolean> {
+export async function ensureGraphicsFonts(theme: GraphicsTheme = getTheme(DEFAULT_THEME_ID), timeoutMs = 8000): Promise<boolean> {
     const ok = await settleWithin((async () => {
-        if (!(await loadGraphicsFont())) throw new Error('graphics fonts unavailable')
-        await Promise.all(FONT_VOICES.map((v) => document.fonts.load(fontCss(v, 48), GRAPHICS_GLYPHS)))
+        if (!(await loadGraphicsFont(theme))) throw new Error('graphics fonts unavailable')
+        await Promise.all(theme.fontChecks.map((spec) => document.fonts.load(spec, theme.glyphs)))
     })(), timeoutMs)
-    if (!ok) fontLoad = null
+    if (!ok) fontLoads.delete(theme.id)
     return ok
 }
 

@@ -1,5 +1,5 @@
 // Brand colours for the rendered graphics, from the pack's tokens (video is always the dark theme).
-import tokens from '../../brand/shooot/tokens.json'
+import tokens from '../../../../brand/shooot/tokens.json'
 
 const dark = tokens.color.dark
 export const C = {

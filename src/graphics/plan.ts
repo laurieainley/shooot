@@ -6,22 +6,24 @@ import { linkedEvents } from '../utils/relink'
 import { finalScore, formatScore, scoreAt, scoresAfter, type Score } from '../utils/score'
 import { subtractIntervals, type ScoreBugWindow } from '../utils/scoreBug'
 import { CAPTION_DELAY_SEC, CAPTION_SEC } from './layout'
-import { C } from './brandColors'
+import { DEFAULT_THEME_ID, getTheme, isThemeId, type GraphicsTheme, type ThemeId } from './themes'
 import { teamBadge } from './teamStyle'
-import type { BugSpec, CaptionClock, CaptionSpec, CaptionTone, CardSpec, GraphicsSpec, OverlaySpec, ScorerLine } from './types'
+import type { BugSpec, CaptionClock, CaptionSpec, CardSpec, GraphicsSpec, OverlaySpec, ScorerLine } from './types'
 
 export type GraphicsSettings = {
     cards: boolean
     /** Event captions (top-left, 5 s); the key predates the move from the bottom lower third. */
     lowerThirds: boolean
     replayTag: boolean
+    /** The look of the rendered graphics. */
+    theme: ThemeId
 }
 
 /** Settings from storage or an imported project: only the current switches, the rest (e.g. the removed "score always on screen") ignored. */
 export function normaliseGraphics(v: unknown, fallback: GraphicsSettings): GraphicsSettings {
     const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>
-    const pick = (k: keyof GraphicsSettings): boolean => (typeof o[k] === 'boolean' ? (o[k] as boolean) : fallback[k])
-    return { cards: pick('cards'), lowerThirds: pick('lowerThirds'), replayTag: pick('replayTag') }
+    const pick = (k: 'cards' | 'lowerThirds' | 'replayTag'): boolean => (typeof o[k] === 'boolean' ? (o[k] as boolean) : fallback[k])
+    return { cards: pick('cards'), lowerThirds: pick('lowerThirds'), replayTag: pick('replayTag'), theme: isThemeId(o.theme) ? o.theme : isThemeId(fallback.theme) ? fallback.theme : DEFAULT_THEME_ID }
 }
 
 /** Captions go on goals (incl. penalties and own goals), missed penalties and highlights (with or without a note). */
@@ -39,22 +41,6 @@ function bugFor(teams: Team[], score: Score): BugSpec {
 }
 
 const absTime = (e: MatchEvent, offsets: number[]): number => e.globalTimeSec ?? (offsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec
-
-/** The event word of a caption, in the stadium voice. */
-export function captionWord(e: Pick<MatchEvent, 'type' | 'pen'>): string {
-    switch (e.type) {
-        case 'goal': return e.pen ? 'PEN GOAL' : 'GOAL!'
-        case 'own_goal': return 'OWN GOAL'
-        case 'penalty_missed': return 'PENALTY MISSED'
-        case 'penalty_conceded': return 'PENALTY CONCEDED'
-        case 'save': return 'SAVE'
-        case 'foul': return 'FOUL'
-        case 'highlight': return 'HIGHLIGHT'
-        default: return e.type.replace(/_/g, ' ').toUpperCase()
-    }
-}
-
-const captionTone = (e: Pick<MatchEvent, 'type'>): CaptionTone => (e.type === 'goal' ? 'goal' : e.type === 'own_goal' ? 'ownGoal' : 'other')
 
 /** `'34`: the match minute, only when kick-off is marked (minutes from the start of a file would mislead). */
 function minuteOf(e: MatchEvent, events: MatchEvent[], offsets: number[]): string | undefined {
@@ -83,25 +69,25 @@ export function scorerColumns(events: MatchEvent[], teams: Team[], offsets: numb
     return { left: [...cols.left.values()], right: [...cols.right.values()] }
 }
 
-function cards(teams: Team[], events: MatchEvent[], matchday: string, offsets: number[]): Pick<GraphicsSpec, 'intro' | 'outro'> {
+function cards(teams: Team[], events: MatchEvent[], matchday: string, offsets: number[], theme: GraphicsTheme): Pick<GraphicsSpec, 'intro' | 'outro'> {
     const intro: CardSpec = { heading: matchday.trim().toUpperCase() || 'MATCH', centre: 'VS', left: teamBadge(teams[0]), right: teamBadge(teams[1]) }
     const [a, b] = finalScore(events, teams)
-    const scorers = scorerColumns(events, teams, offsets)
+    const scorers = theme.caption.scorers ? scorerColumns(events, teams, offsets) : { left: [], right: [] }
     const hasScorers = scorers.left.length + scorers.right.length > 0
     return { intro, outro: { ...intro, heading: 'FULL TIME', centre: `${a} - ${b}`, ...(hasScorers ? { scorers } : {}) } }
 }
 
 /** Caption content for one event (shared by highlights and the full match): word, person, assist, note, minute and the score bug (given score). */
-function eventCaptionSpec(e: MatchEvent, teams: Team[], score: Score | undefined, events: MatchEvent[], offsets: number[]): CaptionSpec {
+function eventCaptionSpec(e: MatchEvent, teams: Team[], score: Score | undefined, events: MatchEvent[], offsets: number[], theme: GraphicsTheme): CaptionSpec {
     const team = teams.find((x) => x.name === e.team)
-    const cs: CaptionSpec = { label: captionWord(e), tone: captionTone(e), stripe: team?.color ?? C.muted }
+    const cs: CaptionSpec = { label: theme.caption.word(e), ...(theme.caption.tone ? { tone: theme.caption.tone(e) } : {}), stripe: team?.color ?? theme.caption.defaultStripe }
     const person = upper(e.scorer)
     if (person) cs.person = person
     const assist = upper(assistOf(e))
     if (assist) cs.assist = assist
     const note = upper(shortNote(e.notes, 60))
     if (note) cs.note = note
-    const minute = minuteOf(e, events, offsets)
+    const minute = theme.caption.minutes ? minuteOf(e, events, offsets) : undefined
     if (minute) cs.minute = minute
     if (score) cs.bug = bugFor(teams, score)
     return cs
@@ -124,11 +110,12 @@ export function buildGraphicsSpec(args: {
 }): GraphicsSpec {
     const { teams, cuts, cumulativeOffsets, settings } = args
     const events = linkedEvents(args.events)
-    const spec: GraphicsSpec = { overlays: [] }
+    const theme = getTheme(settings.theme)
+    const spec: GraphicsSpec = { theme: theme.id, overlays: [] }
     const both = teams.length >= 2
     const globalOf = (src: number, t: number): number => (cumulativeOffsets[src] ?? 0) + t
 
-    if (settings.cards && both) Object.assign(spec, cards(teams, events, args.matchday, cumulativeOffsets))
+    if (settings.cards && both) Object.assign(spec, cards(teams, events, args.matchday, cumulativeOffsets, theme))
 
     const captions: CaptionOverlay[] = []
     if (settings.lowerThirds) {
@@ -141,7 +128,7 @@ export function buildGraphicsSpec(args: {
             const cutIndex = cuts.findIndex((c) => c.sourceIndex === src && (c.speed ?? 1) === 1 && c.startSec <= t && t < c.endSec)
             if (cutIndex === -1) continue
             const cut = cuts[cutIndex]
-            const cs = eventCaptionSpec(e, teams, both ? (after.get(e.id) ?? scoreAt(events, teams, cumulativeOffsets, globalOf(src, t))) : undefined, events, cumulativeOffsets)
+            const cs = eventCaptionSpec(e, teams, both ? (after.get(e.id) ?? scoreAt(events, teams, cumulativeOffsets, globalOf(src, t))) : undefined, events, cumulativeOffsets, theme)
             // Goals etc.: 1 s after the event; what the clip cannot hold carries on over the start of its replay.
             // Highlights: from the start of their clip (the moment itself is the whole point of the clip).
             const atClipStart = e.type === 'highlight'
@@ -219,17 +206,19 @@ export function fullMatchGraphicsSpec(args: {
     windows: ScoreBugWindow[]
     /** Event captions (same content and timing as the highlights); they replace the score bug where they overlap it. */
     captions?: boolean
+    theme?: ThemeId
 }): GraphicsSpec {
     const { teams, cuts, cumulativeOffsets } = args
     const events = linkedEvents(args.events)
-    const spec: GraphicsSpec = { overlays: [] }
+    const theme = getTheme(args.theme)
+    const spec: GraphicsSpec = { theme: theme.id, overlays: [] }
     if (teams.length < 2) return spec
-    if (args.cards) Object.assign(spec, cards(teams, events, args.matchday, cumulativeOffsets))
+    if (args.cards) Object.assign(spec, cards(teams, events, args.matchday, cumulativeOffsets, theme))
     const after = scoresAfter(events, teams, cumulativeOffsets)
     const captionTimes = args.captions ? fullMatchCaptionWindows(events, cumulativeOffsets) : []
     for (const c of captionTimes) {
         const e = c.event
-        const cs = eventCaptionSpec(e, teams, after.get(e.id) ?? scoreAt(events, teams, cumulativeOffsets, c.eventSec), events, cumulativeOffsets)
+        const cs = eventCaptionSpec(e, teams, after.get(e.id) ?? scoreAt(events, teams, cumulativeOffsets, c.eventSec), events, cumulativeOffsets, theme)
         const a = c.startSec
         const b = a + c.durationSec
         const label = `Caption: ${eventSummary(e)}`
