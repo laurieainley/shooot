@@ -19,15 +19,16 @@ const PAIRS = [
     ['muted', 'ground', 'secondary text on page'], ['muted', 'surface', 'secondary text on panels'], ['muted', 'surface-2', 'secondary text on rows / buttons'],
     ['lime-text', 'ground', 'lime text / pen-goal tag on page'], ['lime-text', 'surface', 'lime text / pen-goal tag on panels'],
     ['on-lime', 'lime', 'primary button, goal tag'], ['ground', 'text', 'own-goal tag (ground on chalk)'],
+    ['lime-text', 'surface-2', 'lime icon / large text on selected rows (3:1)', 3],
     ['on-video', 'video', 'overlay text on the picture'], ['lime', 'video', 'lime overlay text on the picture'],
 ]
 let fail = 0
 for (const [name, theme] of [['dark', dark], ['light', light]]) {
     const t = { ...theme, ...extra }
     console.log(`\n${name}`)
-    for (const [fg, bg, what] of PAIRS) {
+    for (const [fg, bg, what, min = 4.5] of PAIRS) {
         const r = ratio(t[fg], t[bg])
-        const ok = r >= 4.5
+        const ok = r >= min
         if (!ok) fail++
         console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${r.toFixed(2).padStart(5)}:1  ${fg} on ${bg}  (${what})`)
     }
