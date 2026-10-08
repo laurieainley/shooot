@@ -6,9 +6,24 @@
 <title>Join the waitlist · Shooot</title>
 <meta name="description" content="Get free early access to Shooot: five-a-side highlights, as seen on telly.">
 <meta name="theme-color" content="#0B0F0D">
+<link rel="canonical" href="https://shooot.co.uk/join">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Shooot">
+<meta property="og:url" content="https://shooot.co.uk/join">
+<meta property="og:title" content="Join the waitlist · Shooot">
+<meta property="og:description" content="Get free early access to Shooot: five-a-side highlights, as seen on telly.">
+<meta property="og:image" content="https://shooot.co.uk/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Shooot: Your five-a-side, as seen on telly.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Join the waitlist · Shooot">
+<meta name="twitter:description" content="Get free early access to Shooot: five-a-side highlights, as seen on telly.">
+<meta name="twitter:image" content="https://shooot.co.uk/assets/og-image.png">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="assets/favicon.ico" sizes="any">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="stylesheet" href="fonts.css">
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="motion.css">
 <style>
@@ -52,6 +67,9 @@
   .share { margin-top: 24px; background: var(--sh-surface); border: 1px solid var(--sh-line); border-radius: var(--sh-radius-lg); padding: 18px 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
   .share span { font-size: 15px; color: var(--sh-muted); }
   .share button { min-height: 44px; padding: 0 16px; margin: 0; font-size: 14px; }
+  .hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+  .small a { color: inherit; }
+  footer a { color: inherit; }
   [hidden] { display: none !important; }
 
   footer { padding: 20px 16px 28px; text-align: center; color: var(--sh-muted); font-size: 13px; }
@@ -76,9 +94,9 @@
     <h1>Get in <span class="hl">early.</span></h1>
     <p class="lede" id="lede">Be first to turn your five-a-side into <b>proper highlights</b>. Free while we’re in early access. One email when it’s ready.</p>
 
-    <!-- DESIGN ONLY: set data-endpoint to your form handler (e.g. /api/waitlist). Without it, the form shows the success state without sending anything. -->
-    <form id="waitlist" novalidate data-endpoint="">
+        <form id="waitlist" novalidate data-endpoint="/api/waitlist">
       <input type="hidden" name="role" id="role" value="player">
+      <div class="hp" aria-hidden="true"><label>Company <input id="company" name="company" type="text" tabindex="-1" autocomplete="off"></label></div>
       <label for="name">Name
         <input id="name" name="name" type="text" autocomplete="name" placeholder="Kev" required maxlength="80" aria-describedby="name-err">
         <span class="err" id="name-err" role="alert"></span>
@@ -88,7 +106,7 @@
         <span class="err" id="email-err" role="alert"></span>
       </label>
       <button type="submit" id="submit">Join the waitlist</button>
-      <p class="small">We’ll only email you about Shooot. Unsubscribe any time. No spam, no transfer-window rumours.</p>
+      <p class="small">We’ll only email you about Shooot. Unsubscribe any time. No spam, no transfer-window rumours. <a href="privacy">Privacy</a>.</p>
     </form>
 
     <ul class="perks">
@@ -110,7 +128,7 @@
   </div>
 </main>
 
-<footer>© 2026 Shooot · Made for five-a-side</footer>
+<footer>© 2026 Shooot · Made for five-a-side · <a href="privacy">Privacy</a></footer>
 
 <script>
 (function () {
@@ -152,7 +170,7 @@
     e.preventDefault();
     if (!validate()) return;
     var btn = document.getElementById('submit');
-    var data = { name: document.getElementById('name').value.trim(), email: document.getElementById('email').value.trim(), role: role.value };
+    var data = { name: document.getElementById('name').value.trim(), email: document.getElementById('email').value.trim(), role: role.value, company: document.getElementById('company').value };
     var endpoint = form.dataset.endpoint;
     if (!endpoint) { showDone(data.name); return; } // design-only mode
     btn.disabled = true; btn.textContent = 'Adding you…';

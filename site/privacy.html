@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en-GB" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy · Shooot</title>
+<meta name="description" content="How Shooot handles the details you give us when you join the waitlist.">
+<meta name="theme-color" content="#0B0F0D">
+<link rel="canonical" href="https://shooot.co.uk/privacy">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Shooot">
+<meta property="og:url" content="https://shooot.co.uk/privacy">
+<meta property="og:title" content="Privacy · Shooot">
+<meta property="og:description" content="How Shooot handles the details you give us when you join the waitlist.">
+<meta property="og:image" content="https://shooot.co.uk/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="stylesheet" href="fonts.css">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="motion.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; background: var(--sh-ground); color: var(--sh-text); font-family: var(--sh-font); font-size: 17px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+  header { padding: 20px 16px; display: flex; justify-content: space-between; align-items: center; max-width: 1120px; width: 100%; margin: 0 auto; }
+  header a.back { color: var(--sh-muted); font-size: 15px; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
+  header a.back:hover { color: var(--sh-text); }
+  main { flex: 1; width: 100%; max-width: 680px; margin: 0 auto; padding: 8px 16px 48px; }
+  h1 { margin: 16px 0 12px; font: italic 900 clamp(44px, 11vw, 64px)/.95 var(--sh-font); font-stretch: 85%; text-transform: uppercase; letter-spacing: -0.02em; }
+  h2 { margin: 36px 0 8px; font: italic 800 22px/1.1 var(--sh-font); font-stretch: 85%; text-transform: uppercase; letter-spacing: -0.01em; }
+  p, li { color: var(--sh-muted); }
+  p { margin: 0 0 12px; }
+  ul { margin: 0 0 12px; padding-left: 20px; }
+  li { margin-bottom: 6px; }
+  b, strong { color: var(--sh-text); font-weight: 600; }
+  .updated { font: 700 12px/1 var(--sh-font-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--sh-muted); }
+  footer { padding: 20px 16px 28px; text-align: center; color: var(--sh-muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <a href="/" aria-label="Shooot home"><img src="assets/wordmark-on-dark.svg" alt="Shooot" width="140" height="26"></a>
+  <a class="back" href="/">← Back</a>
+</header>
+
+<main>
+  <span class="updated">Last updated · 8 October 2026</span>
+  <h1>Privacy</h1>
+  <p>Short version: you give us your name, email and whether you play or run a league. We use it to tell you when early access opens. Nothing else, no tracking, no cookies.</p>
+
+  <h2>Who we are</h2>
+  <p>The data controller is <strong>{{CONTROLLER_NAME}}</strong>, trading as Shooot. Questions or requests: <a href="mailto:{{CONTACT_EMAIL}}">{{CONTACT_EMAIL}}</a>.</p>
+
+  <h2>What we collect</h2>
+  <ul>
+    <li><b>Name</b> and <b>email address</b>, as you type them into the waitlist form.</li>
+    <li><b>Role</b>: whether you signed up as a player or a league organiser.</li>
+    <li>When you signed up, plus your browser’s user agent and the page you came from, to help us spot abuse and see where sign-ups come from.</li>
+    <li>A one-way hash of your IP address, used only to limit repeat sign-ups. We do not store your IP address itself.</li>
+  </ul>
+
+  <h2>Why, and our lawful basis</h2>
+  <p>We use your details to email you about Shooot early access: when it opens and what you need to know. Our lawful basis is your <b>consent</b> (UK GDPR Article 6(1)(a)), which you give by submitting the form. You can withdraw it at any time.</p>
+
+  <h2>Who handles it</h2>
+  <ul>
+    <li><b>Neon</b> (Postgres database), provided through Vercel and hosted in the EU, stores the waitlist.</li>
+    <li><b>Vercel</b> hosts this website and the sign-up function.</li>
+    <li><b>Resend</b> sends us an email notification when someone joins, and will send you any early access emails.</li>
+  </ul>
+  <p>We do not sell your data or use it for advertising. These providers act as our processors and may process data outside the UK under standard safeguards.</p>
+
+  <h2>How long we keep it</h2>
+  <p>Until early access ends, or until you unsubscribe or ask us to delete your details, whichever comes first.</p>
+
+  <h2>Your rights</h2>
+  <p>You can ask us to give you a copy of your data, correct it, delete it, restrict or object to how we use it, or withdraw your consent, any time, by emailing <a href="mailto:{{CONTACT_EMAIL}}">{{CONTACT_EMAIL}}</a>. If you are unhappy with how we handle your data, you can complain to the Information Commissioner’s Office at <a href="https://ico.org.uk/make-a-complaint/" rel="noopener">ico.org.uk</a>.</p>
+
+  <h2>Cookies and analytics</h2>
+  <p>This site sets no cookies and runs no analytics. Fonts are served from this site, not from a third party.</p>
+</main>
+
+<footer>© 2026 Shooot · Made for five-a-side · <a href="/">Home</a></footer>
+</body>
+</html>
