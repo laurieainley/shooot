@@ -1053,12 +1053,11 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .shortcuts-row dt { display: flex; flex-wrap: wrap; gap: 4px; }
 .shortcuts-row dd { margin: 0; }
 .shortcuts-btn {
-  position: absolute; right: 10px; bottom: 10px; z-index: 5; width: 28px; height: 28px; padding: 0; border: 1px solid var(--sh-line); border-radius: 50%;
-  background: var(--sh-surface-2); color: var(--sh-muted); font: 700 14px var(--sh-font); cursor: pointer;
+  flex: none; width: 28px; height: 28px; margin-left: 2px; padding: 0; border: 1px solid var(--sh-line); border-radius: 50%;
+  background: transparent; color: var(--sh-muted); font: 700 14px var(--sh-font); cursor: pointer;
 }
 .shortcuts-btn:hover { color: var(--sh-text); border-color: var(--sh-text); }
 .rail { position: relative; }
-.shell--desktop .event-log ol { padding-bottom: 44px; }
 
 /* Narrow rails (landscape phone, small windows): give the name the room. The file number stays in the row's tooltip and the strip. */
 @container event-log (max-width: 400px) {

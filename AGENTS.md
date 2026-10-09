@@ -163,7 +163,28 @@ npm run lint       # baseline: 12 known problems — add none
   shortcuts work wherever focus is, except in text fields/menus/tabs or while a picker/sheet is open. A focused control
   that owns a key wins (e.g. the event log's ↑/↓/Enter/Delete/R/E/T/N). Main keys: Space play/pause · G tag ·
   ←/→ ±5 s (Shift ±1 s) · ↑/↓ frame step · , . / speed · Home/End · [ ] previous/next file · Z/0 zoom · F fullscreen ·
-  M mute · L event log · ⌘Z / ⇧⌘Z undo/redo. Keep the in-app shortcuts list in sync when changing keys.
+  M mute · L event log · ? shortcuts · ⌘Z / ⇧⌘Z undo/redo. Keep `utils/shortcutList.ts` in sync when changing keys.
+
+### Editor layout (calm editor, 2026-10-09)
+
+- **Top bar:** wordmark · Files button ("4 files · 56:34", warning dot when a file needs attention; opens the Files
+  sheet) · Setup · Export · ⋯ (all `.top-btn`; only Export is lime). Phone/landscape: Setup lives in ⋯. No file pills.
+  Render progress shows on the Export button (red dot + % + thin line), then "Ready"/"Failed" for 4 s.
+- **Video:** on-video `Scorebug` (initials, kit bars, score at the playhead, match clock) — no score in the top bar.
+- **One timeline:** the match strip (`MatchStrip`) is the only scrubber (video.js progress bar disabled): numbered file
+  bands, faint clip bands, event icons stacked in up to 3 lanes (`stackLanes`), Kick off / Half time / Final whistle
+  flags, red playhead, hover/drag time bubble, keyboard focusable.
+- **Event icons:** `components/icons/EventIcon.tsx` + `utils/eventIcon.ts` (football, pen ball "P", own goal "OG",
+  penalty spot / spot ✕, glove, whistle, star, flag, pause, chequered flag) — used in strip, rows, picker, edit sheet.
+- **Events rail:** rows = clock · team dot · icon · name (shirt font) [line 2: "Assist: X" / note] · score · file no. ·
+  ▶ ↻ ⌖ ×, fixed slots (`utils/eventRow.ts`). Header: "+ Tag event" (quiet, red REC dot), undo/redo, "?" shortcuts.
+  No rail footer and no key-hint bar.
+- **Export:** right-hand drawer over a scrim (`FloatingPanel variant="drawer"`; full screen on phones). Highlights tab:
+  Reel (`ReelSummary`: length, clips, clip/replay recap with an Edit disclosure), Graphics, Render, Share.
+- **Shortcuts sheet:** `?` key, the "?" button or ⋯ → Shortcuts (`ShortcutsSheet`, data in `utils/shortcutList.ts`,
+  kept in sync with `shortcutFor` by a test).
+- **Lime guard:** `utils/limeUsage.test.ts` fails if a lime token is used in App.css outside the allow-list
+  (primary buttons, goal icon, scorebug score). Don't widen the allow-list without a design decision.
 
 ## 8. How we work
 
@@ -229,7 +250,7 @@ npm run lint       # baseline: 12 known problems — add none
 ## 10. Open items (keep this list short and current)
 
 - `site/privacy.html` still has `{{CONTROLLER_NAME}}` / `{{CONTACT_EMAIL}}`; Resend notifications not configured.
-- Calm-editor cleanup (`docs/superpowers/specs/2026-10-09-calm-editor-design.md`) in progress.
+- Hero demo video: storyboard draft in `docs/superpowers/specs/2026-10-09-demo-video-storyboard.md` (awaiting approval).
 - History, voting and shared marking: draft design in `docs/superpowers/specs/2026-10-08-history-and-voting-design.md`
   (YouTube-embedded voting, editor-only history; WhatsApp-based voter verification under consideration).
 - Needs real-device confirmation: 4K GoPro exports in QuickTime with graphics; background-tab rendering on desktop;

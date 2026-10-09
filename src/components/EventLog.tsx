@@ -15,6 +15,7 @@ import { clockWidthCh, formatEventClock } from '../utils/timeline'
 import { TimeInput } from './TimeInput'
 import { RelinkBanner } from './RelinkBanner'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
+import { ShortcutsButton } from './ShortcutsButton'
 
 type Field = 'scorer' | 'team' | 'time' | 'notes'
 type Editing = { id: string; field: Field } | null
@@ -129,6 +130,7 @@ export function EventLog() {
                 )}
                 <button type="button" aria-label="Undo" title="Undo (⌘Z)" onClick={() => useAppState.getState().undo()} disabled={!canUndo} className="btn-icon"><UndoIcon /></button>
                 <button type="button" aria-label="Redo" title="Redo (⇧⌘Z)" onClick={() => useAppState.getState().redo()} disabled={!canRedo} className="btn-icon"><UndoIcon redo /></button>
+                {!coarse && <ShortcutsButton />}
             </header>
             <RelinkBanner />
 

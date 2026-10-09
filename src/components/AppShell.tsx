@@ -6,7 +6,6 @@ import { EmptyPlayer } from './EmptyPlayer'
 import { EventLog } from './EventLog'
 import { Fab } from './Fab'
 import { GoalMarked } from './GoalMarked'
-import { ShortcutsButton } from './ShortcutsButton'
 import { MatchStrip } from './MatchStrip'
 import { Panels } from './Panels'
 import { Player } from './Player'
@@ -95,7 +94,6 @@ export function AppShell() {
                 <aside className="rail" aria-label={sideBySide ? 'Event rail' : undefined}>
                     <EventLog />
                     {showFab && <Fab />}
-                    {layout === 'desktop' && !coarse && <ShortcutsButton />}
                     <div ref={setSlot} className="panel-slot" />
                 </aside>
             </main>

@@ -373,10 +373,10 @@ describe('EventLog header', () => {
         expect(useAppState.getState().events).toHaveLength(1)
     })
 
-    it('should keep only + Tag event, undo and redo in the header (the rest lives in the top-bar menu)', () => {
+    it('should keep only + Tag event, undo, redo and the shortcuts button in the header (the rest lives in the top-bar menu)', () => {
         render(<EventLog />)
         const header = log().querySelector('header')!
-        expect(within(header).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['+ Tag event', 'Undo', 'Redo'])
+        expect(within(header).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['+ Tag event', 'Undo', 'Redo', 'Keyboard shortcuts'])
     })
 })
 
