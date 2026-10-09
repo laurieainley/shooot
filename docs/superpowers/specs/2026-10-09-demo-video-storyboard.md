@@ -75,7 +75,12 @@ Screen recordings of the real editor (dark theme), framed in a floating 3D-tilte
 - **Audio:** ElevenLabs Music (80 s + loop section), SFX, TTS (5 lines); beat grid from BPM; captions burned in.
 - **Output:** `demo-hero-loop.mp4` (H.264 + WebM, ~2–4 MB, muted, poster image) and `demo-full.mp4` (H.264, ~15–25 MB), embedded on shooot.co.uk: autoplay muted loop + "Watch the demo" lightbox with sound; `preload="metadata"`, poster, reduced-motion users see the poster with a play button.
 
-## Open questions for approval
-1. Voice: male or female, and how cheeky (dry/knowing vs. a bit more "lad")?
-2. Any moment from the match you particularly want featured (beyond Sam L's goal, A Lo's double penalty miss, Jak's own goal, Ryan's finish, Joe's save)?
-3. Music direction OK (UK garage/grime-tinged broadcast energy, no lyrics), or something else (e.g. Champions-League-ish orchestral pastiche, indie)?
+## Decisions (2026-10-09)
+- **Voice:** dry and knowing, a bit cheeky (UK); 5 lines max, captioned.
+- **Featured moments:** as listed (Sam L goal + A Lo assist, A Lo's double penalty miss, Jak's own goal, Ryan's finish, Joe's save).
+- **Music:** two versions to compare — **A** UK garage / grime-tinged broadcast energy (~130 BPM 2-step); **B** 2010s indie
+  (bright jangly guitars, driving four-on-the-floor drums, handclaps, "woah-oh" crowd-style vocal chops, ~128 BPM —
+  the Two Door Cinema Club / Foals / Bombay Bicycle Club era, without imitating any artist). Both 80 s with a clean
+  18 s loopable section; the edit is cut to a beat grid so either track drops in.
+- **Tooling:** Remotion in `video/`; motion design by the main model (Opus); asset pipelines (audio, footage, app
+  capture) by Sonnet agents. Large media in `video/assets/` (git-ignored).
