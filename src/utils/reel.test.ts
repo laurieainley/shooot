@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { reelSummary, formatReelLength } from './reel'
+import { reelSummary, formatReelLength, clipSettingsLine } from './reel'
 import type { MatchEvent } from '../types'
 
 const ev = (id: string, t: number, extra: Partial<MatchEvent> = {}): MatchEvent => ({ id, matchTimeSec: t, sourceFileIndex: 0, type: 'goal', ...extra })
@@ -31,5 +31,12 @@ describe('formatReelLength', () => {
         expect(formatReelLength(72)).toBe('1:12')
         expect(formatReelLength(5.4)).toBe('0:05')
         expect(formatReelLength(3725)).toBe('62:05')
+    })
+})
+
+describe('clipSettingsLine', () => {
+    it('should recap clip padding and the replay window in one line', () => {
+        expect(clipSettingsLine({ before: 10, after: 4, replayBeforeSec: 3, replayAfterSec: 1, replaySpeed: 0.5 }))
+            .toBe('Clips: 10 s before / 4 s after · Replays: 3 s → 1 s at 0.5×')
     })
 })

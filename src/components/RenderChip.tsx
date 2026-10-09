@@ -4,14 +4,14 @@ import { useRenderJobs } from '../renderJobs'
 import { polishingChip, REEL_READY } from '../utils/voice'
 
 interface RenderChipProps {
-    /** 'bar': in the top bar; 'overlay': floating over the picture (folded bar, fullscreen). */
-    variant?: 'bar' | 'overlay'
+    /** Floats over the picture (folded top bar, fullscreen); the top bar itself shows progress on the Export button. */
+    variant?: 'overlay'
 }
 
 const SHOW_DONE_MS = 4000
 
-/** "Rendering 42%" while a render runs (anywhere in the app), "Done" briefly after; tap to open Export. */
-export function RenderChip({ variant = 'bar' }: RenderChipProps) {
+/** "Polishing… 42%" while a render runs and the top bar is out of sight (folded, fullscreen), "Reel ready" briefly after; tap to open Export. */
+export function RenderChip({ variant = 'overlay' }: RenderChipProps) {
     const job = useRenderJobs((s) => s.job)
     const [, tick] = useState(0)
     const finishedAt = job?.finishedAt ?? null

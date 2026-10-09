@@ -6,7 +6,7 @@ import { notePicked, openMediaPicker } from './pickerStatus'
 import { fileBadges } from '../utils/fileBadges'
 import { formatHMS } from '../utils/timeline'
 import { replacePickedFile } from './addFiles'
-import { AddFilesButton } from './FilePills'
+import { AddFilesButton } from './AddFilesButton'
 import { OpeningStatus } from './OpeningStatus'
 import { Sheet } from './Sheet'
 

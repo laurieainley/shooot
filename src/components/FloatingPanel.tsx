@@ -9,6 +9,8 @@ interface FloatingPanelProps {
     onClose: () => void
     children: ReactNode
     className?: string
+    /** 'drawer': a full-height panel on the right (full screen on phones) over a dimmed scrim; Esc or a click on the scrim closes it. */
+    variant?: 'popover' | 'drawer'
 }
 
 type Position = { top?: number; bottom?: number; right: number }
@@ -17,7 +19,7 @@ type Position = { top?: number; bottom?: number; right: number }
  * Popover anchored to a trigger on desktop; a full-height sheet on narrow screens (see .floating in App.css).
  * Esc or a click outside closes it and focus returns to the trigger.
  */
-export function FloatingPanel({ label, anchorRef, placement, onClose, children, className = '' }: FloatingPanelProps) {
+export function FloatingPanel({ label, anchorRef, placement, onClose, children, className = '', variant = 'popover' }: FloatingPanelProps) {
     const panelRef = useRef<HTMLDivElement | null>(null)
     const [pos, setPos] = useState<Position>({ right: 12, top: 56 })
     const closeRef = useRef(onClose)
@@ -52,14 +54,18 @@ export function FloatingPanel({ label, anchorRef, placement, onClose, children, 
     }, [anchorRef])
 
     // Portalled to <body> so no ancestor stacking context (sticky top bar, rail) can put it under other layers.
+    const drawer = variant === 'drawer'
     return createPortal(
-        <div ref={panelRef} role="dialog" aria-label={label} tabIndex={-1} className={`floating ${className}`} style={pos}>
-            <div className="floating__head">
-                <h2 className="floating__title">{label}</h2>
-                <CloseButton onClick={onClose} />
+        <>
+            {drawer && <div className="drawer-scrim" data-testid="drawer-scrim" aria-hidden="true" />}
+            <div ref={panelRef} role="dialog" aria-label={label} tabIndex={-1} className={`floating${drawer ? ' floating--drawer' : ''} ${className}`} style={drawer ? undefined : pos}>
+                <div className="floating__head">
+                    <h2 className="floating__title">{label}</h2>
+                    <CloseButton onClick={onClose} />
+                </div>
+                <div className="floating__body">{children}</div>
             </div>
-            <div className="floating__body">{children}</div>
-        </div>,
+        </>,
         document.body,
     )
 }

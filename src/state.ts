@@ -21,7 +21,7 @@ function relinkEvents(events: MatchEvent[], files: VideoSourceFile[]): MatchEven
 }
 
 /** Menus and sheets; at most one is open, and never together with the event picker. */
-export type Panel = 'menu' | 'files' | 'match' | 'settings' | 'paste' | 'export' | 'event' | 'send'
+export type Panel = 'menu' | 'files' | 'match' | 'settings' | 'paste' | 'export' | 'event' | 'send' | 'shortcuts'
 
 type AppState = {
     files: VideoSourceFile[]

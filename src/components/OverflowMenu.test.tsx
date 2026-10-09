@@ -28,10 +28,25 @@ describe('OverflowMenu', () => {
         expect(screen.queryByRole('menu')).not.toBeInTheDocument()
         await open()
         const items = screen.getAllByRole('menuitem').map((b) => b.textContent)
-        expect(items).toEqual(['New match…', 'Files', 'Match setup', 'Advanced settings', 'Paste list', 'Send project to another device', 'Export project', 'Import project'])
+        expect(items).toEqual(['New match…', 'Files', 'Advanced settings', 'Paste list', 'Send project to another device', 'Export project', 'Import project', 'Shortcuts'])
     })
 
-    it.each([['Files', 'files'], ['Match setup', 'match'], ['Advanced settings', 'settings'], ['Paste list', 'paste']] as const)(
+    it('should keep Setup in the menu on the phone, where the bar has no room for it', async () => {
+        render(<OverflowMenu layout="phone" />)
+        await open()
+        expect(screen.getAllByRole('menuitem').map((b) => b.textContent)).toContain('Setup')
+        await userEvent.click(screen.getByRole('menuitem', { name: 'Match setup' }))
+        expect(s().panel).toBe('match')
+    })
+
+    it('should open the Shortcuts sheet from the menu', async () => {
+        render(<OverflowMenu />)
+        await open()
+        await userEvent.click(screen.getByRole('menuitem', { name: 'Shortcuts' }))
+        expect(s().panel).toBe('shortcuts')
+    })
+
+    it.each([['Files', 'files'], ['Advanced settings', 'settings'], ['Paste list', 'paste']] as const)(
         'should open %s as its own panel', async (item, panel) => {
             render(<OverflowMenu />)
             await open()

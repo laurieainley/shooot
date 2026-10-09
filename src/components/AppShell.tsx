@@ -1,12 +1,12 @@
 import { useEffect } from 'react'
 import { selectClockLong, useAppState } from '../state'
 import { clockWidthCh } from '../utils/timeline'
-import { ClipSummary } from './ClipSummary'
+import { shortcutFor, shouldHandleShortcut } from '../utils/shortcuts'
 import { EmptyPlayer } from './EmptyPlayer'
 import { EventLog } from './EventLog'
 import { Fab } from './Fab'
 import { GoalMarked } from './GoalMarked'
-import { KeyHints } from './KeyHints'
+import { ShortcutsButton } from './ShortcutsButton'
 import { MatchStrip } from './MatchStrip'
 import { Panels } from './Panels'
 import { Player } from './Player'
@@ -21,7 +21,7 @@ import { useRenderJobs } from '../renderJobs'
 
 /**
  * Edit bay. Desktop (≥ 900px): one screen, no page scroll — player and match strip on the left, the event
- * rail on the right, key hints below. Landscape phone (short viewport): the same side-by-side bay under a
+ * rail on the right. Landscape phone (short viewport): the same side-by-side bay under a
  * compact top bar, with the ＋ in the rail so it never covers the video controls. Portrait phone: stacked,
  * the event list scrolls with the page, ＋ floats bottom-right.
  */
@@ -41,6 +41,18 @@ export function AppShell() {
         root.setProperty('--clock-w', `${clockWidthCh(clockLong, true)}ch`)
         root.setProperty('--clock-w-file', `${clockWidthCh(clockLong, false)}ch`)
     }, [clockLong])
+    // ? opens the Shortcuts sheet (everything else is handled by the Player once a file is loaded).
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent): void => {
+            if (e.defaultPrevented || shortcutFor(e) !== 'shortcuts') return
+            const st = useAppState.getState()
+            if (!shouldHandleShortcut(e.target, { modalOpen: !!(st.picker || st.panel) })) return
+            e.preventDefault()
+            st.openPanel('shortcuts')
+        }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [])
     // A render keeps the screen on for its whole life (not just while the Export panel is open)…
     const rendering = useRenderJobs((s) => s.job?.phase === 'running')
     useWakeLock(rendering)
@@ -82,12 +94,11 @@ export function AppShell() {
                 </div>
                 <aside className="rail" aria-label={sideBySide ? 'Event rail' : undefined}>
                     <EventLog />
-                    <ClipSummary compact={layout !== 'phone' && (layout !== 'desktop' || coarse)} />
                     {showFab && <Fab />}
+                    {layout === 'desktop' && !coarse && <ShortcutsButton />}
                     <div ref={setSlot} className="panel-slot" />
                 </aside>
             </main>
-            {layout === 'desktop' && !coarse && <KeyHints />}
             <Panels />
         </div>
     )

@@ -55,7 +55,7 @@ export function Player() {
             const action = shortcutFor(e)
             const player = playerRef.current as ShortcutPlayer | null
             const st = useAppState.getState()
-            if (!action || !player || !shouldHandleShortcut(e.target, { modalOpen: !!(st.picker || st.panel) })) return
+            if (!action || action === 'shortcuts' || !player || !shouldHandleShortcut(e.target, { modalOpen: !!(st.picker || st.panel) })) return
             e.preventDefault()
             e.stopPropagation()
             runShortcut(action, player, zoomRef.current)

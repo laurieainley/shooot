@@ -2,7 +2,7 @@ export type ShortcutAction =
     | 'playPause' | 'seekBack' | 'seekForward' | 'seekBackFine' | 'seekForwardFine'
     | 'frameForward' | 'frameBack' | 'mark' | 'mute' | 'fullscreen'
     | 'zoomCycle' | 'zoomReset' | 'speedDown' | 'speedUp' | 'speedReset'
-    | 'jumpStart' | 'jumpEnd' | 'prevFile' | 'nextFile'
+    | 'jumpStart' | 'jumpEnd' | 'prevFile' | 'nextFile' | 'shortcuts'
 
 export type ShortcutKey = Pick<KeyboardEvent, 'key' | 'shiftKey' | 'ctrlKey' | 'metaKey' | 'altKey'>
 
@@ -27,6 +27,7 @@ export function shortcutFor(e: ShortcutKey): ShortcutAction | null {
         case '/': return 'speedReset'
         case '[': return 'prevFile'
         case ']': return 'nextFile'
+        case '?': return 'shortcuts'
         default: return null
     }
 }
