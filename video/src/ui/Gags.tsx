@@ -68,7 +68,8 @@ export function HourCounter({ x, y, from, dur }: { x: number; y: number; from: n
 /** A generic grey editing timeline that multiplies out of control, then an export dialog that will never finish. */
 export function ExplodingEditor({ start, dialogAt }: { start: number; dialogAt: number }): React.ReactElement {
     const f = useCurrentFrame() - start
-    const grow = ease.expoIn(clamp01(f / 60))
+    const grow = ease.expoIn(clamp01(f / 34))
+    const burst = ease.expoOut(clamp01((f - 30) / 26))
     const tracks = 6
     const clipsPerTrack = Math.round(lerp(4, 46, grow))
     const zoomOut = lerp(1, 0.78, ease.out(clamp01(f / 70)))
@@ -81,10 +82,10 @@ export function ExplodingEditor({ start, dialogAt }: { start: number; dialogAt: 
     }
     return (
         <div style={{ position: 'absolute', inset: 0 }}>
-            <div style={{ position: 'absolute', left: 160, top: 210, width: 1600, height: 660, borderRadius: 14, background: '#161a19', border: `2px solid ${C.line}`, overflow: 'hidden', transform: `scale(${zoomOut}) rotate(${-1.5 * grow}deg)`, filter: d > 0 ? `brightness(${1 - 0.45 * dlg})` : undefined }}>
+            <div style={{ position: 'absolute', left: 160, top: 210, width: 1600, height: 660, borderRadius: 14, background: '#1c2220', border: `2px solid ${C.line}`, overflow: 'visible', transform: `scale(${zoomOut}) rotate(${-1.5 * grow}deg)`, filter: d > 0 ? `brightness(${1 - 0.45 * dlg})` : undefined }}>
                 <div style={{ height: 320, borderBottom: `2px solid ${C.line}`, display: 'flex' }}>
-                    <div style={{ flex: 1, margin: 20, borderRadius: 8, background: '#1d2220' }} />
-                    <div style={{ width: 360, margin: 20, borderRadius: 8, background: '#1d2220' }} />
+                    <div style={{ flex: 1, margin: 20, borderRadius: 8, background: '#262d2a' }} />
+                    <div style={{ width: 360, margin: 20, borderRadius: 8, background: '#262d2a' }} />
                 </div>
                 <div style={{ position: 'absolute', top: 340, left: 20, right: 20, height: 18, display: 'flex', gap: 2 }}>
                     {Array.from({ length: 60 }).map((_, i) => <div key={i} style={{ flex: 1, borderLeft: `2px solid ${C.line}` }} />)}
@@ -94,7 +95,10 @@ export function ExplodingEditor({ start, dialogAt }: { start: number; dialogAt: 
                         {Array.from({ length: clipsPerTrack }).map((__, c) => {
                             const w = 1520 / Math.max(4, clipsPerTrack * 0.6) * (0.5 + rnd(t * 100 + c))
                             const left = (c / clipsPerTrack) * 1560 * lerp(1, 1.6, grow) - grow * 200 * rnd(t + c)
-                            return <div key={c} style={{ position: 'absolute', left, width: w, height: 38, borderRadius: 5, background: ['#2a302d', '#333a36', '#262b29'][(t + c) % 3], border: '1px solid #3b433f' }} />
+                            const ang = rnd(t * 31 + c * 7) * Math.PI * 2
+                            const dist = (220 + 520 * rnd(t * 17 + c * 3)) * burst
+                            const rot = (rnd(t + c * 13) - 0.5) * 70 * burst
+                            return <div key={c} style={{ position: 'absolute', left, width: w, height: 38, borderRadius: 5, background: ['#3a423e', '#465049', '#343b38'][(t + c) % 3], border: '1px solid #3b433f', transform: `translate(${Math.cos(ang) * dist}px, ${Math.sin(ang) * dist * 0.7}px) rotate(${rot}deg)` }} />
                         })}
                     </div>
                 ))}

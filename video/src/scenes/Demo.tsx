@@ -3,7 +3,7 @@ import { AbsoluteFill, Html5Audio, Sequence, useCurrentFrame } from 'remotion'
 import { C, FONT, MONO, SHIRT, clamp01, ease, lerp, voice } from '../brand'
 import { asset, type Media, type Moment } from '../data/assets'
 import { FT_CARD, ShoootGfx, TEAMS, VS_CARD, bug, goalCaption, type Gfx } from '../graphics/ShoootGfx'
-import type { CaptionSpec } from '../../../src/graphics/types'
+import type { CaptionSpec, CardSpec } from '../../../src/graphics/types'
 import { MOTIF, Motif } from '../motif/Motif'
 import { WhipCut, WHIP_FRAMES } from '../motif/Whip'
 import { CaptureClip } from '../ui/CaptureClip'
@@ -28,6 +28,12 @@ const CAPTIONS = {
     joe: cap({ label: 'SAVE', tone: 'other', person: 'JOE', minute: "'14", stripe: TEAMS.right.colour, bug: bug(4, 2) }),
     pen: cap({ label: 'PENALTY MISSED', tone: 'other', person: 'A LO', minute: "'20", bug: bug(4, 4) }),
     og: cap({ label: 'OWN GOAL', tone: 'ownGoal', person: 'JAK', minute: "'35", stripe: TEAMS.right.colour, bug: bug(5, 8) }),
+}
+
+/** A product card (VS / full time) on its own clock, from `from` seconds into its 4 s timeline, without the fade-out. */
+function Card({ spec, from }: { spec: CardSpec; from: number }): React.ReactElement {
+    const f = useCurrentFrame()
+    return <ShoootGfx items={[{ kind: 'card', spec, t: from + f / 30, duration: 60 }]} />
 }
 
 /** Caption graphics on its own clock, starting at local frame `at`. */
@@ -206,7 +212,7 @@ function Reveal({ len }: SceneProps): React.ReactElement {
     return (
         <Ground>
             <PitchLines draw={ease.out(clamp01(f / 40))} />
-            <AbsoluteFill style={{ clipPath: `inset(-10% -10% -10% ${out * 100}%)` }}>
+            <AbsoluteFill style={{ clipPath: `inset(-10% -10% -10% ${out * 100}%)`, transform: `scale(${lerp(1, 1.05, ease.out(clamp01((f - MOTIF.settled) / (len - MOTIF.settled))))})` }}>
                 <Motif placement={PLACE} from={{ x: 470, y: 780 }} fromR={22} blink />
                 <Words text="Your five-a-side, as seen on telly." v="bodyBold" size={58} x={960} y={720} align="center" inAt={MOTIF.settled - 4} style={{ textTransform: 'none' }} />
             </AbsoluteFill>
@@ -266,7 +272,7 @@ function TagIt({ media, plan, len }: SceneProps): React.ReactElement {
     return (
         <Ground pitch={0.4}>
             {f < scrubFrom ? (
-                <CaptureClip cap={tagCap} label="b-tagging" timeAt={tAt} frame={FRAME} keyPos={{ x: 1700, y: 900 }} zoom={() => ({ scale: lerp(1, 1.75, zoomP), cx: 0.0, cy: 0.98 })} />
+                <CaptureClip cap={tagCap} label="b-tagging" timeAt={tAt} frame={FRAME} keyPos={{ x: 1700, y: 900 }} zoom={() => ({ scale: lerp(1, 1.4, zoomP), cx: 0.0, cy: 0.98 })} />
             ) : (
                 <>
                     <CaptureClip cap={scrub} label="c-scrub-montage" timeAt={(x) => 1.4 + Math.max(0, x - scrubFrom) / 30 * 3.2} frame={FRAME} zoom={() => ({ scale: 1.0, cx: 0.5, cy: 0.5 })} />
@@ -316,7 +322,7 @@ function RenderReel({ media, plan, len }: SceneProps): React.ReactElement {
                 </>
             )}
             <Sequence from={outs[0]} durationInFrames={outs[1] - outs[0]}>
-                <ShoootGfx items={[{ kind: 'card', spec: VS_CARD, t: 1.0 + 0 }]} />
+                <Card spec={VS_CARD} from={0.3} />
             </Sequence>
             <Sequence from={outs[1]} durationInFrames={outs[2] - outs[1]}>
                 <ReelShot media={media} m={sam} startSec={sam.ballInNetSec - 0.3} label="sam" gfx={(x) => captionAt(CAPTIONS.sam, x, 0).map((g) => ({ ...g, t: 0.4 + x / 30 }) as Gfx)} />
@@ -325,7 +331,7 @@ function RenderReel({ media, plan, len }: SceneProps): React.ReactElement {
                 <ReelShot media={media} m={sam} use4k startSec={sam.ballInNetSec - 0.9} rate={rRate} label="sam replay" zoom={(x) => ({ scale: lerp(1.7, 2.0, x / 30), cx: 0.82, cy: 0.66 })} gfx={(x) => [{ kind: 'replay', t: x / 30, speed: 0.5 }]} />
             </Sequence>
             <Sequence from={outs[3]} durationInFrames={outs[4] - outs[3]}>
-                <ShoootGfx items={[{ kind: 'card', spec: FT_CARD, t: 1.0 }]} />
+                <Card spec={FT_CARD} from={0.3} />
             </Sequence>
             <Sfx name="whistle-short" at={outs[0]} volume={0.5} />
             <Sfx name="crowd-roar" at={outs[1]} volume={0.4} />
@@ -414,7 +420,7 @@ function SendIt({ media, plan }: SceneProps): React.ReactElement {
 
 function Montage({ media, plan, len }: SceneProps): React.ReactElement {
     const b = Math.round(plan.beat)
-    const cuts = [0, 3 * b, 6 * b, 8 * b, len]
+    const cuts = [0, 3 * b, 6 * b, 8 * b, Math.min(len - 2 * b, 12 * b), len]
     const { ryan, sam, joe, laurie } = media.moments
     const rRate = (i: number): number => lerp(1, 0.5, ease.out(clamp01(i / 6)))
     return (
@@ -432,6 +438,10 @@ function Montage({ media, plan, len }: SceneProps): React.ReactElement {
             <Sequence from={cuts[3]} durationInFrames={cuts[4] - cuts[3]}>
                 <ReelShot media={media} m={laurie} use4k startSec={laurie.ballInNetSec - 0.6} label="laurie" zoom={(x) => ({ scale: lerp(2.0, 2.3, x / 50), cx: 0.22, cy: 0.3 })} gfx={(x) => captionAt(CAPTIONS.laurie, x, 10)} />
                 <Sfx name="crowd-roar" at={10} volume={0.4} />
+            </Sequence>
+            <Sequence from={cuts[4]} durationInFrames={cuts[5] - cuts[4]}>
+                <Card spec={FT_CARD} from={0.25} />
+                <Sfx name="whistle-final" at={0} volume={0.3} />
             </Sequence>
         </AbsoluteFill>
     )

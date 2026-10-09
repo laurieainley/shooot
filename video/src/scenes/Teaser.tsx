@@ -81,7 +81,7 @@ function TagIt({ media }: TeaserProps): React.ReactElement {
                 cap={cap}
                 label="b-tagging"
                 timeAt={timeAt}
-                zoom={() => ({ scale: lerp(1, 1.7, zoomP), cx: 0.0, cy: 0.98 })}
+                zoom={() => ({ scale: lerp(1, 1.45, zoomP), cx: 0.0, cy: 0.98 })}
                 frame={{ width: 1440, x: lerp(1500, 1020, enter), y: 520, rx: 4, ry: lerp(-26, -9, enter) }}
                 keyPos={{ x: 1700, y: 900 }}
             />
