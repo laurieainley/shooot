@@ -47,3 +47,7 @@ localhost+2.pem
 localhost+2-key.pem
 public/default-video.mp4
 .env*
+
+# Claude Code
+.claude/worktrees/
+.claude/settings.local.json

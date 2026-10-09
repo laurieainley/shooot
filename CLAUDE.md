@@ -1,4 +1,6 @@
-# CLAUDE.md — Shot Stopper
+# CLAUDE.md — Shooot
+
+@AGENTS.md
 
 ## Project Overview
 
