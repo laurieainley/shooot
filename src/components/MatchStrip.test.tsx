@@ -36,15 +36,48 @@ describe('MatchStrip', () => {
         expect(seekToGoal).toHaveBeenLastCalledWith(0, 250)
     })
 
-    it('should draw file bands, the kick-off flag, lime goal ticks (not the kit colour) and the playhead', () => {
-        render(<MatchStrip />)
-        expect(screen.getByText('GX010226.MP4')).toBeInTheDocument()
-        expect(screen.getByText('GX020226.MP4')).toBeInTheDocument()
-        expect(screen.getByTitle(/^Kick off/)).toHaveStyle({ left: '10%' })
+    it('should draw numbered file bands, the kick-off flag, a goal icon (not the kit colour) and the playhead', () => {
+        const { container } = render(<MatchStrip />)
+        expect(screen.getByTitle('GX010226.MP4')).toHaveStyle({ left: '0%' })
+        expect(screen.getByTitle('GX020226.MP4')).toHaveStyle({ left: '60%' })
+        expect(container.querySelectorAll('.strip-file__num')).toHaveLength(2)
+        const flag = screen.getByTitle(/^Kick off/)
+        expect(flag).toHaveStyle({ left: '10%' })
+        expect(flag.querySelector('[data-icon="kick_off"]')).not.toBeNull()
         const dot = screen.getByRole('button', { name: /Goal – Colours/ })
         expect(dot).toHaveStyle({ left: '70%' })
-        expect(dot).toHaveAttribute('data-tick', 'goal')
+        expect(dot.querySelector('[data-icon="goal"]')).toHaveClass('ev-icon--goal')
+        expect(container.querySelector('.strip-head')).toHaveStyle({ left: '5%' })
         expect(track()).toHaveAttribute('aria-valuenow', '50')
+    })
+
+    it('should be a keyboard-focusable slider (arrow keys are the global seek shortcuts)', () => {
+        render(<MatchStrip />)
+        expect(track()).toHaveAttribute('tabindex', '0')
+    })
+
+    it('should show the time under the pointer in a bubble on hover, and hide it on leave', () => {
+        render(<MatchStrip />)
+        mockRect(track())
+        fireEvent.pointerMove(track(), { clientX: 250, pointerId: 1, pointerType: 'mouse' })
+        // 25% of 1000 s = 250 s into file 1; the match clock starts at kick-off (100 s): 02:30
+        expect(screen.getByText('02:30')).toBeInTheDocument()
+        expect(screen.getByText(/V1/, { selector: '.strip-bubble__file' })).toBeInTheDocument()
+        fireEvent.pointerLeave(track(), { pointerType: 'mouse' })
+        expect(screen.queryByText('02:30')).not.toBeInTheDocument()
+    })
+
+    it('should stack icons that would overlap so every event stays visible', () => {
+        useAppState.setState({
+            events: [
+                { id: 'a', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal' },
+                { id: 'b', matchTimeSec: 101, sourceFileIndex: 0, type: 'save' },
+                { id: 'c', matchTimeSec: 102, sourceFileIndex: 0, type: 'foul' },
+            ],
+        })
+        const { container } = render(<MatchStrip />)
+        const lanes = Array.from(container.querySelectorAll('.strip-dot')).map((d) => d.getAttribute('data-lane'))
+        expect(lanes).toEqual(['0', '1', '2'])
     })
 
     it('should seek to the clip start when an event dot is clicked', () => {

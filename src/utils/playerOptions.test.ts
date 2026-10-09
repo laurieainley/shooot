@@ -11,6 +11,10 @@ describe('playerOptions', () => {
         expect(controlBar).toMatchObject({ currentTimeDisplay: true, timeDivider: true, durationDisplay: true, remainingTimeDisplay: false })
     })
 
+    it('should have no progress bar: the match strip is the only timeline', () => {
+        expect(playerOptions(false).controlBar.progressControl).toBe(false)
+    })
+
     it('should hide the controls while previewing', () => {
         expect(playerOptions(true).controls).toBe(false)
         expect(playerOptions(false).controls).toBe(true)

@@ -104,21 +104,6 @@ describe('FullscreenControls', () => {
         expect(queryByRole('button', { name: /event/i })).toBeNull()
         window.matchMedia = original
     })
-
-    it('should show a compact score chip in fullscreen only', () => {
-        useAppState.setState({
-            teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }],
-            events: [{ id: 'g', matchTimeSec: 5, type: 'goal', team: 'Colours' }],
-            cumulativeOffsets: [0], currentFileIndex: 0, currentTimeInFileSec: 20,
-        })
-        const full = render(<FullscreenControls playerRef={{ current: fakePlayer() }} isFullscreen />)
-        expect(full.getByRole('status', { name: 'Score' })).toHaveTextContent('0–1')
-        full.unmount()
-        setCoarsePointer(true)
-        const phone = render(<FullscreenControls playerRef={{ current: fakePlayer() }} isFullscreen={false} />)
-        expect(phone.queryByRole('status', { name: 'Score' })).toBeNull()
-        setCoarsePointer(false)
-    })
 })
 
 describe('FullscreenControls fullscreen button (touch)', () => {

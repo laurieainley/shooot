@@ -2,11 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useAppState } from '../state'
 import { nextBarVisible } from '../utils/barScroll'
 import { ExportPanel } from './ExportPanel'
-import { FilePills } from './FilePills'
+import { FilesButton } from './FilesButton'
 import { OverflowMenu } from './OverflowMenu'
 import { Wordmark } from './Wordmark'
-import { ScoreBadge } from './ScoreBadge'
-import { RenderChip } from './RenderChip'
 import type { Layout } from './useMediaQuery'
 
 interface TopBarProps {
@@ -42,22 +40,20 @@ export function TopBar({ layout }: TopBarProps) {
             <span className="brand"><Wordmark /></span>
             {layout === 'desktop' || layout === 'tablet' ? (
                 <>
-                    <div className="top-bar__files"><FilePills /></div>
-                    <ScoreBadge />
+                    <FilesButton />
+                    <span className="flex-1" />
                     <span className="top-bar__actions">
-                        <RenderChip />
-                        <button type="button" onClick={() => useAppState.getState().openPanel('match')} className="btn-quiet">Match</button>
+                        <button type="button" aria-label="Match setup" onClick={() => useAppState.getState().openPanel('match')} className="top-btn top-btn--quiet">Setup</button>
                         <ExportPanel />
-                        <OverflowMenu />
+                        <OverflowMenu layout={layout} />
                     </span>
                 </>
             ) : (
                 <>
+                    <FilesButton compact />
                     <span className="flex-1" />
-                    <ScoreBadge compact />
-                    <RenderChip />
                     <ExportPanel />
-                    <OverflowMenu />
+                    <OverflowMenu layout={layout} />
                     {layout === 'landscape' && (
                         <button type="button" aria-label="Hide top bar" title="Hide the top bar for more picture"
                             className="btn-icon" onClick={() => useAppState.getState().setBarCollapsed(true)}>

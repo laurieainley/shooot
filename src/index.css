@@ -63,7 +63,7 @@ button { font: inherit; color: inherit; }
 .voice-scoreboard { font-family: var(--sh-font); font-weight: 800; font-style: italic; font-stretch: var(--sh-stretch-scoreboard); text-transform: uppercase; }
 .voice-shirt { font-family: var(--sh-font-shirt); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
 
-:focus-visible { outline: 2px solid var(--sh-lime-text); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--sh-text); outline-offset: 2px; }
 kbd {
   font-family: var(--sh-font-mono); font-size: 0.85em; line-height: 1.2;
   border: 1px solid var(--sh-line); border-bottom-width: 2px; border-radius: 4px;

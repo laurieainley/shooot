@@ -29,13 +29,32 @@ function setup(events: MatchEvent[], extra: Partial<ReturnType<typeof useAppStat
 }
 
 describe('EventLog rows', () => {
-    it('should show the assist in full with the full text in the title, and a short form for narrow rows', () => {
-        setup([{ id: 'a', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites', scorer: 'Sam', assist: 'Jo' }, kickOff(0)])
+    it('should put icon and person on line 1 and a labelled assist on line 2, with the full text in the title', () => {
+        setup([{ id: 'a', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites', scorer: 'James', assist: 'Joe' }, kickOff(0)])
         render(<EventLog />)
         const [row] = rows()
-        expect(within(row).getByText('(assist Jo)', { exact: false })).toBeInTheDocument()
-        expect(row.querySelector('.event-row__assist-short')).toHaveTextContent(', Jo')
-        expect(row.querySelector('.event-row__label')).toHaveAttribute('title', expect.stringContaining('Goal · Sam (assist Jo)'))
+        expect(within(row).getByRole('img', { name: 'Goal' })).toHaveAttribute('data-icon', 'goal')
+        expect(row.querySelector('.event-row__main')).toHaveTextContent('James')
+        expect(row.querySelector('.event-row__sub')).toHaveTextContent('Assist: Joe')
+        expect(row.querySelector('.event-row__main')).not.toHaveTextContent(',')
+        expect(row.querySelector('.event-row__content')).toHaveAttribute('title', expect.stringContaining('Goal · James · Assist: Joe'))
+    })
+
+    it('should keep the assist and the note together on line 2', () => {
+        setup([{ id: 'a', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites', scorer: 'James', assist: 'Joe', notes: 'long range' }, kickOff(0)])
+        render(<EventLog />)
+        expect(rows()[0].querySelector('.event-row__sub')).toHaveTextContent('Assist: Joe— long range')
+    })
+
+    it('should give every row the same slots so buttons line up (placeholders for the absent ones)', () => {
+        setup([
+            { id: 'a', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites', scorer: 'James', replay: false },
+            { id: 'b', matchTimeSec: 200, sourceFileIndex: 0, type: 'save', team: 'Whites' },
+            { id: 'ko', matchTimeSec: 0, sourceFileIndex: 0, type: 'kick_off' },
+        ])
+        render(<EventLog />)
+        const kids = rows().map((r) => r.querySelector('.event-row__end')!.children.length)
+        expect(new Set(kids).size).toBe(1)
     })
 
     it('should not show an assist on a penalty goal', () => {
@@ -49,8 +68,7 @@ describe('EventLog rows', () => {
         render(<EventLog />)
         const [row] = rows()
         expect(within(row).getByText('23:41')).toBeInTheDocument()
-        expect(within(row).getByText('Pen goal')).toHaveClass('ev-tag__text')
-        expect(within(row).getByText('Pen goal').closest('.ev-tag')).toHaveClass('ev-tag--pen-goal')
+        expect(within(row).getByRole('img', { name: 'Penalty goal' })).toHaveAttribute('data-icon', 'penalty_goal')
         expect(within(row).getByText('Jo')).toHaveClass('ev-person')
         expect(row.querySelector('[data-team-dot]')).toHaveStyle({ background: '#c2364a' })
     })
@@ -296,9 +314,9 @@ describe('EventLog details & running score', () => {
     it('should show the person and a shortened note', () => {
         setup([{ id: 'a', matchTimeSec: 30, type: 'highlight', team: 'Whites', scorer: 'Sam', notes: 'nutmeg on the wing' }])
         render(<EventLog />)
-        expect(within(rows()[0]).getByText('Highlight').closest('.ev-tag')).toHaveClass('ev-tag--other')
+        expect(within(rows()[0]).getByRole('img', { name: 'Highlight' })).toHaveAttribute('data-icon', 'highlight')
         expect(within(rows()[0]).getByText('Sam')).toBeInTheDocument()
-        expect(within(rows()[0]).getByText('nutmeg on the wing')).toBeInTheDocument()
+        expect(within(rows()[0]).getByText('— nutmeg on the wing')).toBeInTheDocument()
     })
 
     it('should edit the note with N and save on Enter', async () => {
@@ -316,10 +334,10 @@ describe('EventLog details & running score', () => {
     it('should edit the note on double-click, clear it when emptied and cancel on Escape', async () => {
         setup([{ id: 'a', matchTimeSec: 30, type: 'highlight', notes: 'header' }])
         render(<EventLog />)
-        await userEvent.dblClick(within(rows()[0]).getByText('header'))
+        await userEvent.dblClick(within(rows()[0]).getByText('— header'))
         await userEvent.type(screen.getByRole('textbox', { name: 'Note' }), 'xx{Escape}')
         expect(byId('a')?.notes).toBe('header')
-        await userEvent.dblClick(within(rows()[0]).getByText('header'))
+        await userEvent.dblClick(within(rows()[0]).getByText('— header'))
         await userEvent.clear(screen.getByRole('textbox', { name: 'Note' }))
         await userEvent.keyboard('{Enter}')
         expect(byId('a')?.notes).toBeUndefined()
@@ -331,9 +349,9 @@ describe('EventLog header', () => {
         setup([], { currentTimeInFileSec: 42.7 })
     })
 
-    it('should mark an event at the current time and open the picker from + Event', async () => {
+    it('should mark an event at the current time and open the picker from + Tag event', async () => {
         render(<EventLog />)
-        await userEvent.click(screen.getByRole('button', { name: /\+ event/i }))
+        await userEvent.click(screen.getByRole('button', { name: /\+ tag event/i }))
         const [e] = useAppState.getState().events
         expect(e).toMatchObject({ matchTimeSec: 42, sourceFileIndex: 0, type: 'goal' })
         expect(useAppState.getState().picker).toEqual({ eventId: e.id })
@@ -342,23 +360,23 @@ describe('EventLog header', () => {
 
     it('should select a newly marked event', async () => {
         render(<EventLog />)
-        await userEvent.click(screen.getByRole('button', { name: /\+ event/i }))
+        await userEvent.click(screen.getByRole('button', { name: /\+ tag event/i }))
         expect(rows()[0]).toHaveAttribute('aria-selected', 'true')
     })
 
     it('should undo and redo from the header buttons', async () => {
         render(<EventLog />)
-        await userEvent.click(screen.getByRole('button', { name: /\+ event/i }))
+        await userEvent.click(screen.getByRole('button', { name: /\+ tag event/i }))
         await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
         expect(useAppState.getState().events).toHaveLength(0)
         await userEvent.click(screen.getByRole('button', { name: 'Redo' }))
         expect(useAppState.getState().events).toHaveLength(1)
     })
 
-    it('should keep only + Event, undo and redo in the header (the rest lives in the top-bar menu)', () => {
+    it('should keep only + Tag event, undo and redo in the header (the rest lives in the top-bar menu)', () => {
         render(<EventLog />)
         const header = log().querySelector('header')!
-        expect(within(header).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['+ Event', 'Undo', 'Redo'])
+        expect(within(header).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['+ Tag event', 'Undo', 'Redo'])
     })
 })
 
@@ -414,7 +432,7 @@ describe('EventLog on touch screens', () => {
         expect(within(rows()[0]).queryByRole('button', { name: 'Delete event' })).not.toBeInTheDocument()
     })
 
-    it('should leave marking to the ＋ button: no "+ Event" in the header', () => {
+    it('should leave marking to the ＋ button: no "+ Tag event" in the header', () => {
         render(<EventLog />)
         const header = log().querySelector('header')!
         expect(within(header).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Undo', 'Redo'])

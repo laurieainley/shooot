@@ -6,6 +6,7 @@ import { FilesSheet } from './FilesSheet'
 import { MatchSetup } from './MatchSetup'
 import { PasteList } from './PasteList'
 import { Sheet } from './Sheet'
+import { ShortcutsSheet } from './ShortcutsSheet'
 
 const SendProjectSheet = lazy(() => import('./SendProjectSheet').then((m) => ({ default: m.SendProjectSheet })))
 
@@ -17,6 +18,7 @@ export function Panels() {
         case 'files': return <FilesSheet onClose={close} />
         case 'match': return <MatchSetup onClose={close} />
         case 'settings': return <Sheet label="Advanced settings" onClose={close} className="sheet--narrow"><ClipSettings /></Sheet>
+        case 'shortcuts': return <ShortcutsSheet onClose={close} />
         case 'event': return <EventSheet />
         case 'paste': return <Sheet label="Paste list" onClose={close} className="sheet--narrow"><PasteList /></Sheet>
         case 'send': return <Suspense fallback={null}><SendProjectSheet onClose={close} /></Suspense>

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import { renderJobs, resetRenderJobs, type RenderJob } from '../renderJobs'
@@ -28,6 +28,19 @@ describe('ExportPanel', () => {
     it('should be closed until the Export button is pressed', () => {
         render(<ExportPanel />)
         expect(screen.queryByRole('dialog', { name: 'Export' })).not.toBeInTheDocument()
+    })
+
+    it('should open as a drawer over a scrim with the reel summary and the clip settings behind Edit', async () => {
+        render(<ExportPanel />)
+        await userEvent.click(screen.getByRole('button', { name: 'Export' }))
+        const dialog = screen.getByRole('dialog', { name: 'Export' })
+        expect(dialog).toHaveClass('floating--drawer')
+        expect(screen.getByTestId('drawer-scrim')).toBeInTheDocument()
+        expect(within(dialog).getByLabelText('Reel summary')).toHaveTextContent('clip')
+        expect(within(dialog).queryByLabelText('Before')).not.toBeInTheDocument()
+        await userEvent.click(within(dialog).getByRole('button', { name: 'Edit' }))
+        expect(within(dialog).getByLabelText('Before')).toBeInTheDocument()
+        expect(within(dialog).getByRole('heading', { name: /^Share/ })).toBeInTheDocument()
     })
 
     it('should show preview, render and description sections when opened (project import/export lives in ⋯)', async () => {
@@ -67,13 +80,14 @@ describe('ExportPanel', () => {
         render(<ExportPanel />)
         await userEvent.click(screen.getByRole('button', { name: 'Export' }))
         await userEvent.click(screen.getByRole('button', { name: /preview reel/i }))
-        expect(await screen.findByText(/42%/)).toBeInTheDocument()
+        const dialog = screen.getByRole('dialog', { name: 'Export' })
+        expect(await within(dialog).findByText(/42%/)).toBeInTheDocument()
         await userEvent.click(screen.getByRole('button', { name: 'Close' }))
         expect(screen.queryByRole('dialog', { name: 'Export' })).not.toBeInTheDocument()
         useAppState.setState({ currentTimeInFileSec: 12, panel: 'files' })
         useAppState.setState({ panel: null })
         await userEvent.click(screen.getByRole('button', { name: 'Export' }))
-        expect(screen.getByText(/42%/)).toBeInTheDocument()
+        expect(within(screen.getByRole('dialog', { name: 'Export' })).getByText(/42%/)).toBeInTheDocument()
         expect(screen.getByText(/until the render finishes/i)).toBeInTheDocument()
         finish(new Blob(['x'], { type: 'video/mp4' }))
         expect(await screen.findByText('Downloaded highlights-preview.mp4')).toBeInTheDocument()
@@ -124,6 +138,15 @@ describe('ExportPanel', () => {
             await userEvent.click(btn)
             expect(btn).toHaveAttribute('data-state', 'rendering-open')
             expect(btn).toHaveAttribute('aria-expanded', 'true')
+        })
+
+        it('should show a red dot and the percentage on the button while rendering, and nothing when idle', () => {
+            const { container, rerender } = render(<ExportPanel />)
+            expect(container.querySelector('.export-btn__live')).toBeNull()
+            act(() => renderJobs().setState({ job: running }))
+            rerender(<ExportPanel />)
+            expect(container.querySelector('.export-btn__dot')).not.toBeNull()
+            expect(screen.getByRole('button', { name: 'Export' })).toHaveTextContent('30%')
         })
 
         it('should go back to idle when the render has finished', () => {

@@ -62,7 +62,7 @@ describe('file inputs on iPadOS', () => {
     afterEach(() => { vi.unstubAllGlobals() })
 
     it('should carry no accept attribute on iPad and the extension list elsewhere', async () => {
-        const { AddFilesButton } = await import('./FilePills')
+        const { AddFilesButton } = await import('./AddFilesButton')
         vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (iPad; CPU OS 17_0)', platform: 'iPad', maxTouchPoints: 5 })
         const ipad = render(<AddFilesButton />)
         expect(ipad.container.querySelector('input[type=file]')).not.toHaveAttribute('accept')

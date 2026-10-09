@@ -10,10 +10,11 @@ export type PlayerOptions = {
         timeDivider: boolean
         durationDisplay: boolean
         remainingTimeDisplay: boolean
+        progressControl: boolean
     }
 }
 
-/** video.js options: elapsed `current / duration` (not remaining), no picture-in-picture button. */
+/** video.js options: elapsed `current / duration` (not remaining), no picture-in-picture button, no progress bar (the match strip is the scrubber). */
 export function playerOptions(previewing: boolean): PlayerOptions {
     return {
         controls: !previewing,
@@ -27,6 +28,7 @@ export function playerOptions(previewing: boolean): PlayerOptions {
             timeDivider: true,
             durationDisplay: true,
             remainingTimeDisplay: false,
+            progressControl: false, // the match strip is the only timeline
         },
     }
 }

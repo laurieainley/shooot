@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import type { VideoSourceFile } from '../types'
@@ -30,15 +30,16 @@ describe('AppShell', () => {
         })
     })
 
-    it('should lay out the edit bay with the event rail, clip summary and key hints at 900px and wider', () => {
+    it('should lay out the edit bay with the event rail and a Shortcuts button, without a rail footer or key hint bar, at 900px and wider', () => {
         setWidth(true)
         render(<AppShell />)
         expect(screen.getByTestId('player')).toBeInTheDocument()
         expect(screen.getByRole('slider', { name: 'Match timeline' })).toBeInTheDocument()
         expect(screen.getByRole('complementary', { name: 'Event rail' })).toContainElement(screen.getByRole('region', { name: 'Events' }))
-        expect(screen.getByLabelText('Clip summary')).toBeInTheDocument()
-        expect(screen.getByText('tag')).toBeInTheDocument()
-        expect(screen.getByText('GX010226.MP4', { selector: '.file-pill__name' })).toBeInTheDocument()
+        expect(screen.queryByLabelText('Clip summary')).not.toBeInTheDocument()
+        expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument()
+        expect(screen.queryByText('tag')).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Keyboard shortcuts' })).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Tag event' })).not.toBeInTheDocument()
     })
 
@@ -47,6 +48,7 @@ describe('AppShell', () => {
         render(<AppShell />)
         expect(screen.queryByRole('complementary', { name: 'Event rail' })).not.toBeInTheDocument()
         expect(screen.queryByText('tag')).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Keyboard shortcuts' })).not.toBeInTheDocument()
         expect(screen.getByRole('region', { name: 'Events' })).toBeInTheDocument()
         await userEvent.click(screen.getByRole('button', { name: 'Tag event' }))
         // The time is captured, but no event exists until a type is chosen
@@ -77,11 +79,32 @@ describe('AppShell', () => {
         expect(screen.getByLabelText('Replay before')).toBeInTheDocument()
     })
 
-    it('should open Match setup from the top bar on desktop', async () => {
+    it('should show only Files, Setup, Export and the menu in the desktop top bar', () => {
+        setWidth(true)
+        const { container } = render(<AppShell />)
+        const bar = container.querySelector('.top-bar')! as HTMLElement
+        expect(within(bar).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Files: 1 file · 10:00', 'Match setup', 'Export', 'Menu'])
+        expect(bar).toHaveTextContent('Setup')
+        expect(bar).not.toHaveTextContent('GX010226')
+        expect(bar.querySelectorAll('.btn-primary, .render-chip')).toHaveLength(0)
+    })
+
+    it('should open Match setup from the Setup button on desktop', async () => {
         setWidth(true)
         render(<AppShell />)
-        await userEvent.click(screen.getByRole('button', { name: 'Match' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Match setup' }))
         expect(screen.getByLabelText('Team 1 name')).toBeInTheDocument()
+    })
+
+    it('should open the Shortcuts sheet with ? and from the rail button', async () => {
+        setWidth(true)
+        render(<AppShell />)
+        await userEvent.keyboard('?')
+        expect(screen.getByRole('dialog', { name: 'Shortcuts' })).toBeInTheDocument()
+        await userEvent.keyboard('{Escape}')
+        expect(screen.queryByRole('dialog', { name: 'Shortcuts' })).not.toBeInTheDocument()
+        await userEvent.click(screen.getByRole('button', { name: 'Keyboard shortcuts' }))
+        expect(screen.getByRole('dialog', { name: 'Shortcuts' })).toHaveTextContent('Tag an event at the playhead')
     })
 
     it('should show the drop zone and an empty log before any file is loaded', () => {
@@ -121,11 +144,11 @@ describe('AppShell', () => {
             expect(left).toContainElement(screen.getByRole('slider', { name: 'Match timeline' }))
         })
 
-        it('should use the compact top bar: no file pills, no Match button, no key hints', () => {
+        it('should use the compact top bar: a Files count, no Setup button, no key hints', () => {
             setLandscape(true)
             render(<AppShell />)
-            expect(screen.queryByText('GX010226.MP4', { selector: '.file-pill__name' })).not.toBeInTheDocument()
-            expect(screen.queryByRole('button', { name: 'Match' })).not.toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /^Files/ })).toHaveTextContent(/^1$/)
+            expect(screen.queryByRole('button', { name: 'Match setup' })).not.toBeInTheDocument()
             expect(screen.queryByText('tag')).not.toBeInTheDocument()
             expect(screen.getByRole('button', { name: 'Export' })).toBeInTheDocument()
             expect(screen.getByRole('button', { name: 'Menu' })).toBeInTheDocument()

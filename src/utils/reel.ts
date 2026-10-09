@@ -27,3 +27,8 @@ export function formatReelLength(seconds: number): string {
     const s = Math.max(0, Math.round(seconds))
     return `${Math.floor(s / 60)}:${`${s % 60}`.padStart(2, '0')}`
 }
+
+/** `Clips: 10 s before / 4 s after · Replays: 3 s → 1 s at 0.5×` — the Export panel's one-line recap of the clip settings. */
+export function clipSettingsLine(s: { before: number; after: number; replayBeforeSec: number; replayAfterSec: number; replaySpeed: number }): string {
+    return `Clips: ${s.before} s before / ${s.after} s after · Replays: ${s.replayBeforeSec} s → ${s.replayAfterSec} s at ${s.replaySpeed}×`
+}

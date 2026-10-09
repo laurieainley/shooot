@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { addPickedFiles } from './addFiles'
-import { AddFilesButton } from './FilePills'
+import { AddFilesButton } from './AddFilesButton'
 import { OpeningStatus } from './OpeningStatus'
 import { rememberHandles, type StoredHandle } from '../files/handleStore'
 

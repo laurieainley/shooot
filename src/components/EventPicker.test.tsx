@@ -277,7 +277,7 @@ describe('EventPicker on touch', () => {
         const groups = screen.getAllByRole('group')
         expect(groups.map((g) => g.getAttribute('aria-label'))).toEqual(['Goals', 'Penalties', 'Other', 'Match'])
         expect(within(groups[0]).getAllByRole('option').map((o) => o.textContent)).toEqual(['Goal', 'Penalty goal', 'Own goal'])
-        expect(within(groups[0]).getAllByRole('option').map((o) => o.querySelector('.ev-tag')?.className.split(' ').pop())).toEqual(['ev-tag--goal', 'ev-tag--pen-goal', 'ev-tag--own-goal'])
+        expect(within(groups[0]).getAllByRole('option').map((o) => o.querySelector('[data-icon]')?.getAttribute('data-icon'))).toEqual(['goal', 'penalty_goal', 'own_goal'])
     })
 
     it('should hide the keyboard hint', () => {
