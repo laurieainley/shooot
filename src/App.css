@@ -86,7 +86,7 @@
   .row-btn.replay-btn[aria-pressed="false"]:hover { opacity: 1; }
 }
 /* Replay toggle: the state is the fill, driven by aria-pressed only (no sticky hover / focus look on touch). */
-.row-btn.replay-btn[aria-pressed="true"] { background: var(--sh-surface); color: var(--sh-text); font-weight: 700; box-shadow: inset 0 0 0 1.5px var(--sh-text); }
+.row-btn.replay-btn[aria-pressed="true"] { background: var(--sh-line); color: var(--sh-text); font-weight: 700; }
 .row-btn.replay-btn[aria-pressed="false"] { background: transparent; color: var(--sh-muted); opacity: 0.5; }
 .replay-btn:focus:not(:focus-visible) { outline: none; }
 
@@ -1059,3 +1059,11 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .shortcuts-btn:hover { color: var(--sh-text); border-color: var(--sh-text); }
 .rail { position: relative; }
 .shell--desktop .event-log ol { padding-bottom: 44px; }
+
+/* Narrow rails (landscape phone, small windows): give the name the room. The file number stays in the row's tooltip and the strip. */
+@container event-log (max-width: 400px) {
+  .event-row { column-gap: 5px; }
+  .event-row__end .row-file { display: none; }
+  .event-row__end .row-btn { width: 36px; }
+  .event-row__end .row-score { min-width: 3.6ch; margin-right: 2px; }
+}
