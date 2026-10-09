@@ -256,9 +256,9 @@ function TagIt({ media, plan, len }: SceneProps): React.ReactElement {
     const tagCap = two ?? media.captures['b-tagging']
     const tagLen = Math.round(plan.bar * 3)
     // Tagging at 1.15×: G → Goal → Whites → Sam L → assist A Lo.
-    const t0 = 4.5
+    const g = tagCap?.events.find((e) => e.key === 'G')?.t ?? 5.3
+    const t0 = g - 0.9
     const tAt = (x: number): number => t0 + (x / 30) * 1.15
-    const g = (tagCap?.events.find((e) => e.key === 'G')?.t ?? 5.3)
     const zoomP = ease.quintInOut(clamp01((tAt(f) - g - 0.15) / 0.5)) * (1 - ease.quintInOut(clamp01((f - tagLen + 18) / 14)))
     const scrubFrom = tagLen
     const scrub = media.captures['c-scrub-montage']

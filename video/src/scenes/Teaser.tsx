@@ -36,20 +36,20 @@ function Hall({ media }: TeaserProps): React.ReactElement {
     const k = media.moments.kickoff
     const fadeIn = ease.out(clamp01(f / 10))
     return (
-        <AbsoluteFill style={{ background: C.ground }}>
+        <Ground>
             <AbsoluteFill style={{ opacity: fadeIn }}>
                 <Footage file={k.file} available={has(media, k.file)} timeAt={(x) => 1.0 + x / 30} zoom={(x) => ({ scale: lerp(1.0, 1.06, ease.out(x / 60)), cx: 0.5, cy: 0.5 })} dim={0.3} label="kickoff" />
             </AbsoluteFill>
             <Words text="THURSDAY. 8PM." v="mono" size={34} tracking="0.3em" x={96} y={968} inAt={8} />
-        </AbsoluteFill>
+        </Ground>
     )
 }
 
 /** 1 · The worldie: ramp into the net, freeze with the lime outline, then the punchline. */
 function Worldie({ media }: TeaserProps): React.ReactElement {
     const m = media.moments.sam
-    const rate = (i: number): number => (i < 12 ? 1 : lerp(1, 0.3, ease.out(clamp01((i - 12) / 12))))
-    const start = m.ballInNetSec - 0.85
+    const rate = (i: number): number => (i < 8 ? 1 : lerp(1, 0.3, ease.out(clamp01((i - 8) / 10))))
+    const start = m.ballInNetSec - 0.55
     const freeze = Math.round(frameAt(m.ballInNetSec - start, rate))
     const timeAt = (f: number): number => start + Math.min(integrate(f, rate), m.ballInNetSec - start)
     return (
@@ -68,12 +68,12 @@ function Worldie({ media }: TeaserProps): React.ReactElement {
 /** 2 · Tag it: the real editor; G → Goal → Whites → Sam L. */
 function TagIt({ media }: TeaserProps): React.ReactElement {
     const f = useCurrentFrame()
-    const cap = media.captures['b-tagging']
+    const cap = media.captures['b-tagging-2x'] ?? media.captures['b-tagging']
     const enter = ease.expoOut(clamp01(f / 14))
-    const src0 = 4.85
+    const g = cap?.events.find((e) => e.key === 'G')?.t ?? 5.32
+    const src0 = g - 0.47
     const rate = 1.2
     const timeAt = (x: number): number => src0 + (x / 30) * rate
-    const g = 5.32
     const zoomP = ease.quintInOut(clamp01((timeAt(f) - g - 0.1) / 0.5))
     return (
         <Ground pitch={0.5}>
