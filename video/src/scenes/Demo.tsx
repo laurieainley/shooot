@@ -247,7 +247,7 @@ function FilmIt({ media, len }: SceneProps): React.ReactElement {
                 </AbsoluteFill>
             )}
             {f >= flyAt && (
-                <CaptureClip cap={media.captures['a-drop-files']} label="a-drop-files" timeAt={(x) => 2.1 + Math.max(0, x - flyAt) / 30 * 1.6} frame={frameIn(f, flyAt)} />
+                <CaptureClip cap={media.captures['a-drop-files']} label="a-drop-files" timeAt={(x) => 2.1 + Math.max(0, x - flyAt) / 30 * 1.7} frame={frameIn(f, flyAt)} />
             )}
             <StepLabel n="01" text="FILM IT" inAt={2} outAt={len - 6} />
         </Ground>

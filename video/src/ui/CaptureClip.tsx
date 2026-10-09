@@ -3,6 +3,7 @@
 import { AbsoluteFill, Freeze, OffthreadVideo, useCurrentFrame } from 'remotion'
 import { C, FPS, MONO, clamp01, ease, lerp } from '../brand'
 import { asset, type Capture, type CursorEvent } from '../data/assets'
+import { skipGaps } from '../data/captureGaps'
 import { Cursor, Keycap } from './Chrome'
 import type { Zoom } from './Footage'
 
@@ -49,7 +50,7 @@ function pointerAt(ev: CursorEvent[], t: number): { x: number; y: number; press:
 
 export function CaptureClip({ cap, label, timeAt, zoom, keys, keyPos = { x: 1690, y: 860 }, frame, children }: Props): React.ReactElement {
     const f = useCurrentFrame()
-    const t = timeAt(f)
+    const t = cap ? skipGaps(cap.file, timeAt(f)) : timeAt(f)
     const z = zoom?.(f) ?? { scale: 1, cx: 0.5, cy: 0.5 }
     const w = frame.width
     const h = (w * 9) / 16
