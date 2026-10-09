@@ -349,9 +349,9 @@ describe('EventLog header', () => {
         setup([], { currentTimeInFileSec: 42.7 })
     })
 
-    it('should mark an event at the current time and open the picker from + Event', async () => {
+    it('should mark an event at the current time and open the picker from + Tag event', async () => {
         render(<EventLog />)
-        await userEvent.click(screen.getByRole('button', { name: /\+ event/i }))
+        await userEvent.click(screen.getByRole('button', { name: /\+ tag event/i }))
         const [e] = useAppState.getState().events
         expect(e).toMatchObject({ matchTimeSec: 42, sourceFileIndex: 0, type: 'goal' })
         expect(useAppState.getState().picker).toEqual({ eventId: e.id })
@@ -360,23 +360,23 @@ describe('EventLog header', () => {
 
     it('should select a newly marked event', async () => {
         render(<EventLog />)
-        await userEvent.click(screen.getByRole('button', { name: /\+ event/i }))
+        await userEvent.click(screen.getByRole('button', { name: /\+ tag event/i }))
         expect(rows()[0]).toHaveAttribute('aria-selected', 'true')
     })
 
     it('should undo and redo from the header buttons', async () => {
         render(<EventLog />)
-        await userEvent.click(screen.getByRole('button', { name: /\+ event/i }))
+        await userEvent.click(screen.getByRole('button', { name: /\+ tag event/i }))
         await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
         expect(useAppState.getState().events).toHaveLength(0)
         await userEvent.click(screen.getByRole('button', { name: 'Redo' }))
         expect(useAppState.getState().events).toHaveLength(1)
     })
 
-    it('should keep only + Event, undo and redo in the header (the rest lives in the top-bar menu)', () => {
+    it('should keep only + Tag event, undo and redo in the header (the rest lives in the top-bar menu)', () => {
         render(<EventLog />)
         const header = log().querySelector('header')!
-        expect(within(header).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['+ Event', 'Undo', 'Redo'])
+        expect(within(header).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['+ Tag event', 'Undo', 'Redo'])
     })
 })
 
@@ -432,7 +432,7 @@ describe('EventLog on touch screens', () => {
         expect(within(rows()[0]).queryByRole('button', { name: 'Delete event' })).not.toBeInTheDocument()
     })
 
-    it('should leave marking to the ＋ button: no "+ Event" in the header', () => {
+    it('should leave marking to the ＋ button: no "+ Tag event" in the header', () => {
         render(<EventLog />)
         const header = log().querySelector('header')!
         expect(within(header).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Undo', 'Redo'])

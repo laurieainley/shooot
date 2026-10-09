@@ -125,7 +125,7 @@ export function EventLog() {
                 {!coarse && (
                     <button type="button" onClick={() => { const st = useAppState.getState(); st.markEvent(st.currentTimeInFileSec) }}
                         disabled={files.length === 0}
-                        className="btn-primary mark-btn">+ Event</button>
+                        className="btn-quiet mark-btn">+ Tag event</button>
                 )}
                 <button type="button" aria-label="Undo" title="Undo (⌘Z)" onClick={() => useAppState.getState().undo()} disabled={!canUndo} className="btn-icon"><UndoIcon /></button>
                 <button type="button" aria-label="Redo" title="Redo (⇧⌘Z)" onClick={() => useAppState.getState().redo()} disabled={!canRedo} className="btn-icon"><UndoIcon redo /></button>
