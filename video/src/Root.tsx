@@ -4,6 +4,7 @@ import { FPS, H, W } from './brand'
 import { loadMedia, type Media } from './data/assets'
 import { MotifTest } from './scenes/MotifTest'
 import { TEASER_FRAMES, Teaser } from './scenes/Teaser'
+import { Demo, demoDuration } from './scenes/Demo'
 
 const empty = {} as Media
 
@@ -20,6 +21,22 @@ export function Root(): React.ReactElement {
                 defaultProps={{ media: empty }}
                 calculateMetadata={async () => ({ props: { media: await loadMedia('b') } })}
             />
+            {(['a', 'b'] as const).map((track) => (
+                <Composition
+                    key={track}
+                    id={track === 'a' ? 'DemoA' : 'DemoB'}
+                    component={Demo}
+                    durationInFrames={2400}
+                    fps={FPS}
+                    width={W}
+                    height={H}
+                    defaultProps={{ media: empty }}
+                    calculateMetadata={async () => {
+                        const media = await loadMedia(track)
+                        return { props: { media }, durationInFrames: demoDuration(media) }
+                    }}
+                />
+            ))}
             <Composition id="MotifTest" component={MotifTest} durationInFrames={120} fps={FPS} width={W} height={H} />
         </>
     )

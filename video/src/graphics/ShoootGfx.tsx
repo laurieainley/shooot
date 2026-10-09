@@ -71,16 +71,19 @@ export const FT_CARD: CardSpec = {
     centre: '8–12',
     left: TEAMS.left,
     right: TEAMS.right,
+    // From the real match (project-alo, copied goalscorers): chronological by first goal, as the app's plan builds it.
     scorers: {
         left: [
-            { name: 'SAM L', minutes: "'4 '19 '33" },
-            { name: 'A LO', minutes: "'12 '27" },
-            { name: 'RYAN', minutes: "'8 '41" },
-            { name: 'LAURIE', minutes: "'58" },
+            { name: 'DJ', minutes: "'2" },
+            { name: 'JAK', minutes: "'7 '11 '46" },
+            { name: 'SAM L', minutes: "'13 '23 '38 '45" },
         ],
-        // Placeholder until the real reel's full-time card arrives (assets/reel): only players named in the storyboard.
         right: [
-            { name: 'JAK', minutes: "'25 OG" },
+            { name: 'RYAN', minutes: "'6 '26 '26 '44 '46" },
+            { name: 'LAURIE', minutes: "'14 '48" },
+            { name: 'JAMES', minutes: "'16 '17" },
+            { name: 'JOE', minutes: "'29 '36" },
+            { name: 'JAK', minutes: "'35 OG" },
         ],
     },
 }

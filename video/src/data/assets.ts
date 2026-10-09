@@ -10,7 +10,7 @@ export type CursorEvent = { t: number; x: number; y: number; type: string; key?:
 export type Capture = { file: string; events: CursorEvent[]; width: number }
 
 /** Capture names the capture agent writes (assets/capture/<name>.mp4 + <name>.cursor.json). */
-export const CAPTURE_NAMES = ['a-drop-files', 'b-tagging', 'c-scrub-montage', 'd-setup', 'd-match-setup', 'e-export', 'e-render', 'f-full-match', 'f-youtube', 'g-share', 'g-send']
+export const CAPTURE_NAMES = ['a-drop-files', 'b-tagging', 'b-tagging-2x', 'g-event-list-scorebug', 'e-export-render', 'f-fullmatch-description', 'c-scrub-montage', 'd-setup', 'd-match-setup', 'e-export', 'e-render', 'f-full-match', 'f-youtube', 'g-share', 'g-send']
 
 export type Media = {
     track: 'a' | 'b'
@@ -57,7 +57,7 @@ type MusicJson = { bpm: number; beatTimes: number[]; barTimes: number[]; dropSec
 /** Default moments (the footage clips are 12 s windows); overridden by assets/footage/moments.json when present. */
 const DEFAULT_MOMENTS: Record<string, Omit<Moment, 'id'>> = {
     sam: { file: 'footage/sam_l_goal.mp4', file4k: 'footage/sam_l_goal_4k.mp4', eventOffsetSec: 8, ballInNetSec: 8.1, durationSec: 12 },
-    ryan: { file: 'footage/ryan_goal_b.mp4', file4k: 'footage/ryan_goal_b_4k.mp4', eventOffsetSec: 8, ballInNetSec: 8.1, durationSec: 12 },
+    ryan: { file: 'footage/ryan_goal.mp4', file4k: 'footage/ryan_goal_4k.mp4', eventOffsetSec: 8, ballInNetSec: 8.1, durationSec: 12 },
     laurie: { file: 'footage/laurie_last_goal.mp4', file4k: 'footage/laurie_last_goal_4k.mp4', eventOffsetSec: 8, ballInNetSec: 8.1, durationSec: 12 },
     joe: { file: 'footage/joe_save.mp4', eventOffsetSec: 8, ballInNetSec: 8, durationSec: 12 },
     pen1: { file: 'footage/penalty_miss_1.mp4', eventOffsetSec: 8, ballInNetSec: 8, durationSec: 12 },
@@ -89,15 +89,16 @@ function normaliseMoments(raw: unknown): Record<string, Partial<Moment>> {
         const hit = ID_HINTS.find(([, re]) => re.test(key))
         if (!hit) continue
         const num = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined)
-        const file = (m.file ?? m.clip ?? m.path) as string | undefined
+        const file = (m.clip ?? m.file ?? m.path) as string | undefined
         const p: Partial<Moment> = {}
-        if (file) p.file = file.startsWith('footage/') ? file : `footage/${file.replace(/^.*\//, '')}`
+        if (file && /\.mp4$/i.test(file) && !/^G[XH]\d/.test(file)) p.file = file.startsWith('footage/') ? file : `footage/${file.replace(/^.*\//, '')}`
+        if (typeof m.clip4k === 'string') p.file4k = `footage/${m.clip4k.replace(/^.*\//, '')}`
         const e = num(m.eventOffsetSec)
-        const b = num(m.ballInNetSec)
+        const b = num(m.ballInNetSec) ?? num(m.keyMomentSec)
         if (e !== undefined) p.eventOffsetSec = e
         if (b !== undefined) p.ballInNetSec = b
-        else if (e !== undefined) p.ballInNetSec = e
-        if (typeof m.note === 'string') p.note = m.note
+        else if (e !== undefined) p.ballInNetSec = e - 0.5
+        if (typeof m.description === 'string') p.note = m.description
         const prev = out[hit[0]]
         // Prefer the 1080p entry as `file`; remember a 4K one separately.
         if (p.file && /4k/i.test(p.file)) {

@@ -103,7 +103,7 @@ function Telly({ media }: TeaserProps): React.ReactElement {
                 items={
                     f < netF + 12
                         ? [{ kind: 'bug', bug: bug(3, 1), t: 1, duration: 10, fade: false }]
-                        : [{ kind: 'caption', spec: goalCaption('SAM L', "'12", [4, 1], { assist: 'A LO' }), t: (f - netF - 12) / 30 }]
+                        : [{ kind: 'caption', spec: goalCaption('SAM L', "'13", [4, 1], { assist: 'A LO' }), t: (f - netF - 12) / 30 }]
                 }
             />
         </AbsoluteFill>
@@ -140,7 +140,7 @@ function SendIt({ media }: TeaserProps): React.ReactElement {
     const thumb = (
         <ReelThumb duration="0:48">
             <Footage file={m.file} available={has(media, m.file)} timeAt={() => m.ballInNetSec + 0.6} label="poster" />
-            <ShoootGfx items={[{ kind: 'caption', spec: goalCaption('SAM L', "'12", [4, 1], { assist: 'A LO' }), t: 1 }]} />
+            <ShoootGfx items={[{ kind: 'caption', spec: goalCaption('SAM L', "'13", [4, 1], { assist: 'A LO' }), t: 1 }]} />
         </ReelThumb>
     )
     const msgs: Msg[] = [
