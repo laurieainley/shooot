@@ -1,52 +1,43 @@
 import type { MatchEvent, Team } from '../types'
-import { assistOf } from './eventTypes'
-import { kickOffSec, matchMinute } from './matchClock'
+import { teamBadge } from '../graphics/teamStyle'
 import { linkedEvents } from './relink'
 import { finalScore, formatScore } from './score'
 
-export type Goalscorers = { scoreLine: string; lines: string[]; /** `Jo: 2 ('13, '44)`: only present when any goal has an assist. */ assists?: string[] }
-
-const absTime = (e: MatchEvent, offsets: number[]): number => e.globalTimeSec ?? (offsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec
+export type Goalscorers = { scoreLine: string; lines: string[] }
 
 /**
- * The final score and who scored: `Name: 2 ('13, '44)`, most goals first (ties alphabetical), penalties marked
- * (`'44 pen`), then `Own goals: Ade ('30, for Whites)`. Minutes come from the match clock (kick-off = minute 1).
+ * The final score (team abbreviations) and who scored: `Name: 2` (total goals) or `Name: 2 (1 pen)` when some were
+ * penalties, most goals first (ties alphabetical), then `Own goals: Ade 1, Jo 1`. No minutes, no assists.
  * Goals without a scorer only count in the score.
  */
-export function goalscorers(events: MatchEvent[], teams: Team[], cumulativeOffsets: number[] = []): Goalscorers {
+export function goalscorers(events: MatchEvent[], teams: Team[]): Goalscorers {
     const linked = linkedEvents(events)
     const named = teams.length >= 2 && teams.slice(0, 2).every((t) => t.name.trim())
-    const scoreLine = named ? `${teams[0].name} ${formatScore(finalScore(linked, teams))} ${teams[1].name}` : ''
-    const kickOff = kickOffSec(linked, cumulativeOffsets)
-    const minute = (e: MatchEvent): number => matchMinute(absTime(e, cumulativeOffsets), kickOff)
-    const byTime = (a: MatchEvent, b: MatchEvent): number => absTime(a, cumulativeOffsets) - absTime(b, cumulativeOffsets)
+    const scoreLine = named ? `${teamBadge(teams[0]).initials} ${formatScore(finalScore(linked, teams))} ${teamBadge(teams[1]).initials}` : ''
 
-    const tallyLines = (nameOf: (e: MatchEvent) => string | undefined, mark: (e: MatchEvent) => string): string[] => {
-        const tally = new Map<string, { name: string; goals: string[] }>()
-        for (const e of [...linked].sort(byTime)) {
+    const tally = (nameOf: (e: MatchEvent) => string | undefined): { name: string; goals: number; pens: number }[] => {
+        const byName = new Map<string, { name: string; goals: number; pens: number }>()
+        for (const e of linked) {
             const name = nameOf(e)
             if (!name) continue
             const key = name.toLowerCase()
-            const t = tally.get(key) ?? { name, goals: [] }
-            t.goals.push(mark(e))
-            tally.set(key, t)
+            const t = byName.get(key) ?? { name, goals: 0, pens: 0 }
+            t.goals += 1
+            if (e.pen) t.pens += 1
+            byName.set(key, t)
         }
-        return [...tally.values()]
-            .sort((a, b) => b.goals.length - a.goals.length || a.name.localeCompare(b.name))
-            .map((t) => `${t.name}: ${t.goals.length} (${t.goals.join(', ')})`)
+        return [...byName.values()].sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name))
     }
-    const lines = tallyLines((e) => (e.type === 'goal' ? e.scorer?.trim() : undefined), (e) => `'${minute(e)}${e.pen ? ' pen' : ''}`)
-    const assists = tallyLines((e) => assistOf(e), (e) => `'${minute(e)}`)
 
-    const own = linked.filter((e) => e.type === 'own_goal').sort(byTime)
-    if (own.length > 0) {
-        lines.push(`Own goals: ${own.map((e) => `${e.scorer?.trim() || 'unknown'} ('${minute(e)}${e.team ? `, for ${e.team}` : ''})`).join(', ')}`)
-    }
-    return { scoreLine, lines, ...(assists.length > 0 ? { assists } : {}) }
+    const lines = tally((e) => (e.type === 'goal' ? e.scorer?.trim() : undefined))
+        .map((t) => `${t.name}: ${t.goals}${t.pens > 0 ? ` (${t.pens} pen${t.pens > 1 ? 's' : ''})` : ''}`)
+    const own = tally((e) => (e.type === 'own_goal' ? e.scorer?.trim() || 'unknown' : undefined))
+    if (own.length > 0) lines.push(`Own goals: ${own.map((t) => `${t.name} ${t.goals}`).join(', ')}`)
+    return { scoreLine, lines }
 }
 
 /** Score line, a blank line, the scorers (for the clipboard). */
-export function goalscorersText(events: MatchEvent[], teams: Team[], cumulativeOffsets: number[] = []): string {
-    const { scoreLine, lines, assists } = goalscorers(events, teams, cumulativeOffsets)
-    return [scoreLine ? [scoreLine] : [], lines, assists ? ['Assists', ...assists] : []].filter((b) => b.length > 0).map((b) => b.join('\n')).join('\n\n')
+export function goalscorersText(events: MatchEvent[], teams: Team[]): string {
+    const { scoreLine, lines } = goalscorers(events, teams)
+    return [scoreLine ? [scoreLine] : [], lines].filter((b) => b.length > 0).map((b) => b.join('\n')).join('\n\n')
 }

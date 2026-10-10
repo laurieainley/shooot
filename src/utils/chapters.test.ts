@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { generateYouTubeChapters, generateHighlightChapters, matchChapterLines } from './chapters'
-import type { MatchEvent } from '../types'
+import type { MatchEvent, Team } from '../types'
+
+const TEAMS: Team[] = [{ name: 'Whites', color: '#fff', roster: [], initials: 'whi' }, { name: 'Colours', color: '#f00', roster: [] }]
 
 function goal(id: string, matchTimeSec: number, team?: string, scorer?: string, sourceFileIndex = 0): MatchEvent {
   return { id, matchTimeSec, team, scorer, sourceFileIndex, type: 'goal' as const }
@@ -88,21 +90,21 @@ describe('generateYouTubeChapters — event types', () => {
             e('c', 180, { type: 'own_goal', team: 'Colours', scorer: 'Alex' }),
             e('d', 240, { type: 'penalty_missed', team: 'Whites', scorer: 'Jo' }),
         ]
-        const out = generateYouTubeChapters(events, [0], 0, 10, 4, ['Whites', 'Colours'])
-        expect(out.split('\n')[0]).toBe('Whites 1-1 Colours')
-        expect(out).toContain('00:50 Goal (pen) 1-0 (Whites) Sam')
+        const out = generateYouTubeChapters(events, [0], 0, 10, 4, TEAMS)
+        expect(out.split('\n')[0]).toBe('WHI 1-1 CO')
+        expect(out).toContain('00:50 Goal (pen) 1-0 (WHI) Sam')
         expect(out).toContain('01:50 Highlight')
-        expect(out).toContain('02:50 Own goal 1-1 (Colours) Alex')
-        expect(out).toContain('03:50 Penalty missed (Whites) Jo')
+        expect(out).toContain('02:50 Own goal 1-1 (CO) Alex')
+        expect(out).toContain('03:50 Penalty missed (WHI) Jo')
     })
 
     it('should label a conceded penalty with the conceding team and person, without changing the score', () => {
         const events = [
             e('a', 60, { type: 'penalty_conceded', team: 'Colours', scorer: 'Ade', notes: 'Late tackle' }),
         ]
-        const out = generateYouTubeChapters(events, [0], 0, 10, 4, ['Whites', 'Colours'])
-        expect(out.split('\n')[0]).toBe('Whites 0-0 Colours')
-        expect(out).toContain('00:50 Penalty conceded (Colours) Ade')
+        const out = generateYouTubeChapters(events, [0], 0, 10, 4, TEAMS)
+        expect(out.split('\n')[0]).toBe('WHI 0-0 CO')
+        expect(out).toContain('00:50 Penalty conceded (CO) Ade')
         expect(out).toContain('Late tackle')
     })
 })
@@ -115,9 +117,9 @@ describe('chapters — notes', () => {
             e('a', 100, { type: 'goal', team: 'Whites', scorer: 'Sam', notes: 'top corner' }),
             e('b', 200, { type: 'save', team: 'Colours', scorer: 'Jo', notes: 'point blank' }),
         ]
-        const out = generateYouTubeChapters(events, [0], 0, 0, 4, ['Whites', 'Colours'])
-        expect(out).toContain('01:40 Goal 1-0 (Whites) Sam: top corner')
-        expect(out).toContain('03:20 Save (Colours) Jo: point blank')
+        const out = generateYouTubeChapters(events, [0], 0, 0, 4, TEAMS)
+        expect(out).toContain('01:40 Goal 1-0 (WHI) Sam: top corner')
+        expect(out).toContain('03:20 Save (CO) Jo: point blank')
     })
 
     it('should add a shortened note after the person', () => {
@@ -126,11 +128,11 @@ describe('chapters — notes', () => {
             e('b', 800, { type: 'foul', team: 'Colours', notes: 'late tackle' }),
             e('c', 900, { notes: 'a very long description of a mazy run beating four defenders before shooting wide' }),
         ]
-        const out = generateYouTubeChapters(events, [0], 0, 0, 4, ['Whites', 'Colours'])
-        expect(out).toContain('12:14 Highlight (Whites) Sam: nutmeg on the wing')
-        expect(out).toContain('13:20 Foul (Colours): late tackle')
+        const out = generateYouTubeChapters(events, [0], 0, 0, 4, TEAMS)
+        expect(out).toContain('12:14 Highlight (WHI) Sam: nutmeg on the wing')
+        expect(out).toContain('13:20 Foul (CO): late tackle')
         expect(out).toContain('15:00 Highlight: a very long description of a mazy run…')
-        expect(generateHighlightChapters(events, [0], 10, 4, ['Whites', 'Colours'])).toContain('00:00 Highlight (Whites) Sam: nutmeg on the wing')
+        expect(generateHighlightChapters(events, [0], 10, 4, TEAMS)).toContain('00:00 Highlight (WHI) Sam: nutmeg on the wing')
     })
 })
 
@@ -140,9 +142,9 @@ describe('generateHighlightChapters — event types', () => {
             { id: 'a', matchTimeSec: 60, sourceFileIndex: 0, type: 'save', team: 'Colours', scorer: 'Jo' },
             { id: 'b', matchTimeSec: 120, sourceFileIndex: 0, type: 'goal', team: 'Whites' },
         ]
-        const out = generateHighlightChapters(events, [0], 10, 4, ['Whites', 'Colours'])
-        expect(out).toContain('00:00 Save (Colours) Jo')
-        expect(out).toContain('00:15 Goal 1-0 (Whites)')
+        const out = generateHighlightChapters(events, [0], 10, 4, TEAMS)
+        expect(out).toContain('00:00 Save (CO) Jo')
+        expect(out).toContain('00:15 Goal 1-0 (WHI)')
     })
 })
 
@@ -153,11 +155,11 @@ describe('generateHighlightChapters — replays', () => {
       { id: 'b', matchTimeSec: 120, sourceFileIndex: 0, type: 'highlight' },
       { id: 'c', matchTimeSec: 180, sourceFileIndex: 0, type: 'goal', team: 'Whites' },
     ]
-    const out = generateHighlightChapters(events, [0], 10, 4, ['Whites', 'Colours'], { beforeSec: 3, afterSec: 1, speed: 0.5 })
+    const out = generateHighlightChapters(events, [0], 10, 4, TEAMS, { beforeSec: 3, afterSec: 1, speed: 0.5 })
     // segment = 14 s + 1 s buffer; goal a adds a 8 s replay
-    expect(out).toContain('00:00 Goal 1-0 (Whites)')
+    expect(out).toContain('00:00 Goal 1-0 (WHI)')
     expect(out).toContain('00:23 Highlight')
-    expect(out).toContain('00:38 Goal 2-0 (Whites)')
+    expect(out).toContain('00:38 Goal 2-0 (WHI)')
   })
 })
 
@@ -169,14 +171,14 @@ describe('chapters — match markers', () => {
     ]
 
     it('should leave Kick off and Final whistle out of YouTube chapters', () => {
-        const text = generateYouTubeChapters(events, [0], 60, 10, 4, ['Whites', 'Colours'])
+        const text = generateYouTubeChapters(events, [0], 60, 10, 4, TEAMS)
         expect(text).not.toMatch(/Kick off|Final whistle/)
-        expect(text).toContain('02:10 Goal 1-0 (Whites)')
+        expect(text).toContain('02:10 Goal 1-0 (WHI)')
     })
 
     it('should leave them out of highlight chapters', () => {
-        const text = generateHighlightChapters(events, [0], 10, 4, ['Whites', 'Colours'])
-        expect(text.split('\n').filter((l) => /^\d\d:\d\d/.test(l))).toEqual(['00:00 Goal 1-0 (Whites)'])
+        const text = generateHighlightChapters(events, [0], 10, 4, TEAMS)
+        expect(text.split('\n').filter((l) => /^\d\d:\d\d/.test(l))).toEqual(['00:00 Goal 1-0 (WHI)'])
     })
 })
 
@@ -188,16 +190,38 @@ describe('matchChapterLines — Half time', () => {
             { id: 'h', matchTimeSec: 1560, sourceFileIndex: 0, type: 'half_time' },
             { id: 'w', matchTimeSec: 3000, sourceFileIndex: 0, type: 'final_whistle' },
         ]
-        expect(matchChapterLines(events, [0], 60, 3000, 10, ['Whites', 'Colours'])).toEqual(['00:00 Kick off', '02:10 Goal 1-0 (Whites)', '25:00 Half time'])
+        expect(matchChapterLines(events, [0], 60, 3000, 10, TEAMS)).toEqual(['00:00 Kick off', '02:10 Goal 1-0 (WHI)', '25:00 Half time'])
     })
 })
 
-describe('chapter assists', () => {
-  it('should add the assist after the scorer, only for normal goals', () => {
+describe('chapters — no assists', () => {
+  it('should leave the assist out of every chapter', () => {
     const g = { ...goal('a', 60, 'Red', 'Sam'), assist: 'Jo' }
-    expect(generateYouTubeChapters([g], [0], 0, 10, 4)).toContain('00:50 Goal 1 (Red) Sam, assist Jo')
-    expect(generateHighlightChapters([g], [0], 10, 4)).toContain('00:00 Goal 1 (Red) Sam, assist Jo')
-    expect(generateYouTubeChapters([{ ...g, pen: true }], [0], 0, 10, 4)).toContain('Goal (pen) 1 (Red) Sam')
-    expect(generateYouTubeChapters([{ ...g, pen: true }], [0], 0, 10, 4)).not.toContain('assist')
+    expect(generateYouTubeChapters([g], [0], 0, 10, 4)).toContain('00:50 Goal 1 (Red) Sam')
+    expect(generateYouTubeChapters([g], [0], 0, 10, 4)).not.toContain('assist')
+    expect(generateHighlightChapters([g], [0], 10, 4)).not.toContain('assist')
+  })
+})
+
+describe('chapters — team abbreviations', () => {
+  it('should use initials in the header and labels, and the name when the team is unknown', () => {
+    const events = [goal('a', 60, 'Whites', 'Sam'), goal('b', 120, 'Mystery')]
+    const out = generateHighlightChapters(events, [0], 10, 4, TEAMS)
+    expect(out.split('\n')[0]).toBe('WHI 1-0 CO')
+    expect(out).toContain('00:00 Goal 1-0 (WHI) Sam')
+    expect(out).toContain('00:15 Goal 1-0 (Mystery)')
+  })
+})
+
+describe('chapters — notes on every event type', () => {
+  it('should keep the note on own goals, saves, fouls and highlights', () => {
+    const e = (id: string, t: number, type: MatchEvent['type'], team: string): MatchEvent =>
+      ({ id, matchTimeSec: t, sourceFileIndex: 0, type, team, scorer: 'Sam', notes: `n-${type}` })
+    const events = [e('a', 60, 'own_goal', 'Whites'), e('b', 120, 'save', 'Colours'), e('c', 180, 'foul', 'Colours'), e('d', 240, 'highlight', 'Whites')]
+    const out = generateYouTubeChapters(events, [0], 0, 10, 4, TEAMS)
+    expect(out).toContain('00:50 Own goal 1-0 (WHI) Sam: n-own_goal')
+    expect(out).toContain('01:50 Save (CO) Sam: n-save')
+    expect(out).toContain('02:50 Foul (CO) Sam: n-foul')
+    expect(out).toContain('03:50 Highlight (WHI) Sam: n-highlight')
   })
 })

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { goalscorers, goalscorersText } from './goalscorers'
 import type { MatchEvent, Team } from '../types'
 
-const teams: Team[] = [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }]
+const teams: Team[] = [{ name: 'Whites', color: '#fff', roster: [], initials: 'whi' }, { name: 'Colours', color: '#f00', roster: [] }]
 let n = 0
 const g = (team: string, scorer?: string, extra: Partial<MatchEvent> = {}): MatchEvent =>
     ({ id: `e${++n}`, matchTimeSec: n * 10, sourceFileIndex: 0, type: 'goal', team, scorer, ...extra })
@@ -11,48 +11,39 @@ const at = (t: number, extra: Partial<MatchEvent>): MatchEvent => ({ id: `t${t}$
 const kick = (t: number): MatchEvent => ({ id: 'k', matchTimeSec: t, sourceFileIndex: 0, type: 'kick_off' })
 
 describe('goalscorers', () => {
-    it('should list minutes from the match clock, most goals first, ties alphabetical, pens marked, own goals last', () => {
+    it('should count goals (pens in brackets), most first, ties alphabetical, own goals last, no minutes', () => {
         const events = [
             kick(100),
             at(100 + 12 * 60, { team: 'Whites', scorer: 'Sam Taylor' }),
             at(100 + 20 * 60, { team: 'Colours', scorer: 'Priya' }),
             at(100 + 43 * 60 + 10, { team: 'Whites', scorer: 'Sam Taylor', pen: true }),
             at(100 + 50 * 60, { team: 'Colours', scorer: 'Alex Wu' }),
-            at(100 + 60 * 60, { team: 'Whites', scorer: 'Jo Smith' }),
+            at(100 + 60 * 60, { team: 'Whites', scorer: 'Jo Smith', assist: 'Sam Taylor' }),
             at(100 + 29 * 60, { team: 'Whites', scorer: 'Ade', type: 'own_goal' }),
             at(5, { type: 'highlight', scorer: 'Sam Taylor' }),
         ]
         expect(goalscorers(events, teams)).toEqual({
-            scoreLine: 'Whites 4–2 Colours',
-            lines: [
-                "Sam Taylor: 2 ('13, '44 pen)", "Alex Wu: 1 ('51)", "Jo Smith: 1 ('61)", "Priya: 1 ('21)",
-                "Own goals: Ade ('30, for Whites)",
-            ],
+            scoreLine: 'WHI 4–2 CO',
+            lines: ['Sam Taylor: 2 (1 pen)', 'Alex Wu: 1', 'Jo Smith: 1', 'Priya: 1', 'Own goals: Ade 1'],
         })
     })
 
-    it('should put each scorer\'s goals in time order whatever the event order', () => {
-        const events = [kick(0), at(3000, { team: 'Whites', scorer: 'Sam' }), at(600, { team: 'Whites', scorer: 'Sam' })]
-        expect(goalscorers(events, teams).lines).toEqual(["Sam: 2 ('11, '51)"])
+    it('should say pens in the plural', () => {
+        const events = [at(1, { team: 'Whites', scorer: 'Sam', pen: true }), at(2, { team: 'Whites', scorer: 'Sam', pen: true })]
+        expect(goalscorers(events, teams).lines).toEqual(['Sam: 2 (2 pens)'])
     })
 
-    it('should place events on the whole timeline through the file offsets', () => {
-        const events = [kick(0), at(60, { team: 'Whites', scorer: 'Sam', sourceFileIndex: 1 })]
-        expect(goalscorers(events, teams, [0, 1200]).lines).toEqual(["Sam: 1 ('22)"])
-    })
-
-    it('should count from the start of the first file when Kick off is not marked', () => {
-        expect(goalscorers([at(125, { team: 'Whites', scorer: 'Sam' })], teams).lines).toEqual(["Sam: 1 ('3)"])
-    })
-
-    it('should list several own goals, naming unknown ones', () => {
-        const events = [kick(0), at(60, { team: 'Colours', scorer: 'Bo', type: 'own_goal' }), at(700, { team: 'Whites', type: 'own_goal' })]
-        expect(goalscorers(events, teams).lines).toEqual(["Own goals: Bo ('2, for Colours), unknown ('12, for Whites)"])
+    it('should tally own goals per player, sorted like scorers, naming unknown ones', () => {
+        const events = [
+            at(60, { team: 'Colours', scorer: 'Bo', type: 'own_goal' }), at(700, { team: 'Whites', type: 'own_goal' }),
+            at(800, { team: 'Whites', scorer: 'bo', type: 'own_goal' }), at(900, { team: 'Whites', scorer: 'Ade', type: 'own_goal' }),
+        ]
+        expect(goalscorers(events, teams).lines).toEqual(['Own goals: Bo 2, Ade 1, unknown 1'])
     })
 
     it('should leave out goals without a scorer and events whose file is missing', () => {
         const events = [g('Whites'), g('Colours', 'Priya', { unlinked: true })]
-        expect(goalscorers(events, teams)).toEqual({ scoreLine: 'Whites 1–0 Colours', lines: [] })
+        expect(goalscorers(events, teams)).toEqual({ scoreLine: 'WHI 1–0 CO', lines: [] })
     })
 
     it('should have no score line without two named teams', () => {
@@ -62,31 +53,13 @@ describe('goalscorers', () => {
 
 describe('goalscorersText', () => {
     it('should put a blank line between the score and the scorers', () => {
-        expect(goalscorersText([kick(0), at(60, { team: 'Whites', scorer: 'Sam' })], teams)).toBe("Whites 1–0 Colours\n\nSam: 1 ('2)")
+        expect(goalscorersText([kick(0), at(60, { team: 'Whites', scorer: 'Sam' })], teams)).toBe('WHI 1–0 CO\n\nSam: 1')
     })
 })
 
-describe('goalscorers assists', () => {
-    const events = [
-        kick(0),
-        at(12 * 60, { team: 'Whites', scorer: 'Sam', assist: 'Jo' }),
-        at(30 * 60, { team: 'Colours', scorer: 'Priya', assist: 'Alex' }),
-        at(43 * 60, { team: 'Whites', scorer: 'Sam', assist: 'Jo' }),
-        at(50 * 60, { team: 'Whites', scorer: 'Jo', assist: 'Sam' }),
-        at(55 * 60, { team: 'Whites', scorer: 'Sam', pen: true, assist: 'Zed' }),
-        at(56 * 60, { team: 'Whites', scorer: 'Ade', type: 'own_goal', assist: 'Zed' }),
-    ]
-    it('should list assists sorted like scorers (most first, ties alphabetical), never for pens or own goals', () => {
-        expect(goalscorers(events, teams).assists).toEqual(["Jo: 2 ('13, '44)", "Alex: 1 ('31)", "Sam: 1 ('51)"])
-    })
-    it('should leave assists out when there are none', () => {
-        expect('assists' in goalscorers([kick(0), at(60, { team: 'Whites', scorer: 'Sam' })], teams)).toBe(false)
-    })
-    it('should add an Assists section after the scorers in the copy text', () => {
-        const text = goalscorersText(events, teams)
-        expect(text).toContain("Own goals: Ade ('57, for Whites)\n\nAssists\nJo: 2 ('13, '44)\nAlex: 1 ('31)\nSam: 1 ('51)")
-    })
-    it('should not add the section without assists', () => {
-        expect(goalscorersText([kick(0), at(60, { team: 'Whites', scorer: 'Sam' })], teams)).not.toContain('Assists')
+describe('goalscorersText without assists', () => {
+    it('should never add an Assists section', () => {
+        const events = [kick(0), at(60, { team: 'Whites', scorer: 'Sam', assist: 'Jo' })]
+        expect(goalscorersText(events, teams)).toBe('WHI 1–0 CO\n\nSam: 1')
     })
 })
