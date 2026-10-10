@@ -1,5 +1,6 @@
-import type { MatchEvent } from '../types'
-import { assistOf, eventLabel, isMarker, isScoring, shortNote } from './eventTypes'
+import type { MatchEvent, Team } from '../types'
+import { teamBadge } from '../graphics/teamStyle'
+import { eventLabel, isMarker, isScoring, shortNote } from './eventTypes'
 import { wantsReplay } from './replays'
 import type { ReplayOptions } from './renderPlan'
 
@@ -7,28 +8,34 @@ function absTime(e: MatchEvent, offsets: number[]): number {
     return (offsets[e.sourceFileIndex ?? 0] || 0) + e.matchTimeSec
 }
 
-function scoreTeams(events: MatchEvent[], teamOrder?: string[]): string[] {
-    if (teamOrder && teamOrder.length > 0) return teamOrder
+/** Team name → abbreviation (the team's own initials), or the name itself when the team isn't known. */
+export function teamLabeller(teams?: Team[]): (name: string) => string {
+    return (name) => {
+        const t = teams?.find((x) => x.name === name)
+        return t ? teamBadge(t).initials : name
+    }
+}
+
+function scoreTeams(events: MatchEvent[], teamOrder?: Team[]): string[] {
+    if (teamOrder && teamOrder.length > 0) return teamOrder.map((t) => t.name)
     return Array.from(new Set(events.filter((e) => e.team && isScoring(e)).map((e) => e.team!))).sort()
 }
 
-function finalScoreLine(events: MatchEvent[], teams: string[]): string[] {
+function finalScoreLine(events: MatchEvent[], teams: string[], label: (name: string) => string): string[] {
     if (teams.length === 0) return []
     const totals = teams.map((t) => events.filter((e) => isScoring(e) && e.team === t).length)
-    const line = teams.map((t, i) => (i === 0 ? `${t} ${totals[i]}` : `${totals[i]} ${t}`)).join('-')
+    const line = teams.map((t, i) => (i === 0 ? `${label(t)} ${totals[i]}` : `${totals[i]} ${label(t)}`)).join('-')
     return [line, '', '']
 }
 
-function chapterLabel(e: MatchEvent, teams: string[], running: Record<string, number>): string {
+function chapterLabel(e: MatchEvent, teams: string[], running: Record<string, number>, teamName: (name: string) => string): string {
     let label = eventLabel(e)
     if (isScoring(e)) {
         if (e.team) running[e.team] = (running[e.team] ?? 0) + 1
         if (teams.length > 0) label += ` ${teams.map((t) => running[t] ?? 0).join('-')}`
     }
-    if (e.team) label += ` (${e.team})`
+    if (e.team) label += ` (${teamName(e.team)})`
     if (e.scorer) label += ` ${e.scorer}`
-    const assist = assistOf(e)
-    if (assist) label += e.scorer ? `, assist ${assist}` : ` assist ${assist}`
     const note = shortNote(e.notes)
     if (note) label += `: ${note}`
     return label
@@ -36,7 +43,7 @@ function chapterLabel(e: MatchEvent, teams: string[], running: Record<string, nu
 
 export function generateYouTubeChapters(
     goals: MatchEvent[], cumulativeOffsets: number[] = [], matchStartTimeSec: number = 0,
-    lengthBeforeGoalSec: number = 10, _lengthAfterGoalSec: number = 4, teamOrder?: string[],
+    lengthBeforeGoalSec: number = 10, _lengthAfterGoalSec: number = 4, teamOrder?: Team[],
 ): string {
     const hasVideoFiles = cumulativeOffsets.length > 0
     const allFromFirstVideo = goals.every((g) => (g.sourceFileIndex ?? 0) === 0)
@@ -45,22 +52,22 @@ export function generateYouTubeChapters(
     const sorted = goals.filter((g) => !isMarker(g)).sort((a, b) => absTime(a, cumulativeOffsets) - absTime(b, cumulativeOffsets))
     const teams = scoreTeams(goals, teamOrder)
     const running: Record<string, number> = {}
-    const lines = [...finalScoreLine(goals, teams), '00:00 Start']
+    const lines = [...finalScoreLine(goals, teams, teamLabeller(teamOrder)), '00:00 Start']
     for (const g of sorted) {
         const stamp = secondsToStamp(Math.max(0, Math.floor(absTime(g, cumulativeOffsets) - matchStartTimeSec - lengthBeforeGoalSec)))
-        lines.push(`${stamp} ${chapterLabel(g, teams, running)}`)
+        lines.push(`${stamp} ${chapterLabel(g, teams, running, teamLabeller(teamOrder))}`)
     }
     return lines.join('\n')
 }
 
 export function generateHighlightChapters(
     goals: MatchEvent[], cumulativeOffsets: number[] = [], lengthBeforeGoalSec: number = 10,
-    lengthAfterGoalSec: number = 4, teamOrder?: string[], replay?: ReplayOptions,
+    lengthAfterGoalSec: number = 4, teamOrder?: Team[], replay?: ReplayOptions,
 ): string {
     goals = goals.filter((g) => !isMarker(g))
     if (goals.length === 0) return '00:00 Start'
     const teams = scoreTeams(goals, teamOrder)
-    return [...finalScoreLine(goals, teams), ...highlightChapterLines(goals, cumulativeOffsets, lengthBeforeGoalSec, lengthAfterGoalSec, teamOrder, replay)].join('\n')
+    return [...finalScoreLine(goals, teams, teamLabeller(teamOrder)), ...highlightChapterLines(goals, cumulativeOffsets, lengthBeforeGoalSec, lengthAfterGoalSec, teamOrder, replay)].join('\n')
 }
 
 /**
@@ -69,7 +76,7 @@ export function generateHighlightChapters(
  */
 export function highlightChapterLines(
     goals: MatchEvent[], cumulativeOffsets: number[], lengthBeforeGoalSec: number, lengthAfterGoalSec: number,
-    teamOrder?: string[], replay?: ReplayOptions, offsetSec = 0,
+    teamOrder?: Team[], replay?: ReplayOptions, offsetSec = 0,
 ): string[] {
     goals = goals.filter((g) => !isMarker(g))
     const sorted = [...goals].sort((a, b) => absTime(a, cumulativeOffsets) - absTime(b, cumulativeOffsets))
@@ -80,7 +87,7 @@ export function highlightChapterLines(
     let extra = 0 // seconds added by earlier replays
     sorted.forEach((g, i) => {
         const at = i === 0 ? 0 : i * (segmentLength + 1) + extra + offsetSec
-        lines.push(`${secondsToStamp(at)} ${chapterLabel(g, teams, running)}`)
+        lines.push(`${secondsToStamp(at)} ${chapterLabel(g, teams, running, teamLabeller(teamOrder))}`)
         if (replay && wantsReplay(g)) extra += Math.round((replay.beforeSec + replay.afterSec) / replay.speed)
     })
     return lines
@@ -92,7 +99,7 @@ export function highlightChapterLines(
  */
 export function matchChapterLines(
     events: MatchEvent[], cumulativeOffsets: number[], kickOffSec: number, finalWhistleSec: number | null,
-    lengthBeforeGoalSec: number, teamOrder?: string[], offsetSec = 0,
+    lengthBeforeGoalSec: number, teamOrder?: Team[], offsetSec = 0,
 ): string[] {
     const inMatch = events
         .filter((e) => !isMarker(e) || e.type === 'half_time')
@@ -107,7 +114,7 @@ export function matchChapterLines(
             continue
         }
         const at = Math.max(0, Math.floor(absTime(e, cumulativeOffsets) - kickOffSec - lengthBeforeGoalSec)) + offsetSec
-        lines.push(`${secondsToStamp(at)} ${chapterLabel(e, teams, running)}`)
+        lines.push(`${secondsToStamp(at)} ${chapterLabel(e, teams, running, teamLabeller(teamOrder))}`)
     }
     return lines
 }

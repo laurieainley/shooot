@@ -38,7 +38,7 @@ export function DescriptionCopy({ kind }: DescriptionCopyProps) {
                 Copy {label}
             </button>
             <button type="button" disabled={!hasEvents}
-                onClick={() => copy('Goalscorers', () => { const st = useAppState.getState(); return goalscorersText(st.events, st.teams, st.cumulativeOffsets) })}
+                onClick={() => copy('Goalscorers', () => { const st = useAppState.getState(); return goalscorersText(st.events, st.teams) })}
                 className="btn-quiet">
                 Copy goalscorers
             </button>
