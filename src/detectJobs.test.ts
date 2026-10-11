@@ -14,6 +14,15 @@ describe('detection job', () => {
         expect(useAppState.getState().suggestionRun).toMatchObject({ analysedSec: 600, total: 1, configVersion: 2, durationMs: 1, fileKeys: ['A'] })
         expect(wake.acquire).toHaveBeenCalled(); expect(wake.release).toHaveBeenCalled()
     })
+    it('should analyse the playback file (the proxy when one is paired), not the full-quality file', async () => {
+        const proxy = new File([], 'GL010226.LRV'), full = new File([], 'GX010226.MP4')
+        useAppState.setState({ files: [{ id: 'f', name: 'GX010226.MP4', url: '', kind: 'proxy', durationSec: 600, file: proxy, fullFile: full }] as never, cumulativeOffsets: [0], events: [], suggestions: [] })
+        const run = vi.fn(async () => ({ moments: [], scores: new Float32Array(3), analysedSec: 600 }))
+        const jobs = createDetectJobs({ run, wakeLock: () => ({ acquire: async () => {}, release: async () => {}, status: () => '' }), now: () => 0 })
+        await jobs.start()
+        const files = (run.mock.calls[0] as unknown as [{ file: File }[]])[0]
+        expect(files.map((f) => f.file)).toEqual([proxy])
+    })
     it('should keep previous suggestions when cancelled', async () => {
         useAppState.setState({ suggestions: [{ id: 'old', globalTimeSec: 50, score: 1, source: 'audio', status: 'pending' }] })
         const run = vi.fn((_f, _r, _d, signal: AbortSignal) => new Promise<never>((_, rej) => signal.addEventListener('abort', () => rej(new Error('cancelled')))))

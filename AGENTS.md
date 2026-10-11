@@ -125,7 +125,9 @@ npm run lint       # baseline: 12 known problems — add none
 - **Mixed frame sizes:** output = first used file's size; others are scaled to cover + centre-cropped (re-encoded),
   with a pre-render notice and time estimate.
 - **Reading files:** always through `render/fileSource.ts` (8 MB aligned blocks), never `BlobSource` — Android USB
-  storage costs ~0.25 s per read.
+  storage costs ~0.25 s per read. Exception: the Find goals audio pass plans its own small audio-only byte ranges
+  (`utils/readPlan.ts`, a few reads in flight) so it doesn't drag 4K video through 8 MB blocks; it reads the proxy/LRV
+  when one is paired.
 - **Graphics never cost the reel.** If graphics or a crop fail, render without them and list them under "Rendered
   without: <label> — <reason>". Every render produces a diagnostics report (Copy diagnostics) — ask users for it.
 - **Background tabs:** no timers on the render path (Chrome throttles them in hidden tabs) — use `render/yield.ts`
@@ -142,8 +144,8 @@ npm run lint       # baseline: 12 known problems — add none
 - **iOS/iPadOS:** the file picker copies the whole file before the page gets it (minutes for 12 GB) — suggest LRV
   proxies; `accept` must be omitted on iOS or `.LRV` is greyed out; `HTMLMediaElement.volume` is read-only (use a Web
   Audio gain); Safari answers `canPlayType('')` for `hev1` — decide playability by loading the file.
-- **Android:** Chrome reads files live from USB (fast open, slow random reads — see fileSource). Keyboard overlays
-  fields (`useKeyboardInset`).
+- **Android:** Chrome reads files live from USB (fast open, slow random reads — see fileSource). `accept` is omitted
+  on Android too, or `.LRV` is greyed out in the picker. Keyboard overlays fields (`useKeyboardInset`).
 - **Desktop Chrome/Edge:** File System Access handles allow one-click relink after reload.
 - **Deploys while a tab is open:** stale lazy chunks are recovered by one guarded reload (`staleBuildRecovery.ts`);
   the render engine is warmed at idle.
