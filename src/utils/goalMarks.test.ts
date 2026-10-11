@@ -27,6 +27,14 @@ describe('isNearGoal / footprint', () => {
         expect(isNearGoal(NEAR)).toBe(true)
         expect(footprint(NEAR)).toHaveLength(4)
     })
+    it('should use the averaged post height: a short left post with a tall right post is still near', () => {
+        const m: GoalMarks = {
+            postL: { x: 0.3, y: 0.5 }, barL: { x: 0.3, y: 0.42 },   // 0.08 tall
+            postR: { x: 0.5, y: 0.6 }, barR: { x: 0.5, y: 0.4 },    // 0.20 tall, mean 0.14
+            backL: { x: 0.35, y: 0.55 }, backR: { x: 0.55, y: 0.6 },
+        }
+        expect(isNearGoal(m)).toBe(true)
+    })
     it('should treat a small goal or one without back corners as far', () => {
         expect(isNearGoal(FAR)).toBe(false)
         expect(footprint(FAR)).toBeNull()

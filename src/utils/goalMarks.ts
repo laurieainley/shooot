@@ -16,7 +16,7 @@ const postHeight = (m: GoalMarks): number => (Math.hypot(m.postL.x - m.barL.x, m
 
 /** A goal close to the camera: tall in the picture (≥ 12% of the frame height) with the back of the net marked. */
 export function isNearGoal(m: GoalMarks): boolean {
-    return !!m.backL && !!m.backR && Math.abs(m.postL.y - m.barL.y) >= 0.12
+    return !!m.backL && !!m.backR && postHeight(m) >= 0.12
 }
 
 export function footprint(m: GoalMarks): Pt[] | null {
