@@ -34,7 +34,24 @@ describe('robustZ', () => {
     })
 })
 
+describe('robustZ floor', () => {
+    it('should keep z modest when the input is constant', () => {
+        const z = robustZ(new Float32Array([0, 0, 0, 0, 0, 1]))
+        expect(Number.isFinite(z[5])).toBe(true)
+        expect(z[5]).toBeLessThanOrEqual(2)
+    })
+})
+
 describe('goalScores + pickMoments', () => {
+    it('should never pick inside a gap without audio', () => {
+        const part = match(120, [{ at: 20, shout: 12, hushFor: 10 }])
+        const t = placeOnTimeline([{ features: part, offsetSec: 120 }], 240, HOP)
+        const sc = goalScores(t, CFG)
+        for (let i = 0; i < 120 / HOP; i++) expect(Number.isNaN(sc[i])).toBe(true)
+        const m = pickMoments(sc, HOP, { minGapSec: 20, max: 30, startSec: 0, endSec: 240 })
+        expect(m.length).toBeGreaterThan(0)
+        expect(m.every((x) => x.timeSec >= 120)).toBe(true)
+    })
     it('should rank a shout followed by a hush first', () => {
         const f = match(600, [{ at: 100, shout: 12, hushFor: 10 }, { at: 300, shout: 12, hushFor: 0 }])
         const m = pickMoments(goalScores(f, CFG), HOP, { minGapSec: 20, max: 1, startSec: 0, endSec: 600 })

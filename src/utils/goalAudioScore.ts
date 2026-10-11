@@ -15,13 +15,13 @@ export function movingAverage(x: Float32Array, n: number): Float32Array {
 
 const median = (v: number[]): number => { const s = [...v].sort((a, b) => a - b); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2 }
 
-/** (x − median) / (1.4826·MAD) over the finite values; NaN becomes 0 (neutral). */
+/** (x − median) / max(1.4826·MAD, 0.5 dB) over the finite values; NaN becomes 0 (neutral). */
 export function robustZ(x: Float32Array): Float32Array {
     const fin = Array.from(x).filter(Number.isFinite)
     const out = new Float32Array(x.length)
     if (fin.length === 0) return out
-    const med = median(fin), mad = median(fin.map((v) => Math.abs(v - med))) * 1.4826 + 1e-9
-    for (let i = 0; i < x.length; i++) out[i] = Number.isFinite(x[i]) ? (x[i] - med) / mad : 0
+    const med = median(fin), scale = Math.max(median(fin.map((v) => Math.abs(v - med))) * 1.4826, 0.5)
+    for (let i = 0; i < x.length; i++) out[i] = Number.isFinite(x[i]) ? (x[i] - med) / scale : 0
     return out
 }
 
@@ -48,6 +48,7 @@ export function goalScores(f: AudioFeatures, cfg: { smoothSec: number; peakWindo
         let s = 0, c = 0
         for (let j = Math.max(0, i + ha); j <= Math.min(n - 1, i + hb); j++) { s += loud[j]; c++ }
         out[i] = (peak === -Infinity ? 0 : peak) - (c ? s / c : 0)
+        if (Number.isNaN(f.loudDb[i])) out[i] = NaN
     }
     return out
 }
