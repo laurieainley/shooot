@@ -19,7 +19,7 @@ const defaultFactory = (): WorkerLike => new Worker(new URL('./ballDetector.work
 
 /** The ball model in a Web Worker (WebGPU, else WASM). One request at a time; the model file is fetched by the worker. */
 export function createBallDetector(
-    modelUrl: string = import.meta.env.VITE_BALL_MODEL_URL ?? '/models/rfdetr-nano-fp16.onnx',
+    modelUrl: string = import.meta.env.VITE_BALL_MODEL_URL ?? '/models/rfdetr-nano-fp16-v1.onnx',
     makeWorker: () => WorkerLike = defaultFactory,
 ): BallDetector {
     const worker = makeWorker()

@@ -19,7 +19,7 @@ injectable deps; `detectJobs` gains phase 2 after the audio suggestions are save
 - Persist: `labs` lands at **v20** (main is at v18, A at v19).
 - No re-ranking (the audio shortlist is already fixed); B tags suggestions and pre-selects; the summary adds "Ball seen in N."
 - C writes audio suggestions at the end of the audio run; phase 2 runs after that write, so cancelling/failing phase 2 never loses them.
-- Model file not committed: `public/models/rfdetr-nano-fp16.onnx` is git-ignored; `VITE_BALL_MODEL_URL` overrides.
+- Model file `public/models/rfdetr-nano-fp16-v1.onnx` is stored in Git LFS (versioned name, so a new model gets a new name; served immutable); `VITE_BALL_MODEL_URL` overrides.
 
 ## Global Constraints
 - AGENTS.md rules (pure utils + tests, explicit return types, no `any`, one component per file, erasableSyntaxOnly; no timers on

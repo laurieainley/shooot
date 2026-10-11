@@ -51,4 +51,3 @@ public/default-video.mp4
 # Claude Code
 .claude/worktrees/
 .claude/settings.local.json
-public/models/

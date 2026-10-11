@@ -17,9 +17,9 @@ goal is weak (8/12 with many false alarms) and only boosts. Detector: **RF-DETR-
 
 - **Labs only:** the ball check runs only when Labs is on (`?labs=1` sets a persisted `labs: true`; ⋯ menu shows
   "Labs: on" with a toggle once set). Public users keep audio-only Find goals until it's validated on more matches.
-- **Model hosting:** loaded from `VITE_BALL_MODEL_URL` (default `/models/rfdetr-nano-fp16.onnx`). The file is **not
-  committed** (62 MB); for local testing it's copied into `public/models/` (git-ignored). Production hosting (Vercel static,
-  object storage or a GitHub release) is the user's decision — B stays Labs-only until then.
+- **Model hosting:** loaded from `VITE_BALL_MODEL_URL` (default `/models/rfdetr-nano-fp16-v1.onnx`). The 62 MB file is
+  stored in Git LFS in `public/models/` and served by Vercel static with an immutable cache header; the versioned filename
+  means a new model gets a new name.
 - **Runtime:** `onnxruntime-web` (WebGPU, WASM fallback), self-hosted wasm/assets (no third-party requests), inside a Web
   Worker; one session per run; model cached by the browser's HTTP cache (Cache Storage optional later).
 - **Budget per suggestion:** frames at **2 fps** over **[t − 3 s, t + 3 s]** of the full-quality file (13 frames); per frame
