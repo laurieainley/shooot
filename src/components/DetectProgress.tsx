@@ -35,10 +35,11 @@ export function DetectProgress() {
 /** Labs ball check while it runs behind the review: same style as the audio line; the review stays usable. */
 export function BallProgress() {
     const fraction = useDetectJob((s) => s.ballFraction)
+    const ep = useDetectJob((s) => s.ballEp)
     const percent = Math.round(fraction * 100)
     return (
         <div className="review__status">
-            <p className="m-0">{checkingGoalsLine(fraction)}</p>
+            <p className="m-0">{checkingGoalsLine(fraction, ep)}</p>
             <div className="review__bar" role="progressbar" aria-label="Ball check progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
                 <div style={{ width: `${percent}%` }} />
             </div>

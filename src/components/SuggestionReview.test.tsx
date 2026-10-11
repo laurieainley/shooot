@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppState } from '../state'
 
 const startDetectionMock = vi.hoisted(() => vi.fn())
-const job = vi.hoisted(() => ({ phase: 'done', fraction: 1, error: null as string | null, ballPhase: 'idle', ballFraction: 0, ballError: null as string | null }))
+const job = vi.hoisted(() => ({ phase: 'done', fraction: 1, error: null as string | null, ballPhase: 'idle', ballFraction: 0, ballError: null as string | null, ballEp: null as string | null }))
 vi.mock('../detectJobs', () => ({
     useDetectJob: (sel: (s: Record<string, unknown>) => unknown) => sel({ ...job, scores: null }),
     startDetection: (...a: unknown[]) => startDetectionMock(...a), cancelDetection: vi.fn(), getDetectJob: () => ({ phase: 'done' }),
@@ -17,7 +17,7 @@ const press = (key: string, opts: KeyboardEventInit = {}): void => { act(() => {
 const run = { createdAt: 1, source: 'audio' as const, configVersion: 1, analysedSec: 600, total: 2 }
 beforeEach(() => {
     setPlayerPaused(true)
-    job.phase = 'done'; job.fraction = 1; job.error = null; job.ballPhase = 'idle'; job.ballFraction = 0; job.ballError = null
+    job.phase = 'done'; job.fraction = 1; job.error = null; job.ballPhase = 'idle'; job.ballFraction = 0; job.ballError = null; job.ballEp = null
     useAppState.setState({
         files: [{ id: 'f', name: 'A.MP4', url: '', kind: 'full', durationSec: 600, file: new File([], 'A.MP4') }] as never,
         cumulativeOffsets: [0], events: [], suggestions: [], suggestionRun: null, reviewIndex: 0, panel: 'review',
@@ -369,8 +369,16 @@ describe('SuggestionReview', () => {
                 press('m'); press('s'); press('Enter')
                 expect(useAppState.getState().events[0]).toMatchObject({ type: 'save' })
             })
+            it('should say the model is loading until the detector is ready, and flag the slow wasm fallback', () => {
+                job.ballPhase = 'running'; job.ballFraction = 0; job.ballEp = null
+                const { rerender } = render(<SuggestionReview onClose={() => {}} />)
+                expect(screen.getByText('Loading the ball model…')).toBeTruthy()
+                job.ballEp = 'wasm'; job.ballFraction = 0.4
+                rerender(<SuggestionReview onClose={() => {}} />)
+                expect(screen.getByText('Checking the goal mouths… 40% (slow on this device)')).toBeTruthy()
+            })
             it('should show the phase 2 progress line while the review stays usable', () => {
-                job.ballPhase = 'running'; job.ballFraction = 0.4
+                job.ballPhase = 'running'; job.ballFraction = 0.4; job.ballEp = 'webgpu'
                 render(<SuggestionReview onClose={() => {}} />)
                 expect(screen.getByText('Checking the goal mouths… 40%')).toBeTruthy()
                 expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy()

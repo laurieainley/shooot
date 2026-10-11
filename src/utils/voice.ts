@@ -38,8 +38,11 @@ export function listeningLine(fraction: number): string {
 }
 
 /** Find goals phase 2 (Labs ball check) progress (brand voice). */
-export function checkingGoalsLine(fraction: number): string {
-    return `Checking the goal mouths… ${pct(fraction)}%`
+export const LOADING_BALL_MODEL = 'Loading the ball model…'
+/** `ep` is the model's execution provider once it is ready; null = still loading. WASM is the slow fallback. */
+export function checkingGoalsLine(fraction: number, ep: string | null = 'webgpu'): string {
+    if (ep === null) return LOADING_BALL_MODEL
+    return `Checking the goal mouths… ${pct(fraction)}%${ep === 'wasm' ? ' (slow on this device)' : ''}`
 }
 
 export function ballSeenLine(n: number): string {
