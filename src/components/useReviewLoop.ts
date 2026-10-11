@@ -1,3 +1,4 @@
+import { setReviewWindow } from './reviewWindowState'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppState } from '../state'
 import { globalToFileTime } from '../utils/matchStrip'
@@ -28,6 +29,10 @@ export function useReviewLoop(timeSec: number | null): ReviewLoop {
     const winRef = useRef(win)
     winRef.current = win
     const startAbs = win?.startAbs ?? null
+    useEffect(() => {
+        setReviewWindow(win)
+        return () => setReviewWindow(null)
+    }, [win])
 
     const earlier = useCallback((): void => {
         if (timeSec === null) return

@@ -2,6 +2,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppState } from '../state'
+import { getReviewWindow } from './reviewWindowState'
 import { dismissToast, toastStore } from '../toasts'
 
 const startDetectionMock = vi.hoisted(() => vi.fn())
@@ -926,6 +927,12 @@ describe('Find goals: Top picks lane', () => {
 })
 
 describe('Review loop keys', () => {
+    it('should publish the window shown (with extensions) for tags made during the review', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(getReviewWindow()).toMatchObject({ startAbs: 95, endAbs: 104 })
+        press('}', { shiftKey: true }); press('}', { shiftKey: true })
+        expect(getReviewWindow()?.endAbs).toBe(108)
+    })
     it('should extend the loop with { and } (Shift+[ and Shift+]) and show the keys on the +2 s handles', () => {
         render(<SuggestionReview onClose={() => {}} />)
         press('{', { shiftKey: true })

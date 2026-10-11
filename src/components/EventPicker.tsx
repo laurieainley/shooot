@@ -3,8 +3,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import { showToast } from '../toasts'
-import { reviewWindow } from '../utils/reviewLoop'
-import { AUDIO_DETECT } from '../detect/detectConfig'
+import { getReviewWindow } from './reviewWindowState'
 import { confirmedCopy, eventGlobalSec, matchClock, taggedCopy } from '../utils/toastCopy'
 import { nearbyMark } from '../utils/duplicates'
 import { EventTag } from './EventTag'
@@ -55,10 +54,9 @@ export function EventPicker() {
         // Tagged while reviewing, inside the current suggestion's loop: it counts for that suggestion, like Confirm.
         const sug = st.panel === 'review' ? st.suggestions[st.reviewIndex] : undefined
         if (sug && (e.type === 'goal' || e.type === 'own_goal' || e.type === 'save' || e.type === 'highlight')) {
-            const total = st.files.reduce((a, f) => a + (f.durationSec ?? 0), 0)
-            const w = reviewWindow(sug.globalTimeSec, AUDIO_DETECT.reviewWindowSec, 0, 0, total)
+            const w = getReviewWindow()
             const at = eventGlobalSec(e, st.cumulativeOffsets)
-            if (at >= w.startAbs && at <= w.endAbs) {
+            if (w && at >= w.startAbs && at <= w.endAbs) {
                 st.linkSuggestionEvent(sug.id, id)
                 showToast(confirmedCopy(e.type, e.team, matchClock(at, kick, selectClockLong(st))))
                 return

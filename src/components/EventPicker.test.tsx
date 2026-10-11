@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import { useAppState } from '../state'
 import { dismissToast, toastStore } from '../toasts'
+import { setReviewWindow } from './reviewWindowState'
 import { EventPicker } from './EventPicker'
 import { setCoarsePointer } from '../test/pointer'
 import type { VideoSourceFile } from '../types'
@@ -391,6 +392,7 @@ describe('EventPicker toasts', () => {
     })
     describe('while reviewing', () => {
         const sug = (): void => {
+            setReviewWindow({ startAbs: 95, endAbs: 104 })
             useAppState.getState().setSuggestions({ createdAt: 1, source: 'audio', configVersion: 1, analysedSec: 600, total: 1 }, [{ timeSec: 100, score: 5 }])
             useAppState.setState({ panel: 'review', reviewIndex: 0 })
         }
@@ -402,6 +404,14 @@ describe('EventPicker toasts', () => {
             expect(s().panel).toBe('review')
             expect(s().suggestions[0]).toMatchObject({ status: 'kept', keptAs: 'goal', eventId: s().events[0].id })
             expect(toastStore.getState().toast?.text).toBe('Goal · Whites confirmed at 01:39')
+        })
+        it('should use the loop window shown, including +2 s extensions', () => {
+            sug()
+            setReviewWindow({ startAbs: 95, endAbs: 108 }) // the user extended the end twice
+            act(() => s().markEvent(107))
+            render(<EventPicker />)
+            press('Enter'); press('w'); press('Escape')
+            expect(s().suggestions[0].status).toBe('kept')
         })
         it('should not link a tag outside the window, and still announce it as tagged', () => {
             sug()
