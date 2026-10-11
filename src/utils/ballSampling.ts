@@ -22,9 +22,11 @@ const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.m
 
 function tileFor(goal: GoalTeam, m: GoalMarks, f: Frame): GoalTile {
     if (isNearGoal(m)) {
+        // Pixel-square crop (aspect preserved): centred on the rectangle, side = its longer pixel side.
         const r = goalRectFromMarks(m)
-        const sw = r.w * f.w, sh = r.h * f.h
-        return { goal, sx: r.x * f.w, sy: r.y * f.h, sw, sh, scaleX: TILE / sw, scaleY: TILE / sh }
+        const side = Math.min(Math.max(r.w * f.w, r.h * f.h), f.w, f.h)
+        const cx = (r.x + r.w / 2) * f.w, cy = (r.y + r.h / 2) * f.h
+        return { goal, sx: clamp(cx - side / 2, 0, f.w - side), sy: clamp(cy - side / 2, 0, f.h - side), sw: side, sh: side, scaleX: TILE / side, scaleY: TILE / side }
     }
     const pts = [m.postL, m.postR, m.barL, m.barR]
     const cx = (pts.reduce((a, p) => a + p.x, 0) / 4) * f.w, cy = (pts.reduce((a, p) => a + p.y, 0) / 4) * f.h
@@ -32,7 +34,7 @@ function tileFor(goal: GoalTeam, m: GoalMarks, f: Frame): GoalTile {
     return { goal, sx: clamp(cx - sw / 2, 0, f.w - sw), sy: clamp(cy - sh / 2, 0, f.h - sh), sw, sh, scaleX: TILE / sw, scaleY: TILE / sh }
 }
 
-/** One tile per marked goal: near goal = its replay rectangle scaled to the tile; far goal = native-scale pixels centred on the mouth. */
+/** One tile per marked goal: near goal = a pixel-square crop around its replay rectangle; far goal = native-scale pixels centred on the mouth. */
 export function goalTiles(marks: GoalMarksByTeam, frame: Frame): GoalTile[] {
     return GOALS.flatMap((g) => (marks[g] ? [tileFor(g, marks[g]!, frame)] : []))
 }
@@ -46,12 +48,13 @@ export function tileToSource(box: Box, tile: GoalTile): Box {
 }
 
 const STATIC_PX = 8
+const STATIC_SHARE = 0.8
 const centre = (b: Box): { x: number; y: number } => ({ x: (b.x1 + b.x2) / 2, y: (b.y1 + b.y2) / 2 })
 
 /**
  * Was the ball in a goal around the suggestion at `t`? Needs a ball inside the goal (`ballInGoal`) in at least 2 sampled
- * frames within [t − 1, t + 3] s. A detection that sits at the same place (±8 px) in every sampled frame of that goal,
- * including t − 3, is a fixture (a ball-shaped patch of the scene) and is ignored. The goal with most frames wins.
+ * frames within [t − 1, t + 3] s. A detection that sits at the same place (±8 px) in at least 80% of the sampled frames of that goal
+ * and in the first one (t − 3), is a fixture (a ball-shaped patch of the scene) and is ignored. The goal with most frames wins.
  */
 export function ballVerdict(samples: BallSample[], marks: GoalMarksByTeam, frame: Frame, t: number): BallVerdict | null {
     let best: BallVerdict | null = null
@@ -59,9 +62,12 @@ export function ballVerdict(samples: BallSample[], marks: GoalMarksByTeam, frame
         const m = marks[goal]
         const own = samples.filter((s) => s.goal === goal)
         if (!m || own.length === 0) continue
+        const first = own.reduce((a, s) => (s.timeSec < a.timeSec ? s : a))
+        const near = (c: { x: number; y: number }, s: BallSample): boolean =>
+            s.boxes.some((o) => { const q = centre(o); return Math.abs(q.x - c.x) <= STATIC_PX && Math.abs(q.y - c.y) <= STATIC_PX })
         const isStatic = (b: Box): boolean => {
             const c = centre(b)
-            return own.every((s) => s.boxes.some((o) => { const q = centre(o); return Math.abs(q.x - c.x) <= STATIC_PX && Math.abs(q.y - c.y) <= STATIC_PX }))
+            return near(c, first) && own.filter((s) => near(c, s)).length >= STATIC_SHARE * own.length
         }
         let frames = 0
         for (const s of own) {

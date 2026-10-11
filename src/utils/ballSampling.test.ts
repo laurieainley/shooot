@@ -37,12 +37,16 @@ describe('goalTiles', () => {
         expect(goalTiles({}, F)).toEqual([])
         expect(goalTiles({ team1: FAR, team2: NEAR }, F).map((t) => t.goal)).toEqual(['team1', 'team2'])
     })
-    it('should map the near goal replay rectangle onto the tile', () => {
+    it('should crop a pixel square around the near goal replay rectangle', () => {
         const [t] = goalTiles({ team1: NEAR }, F)
         const r = goalRectFromMarks(NEAR)
-        expect(t.sx).toBeCloseTo(r.x * F.w); expect(t.sy).toBeCloseTo(r.y * F.h)
-        expect(t.sw).toBeCloseTo(r.w * F.w); expect(t.sh).toBeCloseTo(r.h * F.h)
-        expect(t.sw * t.scaleX).toBeCloseTo(384); expect(t.sh * t.scaleY).toBeCloseTo(384)
+        expect(t.scaleX).toBe(t.scaleY); expect(t.sw).toBe(t.sh)
+        expect(t.sw).toBeCloseTo(Math.max(r.w * F.w, r.h * F.h)); expect(t.sw * t.scaleX).toBeCloseTo(384)
+        for (const p of [NEAR.postL, NEAR.postR, NEAR.barL, NEAR.barR]) {
+            expect(p.x * F.w).toBeGreaterThanOrEqual(t.sx); expect(p.x * F.w).toBeLessThanOrEqual(t.sx + t.sw)
+            expect(p.y * F.h).toBeGreaterThanOrEqual(t.sy); expect(p.y * F.h).toBeLessThanOrEqual(t.sy + t.sh)
+        }
+        expect(t.sx).toBeGreaterThanOrEqual(0); expect(t.sx + t.sw).toBeLessThanOrEqual(F.w)
     })
     it('should centre a native-scale 384 tile on the far goal mouth', () => {
         const [t] = goalTiles({ team1: FAR }, F)
@@ -90,6 +94,14 @@ describe('ballVerdict', () => {
     it('should ignore a detection that never moves, including at t − 3', () => {
         const s = [at(97, 'team1', inNear), at(98, 'team1', inNear), at(100, 'team1', box(3353, 1252, 60)), at(101, 'team1', inNear)]
         expect(ballVerdict(s, marks, F, 100)).toBeNull()
+    })
+    it('should still treat a resting ball as static when one frame misses it', () => {
+        const s = [at(97, 'team1', inNear), at(98, 'team1', inNear), at(99, 'team1'), at(100, 'team1', inNear), at(101, 'team1', inNear), at(102, 'team1', inNear), at(103, 'team1', inNear)]
+        expect(ballVerdict(s, marks, F, 100)).toBeNull()
+    })
+    it('should not treat a ball that arrives at t + 0.5 as static', () => {
+        const s = [at(97, 'team1'), at(98, 'team1'), at(99, 'team1'), at(100.5, 'team1', inNear), at(101, 'team1', inNear), at(102, 'team1', inNear), at(103, 'team1', inNear)]
+        expect(ballVerdict(s, marks, F, 100)).toEqual({ goal: 'team1', frames: 4 })
     })
     it('should keep a moving ball even when a static patch is also detected', () => {
         const patch = box(3300, 1300, 60)
