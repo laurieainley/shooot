@@ -125,7 +125,7 @@ describe('AppShell', () => {
 
     it('should put the preview bar below the video on the phone', () => {
         setWidth(false)
-        useAppState.setState({ isPreviewMode: true, previewSegments: [], previewSteps: [{ sourceIndex: 0, startSec: 0, endSec: 10, speed: 1, gain: 1, replay: false, clipIndex: 0 }], currentPreviewSegment: 0 })
+        useAppState.setState({ isPreviewMode: true, previewSegments: [], previewSteps: [{ sourceIndex: 0, startSec: 0, endSec: 10, speed: 1, gain: 1, replay: false, clipIndex: 0, eventIds: [] }], currentPreviewSegment: 0 })
         const { container } = render(<AppShell />)
         const bar = screen.getByRole('group', { name: 'Preview' })
         expect(container.querySelector('.stage')).not.toContainElement(bar)
@@ -165,7 +165,7 @@ describe('AppShell', () => {
 
         it('should float the preview bar over the picture rather than stacking it below', () => {
             setLandscape()
-            useAppState.setState({ isPreviewMode: true, previewSegments: [], previewSteps: [{ sourceIndex: 0, startSec: 0, endSec: 10, speed: 1, gain: 1, replay: false, clipIndex: 0 }], currentPreviewSegment: 0 })
+            useAppState.setState({ isPreviewMode: true, previewSegments: [], previewSteps: [{ sourceIndex: 0, startSec: 0, endSec: 10, speed: 1, gain: 1, replay: false, clipIndex: 0, eventIds: [] }], currentPreviewSegment: 0 })
             const { container } = render(<AppShell />)
             expect(container.querySelector('.stage')).toContainElement(screen.getByRole('group', { name: 'Preview' }))
         })

@@ -1295,3 +1295,15 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .range__label { font-size: 16px; }
 .range .btn-primary:disabled { opacity: .45; }
 .range__row .review__btn { flex: 0 0 10.5rem; }
+
+/* Preview: the events of the clip playing are highlighted in the list; during the slowed replay the icon is a flashing R. */
+.event-row[data-previewing] { background: color-mix(in srgb, var(--sh-text) 9%, transparent); box-shadow: inset 3px 0 0 var(--sh-text); }
+.event-row[data-previewing="replay"] .event-row__icon > * { visibility: hidden; }
+.event-row[data-previewing="replay"] .event-row__icon { position: relative; }
+.event-row[data-previewing="replay"] .event-row__icon::after {
+  content: 'R'; position: absolute; inset: 0; display: grid; place-items: center;
+  font: 800 12px/1 var(--sh-font-mono, ui-monospace, monospace); color: var(--sh-ground);
+  background: var(--sh-text); border-radius: 50%; animation: preview-replay-blink 1s steps(2, jump-none) infinite;
+}
+@keyframes preview-replay-blink { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .event-row[data-previewing="replay"] .event-row__icon::after { animation: none; } }

@@ -14,7 +14,7 @@ import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/hig
 import { relinkEvents as relinkByKey, linkedEvents } from './utils/relink'
 import { kickOffSec, resolveGlobalEvents, withMigratedKickOff } from './utils/matchClock'
 import { parseGoProName } from './utils/gopro'
-import { buildPreviewPlan, type PreviewStep } from './utils/preview'
+import { buildPreviewPlan, clipStep, type PreviewStep } from './utils/preview'
 import { normaliseGraphics, type GraphicsSettings } from './graphics/plan'
 
 const DEFAULT_GRAPHICS: GraphicsSettings = { cards: true, lowerThirds: true, replayTag: true, theme: 'shooot' }
@@ -92,6 +92,8 @@ type AppState = {
     exitPreview: () => void
     nextPreviewSegment: () => void
     prevPreviewSegment: () => void
+    /** Previous / next clip of the preview (its first step). */
+    stepPreviewClip: (dir: 1 | -1) => void
     // Teams, rosters and the event picker
     teams: Team[]
     /**
@@ -570,6 +572,10 @@ export const useAppState = create<AppState>()(
                 if (state.isPreviewMode && state.currentPreviewSegment < state.previewSteps.length - 1) {
                     set({ currentPreviewSegment: state.currentPreviewSegment + 1 })
                 }
+            },
+            stepPreviewClip: (dir) => {
+                const state = get()
+                if (state.isPreviewMode) set({ currentPreviewSegment: clipStep(state.previewSteps, state.currentPreviewSegment, dir) })
             },
             prevPreviewSegment: () => {
                 const state = get()

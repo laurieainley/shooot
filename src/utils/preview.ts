@@ -11,6 +11,7 @@ export type PreviewStep = {
     gain: number       // volume factor (replays play quieter, as rendered)
     replay: boolean
     clipIndex: number  // which clip of the reel this step belongs to
+    eventIds: string[] // the events in that clip (the event list highlights them while it plays)
     crop?: CropRect    // replays: the part of the picture shown (same as the render)
 }
 
@@ -24,6 +25,7 @@ export function buildPreviewPlan(segments: HighlightSegment[], durationsSec: num
         gain: c.gain ?? 1,
         replay: c.speed !== undefined,
         clipIndex,
+        eventIds: s.goals.map((g) => g.id),
         ...(c.crop ? { crop: c.crop } : {}),
     })))
 }
@@ -40,4 +42,20 @@ export function shouldAdvance(timeSec: number, step: PreviewStep, armed: boolean
 export function previewVolume(userVolume: number, step: Pick<PreviewStep, 'gain'>): number {
     const base = Number.isFinite(userVolume) ? userVolume : 1
     return Math.min(1, Math.max(0, base * step.gain))
+}
+
+/**
+ * The step to jump to for the previous / next clip ([ ] and the preview arrows): the first step of that clip, so a
+ * clip always starts from its normal-speed part. Previous from inside a clip's replay goes back to that clip's start.
+ */
+export function clipStep(steps: PreviewStep[], current: number, dir: 1 | -1): number {
+    const here = steps[current]
+    if (!here) return current
+    const first = (clip: number): number => steps.findIndex((s) => s.clipIndex === clip)
+    if (dir === -1) {
+        const start = first(here.clipIndex)
+        return start < current ? start : Math.max(0, first(here.clipIndex - 1))
+    }
+    const next = first(here.clipIndex + 1)
+    return next === -1 ? current : next
 }

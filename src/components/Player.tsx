@@ -175,6 +175,9 @@ export function Player() {
     useEffect(() => {
         const onSeek = (event: Event) => {
             const { fileIndex, timeSec } = (event as CustomEvent<{ fileIndex: number; timeSec: number }>).detail
+            // Watching an event (or scrubbing) during the preview leaves the preview first, so the two never fight.
+            const st = useAppState.getState()
+            if (st.isPreviewMode) st.exitPreview()
             seekRef.current(fileIndex, timeSec, true)
         }
         window.addEventListener('seekToGoal', onSeek)
