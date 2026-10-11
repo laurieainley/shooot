@@ -246,6 +246,21 @@ describe('EventLog replay toggle', () => {
     })
 })
 
+describe('EventLog undo of a discard', () => {
+    it('should enable Undo for a pending discard and undo it like ⌘Z', () => {
+        setup([kickOff(0)], { panel: null })
+        useAppState.setState({ suggestions: [], suggestionRun: null })
+        useAppState.getState().setSuggestions({ createdAt: 1, source: 'audio', configVersion: 1, analysedSec: 600, total: 1 }, [{ timeSec: 100, score: 3 }])
+        useAppState.setState({ undoStack: [] })
+        render(<EventLog />)
+        expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled()
+        act(() => { useAppState.getState().decideSuggestion(useAppState.getState().suggestions[0].id, { kind: 'reject' }) })
+        expect(screen.getByRole('button', { name: 'Undo' })).toBeEnabled()
+        fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+        expect(useAppState.getState().suggestions[0].status).toBe('pending')
+    })
+})
+
 describe('EventLog review button', () => {
     const run = { createdAt: 1, source: 'audio' as const, configVersion: 1, analysedSec: 600, total: 3 }
     const files = [vf('a.mp4')]

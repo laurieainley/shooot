@@ -41,7 +41,7 @@ export function EventLog() {
     const offsets = useAppState((s) => s.cumulativeOffsets)
     const matchStartTimeSec = useAppState(selectMatchStartSec)
     const clockLong = useAppState(selectClockLong)
-    const canUndo = useAppState((s) => s.undoStack.length > 0)
+    const canUndo = useAppState((s) => s.undoStack.length > 0 || (!!s.discardUndo && s.discardUndo.depth === s.undoStack.length))
     const canRedo = useAppState((s) => s.redoStack.length > 0)
     const coarse = useMediaQuery(COARSE_QUERY)
     const [selectedId, setSelectedId] = useState<string | null>(null)
