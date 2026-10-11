@@ -119,13 +119,12 @@ export function Player() {
 
     // Play / pause for the review card, which sits over the global shortcuts.
     useEffect(() => {
-        registerPlayerToggle(() => {
+        return registerPlayerToggle(() => {
             const p = playerRef.current as ShortcutPlayer | null
             if (!p) return
             if (p.paused()) void Promise.resolve(p.play()).catch(() => undefined)
             else p.pause()
         })
-        return () => registerPlayerToggle(null)
     }, [])
 
     // Listen for seekToGoal events

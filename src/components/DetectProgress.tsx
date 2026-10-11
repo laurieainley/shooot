@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react'
+import { useAppState } from '../state'
 import { cancelDetection, startDetection, useDetectJob } from '../detectJobs'
 import { openFindGoals } from './findGoals'
 import { listeningLine } from '../utils/voice'
@@ -32,11 +34,24 @@ export function DetectProgress() {
 
 /** Nothing (current) to review: the run was cancelled, never started, or the videos changed since it. Offer to start. */
 export function DetectIdle({ cancelled, stale = false }: { cancelled?: boolean; stale?: boolean }) {
+    const hasOld = useAppState((s) => s.suggestions.length > 0)
+    const [confirming, setConfirming] = useState(false)
+    const dialogRef = useRef<HTMLDivElement | null>(null)
+    useEffect(() => { if (confirming) dialogRef.current?.focus() }, [confirming])
+    if (stale && hasOld && confirming) {
+        return (
+            <div ref={dialogRef} tabIndex={-1} role="alertdialog" aria-label="Clear old suggestions" className="review__status">
+                <p className="m-0">The videos changed since the last Find goals. Clear the old suggestions and look for goals in these videos?</p>
+                <button type="button" className="btn-primary review__btn" onClick={() => { useAppState.getState().clearSuggestions(); startDetection() }}>Clear and find goals</button>
+                <button type="button" className="btn-quiet review__btn" onClick={() => setConfirming(false)}>Cancel</button>
+            </div>
+        )
+    }
     return (
         <div className="review__status">
             {stale && <p className="m-0">The videos changed since the last Find goals.</p>}
             {cancelled && <p className="m-0">Find goals was cancelled.</p>}
-            <button type="button" className="btn-quiet review__btn" onClick={() => openFindGoals(true)}>Find goals</button>
+            <button type="button" className="btn-quiet review__btn" onClick={() => (stale && hasOld ? setConfirming(true) : openFindGoals(true))}>Find goals</button>
         </div>
     )
 }

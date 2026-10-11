@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { GoalAreas, KeepType, MarkerType, MatchEvent, Suggestion, SuggestionRun, Team, VideoSourceFile } from './types'
 import type { ScoredMoment } from './utils/goalAudioScore'
-import { effectiveStatus, mergeSuggestions } from './utils/suggestions'
+import { effectiveStatus, firstPendingIndex, mergeSuggestions, runMatchesFiles } from './utils/suggestions'
 import { globalToFileTime } from './utils/matchStrip'
 import { AUDIO_DETECT } from './detect/detectConfig'
 import { replayOptionsFor } from './utils/attack'
@@ -463,8 +463,12 @@ export const useAppState = create<AppState>()(
                 const id = (): string => `sug-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
                 const ids = new Set(get().events.map((e) => e.id))
                 // A keep whose event was undone is effectively pending: let the merge replace it.
-                const prev = get().suggestions.map((x): Suggestion => (effectiveStatus(x, ids) === 'pending' && x.status !== 'pending' ? { ...x, status: 'pending', keptAs: undefined, eventId: undefined } : x))
-                set({ suggestions: mergeSuggestions(prev, moments, AUDIO_DETECT.minGapSec, id), suggestionRun: run, reviewIndex: 0 })
+                // Never merge decisions made on other footage: a run on different files replaces everything.
+                const old = get().suggestionRun
+                const sameFootage = !old?.fileKeys || !run.fileKeys || runMatchesFiles(old, run.fileKeys)
+                const prev = (sameFootage ? get().suggestions : []).map((x): Suggestion => (effectiveStatus(x, ids) === 'pending' && x.status !== 'pending' ? { ...x, status: 'pending', keptAs: undefined, eventId: undefined } : x))
+                const merged = mergeSuggestions(prev, moments, AUDIO_DETECT.minGapSec, id)
+                set({ suggestions: merged, suggestionRun: run, reviewIndex: firstPendingIndex(merged, ids) })
             },
             decideSuggestion: (id, decision) => {
                 const st = get()

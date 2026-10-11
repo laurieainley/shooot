@@ -3,10 +3,11 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppState } from '../state'
 
+const startDetectionMock = vi.hoisted(() => vi.fn())
 const job = vi.hoisted(() => ({ phase: 'done', fraction: 1, error: null as string | null }))
 vi.mock('../detectJobs', () => ({
     useDetectJob: (sel: (s: { phase: string; fraction: number; error: string | null; scores: null }) => unknown) => sel({ phase: job.phase, fraction: job.fraction, error: job.error, scores: null }),
-    startDetection: vi.fn(), cancelDetection: vi.fn(), getDetectJob: () => ({ phase: 'done' }),
+    startDetection: (...a: unknown[]) => startDetectionMock(...a), cancelDetection: vi.fn(), getDetectJob: () => ({ phase: 'done' }),
 }))
 import { SuggestionReview } from './SuggestionReview'
 import { openFindGoals } from './findGoals'
@@ -110,11 +111,11 @@ describe('SuggestionReview', () => {
     })
     it('should play or pause the player with Space', () => {
         const toggle = vi.fn()
-        registerPlayerToggle(toggle)
+        const unregister = registerPlayerToggle(toggle)
         render(<SuggestionReview onClose={() => {}} />)
         act(() => { fireEvent.keyDown(window, { key: ' ' }) })
         expect(toggle).toHaveBeenCalledTimes(1)
-        registerPlayerToggle(null)
+        unregister()
     })
     it('should open at the first pending suggestion, or the summary when none is pending', () => {
         act(() => { useAppState.getState().decideSuggestion(useAppState.getState().suggestions[0].id, { kind: 'reject' }) })
@@ -178,6 +179,48 @@ describe('SuggestionReview', () => {
             await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' })) })
             expect(screen.getByText("Couldn't copy — select and copy the text below.")).toBeTruthy()
             expect((screen.getByLabelText('Text to copy') as HTMLTextAreaElement).value).toContain('Find goals (Beta)')
+        })
+    })
+    describe('videos changed', () => {
+        const stale = (): void => {
+            useAppState.getState().decideSuggestion(useAppState.getState().suggestions[0].id, { kind: 'reject' })
+            useAppState.setState({ suggestionRun: { ...run, fileKeys: ['somethingelse'] } })
+        }
+        it('should ask before clearing old suggestions, then clear and start', () => {
+            stale()
+            startDetectionMock.mockClear()
+            render(<SuggestionReview onClose={() => {}} />)
+            fireEvent.click(screen.getByRole('button', { name: 'Find goals' }))
+            expect(screen.getByRole('alertdialog', { name: 'Clear old suggestions' })).toHaveTextContent('Clear the old suggestions and look for goals in these videos?')
+            expect(startDetectionMock).not.toHaveBeenCalled()
+            fireEvent.click(screen.getByRole('button', { name: 'Clear and find goals' }))
+            expect(useAppState.getState().suggestions).toEqual([])
+            expect(startDetectionMock).toHaveBeenCalledTimes(1)
+        })
+        it('should change nothing on Cancel', () => {
+            stale()
+            startDetectionMock.mockClear()
+            render(<SuggestionReview onClose={() => {}} />)
+            fireEvent.click(screen.getByRole('button', { name: 'Find goals' }))
+            fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+            expect(screen.queryByRole('alertdialog')).toBeNull()
+            expect(useAppState.getState().suggestions).toHaveLength(2)
+            expect(startDetectionMock).not.toHaveBeenCalled()
+        })
+        it('should replace, not merge, a run on different videos', () => {
+            stale()
+            useAppState.getState().setSuggestions({ ...run, fileKeys: ['new'] }, [{ timeSec: 100, score: 3 }])
+            const s = useAppState.getState().suggestions
+            expect(s).toHaveLength(1)
+            expect(s[0].status).toBe('pending')
+        })
+        it('should still merge decisions when the videos are the same, and open at the first pending one', () => {
+            useAppState.setState({ suggestionRun: { ...run, fileKeys: ['A.MP4'] } })
+            useAppState.getState().decideSuggestion(useAppState.getState().suggestions[0].id, { kind: 'reject' })
+            useAppState.getState().setSuggestions({ ...run, fileKeys: ['A.MP4'] }, [{ timeSec: 400, score: 3 }])
+            const st = useAppState.getState()
+            expect(st.suggestions.map((x) => x.status)).toEqual(['rejected', 'pending'])
+            expect(st.reviewIndex).toBe(1)
         })
     })
 })
