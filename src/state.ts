@@ -465,8 +465,9 @@ export const useAppState = create<AppState>()(
             setLabs: (on) => set({ labs: on }),
             setSuggestionBall: (id, ball) => set({ suggestions: get().suggestions.map((x) => {
                 if (x.id !== id) return x
-                const { ball: _old, ...rest } = x
-                return ball ? { ...rest, ball } : rest
+                const next = { ...x, ball: ball ?? undefined }
+                if (!ball) delete next.ball
+                return next
             }) }),
             setMatchdayLabel: (label) => set({ matchdayLabel: label?.trim() ? label : null }),
             setTeamInitials: (index, initials) => set({
