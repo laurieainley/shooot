@@ -1,6 +1,6 @@
 // TNF graphics as draw-op lists in a 1920×1080 design space (paint.ts scales them to the output size).
 // Visual language: the league badge: sky-blue rounded panels with a white rim, shirt-yellow tabs and pills, orange/white
-// 45° stripes, navy ground. No lean. Voices: baloo (everything loud), mono (clocks and minutes).
+// 45° stripes, navy ground. No lean. Voices: display (Barlow Condensed ExtraBold Italic, every word), mono (clocks and minutes).
 import type { Box } from '../../paint'
 import { MULTI_OUTLINE } from '../../teamFill'
 import type { BugSpec, CaptionSpec, CardSpec, ScorerLine } from '../../types'
@@ -35,8 +35,8 @@ type Shape = Exclude<DrawOp, BackgroundOp | BandOp>
 /** Text width in design pixels; the painter supplies real font metrics, tests use the estimate. */
 export type MeasureText = (text: string, size: number, voice?: FontVoice) => number
 
-const EM_WIDTH: Record<FontVoice, number> = { baloo: 0.6, mono: 0.6 }
-export function estimateTextWidth(text: string, size: number, voice: FontVoice = 'baloo'): number {
+const EM_WIDTH: Record<FontVoice, number> = { display: 0.55, mono: 0.6 }
+export function estimateTextWidth(text: string, size: number, voice: FontVoice = 'display'): number {
     return text.length * size * EM_WIDTH[voice]
 }
 
@@ -53,12 +53,12 @@ const txt = (text: string, x: number, y: number, size: number, color: string, vo
 
 /** Three stars, plus a star either side of a heading: the badge's ornament. */
 const headingRow = (text: string, cy: number, size: number, maxWidth: number, measure: MeasureText): DrawOp[] => {
-    const w = Math.min(maxWidth, measure(text, size, 'baloo'))
+    const w = Math.min(maxWidth, measure(text, size, 'display'))
     const r = size * 0.42
     const off = w / 2 + r * 2.2
     return [
         { kind: 'stars', cx: 960 - off, cy, r, count: 1, fill: T.white },
-        txt(text, 960, cy, size, T.yellow, 'baloo', 'center', { maxWidth }),
+        txt(text, 960, cy, size, T.yellow, 'display', 'center', { maxWidth }),
         { kind: 'stars', cx: 960 + off, cy, r, count: 1, fill: T.white },
     ]
 }
@@ -73,7 +73,7 @@ function scorerColumn(lines: ScorerLine[], cx: number): DrawOp[] {
     const ops: DrawOp[] = []
     shown.forEach((l, i) => {
         const y = SCORER_Y + i * SCORER_STEP
-        ops.push(txt(l.name, cx - 16, y, 46, T.white, 'baloo', 'right', { maxWidth: 330 }))
+        ops.push(txt(l.name, cx - 16, y, 46, T.white, 'display', 'right', { maxWidth: 330 }))
         ops.push(txt(l.minutes, cx + 16, y, 36, T.yellow, 'mono', 'left', { maxWidth: 300 }))
     })
     if (shown.length < lines.length) {
@@ -103,7 +103,7 @@ const PLATE_W = 520
 function teamPlate(t: CardSpec['left'], cx: number, cy: number, h: number, size: number): DrawOp[] {
     return [
         { kind: 'rect', x: cx - PLATE_W / 2, y: cy - h / 2, w: PLATE_W, h, r: 14, fill: T.sky, ...rim },
-        txt(t.name, cx, cy, size, T.white, 'baloo', 'center', { maxWidth: PLATE_W - 56, ...(t.colour === 'multi' ? { outline: MULTI_OUTLINE } : {}) }),
+        txt(t.name, cx, cy, size, T.white, 'display', 'center', { maxWidth: PLATE_W - 56, ...(t.colour === 'multi' ? { outline: MULTI_OUTLINE } : {}) }),
         { kind: 'rect', x: cx - 70, y: cy + h / 2 + 16, w: 140, h: 10, r: 5, fill: t.colour },
     ]
 }
@@ -117,13 +117,13 @@ export function cardLayout(spec: CardSpec, t: number, duration: number, hasLogo:
         ops.push(...headingRow(spec.heading, 590, 52, 1000, measure))
         ops.push(...teamPlate(spec.left, 520, 760, 150, 66), ...teamPlate(spec.right, 1400, 760, 150, 66))
         ops.push({ kind: 'rect', x: 850, y: 665, w: 220, h: 190, r: 18, fill: T.yellow, ...rim })
-        ops.push(txt(spec.centre, 960, 760, 100, T.navy, 'baloo', 'center', { maxWidth: 190 }))
+        ops.push(txt(spec.centre, 960, 760, 100, T.navy, 'display', 'center', { maxWidth: 190 }))
     } else {
         if (hasLogo) ops.push({ kind: 'logo', x: 960, y: 40, h: 320, align: 'center' })
         ops.push(...headingRow(spec.heading, 400, 50, 900, measure))
         ops.push(...teamPlate(spec.left, 450, 570, 130, 58), ...teamPlate(spec.right, 1470, 570, 130, 58))
         ops.push({ kind: 'rect', x: 790, y: 485, w: 340, h: 170, r: 18, fill: T.yellow, ...rim })
-        ops.push(txt(spec.centre, 960, 570, 104, T.navy, 'baloo', 'center', { maxWidth: 300 }))
+        ops.push(txt(spec.centre, 960, 570, 104, T.navy, 'display', 'center', { maxWidth: 300 }))
         if (spec.scorers) ops.push(...scorerColumn(spec.scorers.left, 450), ...scorerColumn(spec.scorers.right, 1470))
         ops.push(...endLine(measure))
     }
@@ -164,7 +164,7 @@ function bugRow(bug: BugSpec, hasLogo: boolean, measure: MeasureText, x0: number
     const bar = 8
     const cy = y + BUG_H / 2
     const logoW = hasLogo ? 62 : 0
-    const initialsW = Math.max(measure(bug.left, initialsSize, 'baloo'), measure(bug.right, initialsSize, 'baloo')) + 2 * pad
+    const initialsW = Math.max(measure(bug.left, initialsSize, 'display'), measure(bug.right, initialsSize, 'display')) + 2 * pad
     const pillW = Math.max(100, measure(bug.text, scoreSize, 'mono') + 2 * 22)
     const inner = 16 + logoW + (hasLogo ? 10 : 0)
     const right = x0 + inner + bar + initialsW + pillW + initialsW + bar + 16
@@ -175,11 +175,11 @@ function bugRow(bug: BugSpec, hasLogo: boolean, measure: MeasureText, x0: number
         x += logoW + 10
     }
     ops.push({ kind: 'rect', x, y: y + 14, w: bar, h: BUG_H - 28, r: 4, fill: bug.leftColour })
-    ops.push(txt(bug.left, x + bar + initialsW / 2, cy, initialsSize, T.white, 'baloo', 'center'))
+    ops.push(txt(bug.left, x + bar + initialsW / 2, cy, initialsSize, T.white, 'display', 'center'))
     const sx = x + bar + initialsW
     ops.push({ kind: 'rect', x: sx, y: y + 10, w: pillW, h: BUG_H - 20, r: (BUG_H - 20) / 2, fill: T.yellow })
     ops.push(txt(bug.text, sx + pillW / 2, cy, scoreSize, T.navy, 'mono', 'center'))
-    ops.push(txt(bug.right, sx + pillW + initialsW / 2, cy, initialsSize, T.white, 'baloo', 'center'))
+    ops.push(txt(bug.right, sx + pillW + initialsW / 2, cy, initialsSize, T.white, 'display', 'center'))
     ops.push({ kind: 'rect', x: sx + pillW + initialsW, y: y + 14, w: bar, h: BUG_H - 28, r: 4, fill: bug.rightColour })
     return { ops, right }
 }
@@ -219,13 +219,13 @@ export function captionLayout(spec: CaptionSpec, t: number, hasLogo: boolean, du
     const tabX = BUG_X + 8
     const tabH = EVENT_H - 16
     const textX = tabX + (stripeW ? stripeW + 14 : 18)
-    const tabRight = textX + measure(spec.label, labelSize, 'baloo') + 18
-    const subW = Math.max(0, ...subLines.map((s) => measure(s, subSize, 'baloo')))
+    const tabRight = textX + measure(spec.label, labelSize, 'display') + 18
+    const subW = Math.max(0, ...subLines.map((s) => measure(s, subSize, 'display')))
 
     // The event line after the tab: name, OG chip, minute. The name gives way (maxWidth) before the caption passes the limit.
     const chipW = tone === 'ownGoal' ? measure('OG', 28, 'mono') + 2 * 10 : 0
     const minuteW = spec.minute ? measure(spec.minute, minuteSize, 'mono') : 0
-    const nameFull = spec.person ? measure(spec.person, nameSize, 'baloo') : 0
+    const nameFull = spec.person ? measure(spec.person, nameSize, 'display') : 0
     const fixed = (chipW ? gap + chipW : 0) + (minuteW ? gap + minuteW : 0)
     const nameX = tabRight + pad
     const nameW = Math.max(0, Math.min(nameFull, CAPTION_MAX_RIGHT - pad - nameX - fixed))
@@ -240,8 +240,8 @@ export function captionLayout(spec: CaptionSpec, t: number, hasLogo: boolean, du
         { kind: 'rect', x: tabX, y: cy - tabH / 2, w: tabRight - tabX, h: tabH, r: 10, fill: T.yellow },
     ]
     if (stripeW) event.push({ kind: 'stripes', x: tabX, y: cy - tabH / 2, w: stripeW, h: tabH, r: 10, sw: 9 })
-    event.push(txt(spec.label, textX, cy, labelSize, T.navy, 'baloo', 'left'))
-    if (spec.person) event.push(txt(spec.person, nameX, cy, nameSize, T.white, 'baloo', 'left', { maxWidth: Math.max(40, nameW) }))
+    event.push(txt(spec.label, textX, cy, labelSize, T.navy, 'display', 'left'))
+    if (spec.person) event.push(txt(spec.person, nameX, cy, nameSize, T.white, 'display', 'left', { maxWidth: Math.max(40, nameW) }))
     if (chipW) {
         const chipX = hasLine && spec.person ? cursor + gap : nameX
         const chipH = 38
@@ -251,7 +251,7 @@ export function captionLayout(spec: CaptionSpec, t: number, hasLogo: boolean, du
     }
     if (spec.minute) event.push(txt(spec.minute, spec.person || chipW ? cursor + gap : nameX, cy, minuteSize, T.yellow, 'mono', 'left'))
     subLines.forEach((text, i) => {
-        event.push(txt(text, textX, top + EVENT_H + NOTE_H * i + NOTE_H / 2 - 6, subSize, T.white, 'baloo', 'left', { maxWidth: Math.max(80, right - pad - textX) }))
+        event.push(txt(text, textX, top + EVENT_H + NOTE_H * i + NOTE_H / 2 - 6, subSize, T.white, 'display', 'left', { maxWidth: Math.max(80, right - pad - textX) }))
     })
     const m = motion(t, duration)
     return withMotion([...(bug ? bug.ops : []), ...event], m.alpha, m.dx)
@@ -267,7 +267,7 @@ export function replayTagLayout(t: number, duration: number, measure: MeasureTex
     const text = `REPLAY ${formatSpeed(speed)}`
     const pad = 30
     // Wide enough for the text in whatever font is in use (a fallback face is wider than the real one).
-    const w = Math.max(200, measure(text, size, 'baloo') + 2 * pad)
+    const w = Math.max(200, measure(text, size, 'display') + 2 * pad)
     const x = DESIGN_W - SAFE_X - w - RIM / 2
     const cy = SAFE_Y + REPLAY_H / 2
     // Appears and disappears instantly (no fade or slide), unlike the captions.
@@ -275,7 +275,7 @@ export function replayTagLayout(t: number, duration: number, measure: MeasureTex
     void duration
     const ops: Shape[] = [
         { kind: 'rect', x, y: SAFE_Y, w, h: REPLAY_H, r: REPLAY_H / 2, fill: T.yellow, ...rim },
-        txt(text, x + w / 2, cy, size, T.navy, 'baloo', 'center'),
+        txt(text, x + w / 2, cy, size, T.navy, 'display', 'center'),
     ]
     return ops.map((o) => ({ ...o, alpha: 1 }))
 }

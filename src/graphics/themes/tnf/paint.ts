@@ -12,7 +12,7 @@ function setVoice(ctx: Ctx, voice: FontVoice, size: number): void {
 const INK_REFERENCE = 'H0'
 
 /** Ascent / descent of a voice's capitals at `size`, measured by the platform rather than guessed. */
-export function textInkMetrics(ctx: Ctx, size: number, voice: FontVoice = 'baloo'): { ascent: number; descent: number } {
+export function textInkMetrics(ctx: Ctx, size: number, voice: FontVoice = 'display'): { ascent: number; descent: number } {
     ctx.save()
     setVoice(ctx, voice, size)
     ctx.textBaseline = 'alphabetic'
@@ -26,7 +26,7 @@ export function textInkMetrics(ctx: Ctx, size: number, voice: FontVoice = 'baloo
 
 /** Real text widths for layouts, from the canvas's font metrics. */
 export function measureWith(ctx: Ctx): MeasureText {
-    return (text, size, voice = 'baloo') => {
+    return (text, size, voice = 'display') => {
         ctx.save()
         setVoice(ctx, voice, size)
         const w = ctx.measureText(text).width
