@@ -111,7 +111,7 @@ describe('SuggestionReview', () => {
     })
     it('should confirm the pre-selected team with Enter', async () => {
         const { SuggestionCard } = await import('./SuggestionCard')
-        render(<SuggestionCard suggestion={useAppState.getState().suggestions[0]} index={0} total={2} onNext={() => {}} onPrev={() => {}} preselectTeam="Colours" />)
+        render(<SuggestionCard suggestion={useAppState.getState().suggestions[0]} index={0} total={2} onNext={() => {}} onSaved={() => {}} onPrev={() => {}} preselectTeam="Colours" />)
         press('o'); press('Enter')
         expect(useAppState.getState().events[0]).toMatchObject({ type: 'own_goal', team: 'Colours' })
     })
@@ -122,6 +122,37 @@ describe('SuggestionReview', () => {
         act(() => { fireEvent.keyDown(window, { key: ' ' }) })
         expect(toggle).toHaveBeenCalledTimes(1)
         unregister()
+    })
+    it('should not activate a focused button with Space: it only plays or pauses', () => {
+        const toggle = vi.fn()
+        const unregister = registerPlayerToggle(toggle)
+        render(<SuggestionReview onClose={() => {}} />)
+        const skip = screen.getByRole('button', { name: /Skip/ })
+        skip.focus()
+        const down = fireEvent.keyDown(skip, { key: ' ' })
+        const up = fireEvent.keyUp(skip, { key: ' ' })
+        expect(toggle).toHaveBeenCalledTimes(1)
+        expect(down).toBe(false) // default prevented
+        expect(up).toBe(false)
+        unregister()
+    })
+    it('should step to a decided suggestion going forward, and save on to the next one still to review', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }, { timeSec: 300, score: 4 }, { timeSec: 500, score: 3 }])
+        act(() => { useAppState.getState().decideSuggestion(useAppState.getState().suggestions[1].id, { kind: 'keep', type: 'save', atSec: 301.5 }) })
+        render(<SuggestionReview onClose={() => {}} />)
+        press('ArrowRight')
+        expect(screen.getByText(/Suggestion 2 of 3/)).toBeTruthy()
+        press('ArrowLeft')
+        press('x'); press('Enter')
+        expect(screen.getByText(/Suggestion 3 of 3/)).toBeTruthy()
+    })
+    it('should show the saved moment and choice when coming back to a kept suggestion', () => {
+        act(() => { useAppState.getState().decideSuggestion(useAppState.getState().suggestions[0].id, { kind: 'keep', type: 'goal', team: 'Colours', atSec: 101.5 }) })
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy()
+        expect(screen.getByRole('button', { name: /Mark again/ }).textContent).toMatch(/01:41\.5.*marked/)
+        expect(screen.getByRole('button', { name: 'Change what it was' }).textContent).toMatch(/Goal · Colours/)
+        expect(screen.getByRole('button', { name: /Next/ })).toBeTruthy()
     })
     it('should open at the first pending suggestion, or the summary when none is pending', () => {
         act(() => { useAppState.getState().decideSuggestion(useAppState.getState().suggestions[0].id, { kind: 'reject' }) })
@@ -331,14 +362,14 @@ describe('SuggestionReview', () => {
         })
         it('should pre-select the given team and show the hint slot', async () => {
             const { SuggestionCard } = await import('./SuggestionCard')
-            render(<SuggestionCard suggestion={useAppState.getState().suggestions[0]} index={0} total={2} onNext={() => {}} onPrev={() => {}} preselectTeam="Colours" hint="Ball in Colours' goal" />)
+            render(<SuggestionCard suggestion={useAppState.getState().suggestions[0]} index={0} total={2} onNext={() => {}} onSaved={() => {}} onPrev={() => {}} preselectTeam="Colours" hint="Ball in Colours' goal" />)
             expect(screen.getByText("Ball in Colours' goal")).toBeTruthy()
             press('g')
             expect(screen.getByRole('button', { name: /Colours/ })).toHaveAttribute('aria-pressed', 'true')
         })
         describe('late ball tag', () => {
             const card = (extra: { preselectType?: 'goal'; preselectTeam?: string }) => {
-                return import('./SuggestionCard').then(({ SuggestionCard }) => <SuggestionCard suggestion={useAppState.getState().suggestions[0]} index={0} total={2} onNext={() => {}} onPrev={() => {}} {...extra} />)
+                return import('./SuggestionCard').then(({ SuggestionCard }) => <SuggestionCard suggestion={useAppState.getState().suggestions[0]} index={0} total={2} onNext={() => {}} onSaved={() => {}} onPrev={() => {}} {...extra} />)
             }
             it('should not re-select Goal after the user cleared the choice on the open card', async () => {
                 const { rerender } = render(await card({}))

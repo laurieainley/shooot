@@ -49,3 +49,23 @@ export function useFrameAt(url: string | null | undefined, atSec: number | null)
     if (!key) return { status: 'idle', frame: null }
     return state.key === key ? { status: state.status, frame: state.frame } : { status: 'loading', frame: null }
 }
+
+/**
+ * Like `useFrameAt`, but for a picture the user scrubs through: the previous frame stays on show until the next one
+ * is ready (`status` is 'loading' meanwhile), and a failed grab keeps the last good frame. Pass a null url to do nothing.
+ */
+export function useStillAt(url: string | null | undefined, atSec: number | null, maxWidth = 960): FrameState {
+    const [state, setState] = useState<FrameState & { key: string }>({ status: 'idle', frame: null, key: '' })
+    const key = url && atSec !== null ? `${url}@${Math.round(atSec * 10)}@${maxWidth}` : ''
+    useEffect(() => {
+        if (!key || !url || atSec === null) return
+        let live = true
+        grabFrame(url, atSec, maxWidth)
+            .then((frame) => { if (live) setState({ status: 'ready', frame, key }) })
+            .catch(() => { if (live) setState((s) => ({ status: 'error', frame: s.frame, key })) })
+        return () => { live = false }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [key])
+    if (!key) return { status: 'idle', frame: null }
+    return state.key === key ? { status: state.status, frame: state.frame } : { status: 'loading', frame: state.frame }
+}

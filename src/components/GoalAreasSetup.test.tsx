@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import { defaultGoalAreas } from '../utils/crop'
@@ -8,7 +8,8 @@ import { GoalAreasSetup } from './GoalAreasSetup'
 import { Sheet } from './Sheet'
 
 const useFrameAt = vi.hoisted(() => vi.fn())
-vi.mock('./frameGrab', () => ({ useFrameAt }))
+const useStillAt = vi.hoisted(() => vi.fn())
+vi.mock('./frameGrab', () => ({ useFrameAt, useStillAt }))
 const READY = { status: 'ready', frame: { src: 'data:image/jpeg;base64,AA==', aspect: 16 / 9 } }
 const file = { id: 'a', name: 'a.mp4', url: 'blob:a', file: new File([''], 'a.mp4'), durationSec: 600, kind: 'full' as const }
 
@@ -16,12 +17,15 @@ describe('GoalAreasSetup', () => {
     beforeEach(() => {
         useFrameAt.mockReset()
         useFrameAt.mockReturnValue(READY)
+        useStillAt.mockReset()
+        useStillAt.mockReturnValue(READY)
         useAppState.setState({ files: [file], goalAreas: null, teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#c00', roster: [] }] })
     })
 
     it('should grab the frame from the middle of the first file', () => {
         render(<GoalAreasSetup />)
         expect(useFrameAt).toHaveBeenCalledWith('blob:a', 300)
+        expect(useStillAt).toHaveBeenCalledWith(null, 300, 3840) // no full-size grab until a goal is being marked
     })
 
     it('should offer to set the goal areas and then show a box for each goal', async () => {
@@ -110,15 +114,15 @@ describe('GoalAreasSetup', () => {
         const M = { postL: { x: 0.2, y: 0.6 }, postR: { x: 0.4, y: 0.6 }, barL: { x: 0.2, y: 0.4 }, barR: { x: 0.4, y: 0.4 } }
         const setup = (): void => { useAppState.setState({ goalAreas: defaultGoalAreas(), goalMarks: null }) }
 
-        it('should offer Mark goal per goal without marks and Edit/Clear with marks', () => {
+        it('should offer one button per goal: Mark without marks, Edit with marks', () => {
             useAppState.setState({ goalAreas: defaultGoalAreas(), goalMarks: { team1: M } })
             render(<GoalAreasSetup />)
-            expect(screen.getByRole('button', { name: /^Edit Whites' goal marks/ })).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: /^Clear Whites' goal marks/ })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /^Edit Whites' goal/ })).toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: /^Clear/ })).not.toBeInTheDocument()
             expect(screen.getAllByRole('button', { name: /^Mark Colours' goal/ })).toHaveLength(1)
         })
 
-        it('should store the marks and update the rectangle on Done, hiding the boxes while editing', async () => {
+        it('should store the marks on Done and leave the existing box alone, hiding the boxes while editing', async () => {
             setup()
             render(<GoalAreasSetup />)
             await userEvent.click(screen.getByRole('button', { name: /^Mark Whites' goal/ }))
@@ -128,49 +132,66 @@ describe('GoalAreasSetup', () => {
             for (const [x, y] of [[200, 337.5], [400, 337.5], [200, 225], [400, 225]]) fireEvent.click(pic, { clientX: x, clientY: y })
             await userEvent.click(screen.getByRole('button', { name: 'Done' }))
             expect(useAppState.getState().goalMarks).toEqual({ team1: M })
-            expect(useAppState.getState().goalAreas!.team1).not.toEqual(defaultGoalAreas().team1)
+            expect(useAppState.getState().goalAreas!.team1).toEqual(defaultGoalAreas().team1)
             expect(screen.getByRole('group', { name: "Whites' goal box" })).toBeInTheDocument()
         })
 
         it('should keep the old marks on Cancel', async () => {
             useAppState.setState({ goalAreas: defaultGoalAreas(), goalMarks: { team1: M } })
             render(<GoalAreasSetup />)
-            await userEvent.click(screen.getByRole('button', { name: /^Edit Whites' goal marks/ }))
+            await userEvent.click(screen.getByRole('button', { name: /^Edit Whites' goal/ }))
             await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
             expect(useAppState.getState().goalMarks).toEqual({ team1: M })
         })
 
-        it('should clear only the marks on Clear marks', async () => {
+        it('should clear only the marks with Clear marks inside the editor', async () => {
             useAppState.setState({ goalAreas: defaultGoalAreas(), goalMarks: { team1: M } })
             render(<GoalAreasSetup />)
-            await userEvent.click(screen.getByRole('button', { name: /^Clear Whites' goal marks/ }))
+            await userEvent.click(screen.getByRole('button', { name: /^Edit Whites' goal/ }))
+            await userEvent.click(screen.getByRole('button', { name: 'Clear marks' }))
             expect(useAppState.getState().goalMarks).toBeNull()
-            expect(useAppState.getState().goalAreas).not.toBeNull()
+            expect(useAppState.getState().goalAreas).toEqual(defaultGoalAreas())
+            expect(screen.getByRole('button', { name: /^Mark Whites' goal/ })).toBeInTheDocument()
+        })
+
+        it('should remember the chosen moment for the next goal and grab at full size', async () => {
+            vi.useFakeTimers({ shouldAdvanceTime: true })
+            try {
+                setup()
+                render(<GoalAreasSetup />)
+                await userEvent.click(screen.getByRole('button', { name: /^Mark Whites' goal/ }))
+                expect(useStillAt).toHaveBeenLastCalledWith('blob:a', 300, 3840)
+                fireEvent.change(screen.getByRole('slider'), { target: { value: '90' } })
+                await act(async () => { await vi.advanceTimersByTimeAsync(200) })
+                expect(useStillAt).toHaveBeenLastCalledWith('blob:a', 90, 3840)
+                await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+                await userEvent.click(screen.getByRole('button', { name: /^Mark Colours' goal/ }))
+                expect(screen.getByText('1:30')).toBeInTheDocument()
+            } finally { vi.useRealTimers() }
         })
 
         it('should hide the box actions while the marking editor is open', async () => {
             useAppState.setState({ goalAreas: defaultGoalAreas(), goalMarks: { team1: M } })
             render(<GoalAreasSetup />)
-            await userEvent.click(screen.getByRole('button', { name: /^Edit Whites' goal marks/ }))
+            await userEvent.click(screen.getByRole('button', { name: /^Edit Whites' goal/ }))
             for (const name of ['Swap which goal is whose', 'Reset boxes', 'Remove']) expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
-            expect(screen.queryByRole('button', { name: /^Clear Whites/ })).not.toBeInTheDocument()
-        })
+                    })
 
         it('should return focus to the goal button after Done', async () => {
             useAppState.setState({ goalAreas: defaultGoalAreas(), goalMarks: { team1: M } })
             render(<GoalAreasSetup />)
-            await userEvent.click(screen.getByRole('button', { name: /^Edit Whites' goal marks/ }))
+            await userEvent.click(screen.getByRole('button', { name: /^Edit Whites' goal/ }))
             await userEvent.click(screen.getByRole('button', { name: 'Skip' }))
             await userEvent.click(screen.getByRole('button', { name: 'Skip' }))
             await userEvent.click(screen.getByRole('button', { name: 'Done' }))
-            expect(screen.getByRole('button', { name: /^Edit Whites' goal marks/ })).toHaveFocus()
+            expect(screen.getByRole('button', { name: /^Edit Whites' goal/ })).toHaveFocus()
         })
 
         it('should cancel only the editor on Escape inside a Sheet, then close the sheet on the next Escape', async () => {
             useAppState.setState({ goalAreas: defaultGoalAreas(), goalMarks: { team1: M } })
             const onClose = vi.fn()
             render(<Sheet label="Setup" onClose={onClose}><GoalAreasSetup /></Sheet>)
-            await userEvent.click(screen.getByRole('button', { name: /^Edit Whites' goal marks/ }))
+            await userEvent.click(screen.getByRole('button', { name: /^Edit Whites' goal/ }))
             expect(screen.getByRole('application')).toHaveFocus()
             await userEvent.keyboard('{Escape}')
             expect(onClose).not.toHaveBeenCalled()
@@ -182,9 +203,9 @@ describe('GoalAreasSetup', () => {
         it('should return focus to the goal button after Cancel', async () => {
             useAppState.setState({ goalAreas: defaultGoalAreas(), goalMarks: { team1: M } })
             render(<GoalAreasSetup />)
-            await userEvent.click(screen.getByRole('button', { name: /^Edit Whites' goal marks/ }))
+            await userEvent.click(screen.getByRole('button', { name: /^Edit Whites' goal/ }))
             await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-            expect(screen.getByRole('button', { name: /^Edit Whites' goal marks/ })).toHaveFocus()
+            expect(screen.getByRole('button', { name: /^Edit Whites' goal/ })).toHaveFocus()
         })
 
         it('should keep marks on Reset boxes and clear them on Remove', async () => {

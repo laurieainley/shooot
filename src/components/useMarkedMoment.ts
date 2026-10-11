@@ -22,9 +22,9 @@ const playheadNow = (): number => {
 
 /**
  * The exact moment the user marks for one suggestion. Marked by M, by pausing after playing, or by stepping frames;
- * the brief pause after a seek never counts. While paused after such a mark it follows the playhead (stepping refines it).
+ * the brief pause after a seek never counts. A suggestion already saved starts from its saved moment (`savedSec`). While paused after such a mark it follows the playhead (stepping refines it).
  */
-export function useMarkedMoment(suggestionId: string): MarkedMoment {
+export function useMarkedMoment(suggestionId: string, savedSec: number | null = null): MarkedMoment {
     const paused = usePlayerPaused()
     const playheadSec = useAppState((s) => (s.cumulativeOffsets[s.currentFileIndex] ?? 0) + s.currentTimeInFileSec)
     const [stored, setStored] = useState<number | null>(null)
@@ -35,7 +35,9 @@ export function useMarkedMoment(suggestionId: string): MarkedMoment {
     const ignorePause = useRef(false)
     const set = (v: number | null, f: boolean): void => { storedRef.current = v; followRef.current = f; setStored(v); setFollowing(f) }
 
-    useEffect(() => { sawPlaying.current = false; ignorePause.current = false; set(null, false) }, [suggestionId])
+    // A suggestion already saved opens with its saved moment marked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the suggestion changes
+    useEffect(() => { sawPlaying.current = false; ignorePause.current = false; set(savedSec, false) }, [suggestionId])
     useEffect(() => {
         if (!paused) {
             sawPlaying.current = true

@@ -17,13 +17,13 @@ export function clampPan(zoom: number, pan: Pan, viewport: { width: number; heig
     return { x: clamp(pan.x, maxX), y: clamp(pan.y, maxY) }
 }
 
-export function clampZoom(z: number): number {
-    return Math.min(MAX_ZOOM, Math.max(1, z))
+export function clampZoom(z: number, max: number = MAX_ZOOM): number {
+    return Math.min(max, Math.max(1, z))
 }
 
 /** Where a released pinch rests: where the fingers left it, except just above 1× snaps back home. */
-export function settleZoom(z: number): number {
-    const c = clampZoom(z)
+export function settleZoom(z: number, max: number = MAX_ZOOM): number {
+    const c = clampZoom(z, max)
     return c < 1.1 ? 1 : c
 }
 
@@ -33,8 +33,8 @@ type Viewport = { width: number; height: number }
  * Zoom to `nextZoom` keeping the picture point under the cursor where it is.
  * `cursor` is measured from the viewport centre (the transform origin); the transform is translate(pan) scale(zoom).
  */
-export function zoomTowards(zoom: number, pan: Pan, nextZoom: number, cursor: Pan, viewport: Viewport): { zoom: number; pan: Pan } {
-    const z = clampZoom(nextZoom)
+export function zoomTowards(zoom: number, pan: Pan, nextZoom: number, cursor: Pan, viewport: Viewport, max: number = MAX_ZOOM): { zoom: number; pan: Pan } {
+    const z = clampZoom(nextZoom, max)
     if (z <= 1) return { zoom: 1, pan: { x: 0, y: 0 } }
     const k = z / zoom
     const raw = { x: cursor.x - (cursor.x - pan.x) * k, y: cursor.y - (cursor.y - pan.y) * k }

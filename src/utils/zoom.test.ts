@@ -116,3 +116,11 @@ describe('wheelZoomFactor', () => {
         expect(wheelZoomFactor(40) * wheelZoomFactor(-40)).toBeCloseTo(1)
     })
 })
+
+describe('a custom maximum', () => {
+    it('should clamp to the given maximum and default to MAX_ZOOM', () => {
+        expect(clampZoom(50, 10)).toBe(10)
+        expect(clampZoom(50)).toBe(MAX_ZOOM)
+        expect(settleZoom(50, 10)).toBe(10)
+    })
+})

@@ -59,7 +59,7 @@ describe('GoalMarksEditor', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Skip' }))
         expect(screen.getByText('Click the back-right corner of the net on the floor (optional)')).toBeInTheDocument()
         await userEvent.click(screen.getByRole('button', { name: 'Skip' }))
-        expect(screen.getByText('All set — drag a dot to adjust.')).toBeInTheDocument()
+        expect(screen.getByText('All set — drag a dot to adjust')).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Skip' })).not.toBeInTheDocument()
     })
 
@@ -160,7 +160,7 @@ describe('GoalMarksEditor', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Remove net corners' }))
         expect(screen.queryByRole('button', { name: 'Back-left corner' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Remove net corners' })).not.toBeInTheDocument()
-        expect(screen.getByText('All set — drag a dot to adjust.')).toBeInTheDocument()
+        expect(screen.getByText('All set — drag a dot to adjust')).toBeInTheDocument()
         await userEvent.click(screen.getByRole('button', { name: 'Done' }))
         expect(onDone).toHaveBeenCalledWith(FULL)
     })
@@ -178,7 +178,7 @@ describe('GoalMarksEditor', () => {
         expect(outer).not.toHaveBeenCalled()
     })
 
-    it('should return focus to the picture after Skip, Remove net corners and Reset zoom', async () => {
+    it('should return focus to the picture after Skip and Remove net corners', async () => {
         mount({ initial: FULL })
         await userEvent.click(screen.getByRole('button', { name: 'Skip' }))
         expect(screen.getByRole('application')).toHaveFocus()
@@ -228,22 +228,90 @@ describe('GoalMarksEditor', () => {
         expect(pic.style.transform).not.toBe(before)
     })
 
-    it('should show a zoom hint, and Reset zoom only when zoomed', () => {
+    it('should keep the gesture hint in the zoom buttons title and the view label, and Fit only when zoomed', () => {
         mount()
-        expect(screen.getByText(/Scroll or pinch to zoom/)).toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Reset zoom' })).not.toBeInTheDocument()
+        expect(screen.getByRole('group', { name: 'Zoom' })).toHaveAttribute('title', expect.stringContaining('Scroll or pinch to zoom'))
+        expect(screen.getByRole('application')).toHaveAttribute('aria-label', expect.stringContaining('Scroll or pinch to zoom'))
+        expect(screen.getByRole('button', { name: 'Fit picture' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Zoom out' })).toBeDisabled()
     })
 
     it('should say Pinch to zoom on touch screens', () => {
         setCoarsePointer(true)
         mount()
-        expect(screen.getByText('Pinch to zoom · drag with two fingers to move')).toBeInTheDocument()
+        expect(screen.getByRole('group', { name: 'Zoom' })).toHaveAttribute('title', 'Pinch to zoom · drag with two fingers to move')
+    })
+
+    it('should show progress in the prompt', () => {
+        mount()
+        expect(screen.getByText('1 of 6 ·')).toBeInTheDocument()
+        clickAt(screen.getByTestId('goal-marks-picture'), 0.2, 0.6)
+        expect(screen.getByText('2 of 6 ·')).toBeInTheDocument()
+    })
+
+    it('should zoom with the buttons up to 10x and back out', async () => {
+        const { pic } = mount()
+        const scale = (): number => Number(/scale\(([\d.]+)\)/.exec(pic.style.transform)![1])
+        for (let i = 0; i < 12; i++) await userEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+        expect(scale()).toBeCloseTo(10, 5)
+        expect(screen.getByRole('button', { name: 'Zoom in' })).toBeDisabled()
+        fireEvent.wheel(screen.getByRole('application'), { deltaY: -30, clientX: 600, clientY: 300 })
+        expect(scale()).toBeCloseTo(10, 5)
+        await userEvent.click(screen.getByRole('button', { name: 'Zoom out' }))
+        expect(scale()).toBeLessThan(10)
+    })
+
+    describe('frame scrubber', () => {
+        it('should be absent without a duration', () => {
+            mount()
+            expect(screen.queryByRole('slider')).not.toBeInTheDocument()
+        })
+
+        it('should step 5 s with the arrows, show mm:ss and report slider changes', async () => {
+            const onTimeChange = vi.fn()
+            mount({ time: 300, duration: 600, onTimeChange })
+            expect(screen.getByText('5:00')).toBeInTheDocument()
+            await userEvent.click(screen.getByRole('button', { name: 'Earlier frame' }))
+            expect(onTimeChange).toHaveBeenLastCalledWith(295)
+            await userEvent.click(screen.getByRole('button', { name: 'Later frame' }))
+            expect(onTimeChange).toHaveBeenLastCalledWith(305)
+            fireEvent.change(screen.getByRole('slider'), { target: { value: '42' } })
+            expect(onTimeChange).toHaveBeenLastCalledWith(42)
+        })
+
+        it('should stop the arrows at the ends', () => {
+            mount({ time: 0, duration: 600, onTimeChange: vi.fn() })
+            expect(screen.getByRole('button', { name: 'Earlier frame' })).toBeDisabled()
+        })
+
+        it('should keep the placed points and zoom when the frame changes', () => {
+            const { pic } = mount({ initial: FULL, time: 10, duration: 60, onTimeChange: vi.fn() })
+            fireEvent.wheel(screen.getByRole('application'), { deltaY: -200, clientX: 600, clientY: 300 })
+            const t = pic.style.transform
+            cleanup()
+            // same editor instance with a new frame is what the parent does; emulate through rerender
+            const { rerender } = render(<GoalMarksEditor team="team1" frame={FRAME} initial={FULL} onDone={vi.fn()} onCancel={vi.fn()} time={10} duration={60} onTimeChange={vi.fn()} />)
+            const before = screen.getByRole('button', { name: 'Left post bottom' }).style.left
+            rerender(<GoalMarksEditor team="team1" frame={{ status: 'ready', frame: { src: 'data:image/jpeg;base64,BB==', aspect: 16 / 9 } }} initial={FULL} onDone={vi.fn()} onCancel={vi.fn()} time={20} duration={60} onTimeChange={vi.fn()} />)
+            expect(screen.getByRole('button', { name: 'Left post bottom' }).style.left).toBe(before)
+            expect(t).toContain('scale(')
+        })
+    })
+
+    it('should offer Clear marks only when onClear is given', async () => {
+        const onClear = vi.fn()
+        mount()
+        expect(screen.queryByRole('button', { name: 'Clear marks' })).not.toBeInTheDocument()
+        cleanup()
+        mount({ initial: FULL, onClear })
+        await userEvent.click(screen.getByRole('button', { name: 'Clear marks' }))
+        expect(onClear).toHaveBeenCalledTimes(1)
     })
 
     it('should show initial marks with the all-set prompt and no Skip', () => {
         mount({ initial: { ...FULL, ...BACK } })
         expect(screen.getAllByRole('button').filter((b) => b.className.includes('goal-marks__dot'))).toHaveLength(6)
-        expect(screen.getByText('All set — drag a dot to adjust.')).toBeInTheDocument()
+        expect(screen.getByText('All set — drag a dot to adjust')).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Done' })).toBeEnabled()
     })
 
@@ -261,7 +329,7 @@ describe('GoalMarksEditor', () => {
         expect(pic.style.transform).toContain('scale(1)')
         fireEvent.wheel(screen.getByRole('application'), { deltaY: -30, clientX: 600, clientY: 300 })
         expect(pic.style.transform).not.toContain('scale(1)')
-        await userEvent.click(screen.getByRole('button', { name: 'Reset zoom' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Fit picture' }))
         expect(pic.style.transform).toContain('scale(1)')
     })
 

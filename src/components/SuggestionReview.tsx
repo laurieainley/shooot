@@ -52,7 +52,7 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
                 : current
                     ? <SuggestionCard suggestion={current} index={index} total={suggestions.length}
                         {...ballProps(current)}
-                        onNext={() => go(nextPending(index + 1))} onPrev={() => go(Math.max(0, index - 1))} />
+                        onNext={() => go(index + 1)} onSaved={() => go(nextPending(index + 1))} onPrev={() => go(Math.max(0, index - 1))} />
                     : suggestions.length === 0 && (phase === 'cancelled' || phase === 'idle')
                         ? <DetectIdle cancelled={phase === 'cancelled'} />
                         : failed && suggestions.length === 0 ? null : <SuggestionSummary onClose={onClose} />}
