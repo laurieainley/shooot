@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { naturalCompare, orderEntries } from './fileOrder'
+import { naturalCompare, orderEntries, filmingOrder, sortByFilmingTime } from './fileOrder'
 import { pairFiles } from './gopro'
 
 type F = { name: string; timeMs?: number }
@@ -47,5 +47,19 @@ describe('orderEntries', () => {
 
     it('should use the proxy time when only a proxy is loaded', () => {
         expect(order([{ name: 'GL010226.LRV', timeMs: 500 }, { name: 'a.mp4', timeMs: 100 }])).toEqual(['a.mp4', 'GL010226.LRV'])
+    })
+})
+
+describe('filmingOrder', () => {
+    const at = (...ms: (number | undefined)[]) => ms.map((recordedAtMs) => ({ recordedAtMs }))
+    it('should report single, unknown, in-order and out-of-order', () => {
+        expect(filmingOrder(at(1)).kind).toBe('single')
+        expect(filmingOrder(at(1, undefined)).kind).toBe('unknown')
+        expect(filmingOrder(at(1, 2, 3)).kind).toBe('in-order')
+        const o = filmingOrder(at(1, 3, 2))
+        expect(o.kind === 'out-of-order' && [...o.earlierThan]).toEqual([[2, 1]])
+    })
+    it('should sort by recording time, keeping ties in place', () => {
+        expect(sortByFilmingTime(at(3, 1, 1)).map((f) => f.recordedAtMs)).toEqual([1, 1, 3])
     })
 })

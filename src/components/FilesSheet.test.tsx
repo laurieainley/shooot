@@ -31,9 +31,31 @@ describe('FilesSheet', () => {
 
     it('should number the files in timeline order before the name', () => {
         render(<FilesSheet onClose={onClose} />)
-        expect(row('a.mp4').querySelector('.file-row__index')?.textContent).toBe('1 ·')
-        expect(row('b.mp4').querySelector('.file-row__index')?.textContent).toBe('2 ·')
+        expect(row('a.mp4').querySelector('.file-row__index')?.textContent).toBe('1')
+        expect(row('b.mp4').querySelector('.file-row__index')?.textContent).toBe('2')
         expect(row('b.mp4').querySelector('.file-row__name')?.textContent).toBe('b.mp4')
+    })
+
+    it('should explain the order and show where each file starts', () => {
+        render(<FilesSheet onClose={onClose} />)
+        expect(screen.getByText(/play back to back as one match/i)).toBeInTheDocument()
+        expect(row('b.mp4').textContent).toContain('Starts 10:00')
+        expect(screen.getByText(/check the order yourself/i)).toBeInTheDocument()
+    })
+
+    it('should confirm filming order when recording times agree', () => {
+        s().setFiles([{ ...vf('a.mp4'), recordedAtMs: 1000 }, { ...vf('b.mp4'), recordedAtMs: 2000 }])
+        render(<FilesSheet onClose={onClose} />)
+        expect(screen.getByText(/in filming order/i)).toBeInTheDocument()
+    })
+
+    it('should flag a file filmed earlier than the one above and sort on request', async () => {
+        s().setFiles([{ ...vf('a.mp4'), recordedAtMs: 2000 }, { ...vf('b.mp4'), recordedAtMs: 1000 }])
+        render(<FilesSheet onClose={onClose} />)
+        expect(within(row('b.mp4')).getByText('filmed before 1')).toBeInTheDocument()
+        await userEvent.click(screen.getByRole('button', { name: 'Sort by filming time' }))
+        expect(s().files.map((f) => f.name)).toEqual(['b.mp4', 'a.mp4'])
+        expect(s().currentFileIndex).toBe(1)
     })
 
     it('should switch to a file on tap and close', async () => {

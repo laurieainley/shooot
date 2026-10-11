@@ -10,6 +10,7 @@ export type VideoSourceFile = {
     codec?: 'h264' | 'hevc'
     fullFile?: File       // full-quality file used for render when `file` is a proxy
     playbackIssue?: string // set when this browser cannot play `file`
+    recordedAtMs?: number  // when filming started, from the container's metadata (not the file's modified date)
 }
 
 export type TimelineFile = VideoSourceFile & {

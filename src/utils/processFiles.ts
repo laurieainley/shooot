@@ -43,6 +43,7 @@ export async function processVideoFiles(
             codec: play.meta.codec,
             fullFile: useProxy ? entry.full?.file : undefined,
             playbackIssue: play.meta.playable ? undefined : play.meta.error,
+            recordedAtMs: play.meta.recordedAtMs ?? (useProxy ? entry.full : entry.proxy)?.meta.recordedAtMs,
         })
     }
     return { files, error }

@@ -35,3 +35,28 @@ export function orderEntries<T>(entries: PairedEntry<T>[], info: (t: T) => Order
     }
     return out
 }
+
+/** How the current file order compares with filming time, for the Files sheet. */
+export type FilmingOrder =
+    | { kind: 'single' }
+    | { kind: 'unknown' }                                  // some file has no recording time: the user has to check by eye
+    | { kind: 'in-order' }
+    | { kind: 'out-of-order'; earlierThan: Map<number, number> } // file index → index of the file above it filmed later
+
+export function filmingOrder(files: { recordedAtMs?: number }[]): FilmingOrder {
+    if (files.length < 2) return { kind: 'single' }
+    if (files.some((f) => f.recordedAtMs === undefined)) return { kind: 'unknown' }
+    const earlierThan = new Map<number, number>()
+    for (let i = 1; i < files.length; i++) {
+        // Compare with the latest-filmed file above, so one misplaced file flags only itself.
+        let latest = 0
+        for (let j = 1; j < i; j++) if (files[j].recordedAtMs! > files[latest].recordedAtMs!) latest = j
+        if (files[i].recordedAtMs! < files[latest].recordedAtMs!) earlierThan.set(i, latest)
+    }
+    return earlierThan.size ? { kind: 'out-of-order', earlierThan } : { kind: 'in-order' }
+}
+
+/** Files sorted by recording time (stable; only call when every file has one). */
+export function sortByFilmingTime<T extends { recordedAtMs?: number }>(files: T[]): T[] {
+    return files.map((f, i) => ({ f, i })).sort((a, b) => a.f.recordedAtMs! - b.f.recordedAtMs! || a.i - b.i).map(({ f }) => f)
+}

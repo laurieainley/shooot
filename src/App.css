@@ -134,18 +134,32 @@
 .file-add:hover { color: var(--sh-text); border-color: var(--sh-text); }
 
 /* Files sheet */
+.files-intro { margin: 0 0 8px; font-size: 13px; line-height: 1.45; color: var(--sh-muted); }
+.files-status { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0; font-size: 12px; color: var(--sh-muted); }
+.files-status--warn { justify-content: space-between; padding: 6px 6px 6px 10px; border: 1px solid var(--sh-line); border-radius: var(--sh-radius-sm); background: var(--sh-surface-2); font-size: 13px; }
+.files-note { margin: 8px 0 0; font-size: 12px; color: var(--sh-muted); }
 .file-list { list-style: none; margin: 8px 0 0; padding: 0; }
 .file-row {
-  display: flex; align-items: center; gap: 4px; flex-wrap: wrap; padding: 4px 0;
+  position: relative; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; padding: 6px 0;
   border-bottom: 1px solid var(--sh-line);
 }
+/* Numbered chips joined by a line: one match, played top to bottom. */
+.file-row__index {
+  position: relative; z-index: 1; flex: none; display: grid; place-items: center; width: 24px; height: 24px;
+  border: 1px solid var(--sh-line); border-radius: 50%; background: var(--sh-surface); font-size: 11px; font-weight: 600; color: var(--sh-muted);
+}
+.file-row:not(:last-child)::before {
+  content: ''; position: absolute; left: 12px; top: 50%; bottom: -50%; border-left: 1px dashed var(--sh-line);
+}
 .file-row__main {
-  display: flex; align-items: center; gap: 8px; flex: 1 1 200px; min-width: 0; min-height: 40px;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; flex: 1 1 200px; min-width: 0; min-height: 40px;
   padding: 4px 8px; border: 0; border-radius: var(--sh-radius-sm); background: transparent; color: var(--sh-muted); text-align: left; cursor: pointer;
 }
-.file-row[aria-current="true"] .file-row__main { color: var(--sh-text); box-shadow: inset 3px 0 0 var(--sh-text); }
-.file-row__index { font-size: 11px; color: var(--sh-muted); }
-.file-row__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.file-row[aria-current="true"] .file-row__main { color: var(--sh-text); }
+.file-row[aria-current="true"] .file-row__index { border-color: var(--sh-text); color: var(--sh-text); }
+.file-row__name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.file-row__meta { display: flex; flex-wrap: wrap; gap: 0 10px; font-size: 11px; color: var(--sh-muted); }
+.file-row__tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .file-row__tools { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; }
 .file-row__replace { min-height: 32px; }
 
