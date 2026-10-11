@@ -163,11 +163,20 @@ describe('ImportModal', () => {
             await waitFor(() => expect(s().goalMarks).toEqual(marks))
         })
 
-        it('should clear stale goal marks when an old project without marks is imported', async () => {
-            useAppState.setState({ goalMarks: { team1: { postL: { x: 0.1, y: 0.5 }, postR: { x: 0.2, y: 0.5 }, barL: { x: 0.1, y: 0.4 }, barR: { x: 0.2, y: 0.4 } } } })
+        const stale = { team1: { postL: { x: 0.1, y: 0.5 }, postR: { x: 0.2, y: 0.5 }, barL: { x: 0.1, y: 0.4 }, barR: { x: 0.2, y: 0.4 } } }
+        it('should clear stale goal marks when a project with goal areas but no marks is imported', async () => {
+            useAppState.setState({ goalMarks: stale })
             render(<ImportModal />)
-            choose(JSON.stringify({ events: [] }))
+            choose(JSON.stringify({ events: [], goalAreas: null }))
             await waitFor(() => expect(s().goalMarks).toBeNull())
+        })
+
+        it('should leave the current goal marks alone when the file has neither goalMarks nor goalAreas', async () => {
+            useAppState.setState({ goalMarks: stale })
+            render(<ImportModal />)
+            choose(JSON.stringify({ events: [{ id: 'k', matchTimeSec: 3, type: 'goal' }] }))
+            await waitFor(() => expect(s().events[0].id).toBe('k'))
+            expect(s().goalMarks).toEqual(stale)
         })
 
         it('should accept a dropped file', async () => {

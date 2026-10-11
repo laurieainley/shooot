@@ -22,6 +22,15 @@ describe('goalRectFromMarks', () => {
         expect(r.x + r.w).toBeLessThanOrEqual(1); expect(r.y + r.h).toBeLessThanOrEqual(1)
     })
 })
+describe('goalRectFromMarks centring', () => {
+    it('should centre the box on the marks for a small far goal', () => {
+        const r = goalRectFromMarks(FAR)
+        expect(r.w).toBeGreaterThanOrEqual(0.2)
+        const xs = [FAR.postL, FAR.postR, FAR.barL, FAR.barR].map((p) => p.x), ys = [FAR.postL, FAR.postR, FAR.barL, FAR.barR].map((p) => p.y)
+        expect(r.x + r.w / 2).toBeCloseTo((Math.min(...xs) + Math.max(...xs)) / 2, 6)
+        expect(r.y + r.h / 2).toBeCloseTo((Math.min(...ys) + Math.max(...ys)) / 2, 6)
+    })
+})
 describe('isNearGoal / footprint', () => {
     it('should treat a tall goal with back corners as near and give its floor polygon', () => {
         expect(isNearGoal(NEAR)).toBe(true)

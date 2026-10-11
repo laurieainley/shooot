@@ -447,11 +447,13 @@ export const useAppState = create<AppState>()(
                 const { goalMarks, goalAreas } = get()
                 const next: GoalMarksByTeam = { ...goalMarks }
                 const clean = marks ? normaliseGoalMarks({ [team]: marks })?.[team] : undefined
+                const changed = !!clean && JSON.stringify(clean) !== JSON.stringify(goalMarks?.[team])
                 if (clean) next[team] = clean
                 else delete next[team]
                 set({
                     goalMarks: next.team1 || next.team2 ? next : null,
-                    ...(clean ? { goalAreas: normaliseAreas({ ...goalAreas, [team]: goalRectFromMarks(clean) }) } : {}),
+                    // Unchanged marks (Done without moving anything) keep a hand-tuned rectangle.
+                    ...(clean && (changed || !goalAreas?.[team]) ? { goalAreas: normaliseAreas({ ...goalAreas, [team]: goalRectFromMarks(clean) }) } : {}),
                 })
             },
             setAllGoalMarks: (marks) => set({ goalMarks: normaliseGoalMarks(marks) }),

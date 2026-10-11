@@ -29,7 +29,7 @@ per team (`GoalAreas`).
 
 ## User flow
 
-Match setup → **Goal areas** section gains, per team goal, a **Mark goal** button (and **Edit marks** / **Clear marks** once set).
+Match setup → **Goal areas** section gains, per team goal, a **Mark <team>'s goal** button (and **Edit <team>'s goal marks** / **Clear <team>'s goal marks** once set; e.g. "Mark Whites' goal").
 Marking opens an editor on the same still frame Goal areas uses (`useFrameAt`, middle of the first video):
 1. A prompt names the next point: "Click the bottom of the left post", "…right post", "Click the top of the left post",
    "…right post", then "Click the back-left corner of the net on the floor (optional)" with a **Skip** button, then back-right.

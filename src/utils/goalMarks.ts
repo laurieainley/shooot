@@ -1,5 +1,5 @@
 import type { CropRect, GoalMarks, GoalMarksByTeam, Pt } from '../types'
-import { clampRect } from './crop'
+import { MIN_BOX_W, clampRect } from './crop'
 
 const pts = (m: GoalMarks): Pt[] => [m.postL, m.postR, m.barL, m.barR, ...(m.backL ? [m.backL] : []), ...(m.backR ? [m.backR] : [])]
 
@@ -8,7 +8,8 @@ export function goalRectFromMarks(m: GoalMarks): CropRect {
     const p = pts(m), xs = p.map((q) => q.x), ys = p.map((q) => q.y)
     const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys)
     const pad = Math.max(0.04, 0.3 * Math.abs(m.postR.x - m.postL.x))
-    const side = Math.min(1, Math.max(x1 - x0, y1 - y0) + 2 * pad)
+    // Widen to the smallest allowed box before centring, so a small far goal stays centred in its box.
+    const side = Math.min(1, Math.max(MIN_BOX_W, Math.max(x1 - x0, y1 - y0) + 2 * pad))
     return clampRect({ x: (x0 + x1) / 2 - side / 2, y: (y0 + y1) / 2 - side / 2, w: side, h: side })
 }
 

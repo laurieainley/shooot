@@ -38,6 +38,6 @@ export function applyProjectData(data: ProjectFileData): number {
     if (teams) st.setTeams(teams)
     if (typeof data.graphicsTheme === 'string') st.setGraphics({ theme: data.graphicsTheme as never })
     if ('goalAreas' in data) st.setGoalAreas(normaliseAreas(data.goalAreas, left))
-    st.setAllGoalMarks(normaliseGoalMarks(data.goalMarks)) // old files have none
+    if ('goalMarks' in data || 'goalAreas' in data) st.setAllGoalMarks(normaliseGoalMarks(data.goalMarks)) // files from before marks have neither: keep the current marks
     return imported ? imported.length : 0
 }

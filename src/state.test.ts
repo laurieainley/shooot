@@ -706,6 +706,24 @@ describe('goal marks', () => {
         expect(s().goalAreas!.team1).toEqual(goalRectFromMarks(MARKS))
     })
 
+    it('should keep the other team rectangle when marking one goal', () => {
+        s().setGoalMarks('team1', MARKS)
+        const other = { x: 0.55, y: 0.3, w: 0.3, h: 0.3 }
+        s().setGoalAreas({ ...s().goalAreas!, team2: other })
+        s().setGoalMarks('team1', { ...MARKS, postR: { x: 0.34, y: 0.235 } })
+        expect(s().goalAreas!.team2).toEqual(other)
+    })
+
+    it('should not reset a hand-tuned rectangle when the marks are unchanged', () => {
+        s().setGoalMarks('team1', MARKS)
+        const tuned = { x: 0.1, y: 0.1, w: 0.3, h: 0.3 }
+        s().setGoalAreas({ ...s().goalAreas!, team1: tuned })
+        s().setGoalMarks('team1', { ...MARKS })
+        expect(s().goalAreas!.team1).toEqual(tuned)
+        s().setGoalMarks('team1', { ...MARKS, postR: { x: 0.34, y: 0.235 } })
+        expect(s().goalAreas!.team1).not.toEqual(tuned)
+    })
+
     it('should keep the marks when the rectangle is dragged', () => {
         s().setGoalMarks('team1', MARKS)
         s().setGoalAreas({ team1: { x: 0.1, y: 0.1, w: 0.3, h: 0.3 } })
