@@ -13,6 +13,11 @@ describe('effectiveStatus', () => {
         expect(effectiveStatus(k, new Set(['e1']))).toBe('kept')
         expect(effectiveStatus(k, new Set())).toBe('pending')
     })
+    it('should treat a rejected suggestion whose kept event is back as kept', () => {
+        const r = s('a', 10, 'rejected', { eventId: 'e1', keptAs: 'goal' })
+        expect(effectiveStatus(r, new Set(['e1']))).toBe('kept')
+        expect(effectiveStatus(r, new Set())).toBe('rejected')
+    })
 })
 
 describe('mergeSuggestions', () => {

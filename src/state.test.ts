@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { matchdayText, selectMatchStartSec, useAppState } from './state'
 import type { MatchEvent, VideoSourceFile } from './types'
+import { effectiveStatus, reviewCounts } from './utils/suggestions'
 
 const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec: 100, kind: 'full' })
 const goalIn = (fileIndex: number, id = `g${fileIndex}`): MatchEvent => ({ id, matchTimeSec: 10, sourceFileIndex: fileIndex, type: 'goal' })
@@ -620,5 +621,48 @@ describe('suggestions', () => {
         const out = migrate({ events: [], teams: [] }, 16)
         expect(out.suggestions).toEqual([])
         expect(out.suggestionRun).toBeNull()
+    })
+    it('should replace a keep whose event was undone when finding goals again', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        const id = useAppState.getState().suggestions[0].id
+        useAppState.getState().decideSuggestion(id, { kind: 'keep', type: 'goal', team: 'Whites' })
+        useAppState.getState().undo()
+        useAppState.getState().setSuggestions(run, [{ timeSec: 102, score: 6 }])
+        const list = useAppState.getState().suggestions
+        expect(list).toHaveLength(1)
+        expect(list[0]).toMatchObject({ status: 'pending', globalTimeSec: 102 })
+        expect(list[0].id).not.toBe(id)
+    })
+    it('should count a keep as kept again when reject is undone', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        const id = useAppState.getState().suggestions[0].id
+        useAppState.getState().decideSuggestion(id, { kind: 'keep', type: 'goal', team: 'Whites' })
+        useAppState.getState().decideSuggestion(id, { kind: 'reject' })
+        useAppState.getState().undo()
+        const st = useAppState.getState()
+        const ids = new Set(st.events.map((e) => e.id))
+        expect(effectiveStatus(st.suggestions[0], ids)).toBe('kept')
+        expect(reviewCounts(st.suggestions, ids).kept).toBe(1)
+    })
+    it('should keep in the second file of a two-file timeline', () => {
+        const two = [files[0], { ...files[0], id: 'f2', name: 'B.MP4' }] as VideoSourceFile[]
+        useAppState.setState({ files: two, cumulativeOffsets: [0, 600] })
+        useAppState.getState().setSuggestions(run, [{ timeSec: 700, score: 5 }])
+        useAppState.getState().decideSuggestion(useAppState.getState().suggestions[0].id, { kind: 'keep', type: 'goal', team: 'Whites' })
+        expect(useAppState.getState().events[0]).toMatchObject({ sourceFileIndex: 1, matchTimeSec: 98 })
+    })
+    it('should reset suggestions on clear', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        useAppState.getState().clear()
+        expect(useAppState.getState().suggestions).toEqual([])
+        expect(useAppState.getState().suggestionRun).toBeNull()
+    })
+    it('should persist suggestions but not the review index', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        const partialize = (useAppState as unknown as { persist: { getOptions: () => { partialize: (s: unknown) => Record<string, unknown> } } }).persist.getOptions().partialize
+        const out = partialize(useAppState.getState())
+        expect(out).toHaveProperty('suggestions')
+        expect(out).toHaveProperty('suggestionRun')
+        expect(out).not.toHaveProperty('reviewIndex')
     })
 })

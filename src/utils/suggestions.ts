@@ -1,9 +1,13 @@
 import type { KeepType, Suggestion, SuggestionRun, SuggestionStatus } from '../types'
 import type { ScoredMoment } from './goalAudioScore'
 
-/** A kept suggestion whose event no longer exists (undone or deleted) is pending again. */
+/** A kept suggestion whose event no longer exists (undone or deleted) is pending again; a rejected one whose event is back is kept. */
 export function effectiveStatus(s: Suggestion, eventIds: ReadonlySet<string>): SuggestionStatus {
-    return s.status === 'kept' && (!s.eventId || !eventIds.has(s.eventId)) ? 'pending' : s.status
+    const live = !!s.eventId && eventIds.has(s.eventId)
+    if (s.status === 'kept') return live ? 'kept' : 'pending'
+    // Rejected after a keep, then the event came back (undo): it counts as kept again.
+    if (s.status === 'rejected' && live) return 'kept'
+    return s.status
 }
 
 /** "Find goals again": decisions stay, pending suggestions are replaced, new moments next to a decided one are skipped. */
