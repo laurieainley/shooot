@@ -188,6 +188,11 @@ npm run lint       # baseline: 12 known problems — add none
   Reel (`ReelSummary`: length, clips, clip/replay recap with an Edit disclosure), Graphics, Render, Share.
 - **Shortcuts sheet:** `?` key, the "?" button or ⋯ → Shortcuts (`ShortcutsSheet`, data in `utils/shortcutList.ts`,
   kept in sync with `shortcutFor` by a test).
+- **Find goals review card** (`SuggestionCard`, `ReviewTimeline`, `useMarkedMoment`, `utils/reviewMark.ts`): one step at
+  a time — watch & mark (mini timeline over the loop window: progress, red playhead, estimate ring, marked pin, +2 s end
+  handles; M marks, pausing/stepping also marks), then type, then team, then Save event (Enter). Type keys select, they
+  never advance. Keys while open: M · G/O/S/H/X · 1/2 · Enter · Esc/Backspace clear · [ ] · ←/→ · ↑/↓ · Space.
+  Supersedes the "Goal time · paused = at playhead" line in the suggested-goals spec.
 - **Lime guard:** `utils/limeUsage.test.ts` fails if a lime token is used in App.css outside the allow-list
   (primary buttons, goal icon, scorebug score). Don't widen the allow-list without a design decision.
 
