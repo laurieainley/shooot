@@ -1,8 +1,9 @@
 import { useRef, useState, type ReactNode } from 'react'
 import type { KeepType, Suggestion } from '../types'
 import { useAppState } from '../state'
+import { showToast } from '../toasts'
 import { useDetectJob } from '../detectJobs'
-import { defaultLane, firstToReviewInLane, laneCounts, laneNeighbour, laneSwitchVisible, positionInLane, type Lane } from '../utils/reviewLanes'
+import { TOP_PICKS_DONE, defaultLane, firstPendingInLane, firstToReviewInLane, laneCounts, laneNeighbour, laneSwitchVisible, positionInLane, type Lane } from '../utils/reviewLanes'
 import { NO_TOP_PICKS } from '../utils/voice'
 import { LaneSwitch } from './LaneSwitch'
 import { BetaTag } from './BetaTag'
@@ -23,13 +24,13 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
     const index = useAppState((s) => s.reviewIndex)
     const ballPhase = useDetectJob((s) => s.ballPhase)
     const ids = new Set(events.map((e) => e.id))
-    // Opens where the review is: the lane of the current suggestion (top picks first by default), All otherwise.
+    // Opens where the review is: the lane of the current suggestion (Top picks first by default), else Other moments.
     const [pickedLane, setPickedLane] = useState<Lane>(() => {
         const st = useAppState.getState()
         const cur = st.suggestions[st.reviewIndex]
-        return cur ? (cur.ball ? 'top' : 'all') : defaultLane(st.suggestions, new Set(st.events.map((e) => e.id)))
+        return cur ? (cur.ball ? 'top' : 'other') : defaultLane(st.suggestions, new Set(st.events.map((e) => e.id)))
     })
-    const allIndex = useRef(0) // where you were in All while Top picks is open
+    const lastIn = useRef<Partial<Record<Lane, number>>>({}) // where you were in each lane while the other is open
     const go = (i: number): void => useAppState.getState().setReviewIndex(i)
     const runCurrent = useSuggestionsCurrent()
     const stale = suggestions.length > 0 && !runCurrent
@@ -41,12 +42,45 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
     const current = index < suggestions.length ? suggestions[index] : null
     const selectLane = (next: Lane): void => {
         if (next === lane) return
-        if (lane === 'all') allIndex.current = index
+        lastIn.current[lane] = index
         setPickedLane(next)
-        if (next === 'top') { const first = firstToReviewInLane(suggestions, 'top', ids); if (first >= 0) go(first) }
-        else go(Math.min(allIndex.current, suggestions.length))
+        const back = lastIn.current[next]
+        const first = firstToReviewInLane(suggestions, next, ids)
+        if (back !== undefined && back < suggestions.length) go(back)
+        else if (first >= 0) go(first)
+    }
+    const freshIds = (): ReadonlySet<string> => new Set(useAppState.getState().events.map((e) => e.id))
+    /** Past the last Top pick: on to the first other moment still to review (the only automatic lane switch). */
+    const leaveTopPicks = (): void => {
+        const st = useAppState.getState()
+        const first = firstPendingInLane(st.suggestions, 'other', freshIds())
+        lastIn.current.top = index
+        setPickedLane('other')
+        go(first >= 0 ? first : st.suggestions.length)
+        showToast(TOP_PICKS_DONE)
+    }
+    /** Confirm / Discard: the next one still to review in the lane; finishing Top picks moves on to the other moments. */
+    const afterDecision = (): void => {
+        const st = useAppState.getState()
+        const fresh = freshIds()
+        const next = laneNeighbour(st.suggestions, lane, index, 1, fresh)
+        if (next !== null) { go(next); return }
+        if (lane === 'top') {
+            const earlier = firstPendingInLane(st.suggestions, 'top', fresh)
+            if (earlier >= 0) go(earlier)
+            else leaveTopPicks()
+            return
+        }
+        go(st.suggestions.length)
+    }
+    const afterNext = (): void => {
+        const next = laneNeighbour(suggestions, lane, index, 1)
+        if (next !== null) go(next)
+        else if (lane === 'top' && switchShown) leaveTopPicks()
+        else go(suggestions.length)
     }
     const emptyTop = lane === 'top' && counts.top === 0
+    const emptyOther = lane === 'other' && counts.other === 0
     const announce = phase === 'running' ? 'Listening for goals.' : phase === 'done' ? 'Find goals finished.' : phase === 'cancelled' ? 'Find goals stopped.' : ''
     return (
         <ColumnPanel label="Suggested goals" onClose={onClose} className="review" badge={<BetaTag />}>
@@ -58,11 +92,12 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
             {ballPhase === 'failed' && <BallFailed />}
             {rangeStep && phase !== 'running' ? null : phase === 'running' ? <DetectProgress /> : stale ? <DetectIdle stale />
                 : emptyTop ? <p className="review__note m-0" role="status">{ballPhase === 'running' ? 'No top picks yet — still checking the goal mouths.' : NO_TOP_PICKS}</p>
+                : emptyOther ? <p className="review__note m-0" role="status">No other moments.</p>
                 : current
-                    ? <SuggestionCard suggestion={current} index={Math.max(0, positionInLane(suggestions, lane, index))} total={counts[lane === 'top' ? 'top' : 'all']}
+                    ? <SuggestionCard suggestion={current} index={Math.max(0, positionInLane(suggestions, lane, index))} total={counts[lane]}
                         {...ballProps(current)}
-                        onNext={() => go(laneNeighbour(suggestions, lane, index, 1) ?? suggestions.length)}
-                        onSaved={() => go(laneNeighbour(suggestions, lane, index, 1, ids) ?? suggestions.length)}
+                        onNext={afterNext}
+                        onSaved={afterDecision}
                         onPrev={() => go(laneNeighbour(suggestions, lane, index, -1) ?? index)} />
                     : suggestions.length === 0 && (phase === 'cancelled' || phase === 'idle')
                         ? <DetectIdle cancelled={phase === 'cancelled'} />

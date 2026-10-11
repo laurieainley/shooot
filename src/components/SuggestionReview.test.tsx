@@ -798,12 +798,15 @@ describe('Find goals: Top picks lane', () => {
         render(<SuggestionReview onClose={() => {}} />)
         expect(screen.queryByRole('group', { name: 'Suggestions to review' })).toBeNull()
     })
-    it('should show All (5) and Top picks (2) once suggestions carry a ball tag, defaulting to All', () => {
+    it('should show Top picks (2) left and Other moments (3) right once suggestions carry a ball tag, on the current suggestion\'s lane', () => {
         tag(1); tag(3)
         render(<SuggestionReview onClose={() => {}} />)
-        expect(lane(/^All \(5\)/).getAttribute('aria-pressed')).toBe('true')
-        expect(lane(/^Top picks \(2\)/).getAttribute('aria-pressed')).toBe('false')
-        expect(screen.getByText(/Suggestion 1 of 5/)).toBeTruthy()
+        const [first, second] = screen.getByRole('group', { name: 'Suggestions to review' }).querySelectorAll('button')
+        expect(first.textContent).toMatch(/^Top picks \(2\)/)
+        expect(second.textContent).toMatch(/^Other moments \(3\)/)
+        expect(second.getAttribute('aria-pressed')).toBe('true') // review is at suggestion 1, an other moment
+        expect(screen.getByText(/Suggestion 1 of 3/)).toBeTruthy()
+        expect(screen.queryByRole('button', { name: /^All/ })).toBeNull()
     })
     it('should open on Top picks, at its first suggestion to review, when review is (re)opened with top picks left', () => {
         tag(1); tag(3)
@@ -813,7 +816,15 @@ describe('Find goals: Top picks lane', () => {
         expect(lane(/^Top picks \(2\)/).getAttribute('aria-pressed')).toBe('true')
         expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy()
     })
-    it('should count and navigate within Top picks only, with the header count per lane', () => {
+    it('should open on Other moments when no top pick is left to review', () => {
+        tag(1); tag(3)
+        for (const i of [1, 3]) useAppState.getState().decideSuggestion(useAppState.getState().suggestions[i].id, { kind: 'reject' })
+        act(() => { openFindGoals() })
+        expect(useAppState.getState().reviewIndex).toBe(0)
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(lane(/^Other moments/).getAttribute('aria-pressed')).toBe('true')
+    })
+    it('should count and navigate within Top picks only, then move on to the other moments at the end', () => {
         tag(1); tag(3)
         render(<SuggestionReview onClose={() => {}} />)
         fireEvent.click(lane(/^Top picks/))
@@ -826,20 +837,21 @@ describe('Find goals: Top picks lane', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Previous suggestion' }))
         expect(useAppState.getState().reviewIndex).toBe(1)
         fireEvent.click(screen.getByRole('button', { name: /Next/ }))
-        fireEvent.click(screen.getByRole('button', { name: /Next/ }))
-        expect(screen.getByText('You kept 0 of 5.')).toBeTruthy() // past the last top pick: the summary
+        fireEvent.click(screen.getByRole('button', { name: /Next/ })) // past the last top pick
+        expect(lane(/^Other moments/).getAttribute('aria-pressed')).toBe('true')
+        expect(useAppState.getState().reviewIndex).toBe(0)
+        expect(toastStore.getState().toast?.text).toBe('Top picks done — on to other moments')
     })
-    it('should open Top picks at the first top pick still to review, and return to where you were in All', () => {
+    it('should remember where you were in each lane when switching', () => {
         tag(1); tag(3)
         useAppState.getState().decideSuggestion(useAppState.getState().suggestions[1].id, { kind: 'reject' })
         useAppState.setState({ reviewIndex: 2 })
         render(<SuggestionReview onClose={() => {}} />)
         fireEvent.click(lane(/^Top picks/))
-        expect(useAppState.getState().reviewIndex).toBe(3)
-        expect(screen.getByText(/Suggestion 2 of 2/)).toBeTruthy()
-        fireEvent.click(lane(/^All/))
+        expect(useAppState.getState().reviewIndex).toBe(3) // first top pick still to review
+        fireEvent.click(lane(/^Other moments/))
         expect(useAppState.getState().reviewIndex).toBe(2)
-        expect(screen.getByText(/Suggestion 3 of 5/)).toBeTruthy()
+        expect(screen.getByText(/Suggestion 2 of 3/)).toBeTruthy()
     })
     it('should open the first top pick when all top picks are decided', () => {
         tag(1); tag(3)
@@ -848,19 +860,19 @@ describe('Find goals: Top picks lane', () => {
         fireEvent.click(lane(/^Top picks/))
         expect(useAppState.getState().reviewIndex).toBe(1)
     })
-    it('should save on to the next top pick still to review, and share decisions between lanes', () => {
+    it('should switch to the first other moment still to review when the last top pick is decided', () => {
         tag(1); tag(3)
         render(<SuggestionReview onClose={() => {}} />)
         fireEvent.click(lane(/^Top picks/))
-        press('x'); press('Enter')
+        press('x')
         expect(useAppState.getState().reviewIndex).toBe(3)
-        fireEvent.click(lane(/^All/))
-        expect(useAppState.getState().suggestions[1].status).toBe('rejected')
-        fireEvent.click(lane(/^All/))
-        expect(screen.getByText(/Suggestion 1 of 5/)).toBeTruthy()
-        fireEvent.click(screen.getByRole('button', { name: /Next/ }))
-        expect(screen.getByText(/Suggestion 2 of 5/)).toBeTruthy()
-        expect(screen.getByRole('button', { name: /^Next/ })).toBeTruthy() // decided in the other lane: shown as decided
+        expect(lane(/^Top picks/).getAttribute('aria-pressed')).toBe('true')
+        dismissToast()
+        press('g'); press('1'); press('Enter') // the last top pick
+        expect(lane(/^Other moments/).getAttribute('aria-pressed')).toBe('true')
+        expect(useAppState.getState().reviewIndex).toBe(0)
+        expect(screen.getByText(/Suggestion 1 of 3/)).toBeTruthy()
+        expect(toastStore.getState().toast?.text).toBe('Top picks done — on to other moments')
     })
     it('should not badge a top pick on the card (the lane says it)', () => {
         tag(0)
@@ -872,7 +884,7 @@ describe('Find goals: Top picks lane', () => {
         tag(0)
         render(<SuggestionReview onClose={() => {}} />)
         expect(lane(/^Top picks/).querySelector('.lanes__star')).not.toBeNull()
-        expect(lane(/^All/).querySelector('.lanes__icon')).not.toBeNull()
+        expect(lane(/^Other moments/).querySelector('.lanes__icon')).not.toBeNull()
     })
     it('should update the Top picks count live with a brief +1, without changing the current card', () => {
         job.ballPhase = 'running'; job.ballEp = 'webgpu'; job.ballFraction = 0.4
@@ -882,8 +894,8 @@ describe('Find goals: Top picks lane', () => {
         tag(3)
         expect(lane(/^Top picks \(1\)/)).toBeTruthy()
         expect(screen.getByText('+1')).toBeTruthy()
-        expect(screen.getByText(/Suggestion 1 of 5/)).toBeTruthy()
-        expect(lane(/^All \(5\)/).getAttribute('aria-pressed')).toBe('true')
+        expect(screen.getByText(/Suggestion 1 of 4/)).toBeTruthy() // the tagged one moved out of Other moments
+        expect(lane(/^Other moments \(4\)/).getAttribute('aria-pressed')).toBe('true')
         expect(screen.getByText('Checking the goal mouths… 40% · 1 top pick so far')).toBeTruthy()
         tag(1)
         expect(screen.getByText('Checking the goal mouths… 40% · 2 top picks so far')).toBeTruthy()
@@ -902,7 +914,7 @@ describe('Find goals: Top picks lane', () => {
         render(<SuggestionReview onClose={() => {}} />)
         fireEvent.click(lane(/^Top picks \(0\)/))
         expect(screen.getByText("No top picks — the ball wasn't seen in a goal for any suggestion.")).toBeTruthy()
-        fireEvent.click(lane(/^All/))
+        fireEvent.click(lane(/^Other moments/))
         expect(screen.getByText(/Suggestion 1 of 5/)).toBeTruthy()
     })
     it('should list Top picks in the summary', () => {
@@ -1014,5 +1026,44 @@ describe('Review toasts', () => {
         press(']'); press('m')
         fireEvent.click(screen.getByRole('button', { name: /Next/ }))
         expect(toastStore.getState().toast).toBeNull()
+    })
+})
+
+describe('Review scorer and assist', () => {
+    beforeEach(() => { dismissToast(); useAppState.setState({ teams: [{ name: 'Whites', color: '#fff', roster: ['Sandy'] }, { name: 'Colours', color: '#000', roster: [] }] }) })
+    const field = (name: string): HTMLElement => screen.getByRole('textbox', { name })
+    it('should ask for the scorer after type and team, filter the roster, and save scorer and assist with the event', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        press('g')
+        fireEvent.change(field('Scorer'), { target: { value: 'sa' } })
+        expect(screen.getByRole('option', { name: 'Sandy' })).toBeTruthy()
+        fireEvent.keyDown(field('Scorer'), { key: 'Enter' })
+        fireEvent.change(field('Assist'), { target: { value: 'Newbie' } })
+        fireEvent.keyDown(field('Assist'), { key: 'Enter' })
+        expect(screen.queryByRole('textbox', { name: 'Assist' })).toBeNull()
+        press('Enter') // confirm
+        expect(useAppState.getState().events[0]).toMatchObject({ type: 'goal', team: 'Whites', scorer: 'Sandy', assist: 'Newbie' })
+        expect(useAppState.getState().teams[0].roster).toContain('Newbie')
+        expect(toastStore.getState().toast?.text).toMatch(/^Goal · Whites · Sandy confirmed at/)
+    })
+    it('should skip both with Tab, and still confirm with Enter', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        press('g')
+        fireEvent.keyDown(field('Scorer'), { key: 'Tab' })
+        expect(screen.queryByRole('textbox')).toBeNull()
+        press('Enter')
+        expect(useAppState.getState().events[0].scorer).toBeUndefined()
+    })
+    it('should ask nobody for a save or a highlight', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        press('s')
+        expect(screen.queryByRole('textbox')).toBeNull()
+        press('h')
+        expect(screen.queryByRole('textbox')).toBeNull()
+    })
+    it('should name the own goal player field like the picker', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        press('o')
+        expect(field('Own goal by')).toBeTruthy()
     })
 })

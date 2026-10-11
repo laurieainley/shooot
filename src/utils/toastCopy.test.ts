@@ -4,6 +4,7 @@ import { confirmedCopy, deletedCopy, discardedCopy, eventGlobalSec, markerSetCop
 describe('toastCopy', () => {
     it('should word each confirmation exactly', () => {
         expect(confirmedCopy('goal', 'Whites', '12:34')).toBe('Goal · Whites confirmed at 12:34')
+        expect(confirmedCopy('goal', 'Whites', '12:34', 'Sam')).toBe('Goal · Whites · Sam confirmed at 12:34')
         expect(confirmedCopy('save', undefined, '01:02')).toBe('Save confirmed at 01:02')
         expect(discardedCopy('12:34')).toBe('Discarded 12:34')
         expect(taggedCopy('own_goal', 'Colours', '05:00')).toBe('Own goal · Colours tagged at 05:00')

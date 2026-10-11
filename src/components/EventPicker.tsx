@@ -8,6 +8,7 @@ import { AUDIO_DETECT } from '../detect/detectConfig'
 import { confirmedCopy, eventGlobalSec, matchClock, taggedCopy } from '../utils/toastCopy'
 import { nearbyMark } from '../utils/duplicates'
 import { EventTag } from './EventTag'
+import { PersonStep } from './PersonStep'
 import { PICKER_GROUPS, PICKER_OPTIONS, assistOf, isMarker, controlLabel, type PickerOption } from '../utils/eventTypes'
 import { SKIP, initialPickerState, pickerReducer, touchPickerState, scorerCandidates, type PickerInput, type PickerState } from '../utils/eventPicker'
 import { teamShortcuts } from '../utils/roster'
@@ -201,32 +202,17 @@ export function EventPicker() {
             )}
 
             {(state.step === 'scorer' || state.step === 'assist') && (
-                <div className="event-picker__person">
-                    <input
-                        autoFocus={!coarse}
-                        aria-label={personLabel}
-                        className="event-picker__input"
-                        placeholder={coarse ? `Search or type ${personLabel.toLowerCase()}` : state.step === 'assist' ? 'Assist (optional) — type to filter, Enter to pick, Tab to skip' : `${personLabel} — type to filter, Enter to pick`}
-                        value={state.query}
-                        enterKeyHint="done"
-                        autoComplete="off"
-                        onChange={(e) => dispatch({ kind: 'text', value: e.target.value })}
-                    />
-                    <ul role="listbox" className="event-picker__list">
-                        {candidates.map((n, i) => (
-                            <li key={n} role="option" aria-selected={!coarse && i === state.highlighted}
-                                className="event-picker__item" onClick={() => dispatch({ kind: 'choose', value: n })}>
-                                <span className="voice-shirt event-picker__person-name">{n}</span>
-                            </li>
-                        ))}
-                        {state.query.trim() && candidates.length === 0 && (
-                            <li role="option" aria-selected={!coarse} className="event-picker__item"
-                                onClick={() => dispatch({ kind: 'choose', value: state.query.trim() })}>
-                                <span>+ add “{state.query.trim()}”</span>
-                            </li>
-                        )}
-                    </ul>
-                </div>
+                <PersonStep
+                    label={personLabel}
+                    autoFocus={!coarse}
+                    placeholder={coarse ? `Search or type ${personLabel.toLowerCase()}` : state.step === 'assist' ? 'Assist (optional) — type to filter, Enter to pick, Tab to skip' : `${personLabel} — type to filter, Enter to pick`}
+                    query={state.query}
+                    candidates={candidates}
+                    highlighted={state.highlighted}
+                    showHighlight={!coarse}
+                    onQuery={(value) => dispatch({ kind: 'text', value })}
+                    onChoose={(value) => dispatch({ kind: 'choose', value })}
+                />
             )}
 
             {state.step === 'text' && (

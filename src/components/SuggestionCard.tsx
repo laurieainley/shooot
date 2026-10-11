@@ -12,6 +12,8 @@ import {
 import { showToast } from '../toasts'
 import { confirmedCopy, discardedCopy, matchClock } from '../utils/toastCopy'
 import { shortcutFor } from '../utils/shortcuts'
+import { NO_PEOPLE, peopleCandidates, peopleLabel, peopleOpen, reopenPeople, startPeople, stepPeople, type PeopleState } from '../utils/reviewPeople'
+import { PersonStep } from './PersonStep'
 import { useReviewLoop } from './useReviewLoop'
 import { useMarkedMoment } from './useMarkedMoment'
 import { ReviewTimeline } from './ReviewTimeline'
@@ -72,6 +74,8 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
     const touchedFor = useRef<string | null>(null)
     const touch = (a: Parameters<typeof dispatch>[0]): void => { touchedFor.current = suggestion.id; dispatch(a) }
     const [acceptedEstimate, setAcceptedEstimate] = useState(false)
+    // Optional scorer / assist after type and team (the event picker's own steps).
+    const [people, setPeople] = useState<PeopleState>(NO_PEOPLE)
     useEffect(() => {
         dispatch({ kind: 'clear' })
         setAcceptedEstimate(false)
@@ -82,6 +86,13 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the suggestion changes
     }, [suggestion.id])
+
+    useEffect(() => {
+        const fresh = startPeople(decision.type, decision.team, teams.length)
+        const same = !!savedEvent && savedEvent.type === decision.type && (savedEvent.team ?? null) === decision.team
+        setPeople(fresh.pk && same ? { ...fresh, pk: { ...fresh.pk, step: 'text' }, scorer: savedEvent.scorer, assist: savedEvent.assist } : fresh)
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- when the choice or the suggestion changes
+    }, [suggestion.id, decision.type, decision.team])
 
     const preselectedFor = useRef<string | null>(null)
     const [armedFor, setArmedFor] = useState<string | null>(null)
@@ -99,8 +110,9 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
         if (!canConfirm(decision, teamCount) || decision.type === null) return
         const st = useAppState.getState()
         const atSec = moment.current() ?? estimateSec
-        st.decideSuggestion(suggestion.id, { kind: 'keep', type: decision.type, atSec, ...(decision.team ? { team: decision.team } : {}) })
-        showToast(confirmedCopy(decision.type, decision.team ?? undefined, matchClock(atSec, kickOff, long)))
+        for (const a of people.adds) st.addToRoster(a.team, a.name)
+        st.decideSuggestion(suggestion.id, { kind: 'keep', type: decision.type, atSec, ...(decision.team ? { team: decision.team } : {}), ...(people.scorer ? { scorer: people.scorer } : {}), ...(people.assist ? { assist: people.assist } : {}) })
+        showToast(confirmedCopy(decision.type, decision.team ?? undefined, matchClock(atSec, kickOff, long), people.scorer))
         touch({ kind: 'clear' })
         onSaved()
     }
@@ -251,6 +263,24 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
                                 {t.name} <kbd>{i + 1}</kbd>
                             </button>
                         ))}
+                    </div>
+                )}
+
+                {peopleOpen(people) && (
+                    <PersonStep key={people.pk?.step} label={peopleLabel(people)} autoFocus={people.pk?.step === 'assist'}
+                        placeholder={`${peopleLabel(people)} (optional) — type to filter, Enter to pick, Tab to skip`}
+                        query={people.pk?.query ?? ''} candidates={peopleCandidates(people, teams)} highlighted={people.pk?.highlighted ?? 0} showHighlight
+                        onQuery={(value) => setPeople((p) => stepPeople(p, { kind: 'text', value }, teams))}
+                        onChoose={(value) => setPeople((p) => stepPeople(p, { kind: 'choose', value }, teams))}
+                        onKeyDown={(e) => {
+                            if (['Enter', 'Tab', 'ArrowDown', 'ArrowUp'].includes(e.key)) { e.preventDefault(); setPeople((p) => stepPeople(p, { kind: 'key', key: e.key }, teams)) }
+                        }} />
+                )}
+                {!peopleOpen(people) && (people.scorer || people.assist) && (
+                    <div className="rv__chips">
+                        <button type="button" className="rv__chip" aria-label="Change scorer and assist" onClick={() => setPeople((p) => reopenPeople(p))}>
+                            <span className="voice-shirt">{people.scorer}</span>{people.assist ? <span className="rv__chipnote"> · assist {people.assist}</span> : null} <span aria-hidden="true">✎</span>
+                        </button>
                     </div>
                 )}
 
