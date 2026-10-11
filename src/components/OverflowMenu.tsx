@@ -67,7 +67,7 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
                     Clear {events.length} {events.length === 1 ? 'event' : 'events'} and unload the videos? Teams, rosters and clip settings stay. ⌘Z brings the events back.
                 </p>
                 <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => { cancelDetection(); const st = useAppState.getState(); st.newMatch(); st.closePanel(); void clearHandles() }} className="btn-primary">Clear and start new match</button>
+                    <button type="button" onClick={() => { cancelDetection(); const st = useAppState.getState(); st.newMatch(); st.closePanel(); void clearHandles() }} className="btn-quiet btn-danger">Clear match</button>
                     <button type="button" onClick={() => setConfirmNew(false)} className="btn-quiet">Keep</button>
                 </div>
             </div>

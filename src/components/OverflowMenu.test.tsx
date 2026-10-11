@@ -63,7 +63,7 @@ describe('OverflowMenu', () => {
         render(<OverflowMenu />)
         await open()
         await userEvent.click(screen.getByRole('menuitem', { name: 'New match…' }))
-        await userEvent.click(screen.getByRole('button', { name: /Clear and start new match/ }))
+        await userEvent.click(screen.getByRole('button', { name: /Clear match/ }))
         expect(cancelDetection).toHaveBeenCalled()
     })
 
@@ -105,7 +105,7 @@ describe('OverflowMenu', () => {
         await userEvent.click(screen.getByRole('menuitem', { name: /new match/i }))
         expect(s().events).toHaveLength(2)
         expect(screen.getByText(/clear 2 events and unload the videos/i)).toBeInTheDocument()
-        await userEvent.click(screen.getByRole('button', { name: /clear and start/i }))
+        await userEvent.click(screen.getByRole('button', { name: /clear match/i }))
         expect(s().events).toEqual([])
         expect(s().files).toEqual([])
         expect(s().panel).toBeNull()
