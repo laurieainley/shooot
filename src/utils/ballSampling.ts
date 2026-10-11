@@ -10,11 +10,12 @@ export type GoalTile = { goal: GoalTeam; sx: number; sy: number; sw: number; sh:
 export type BallSample = { timeSec: number; goal: GoalTeam; boxes: Box[] }
 export type BallVerdict = { goal: GoalTeam; frames: number }
 
-/** Sample times around a suggestion: `fps` over [t − before, t + after] (13 values by default), clamped to [0, total]. */
+/** Sample times around a suggestion: `fps` over [t − before, t + after] (13 values by default), clamped to [0, total] (clamped duplicates dropped). */
 export function sampleTimes(t: number, opts: { total: number; fps?: number; before?: number; after?: number }): number[] {
     const { total, fps = 2, before = 3, after = 3 } = opts
     const n = Math.round((before + after) * fps)
-    return Array.from({ length: n + 1 }, (_, i) => Math.min(total, Math.max(0, t - before + i / fps)))
+    const all = Array.from({ length: n + 1 }, (_, i) => Math.min(total, Math.max(0, t - before + i / fps)))
+    return all.filter((v, i) => i === 0 || v !== all[i - 1])
 }
 
 const GOALS: GoalTeam[] = ['team1', 'team2']

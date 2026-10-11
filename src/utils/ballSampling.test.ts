@@ -26,8 +26,9 @@ describe('sampleTimes', () => {
     })
     it('should clamp to the footage', () => {
         const ts = sampleTimes(1, { total: 3 })
-        expect(ts).toHaveLength(13)
-        expect(Math.min(...ts)).toBe(0); expect(Math.max(...ts)).toBe(3)
+        // t − 3 … t + 3 = −2 … 4 at 2 fps: the 4 clamped to 0 and the 2 clamped to 3 collapse into one each
+        expect(ts).toEqual([0, 0.5, 1, 1.5, 2, 2.5, 3])
+        expect(new Set(ts).size).toBe(ts.length)
     })
 })
 
