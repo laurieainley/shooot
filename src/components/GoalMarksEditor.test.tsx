@@ -249,16 +249,16 @@ describe('GoalMarksEditor', () => {
         expect(screen.getByText('2 of 6 ·')).toBeInTheDocument()
     })
 
-    it('should zoom with the buttons up to 10x and back out', async () => {
+    it('should zoom with the buttons up to 15x and back out', async () => {
         const { pic } = mount()
         const scale = (): number => Number(/scale\(([\d.]+)\)/.exec(pic.style.transform)![1])
-        for (let i = 0; i < 12; i++) await userEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
-        expect(scale()).toBeCloseTo(10, 5)
+        for (let i = 0; i < 14; i++) await userEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+        expect(scale()).toBeCloseTo(15, 5)
         expect(screen.getByRole('button', { name: 'Zoom in' })).toBeDisabled()
         fireEvent.wheel(screen.getByRole('application'), { deltaY: -30, clientX: 600, clientY: 300 })
-        expect(scale()).toBeCloseTo(10, 5)
+        expect(scale()).toBeCloseTo(15, 5)
         await userEvent.click(screen.getByRole('button', { name: 'Zoom out' }))
-        expect(scale()).toBeLessThan(10)
+        expect(scale()).toBeLessThan(15)
     })
 
     describe('frame scrubber', () => {
