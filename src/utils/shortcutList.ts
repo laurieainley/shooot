@@ -53,6 +53,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
             { keys: ['⏎'], what: 'In the review: confirm and go to the next' },
             { keys: ['Esc', '⌫'], what: 'In the review: undo the choice' },
             { keys: ['[', ']'], what: 'In the review: previous / next suggestion (elsewhere: previous / next file)' },
+            { keys: ['{', '}'], what: 'In the review: look 2 s earlier / later (Shift+[ and Shift+])' },
             { keys: ['←', '→'], what: 'In the review: seek 5 s (Shift 1 s), like the editor' },
         ],
     },

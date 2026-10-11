@@ -99,6 +99,21 @@ describe('MatchStrip', () => {
         expect(screen.queryByRole('slider', { name: 'Match timeline' })).not.toBeInTheDocument()
     })
 
+    it('should draw a ring only for suggestions still to review, in their own lane, and a star for top picks', () => {
+        useAppState.setState({ suggestionRun: null, suggestions: [
+            { id: 's1', globalTimeSec: 120, score: 1, source: 'audio', status: 'pending' },
+            { id: 's2', globalTimeSec: 240, score: 1, source: 'audio', status: 'pending', ball: { goal: 'team1', frames: 2 } },
+            { id: 's3', globalTimeSec: 300, score: 1, source: 'audio', status: 'rejected' },
+            { id: 's4', globalTimeSec: 360, score: 1, source: 'audio', status: 'kept', eventId: 'g1' },
+        ], events: [{ id: 'g1', type: 'goal', matchTimeSec: 358, sourceFileIndex: 0 }] as never })
+        render(<MatchStrip />)
+        const rings = screen.getAllByRole('button', { name: /Suggested moment/ })
+        expect(rings).toHaveLength(2)
+        expect(rings[0].className).toContain('strip-suggestion')
+        expect(rings[0].className).not.toContain('strip-suggestion--top')
+        expect(rings[1].className).toContain('strip-suggestion--top')
+    })
+
     it('should show pending suggestions as rings that open the review', () => {
         useAppState.setState({ suggestions: [
             { id: 's1', globalTimeSec: 120, score: 1, source: 'audio', status: 'pending' },
@@ -118,8 +133,8 @@ describe('MatchStrip', () => {
         it('should open the review on a touch tap within reach of a ring, without seeking', () => {
             render(<MatchStrip />)
             mockRect(track())
-            fireEvent.pointerDown(track(), { clientX: 135, clientY: 20, pointerId: 1, pointerType: 'touch' })
-            fireEvent.pointerUp(track(), { clientX: 136, clientY: 20, pointerId: 1, pointerType: 'touch' })
+            fireEvent.pointerDown(track(), { clientX: 128, clientY: 30, pointerId: 1, pointerType: 'touch' })
+            fireEvent.pointerUp(track(), { clientX: 129, clientY: 30, pointerId: 1, pointerType: 'touch' })
             expect(useAppState.getState().panel).toBe('review')
             expect(useAppState.getState().reviewIndex).toBe(0)
             expect(seekToGoal).not.toHaveBeenCalled()
@@ -140,6 +155,34 @@ describe('MatchStrip', () => {
             fireEvent.pointerUp(track(), { clientX: 400, clientY: 20, pointerId: 1, pointerType: 'touch' })
             expect(useAppState.getState().panel).toBeNull()
             expect(seekToGoal).toHaveBeenLastCalledWith(0, 400)
+        })
+        it('should keep a 24 px touch target centred on the ring, and seek just beyond it', () => {
+            render(<MatchStrip />)
+            mockRect(track())
+            fireEvent.pointerDown(track(), { clientX: 108, clientY: 30, pointerId: 1, pointerType: 'touch' })
+            fireEvent.pointerUp(track(), { clientX: 108, clientY: 30, pointerId: 1, pointerType: 'touch' })
+            expect(useAppState.getState().panel).toBe('review') // 12 px left of the ring
+            useAppState.setState({ panel: null }); seekToGoal.mockClear()
+            fireEvent.pointerDown(track(), { clientX: 140, clientY: 30, pointerId: 1, pointerType: 'touch' })
+            fireEvent.pointerUp(track(), { clientX: 140, clientY: 30, pointerId: 1, pointerType: 'touch' })
+            expect(useAppState.getState().panel).toBeNull()
+            expect(seekToGoal).toHaveBeenLastCalledWith(0, 140)
+        })
+        it('should open the review only on a mouse click on the ring itself; near or above it the click just seeks', () => {
+            render(<MatchStrip />)
+            mockRect(track())
+            const click = (x: number, y: number): void => {
+                fireEvent.pointerDown(track(), { clientX: x, clientY: y, pointerId: 1, pointerType: 'mouse' })
+                fireEvent.pointerUp(track(), { clientX: x, clientY: y, pointerId: 1, pointerType: 'mouse' })
+            }
+            click(130, 36) // 10 px beside the ring
+            expect(useAppState.getState().panel).toBeNull()
+            expect(seekToGoal).toHaveBeenLastCalledWith(0, 130)
+            click(120, 5) // above the ring lane
+            expect(useAppState.getState().panel).toBeNull()
+            click(122, 36) // on the ring
+            expect(useAppState.getState().panel).toBe('review')
+            expect(useAppState.getState().reviewIndex).toBe(0)
         })
         it('should keep scrubbing with a mouse over a ring', () => {
             render(<MatchStrip />)

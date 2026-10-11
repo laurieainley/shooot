@@ -925,6 +925,19 @@ describe('Find goals: Top picks lane', () => {
     })
 })
 
+describe('Review loop keys', () => {
+    it('should extend the loop with { and } (Shift+[ and Shift+]) and show the keys on the +2 s handles', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        press('{', { shiftKey: true })
+        expect(screen.getByText('−7 s … +4 s')).toBeTruthy()
+        press('}', { shiftKey: true })
+        expect(screen.getByText('−7 s … +6 s')).toBeTruthy()
+        expect(screen.getByRole('button', { name: 'Start 2 seconds earlier' }).textContent).toContain('{')
+        expect(screen.getByRole('button', { name: 'End 2 seconds later' }).textContent).toContain('}')
+        expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy() // [ and ] still move between suggestions
+    })
+})
+
 describe('Review keys', () => {
     it('should seek with the arrows like the editor, and move between suggestions with [ and ]', () => {
         const run2 = vi.fn()

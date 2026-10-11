@@ -135,6 +135,7 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
         const onKey = (e: KeyboardEvent): void => {
             const target = e.target as HTMLElement | null
             if (target?.closest?.('input, textarea, select') || e.metaKey || e.ctrlKey || e.altKey) return
+            if ((e.key === '{' || e.key === '}') && !e.repeat) { e.preventDefault(); if (e.key === '{') loop.earlier(); else loop.later(); return } // Shift+[ / Shift+]
             const arrow = e.key === 'ArrowUp' || e.key === 'ArrowDown'
             const sideways = e.key === 'ArrowLeft' || e.key === 'ArrowRight'
             if (e.shiftKey && !arrow && !sideways) return // only the arrows read Shift

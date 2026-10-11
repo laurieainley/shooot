@@ -88,3 +88,11 @@ review; default lane rules; rail button copy/visibility/open.
 A compact line under the panel header, above the lane switch: "Goals tagged: Whites 3 – 2 Colours" (team names in the
 shirt font, score in JetBrains Mono), computed with the shared score helper over all events (not up to the playhead).
 Updates live on confirm / discard / undo.
+
+## Addendum 5 (user, 2026-10-11): loop keys, strip rings only on the ring, own ring lane
+1. While the review is open `{` (Shift+[) = start 2 s earlier, `}` (Shift+]) = end 2 s later; shown as key hints on the
+   two "+2 s" handles and in the shortcuts list.
+2. Match strip rings: only a click / tap ON the ring opens the review at that suggestion; a click near or under it
+   just seeks. Mouse: the ring's own size; touch / pen: a 24 px target centred on the ring. Only in the thin bottom lane.
+3. Rings sit in their own thin lane at the bottom of the strip (event icons stack above it), faint; only suggestions still
+   to review have one (confirmed ones are events, discarded ones disappear). Top picks show the small lime star.

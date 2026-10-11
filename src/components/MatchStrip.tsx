@@ -13,8 +13,12 @@ const ICON_TOUCH = 18
 /** A tap is under 6 px of movement and 300 ms; it opens a suggestion ring within reach (the rings themselves take no pointer events, so scrubbing over them still seeks). */
 const TAP_MOVE_PX = 6
 const TAP_MS = 300
-const RING_REACH_MOUSE_PX = 10
-const RING_REACH_TOUCH_PX = 22
+// Only the ring itself counts: the ring's own size with a mouse, a 24 px target centred on it for touch / pen.
+// The rings live in a thin lane at the bottom of the strip, so a click higher up never opens the review.
+const RING_REACH_MOUSE_PX = 7
+const RING_REACH_TOUCH_PX = 12
+const RING_LANE_MOUSE_PX = 14
+const RING_LANE_TOUCH_PX = 24
 
 /** The track's width in px, kept up to date (icon stacking depends on it). */
 function useWidth(ref: React.RefObject<HTMLElement | null>): number {
@@ -87,7 +91,9 @@ export function MatchStrip() {
         if (!d || marks.length === 0) return null
         if (Math.hypot(ev.clientX - d.x, ev.clientY - d.y) >= TAP_MOVE_PX || performance.now() - d.at >= TAP_MS) return null
         const rect = ev.currentTarget.getBoundingClientRect()
-        const reach = ev.pointerType === 'touch' || ev.pointerType === 'pen' ? RING_REACH_TOUCH_PX : RING_REACH_MOUSE_PX
+        const touch = ev.pointerType === 'touch' || ev.pointerType === 'pen'
+        const reach = touch ? RING_REACH_TOUCH_PX : RING_REACH_MOUSE_PX
+        if (ev.clientY < rect.bottom - (touch ? RING_LANE_TOUCH_PX : RING_LANE_MOUSE_PX)) return null
         let best: { id: string; dist: number } | null = null
         for (const m of marks) {
             const dist = Math.abs(ev.clientX - (rect.left + (m.leftPct / 100) * rect.width))
@@ -183,11 +189,13 @@ export function MatchStrip() {
                             <button
                                 key={m.id}
                                 type="button"
-                                className="strip-suggestion"
+                                className={`strip-suggestion${m.top ? ' strip-suggestion--top' : ''}`}
                                 style={{ left: `${m.leftPct}%` }}
                                 aria-label={`Suggested moment at ${formatEventClock(m.timeSec, m.timeSec, matchStartSec, clockLong)}`}
                                 onClick={() => useAppState.getState().openReviewAt(m.id)}
-                            />
+                            >
+                                {m.top && <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" focusable="false" fill="currentColor"><path d="M12 2.9l2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 16.7l-5.4 3 1.1-6.1-4.5-4.3 6.1-.8z" /></svg>}
+                            </button>
                         ))}
                         {strip.events.map((e, i) => (
                             <button
