@@ -119,6 +119,21 @@ describe('OverflowMenu', () => {
         expect(s().events).toHaveLength(2)
         expect(screen.queryByText(/clear 2 events/i)).not.toBeInTheDocument()
     })
+
+    it('should not show a Labs item while labs is off', async () => {
+        useAppState.setState({ labs: false, panel: null })
+        render(<OverflowMenu />)
+        await open()
+        expect(screen.queryByRole('menuitem', { name: /Labs/ })).not.toBeInTheDocument()
+    })
+
+    it('should show "Labs: on" while labs is on and turn it off when clicked', async () => {
+        useAppState.setState({ labs: true, panel: null })
+        render(<OverflowMenu />)
+        await open()
+        await userEvent.click(screen.getByRole('menuitem', { name: 'Labs: on' }))
+        expect(useAppState.getState().labs).toBe(false)
+    })
 })
 
 describe('OverflowMenu send project', () => {

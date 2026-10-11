@@ -73,6 +73,8 @@ export type Suggestion = {
     status: SuggestionStatus
     keptAs?: KeepType
     eventId?: string
+    /** Labs ball check: the ball was seen inside this goal around the moment. */
+    ball?: { goal: GoalTeam; frames: number }
 }
 export type SuggestionRun = { createdAt: number; source: 'audio'; configVersion: number; analysedSec: number; total: number; durationMs?: number; fileKeys?: string[] }
 
