@@ -112,15 +112,15 @@ describe('GoalAreasSetup', () => {
         it('should offer Mark goal per goal without marks and Edit/Clear with marks', () => {
             useAppState.setState({ goalAreas: defaultGoalAreas(), goalMarks: { team1: M } })
             render(<GoalAreasSetup />)
-            expect(screen.getByRole('button', { name: /^Edit marks/ })).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: /^Clear marks/ })).toBeInTheDocument()
-            expect(screen.getAllByRole('button', { name: /^Mark goal/ })).toHaveLength(1)
+            expect(screen.getByRole('button', { name: /^Edit Whites' goal marks/ })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /^Clear Whites' goal marks/ })).toBeInTheDocument()
+            expect(screen.getAllByRole('button', { name: /^Mark Colours' goal/ })).toHaveLength(1)
         })
 
         it('should store the marks and update the rectangle on Done, hiding the boxes while editing', async () => {
             setup()
             render(<GoalAreasSetup />)
-            await userEvent.click(screen.getByRole('button', { name: /^Mark goal, Whites/ }))
+            await userEvent.click(screen.getByRole('button', { name: /^Mark Whites' goal/ }))
             expect(screen.queryByRole('group', { name: "Whites' goal box" })).not.toBeInTheDocument()
             const pic = screen.getByTestId('goal-marks-picture')
             pic.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 562.5, right: 1000, bottom: 562.5, x: 0, y: 0, toJSON: () => ({}) })
@@ -134,7 +134,7 @@ describe('GoalAreasSetup', () => {
         it('should keep the old marks on Cancel', async () => {
             useAppState.setState({ goalAreas: defaultGoalAreas(), goalMarks: { team1: M } })
             render(<GoalAreasSetup />)
-            await userEvent.click(screen.getByRole('button', { name: /^Edit marks/ }))
+            await userEvent.click(screen.getByRole('button', { name: /^Edit Whites' goal marks/ }))
             await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
             expect(useAppState.getState().goalMarks).toEqual({ team1: M })
         })
@@ -142,9 +142,25 @@ describe('GoalAreasSetup', () => {
         it('should clear only the marks on Clear marks', async () => {
             useAppState.setState({ goalAreas: defaultGoalAreas(), goalMarks: { team1: M } })
             render(<GoalAreasSetup />)
-            await userEvent.click(screen.getByRole('button', { name: /^Clear marks/ }))
+            await userEvent.click(screen.getByRole('button', { name: /^Clear Whites' goal marks/ }))
             expect(useAppState.getState().goalMarks).toBeNull()
             expect(useAppState.getState().goalAreas).not.toBeNull()
+        })
+
+        it('should hide the box actions while the marking editor is open', async () => {
+            useAppState.setState({ goalAreas: defaultGoalAreas(), goalMarks: { team1: M } })
+            render(<GoalAreasSetup />)
+            await userEvent.click(screen.getByRole('button', { name: /^Edit Whites' goal marks/ }))
+            for (const name of ['Swap which goal is whose', 'Reset boxes', 'Remove']) expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: /^Clear Whites/ })).not.toBeInTheDocument()
+        })
+
+        it('should return focus to the goal button after Cancel', async () => {
+            useAppState.setState({ goalAreas: defaultGoalAreas(), goalMarks: { team1: M } })
+            render(<GoalAreasSetup />)
+            await userEvent.click(screen.getByRole('button', { name: /^Edit Whites' goal marks/ }))
+            await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+            expect(screen.getByRole('button', { name: /^Edit Whites' goal marks/ })).toHaveFocus()
         })
 
         it('should keep marks on Reset boxes and clear them on Remove', async () => {

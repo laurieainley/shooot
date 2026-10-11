@@ -103,11 +103,34 @@ describe('GoalMarksEditor', () => {
     it('should drag a dot to a new place', () => {
         const { pic } = mount({ initial: FULL })
         const dot = screen.getByRole('button', { name: 'Left post bottom' })
-        fireEvent.pointerDown(dot, { pointerId: 1, clientX: 300, clientY: 350 })
+        fireEvent.pointerDown(dot, { pointerId: 1, clientX: 300, clientY: 387.5 })
         fireEvent.pointerMove(dot, { pointerId: 1, clientX: 600, clientY: 331.25 })
         fireEvent.pointerUp(dot, { pointerId: 1, clientX: 600, clientY: 331.25 })
         expect(dot).toHaveStyle({ left: '50%', top: '50%' })
         expect(pic).toBeInTheDocument()
+    })
+
+    it('should keep the pointer-to-dot offset while dragging (no jump to the pointer centre)', () => {
+        mount({ initial: FULL })
+        const dot = screen.getByRole('button', { name: 'Left post bottom' })
+        // grab 10 px right of the dot centre, drag 20 px right
+        fireEvent.pointerDown(dot, { pointerId: 1, clientX: 310, clientY: 387.5 })
+        fireEvent.pointerMove(dot, { pointerId: 1, clientX: 330, clientY: 387.5 })
+        fireEvent.pointerUp(dot, { pointerId: 1, clientX: 330, clientY: 387.5 })
+        expect(parseFloat(dot.style.left)).toBeCloseTo(22, 5) // 20% + 20 px of 1000
+        expect(parseFloat(dot.style.top)).toBeCloseTo(60, 5)
+    })
+
+    it('should treat under 6 px of jitter as a tap that places the next point and leaves the dot', () => {
+        const { pic } = mount()
+        clickAt(pic, 0.2, 0.6)
+        const dot = screen.getByRole('button', { name: 'Left post bottom' })
+        fireEvent.pointerDown(dot, { pointerId: 1, clientX: 300, clientY: 387.5 })
+        fireEvent.pointerMove(dot, { pointerId: 1, clientX: 302, clientY: 387.5 })
+        fireEvent.pointerUp(dot, { pointerId: 1, clientX: 302, clientY: 387.5 })
+        fireEvent.click(dot, { detail: 1, clientX: 302, clientY: 387.5 })
+        expect(dot).toHaveStyle({ left: '20%', top: '60%' })
+        expect(screen.getByRole('button', { name: 'Right post bottom' })).toBeInTheDocument()
     })
 
     it('should nudge a focused dot with the arrow keys (Shift for bigger steps)', async () => {
@@ -120,9 +143,86 @@ describe('GoalMarksEditor', () => {
         expect(dot.style.top).toBe('41%')
     })
 
+    const BACK = { backL: { x: 0.1, y: 0.8 }, backR: { x: 0.5, y: 0.8 } }
+
+    it('should offer the optional back corners (with Skip) when editing a goal saved without them', async () => {
+        const { onDone } = mount({ initial: FULL })
+        expect(screen.getByText('Click the back-left corner of the net on the floor (optional)')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Remove net corners' })).not.toBeInTheDocument()
+        await userEvent.click(screen.getByRole('button', { name: 'Skip' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Skip' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Done' }))
+        expect(onDone).toHaveBeenCalledWith(FULL)
+    })
+
+    it('should remove saved back corners with Remove net corners', async () => {
+        const { onDone } = mount({ initial: { ...FULL, ...BACK } })
+        await userEvent.click(screen.getByRole('button', { name: 'Remove net corners' }))
+        expect(screen.queryByRole('button', { name: 'Back-left corner' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Remove net corners' })).not.toBeInTheDocument()
+        expect(screen.getByText('All set — drag a dot to adjust.')).toBeInTheDocument()
+        await userEvent.click(screen.getByRole('button', { name: 'Done' }))
+        expect(onDone).toHaveBeenCalledWith(FULL)
+    })
+
+    it('should cancel only the editor on Escape, before the panel sees it', () => {
+        const { onCancel } = mount({ initial: FULL })
+        const outer = vi.fn()
+        window.addEventListener('keydown', outer)
+        screen.getByLabelText(/^Goal picture/).focus()
+        fireEvent.keyDown(screen.getByLabelText(/^Goal picture/), { key: 'Escape' })
+        window.removeEventListener('keydown', outer)
+        expect(onCancel).toHaveBeenCalledTimes(1)
+        expect(outer).not.toHaveBeenCalled()
+    })
+
+    it('should focus the picture on open', () => {
+        mount()
+        expect(screen.getByLabelText(/^Goal picture/)).toHaveFocus()
+    })
+
+    it('should describe the picture as an application and place the current point at the centre on Enter', () => {
+        mount()
+        const view = screen.getByRole('application')
+        expect(view).toHaveAttribute('aria-label', expect.stringContaining('arrow keys nudge the selected point'))
+        view.getBoundingClientRect = () => ({ left: 100, top: 50, width: 1000, height: 562.5, right: 1100, bottom: 612.5, x: 100, y: 50, toJSON: () => ({}) })
+        fireEvent.keyDown(view, { key: 'Enter' })
+        expect(screen.getByRole('button', { name: 'Left post bottom' })).toHaveStyle({ left: '50%', top: '50%' })
+    })
+
+    it('should pan with the right button and not open the context menu', () => {
+        const { pic } = mount()
+        const view = screen.getByRole('application')
+        view.getBoundingClientRect = () => ({ left: 100, top: 50, width: 1000, height: 562.5, right: 1100, bottom: 612.5, x: 100, y: 50, toJSON: () => ({}) })
+        fireEvent.pointerDown(view, { pointerId: 5, clientX: 400, clientY: 300 })
+        fireEvent.pointerDown(view, { pointerId: 6, clientX: 500, clientY: 300 })
+        fireEvent.pointerMove(view, { pointerId: 6, clientX: 700, clientY: 300 })
+        fireEvent.pointerUp(view, { pointerId: 6 })
+        fireEvent.pointerUp(view, { pointerId: 5 })
+        const before = pic.style.transform
+        expect(before).not.toContain('scale(1)')
+        expect(fireEvent.contextMenu(view)).toBe(false)
+        fireEvent.pointerDown(view, { pointerId: 1, button: 2, clientX: 400, clientY: 300 })
+        fireEvent.pointerMove(view, { pointerId: 1, clientX: 380, clientY: 300 })
+        fireEvent.pointerUp(view, { pointerId: 1 })
+        expect(pic.style.transform).not.toBe(before)
+    })
+
+    it('should show a zoom hint, and Reset zoom only when zoomed', () => {
+        mount()
+        expect(screen.getByText(/Scroll or pinch to zoom/)).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Reset zoom' })).not.toBeInTheDocument()
+    })
+
+    it('should say Pinch to zoom on touch screens', () => {
+        setCoarsePointer(true)
+        mount()
+        expect(screen.getByText('Pinch to zoom · drag with two fingers to move')).toBeInTheDocument()
+    })
+
     it('should show initial marks with the all-set prompt and no Skip', () => {
-        mount({ initial: FULL })
-        expect(screen.getAllByRole('button').filter((b) => b.className.includes('goal-marks__dot'))).toHaveLength(4)
+        mount({ initial: { ...FULL, ...BACK } })
+        expect(screen.getAllByRole('button').filter((b) => b.className.includes('goal-marks__dot'))).toHaveLength(6)
         expect(screen.getByText('All set — drag a dot to adjust.')).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Done' })).toBeEnabled()
     })
@@ -139,7 +239,7 @@ describe('GoalMarksEditor', () => {
     it('should zoom with the wheel and reset', async () => {
         const { pic } = mount()
         expect(pic.style.transform).toContain('scale(1)')
-        fireEvent.wheel(screen.getByLabelText('Goal picture'), { deltaY: -30, clientX: 600, clientY: 300 })
+        fireEvent.wheel(screen.getByRole('application'), { deltaY: -30, clientX: 600, clientY: 300 })
         expect(pic.style.transform).not.toContain('scale(1)')
         await userEvent.click(screen.getByRole('button', { name: 'Reset zoom' }))
         expect(pic.style.transform).toContain('scale(1)')
@@ -147,7 +247,7 @@ describe('GoalMarksEditor', () => {
 
     it('should not swallow the next tap after a two-finger pinch', async () => {
         const { pic } = mount()
-        const view = screen.getByLabelText('Goal picture')
+        const view = screen.getByRole('application')
         fireEvent.pointerDown(view, { pointerId: 1, clientX: 300, clientY: 300 })
         fireEvent.pointerDown(view, { pointerId: 2, clientX: 500, clientY: 300 })
         fireEvent.pointerMove(view, { pointerId: 2, clientX: 600, clientY: 300 })
@@ -160,7 +260,7 @@ describe('GoalMarksEditor', () => {
 
     it('should keep dots at constant screen size when zoomed', () => {
         mount({ initial: FULL })
-        fireEvent.wheel(screen.getByLabelText('Goal picture'), { deltaY: -200, clientX: 600, clientY: 300 })
+        fireEvent.wheel(screen.getByRole('application'), { deltaY: -200, clientX: 600, clientY: 300 })
         const zoom = Number(/scale\(([\d.]+)\)/.exec(screen.getByTestId('goal-marks-picture').style.transform)![1])
         expect(zoom).toBeGreaterThan(1)
         const s = Number(/scale\(([\d.]+)\)/.exec(screen.getByRole('button', { name: 'Left post bottom' }).style.transform)![1])

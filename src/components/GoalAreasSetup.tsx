@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAppState } from '../state'
 import type { CropRect, GoalAreas, GoalTeam } from '../types'
 import { teamGoalLabel } from '../utils/attack'
@@ -24,6 +24,15 @@ export function GoalAreasSetup() {
     const frame = useFrameAt(first?.url, first?.durationSec ? first.durationSec / 2 : null)
 
     const [editing, setEditing] = useState<GoalTeam | null>(null)
+    const section = useRef<HTMLElement | null>(null)
+    const returnTo = useRef<GoalTeam | null>(null)
+    const close = (): void => { returnTo.current = editing; setEditing(null) }
+    // Done / Cancel: focus goes back to that goal's Mark / Edit button.
+    useEffect(() => {
+        if (editing || !returnTo.current) return
+        section.current?.querySelector<HTMLElement>(`[data-mark-team="${returnTo.current}"]`)?.focus()
+        returnTo.current = null
+    }, [editing])
 
     const boxes: FrameBox[] = []
     for (const [i, id] of (['team1', 'team2'] as GoalTeam[]).entries()) {
@@ -33,17 +42,17 @@ export function GoalAreasSetup() {
     const change = (id: string, rect: CropRect): void => { if (areas) setAreas({ ...areas, [id]: rect } as GoalAreas) }
 
     return (
-        <section className="goal-areas" aria-label="Goal areas">
+        <section ref={section} className="goal-areas" aria-label="Goal areas">
             <h3 className="export-section__title">Goal areas</h3>
-            <p className="goal-areas__hint">Each box is the goal that team defends at kick-off; replays zoom to the goal the scoring team attacks. Drag a box over its goal mouth, drag any corner to resize.</p>
+            <p className="goal-areas__hint">Each box is the goal that team defends at kick-off; replays zoom to the goal the scoring team attacks. Drag a box over its goal mouth, drag any corner to resize, or Mark goal to place its posts, bar and net.</p>
             {editing ? (
                 <GoalMarksEditor
                     key={editing}
                     team={editing}
                     frame={frame}
                     initial={marks?.[editing] ?? null}
-                    onDone={(m) => { setMarks(editing, m); setEditing(null) }}
-                    onCancel={() => setEditing(null)}
+                    onDone={(m) => { setMarks(editing, m); close() }}
+                    onCancel={close}
                 />
             ) : (
                 <FrameBoxes
@@ -61,14 +70,14 @@ export function GoalAreasSetup() {
                     {boxes.map((b) => marks?.[b.id as GoalTeam]
                         ? (
                             <span key={b.id} className="goal-areas__marks">
-                                <button type="button" className="btn-quiet" onClick={() => setEditing(b.id as GoalTeam)}>{`Edit marks, ${b.short}`}</button>
-                                <button type="button" className="btn-quiet" onClick={() => setMarks(b.id as GoalTeam, null)}>{`Clear marks, ${b.short}`}</button>
+                                <button type="button" className="btn-quiet" data-mark-team={b.id} onClick={() => setEditing(b.id as GoalTeam)}>{`Edit ${b.label} marks`}</button>
+                                <button type="button" className="btn-quiet" onClick={() => setMarks(b.id as GoalTeam, null)}>{`Clear ${b.label} marks`}</button>
                             </span>
                         )
-                        : <button key={b.id} type="button" className="btn-quiet" onClick={() => setEditing(b.id as GoalTeam)}>{`Mark goal, ${b.short}`}</button>)}
+                        : <button key={b.id} type="button" className="btn-quiet" data-mark-team={b.id} onClick={() => setEditing(b.id as GoalTeam)}>{`Mark ${b.label}`}</button>)}
                 </div>
             )}
-            <div className="goal-areas__row">
+            {!editing && <div className="goal-areas__row">
                 {!areas
                     ? <button type="button" className="btn-quiet" disabled={!frame.frame} onClick={() => setAreas(defaultGoalAreas())}>Set goal areas</button>
                     : <>
@@ -76,7 +85,7 @@ export function GoalAreasSetup() {
                         <button type="button" className="btn-quiet" onClick={() => setAreas(defaultGoalAreas())}>Reset boxes</button>
                         <button type="button" className="btn-quiet" onClick={() => { setAreas(null); setAllMarks(null); setEditing(null) }}>Remove</button>
                     </>}
-            </div>
+            </div>}
         </section>
     )
 }

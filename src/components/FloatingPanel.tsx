@@ -37,6 +37,8 @@ export function FloatingPanel({ label, anchorRef, placement, onClose, children, 
         const first = panelRef.current?.querySelector<HTMLElement>('button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])')
         ;(first ?? panelRef.current)?.focus()
         const onKey = (e: KeyboardEvent): void => {
+            // A widget inside the panel that has its own Escape (e.g. the goal marking editor: Cancel) marks itself.
+            if (e.key === 'Escape' && (e.target as Element | null)?.closest?.('[data-owns-escape]')) return
             if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeRef.current() }
         }
         const onDown = (e: PointerEvent): void => {

@@ -26,6 +26,10 @@ const LABELS: Record<MarkKey, string> = {
 const NUDGE = 0.002
 const NUDGE_BIG = 0.01
 const DONE_TEXT = 'All set — drag a dot to adjust.'
+const DRAG_START_PX = 6
+const VIEW_LABEL = 'Goal picture. Use a mouse or touch to place points; arrow keys nudge the selected point.'
+const HINT_FINE = 'Scroll or pinch to zoom · drag with two fingers, right button or Space to move'
+const HINT_TOUCH = 'Pinch to zoom · drag with two fingers to move'
 
 const clamp01 = (v: number): number => Math.min(1, Math.max(0, v))
 const line = (a: Pt, b: Pt): string => `M${a.x} ${a.y}L${b.x} ${b.y}`
@@ -38,7 +42,7 @@ const line = (a: Pt, b: Pt): string => `M${a.x} ${a.y}L${b.x} ${b.y}`
 export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: GoalMarksEditorProps) {
     const touch = useMediaQuery(COARSE_QUERY)
     const [partial, setPartial] = useState<Partial<GoalMarks>>(initial ?? {})
-    const [skipped, setSkipped] = useState<ReadonlySet<MarkKey>>(() => new Set(initial && !initial.backL ? (['backL', 'backR'] as MarkKey[]) : []))
+    const [skipped, setSkipped] = useState<ReadonlySet<MarkKey>>(() => new Set<MarkKey>())
     const root = useRef<HTMLDivElement | null>(null)
     const viewport = useRef<HTMLDivElement | null>(null)
     const picture = useRef<HTMLDivElement | null>(null)
@@ -46,7 +50,8 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
     const pointers = useRef(new Map<number, { x: number; y: number }>())
     const gesture = useRef<{ dist: number; zoom: number } | null>(null)
     const panned = useRef(false)
-    const dragging = useRef<MarkKey | null>(null)
+    const dragging = useRef<{ key: MarkKey; startX: number; startY: number; off: Pt } | null>(null)
+    const rightPan = useRef(false)
     const dragMoved = useRef(false)
     const zp = useZoomPan(() => {
         const r = viewport.current?.getBoundingClientRect()
@@ -56,7 +61,10 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
     zpRef.current = zp
 
     // The editor replaces the boxes picture and is taller: bring it (prompt, picture, Done) into the sheet's view.
-    useEffect(() => { root.current?.scrollIntoView?.({ block: 'start' }) }, [])
+    useEffect(() => {
+        root.current?.scrollIntoView?.({ block: 'start' })
+        viewport.current?.focus({ preventScroll: true })
+    }, [])
 
     // Wheel needs a non-passive listener to stop the page scrolling.
     useEffect(() => {
@@ -97,6 +105,7 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
     }
     const viewDown = (e: PointerEvent<HTMLDivElement>): void => {
         if (dragging.current) return
+        if (e.button === 2) { rightPan.current = true; e.currentTarget.setPointerCapture?.(e.pointerId) }
         pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
         if (pointers.current.size === 2) { gesture.current = { dist: dist(), zoom: zp.zoom }; panned.current = true }
     }
@@ -108,38 +117,53 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
         if (pointers.current.size >= 2 && gesture.current) {
             zp.panBy((next.x - prev.x) / 2, (next.y - prev.y) / 2)
             zp.pinchTo(gesture.current.zoom * (dist() / gesture.current.dist))
-        } else if (space.current) {
-            panned.current = true
+        } else if (space.current || rightPan.current) {
+            if (space.current) panned.current = true
             zp.panBy(next.x - prev.x, next.y - prev.y)
         }
     }
     const viewUp = (e: PointerEvent<HTMLDivElement>): void => {
         if (!pointers.current.delete(e.pointerId)) return
+        if (pointers.current.size === 0) rightPan.current = false
         if (gesture.current && pointers.current.size < 2) { gesture.current = null; zp.pinchEnd() }
         // A pan / pinch swallows the click it ends with, but not the next genuine tap.
         if (pointers.current.size === 0 && panned.current) setTimeout(() => { panned.current = false }, 0)
     }
     const viewKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
         if (e.key === ' ' && e.target === e.currentTarget) { space.current = true; e.preventDefault(); e.stopPropagation() }
+        else if (e.key === 'Enter' && e.target === e.currentTarget && current) {
+            // Keyboard placement: the point goes at the middle of what is in view.
+            const r = e.currentTarget.getBoundingClientRect()
+            e.preventDefault()
+            e.stopPropagation()
+            place(current, toFraction(r.left + r.width / 2, r.top + r.height / 2))
+        }
     }
     const viewKeyUp = (e: KeyboardEvent<HTMLDivElement>): void => { if (e.key === ' ') space.current = false }
 
     const dotDown = (key: MarkKey) => (e: PointerEvent<HTMLButtonElement>): void => {
         e.stopPropagation()
         if (space.current) return
-        dragging.current = key
+        const p = partial[key]
+        const at = toFraction(e.clientX, e.clientY)
+        dragging.current = { key, startX: e.clientX, startY: e.clientY, off: p ? { x: p.x - at.x, y: p.y - at.y } : { x: 0, y: 0 } }
         dragMoved.current = false
         e.currentTarget.setPointerCapture?.(e.pointerId)
     }
     const dotMove = (key: MarkKey) => (e: PointerEvent<HTMLButtonElement>): void => {
-        if (dragging.current !== key) return
+        const d = dragging.current
+        if (d?.key !== key) return
+        // Under 6 px it is still a tap: jitter must not nudge the dot.
+        if (!dragMoved.current && Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < DRAG_START_PX) return
         dragMoved.current = true
-        place(key, toFraction(e.clientX, e.clientY))
+        const at = toFraction(e.clientX, e.clientY)
+        place(key, { x: clamp01(at.x + d.off.x), y: clamp01(at.y + d.off.y) })
     }
     const dotUp = (key: MarkKey) => (e: PointerEvent<HTMLButtonElement>): void => {
-        if (dragging.current !== key) return
+        if (dragging.current?.key !== key) return
         dragging.current = null
         e.currentTarget.releasePointerCapture?.(e.pointerId)
+        if (!dragMoved.current) return
         panned.current = true // the click that follows a drag must not place a point
         setTimeout(() => { panned.current = false }, 0)
     }
@@ -162,6 +186,10 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
     }
 
     const skip = (): void => { if (current) setSkipped((s) => new Set([...s, current])) }
+    const removeCorners = (): void => {
+        setPartial((m) => { const rest = { ...m }; delete rest.backL; delete rest.backR; return rest })
+        setSkipped(new Set<MarkKey>(['backL', 'backR']))
+    }
     const done = (): void => {
         if (!isComplete(partial)) return
         const { postL, postR, barL, barR, backL, backR } = partial
@@ -173,14 +201,21 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
     const aspect = frame.frame?.aspect ?? 16 / 9
 
     return (
-        <div ref={root} className={`goal-marks goal-marks--${team}`}>
+        <div
+            ref={root}
+            className={`goal-marks goal-marks--${team}`}
+            data-owns-escape
+            onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onCancel() } }}
+        >
             <p className="goal-marks__prompt" role="status">{current ? promptFor(current, touch) : DONE_TEXT}</p>
             <div
                 ref={viewport}
                 className="goal-marks__view"
                 style={{ aspectRatio: String(aspect) }}
                 tabIndex={0}
-                aria-label="Goal picture"
+                role="application"
+                aria-label={VIEW_LABEL}
+                onContextMenu={(e) => e.preventDefault()}
                 onPointerDown={viewDown}
                 onPointerMove={viewMove}
                 onPointerUp={viewUp}
@@ -229,9 +264,11 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
                     </div>
                 ) : <p className="frame-boxes__empty" role="status">{frame.status === 'loading' ? 'Loading a frame…' : 'No picture available for this video here.'}</p>}
             </div>
+            <p className="goal-marks__hint">{touch ? HINT_TOUCH : HINT_FINE}</p>
             <div className="goal-areas__row">
                 {step?.optional && <button type="button" className="btn-quiet" onClick={skip}>Skip</button>}
-                <button type="button" className="btn-quiet" onClick={zp.reset}>Reset zoom</button>
+                {partial.backL && partial.backR && <button type="button" className="btn-quiet" onClick={removeCorners}>Remove net corners</button>}
+                {zp.zoom > 1 && <button type="button" className="btn-quiet" onClick={zp.reset}>Reset zoom</button>}
                 <button type="button" className="btn-quiet" onClick={onCancel}>Cancel</button>
                 <button type="button" className="btn-primary" disabled={!isComplete(partial)} onClick={done}>Done</button>
             </div>
