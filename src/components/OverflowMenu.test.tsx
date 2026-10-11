@@ -117,7 +117,7 @@ describe('OverflowMenu', () => {
         await userEvent.click(screen.getByRole('button', { name: /clear match/i }))
         expect(s().events).toEqual([])
         expect(s().files).toEqual([])
-        expect(s().panel).toBeNull()
+        expect(s().panel).toBe('newmatch') // the stepped New match setup opens
     })
 
     it('should keep everything when the new match is cancelled', async () => {
