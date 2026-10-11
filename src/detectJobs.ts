@@ -71,7 +71,7 @@ export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi
                 store.setState({ ballPhase: 'running', ballFraction: 0, ballError: null, ballMs: null })
                 try {
                     await deps.ball({ suggestions: after.suggestions, marks, files, totalSec,
-                        stillPending: (s) => { const st = useAppState.getState(); return effectiveStatus(s, new Set(st.events.map((e) => e.id))) === 'pending' && st.suggestions.some((x) => x.id === s.id) } }, deps.ballDeps, mine.signal,
+                        stillPending: (s) => { const st = useAppState.getState(); const cur = st.suggestions.find((x) => x.id === s.id); return !!cur && effectiveStatus(cur, new Set(st.events.map((e) => e.id))) === 'pending' } }, deps.ballDeps, mine.signal,
                         (ballFraction) => { if (ac === mine) store.setState({ ballFraction }) },
                         (id, ball) => { if (!mine.signal.aborted && sameFiles(snapshot, useAppState.getState().files.map((f) => f.file))) useAppState.getState().setSuggestionBall(id, ball) })
                     if (ac === mine) store.setState({ ballPhase: 'done', ballFraction: 1, ballMs: Math.max(0, deps.now() - ballStart) })

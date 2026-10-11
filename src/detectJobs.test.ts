@@ -145,4 +145,23 @@ describe('detection job phase 2 (ball check)', () => {
         expect(useAppState.getState().suggestions).toHaveLength(2)
         expect(w.release).toHaveBeenCalled()
     })
+    it('should skip a suggestion decided while the ball check runs', async () => {
+        setup(true)
+        const calls: number[][] = []
+        const frames = async () => ({
+            frameSize: { w: 1000, h: 1000 },
+            async *tilesAt(times: number[]) {
+                calls.push(times)
+                if (calls.length > 99) yield { timeSec: 0, images: [] }
+                if (calls.length === 1) useAppState.getState().decideSuggestion(useAppState.getState().suggestions[1].id, { kind: 'reject' })
+            },
+            dispose: () => {},
+        })
+        const detector = () => ({ ready: Promise.resolve({ ep: 'wasm' }), detect: async () => [], dispose: () => {} })
+        const jobs = createDetectJobs({ run: audio as never, wakeLock: wake, now: () => 0, ballDeps: { frames, detector } as never })
+        await jobs.start()
+        expect(calls).toHaveLength(1)
+        expect(Math.min(...calls[0])).toBeLessThan(110)
+        expect(jobs.store.getState().ballPhase).toBe('done')
+    })
 })
