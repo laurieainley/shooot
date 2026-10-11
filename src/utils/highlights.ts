@@ -13,8 +13,6 @@ export type HighlightSegment = {
 export function mergeOverlappingGoalSegments(
     goals: MatchEvent[],
     cumulativeOffsets: number[],
-    matchStartTimeSec: number,
-    adjustTimestampsByOffset: boolean,
     lengthBeforeGoalSec: number,
     lengthAfterGoalSec: number
 ): HighlightSegment[] {
@@ -22,17 +20,15 @@ export function mergeOverlappingGoalSegments(
     goals = goals.filter((g) => !isMarker(g));
     if (goals.length === 0) return [];
 
-    // Create goals with adjusted times for sorting, but keep original times for playback
-    const goalsWithSortTimes = goals.map(goal => ({
+    // Keep the original times for video seeking; sort along the whole timeline
+    const goalsWithTimes = goals.map(goal => ({
         ...goal,
-        originalMatchTimeSec: goal.matchTimeSec, // Keep original time for video seeking
-        sortTimeSec: adjustTimestampsByOffset ? Math.max(0, goal.matchTimeSec - matchStartTimeSec) : goal.matchTimeSec
+        originalMatchTimeSec: goal.matchTimeSec,
     }));
 
-    // Sort goals by adjusted time
-    const sortedGoals = [...goalsWithSortTimes].sort((a, b) => {
-        const aTime = (cumulativeOffsets[a.sourceFileIndex ?? 0] || 0) + a.sortTimeSec;
-        const bTime = (cumulativeOffsets[b.sourceFileIndex ?? 0] || 0) + b.sortTimeSec;
+    const sortedGoals = [...goalsWithTimes].sort((a, b) => {
+        const aTime = (cumulativeOffsets[a.sourceFileIndex ?? 0] || 0) + a.matchTimeSec;
+        const bTime = (cumulativeOffsets[b.sourceFileIndex ?? 0] || 0) + b.matchTimeSec;
         return aTime - bTime;
     });
 

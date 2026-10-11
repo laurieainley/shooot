@@ -31,7 +31,7 @@ describe('OverflowMenu', () => {
         expect(screen.queryByRole('menu')).not.toBeInTheDocument()
         await open()
         const items = screen.getAllByRole('menuitem').map((b) => b.textContent)
-        expect(items).toEqual(['New match…', 'Find goals Beta', 'Files', 'Advanced settings', 'Paste list', 'Send project to another device', 'Export project', 'Import project', 'Shortcuts'])
+        expect(items).toEqual(['New match…', 'Find goals Beta', 'Files', 'Advanced settings', 'Send project to another device', 'Import…', 'Export project', 'Shortcuts'])
     })
 
     it('should offer Find goals (Beta), or Review suggestions once there are some', async () => {
@@ -63,7 +63,7 @@ describe('OverflowMenu', () => {
         render(<OverflowMenu />)
         await open()
         await userEvent.click(screen.getByRole('menuitem', { name: 'New match…' }))
-        await userEvent.click(screen.getByRole('button', { name: /Clear and start new match/ }))
+        await userEvent.click(screen.getByRole('button', { name: /Clear match/ }))
         expect(cancelDetection).toHaveBeenCalled()
     })
 
@@ -82,7 +82,7 @@ describe('OverflowMenu', () => {
         expect(s().panel).toBe('shortcuts')
     })
 
-    it.each([['Files', 'files'], ['Advanced settings', 'settings'], ['Paste list', 'paste']] as const)(
+    it.each([['Files', 'files'], ['Advanced settings', 'settings'], ['Import…', 'import']] as const)(
         'should open %s as its own panel', async (item, panel) => {
             render(<OverflowMenu />)
             await open()
@@ -105,7 +105,7 @@ describe('OverflowMenu', () => {
         await userEvent.click(screen.getByRole('menuitem', { name: /new match/i }))
         expect(s().events).toHaveLength(2)
         expect(screen.getByText(/clear 2 events and unload the videos/i)).toBeInTheDocument()
-        await userEvent.click(screen.getByRole('button', { name: /clear and start/i }))
+        await userEvent.click(screen.getByRole('button', { name: /clear match/i }))
         expect(s().events).toEqual([])
         expect(s().files).toEqual([])
         expect(s().panel).toBeNull()

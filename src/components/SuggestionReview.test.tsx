@@ -11,10 +11,11 @@ vi.mock('../detectJobs', () => ({
 }))
 import { SuggestionReview } from './SuggestionReview'
 import { openFindGoals } from './findGoals'
-import { registerPlayerToggle } from './playerControl'
+import { registerPlayerStep, registerPlayerToggle, setPlayerPaused } from './playerControl'
 
 const run = { createdAt: 1, source: 'audio' as const, configVersion: 1, analysedSec: 600, total: 2 }
 beforeEach(() => {
+    setPlayerPaused(true)
     job.phase = 'done'; job.fraction = 1; job.error = null
     useAppState.setState({
         files: [{ id: 'f', name: 'A.MP4', url: '', kind: 'full', durationSec: 600, file: new File([], 'A.MP4') }] as never,
@@ -161,6 +162,149 @@ describe('SuggestionReview', () => {
         expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '70')
         expect(live.textContent).toBe('Listening for goals.')
         expect(live.contains(screen.getByRole('progressbar'))).toBe(false)
+    })
+    describe('review window', () => {
+        const seekSpy = (): ReturnType<typeof vi.fn> => { const f = vi.fn(); useAppState.setState({ seekToGoal: f }); return f }
+        it('should default to 5 s before and 2 s after', () => {
+            render(<SuggestionReview onClose={() => {}} />)
+            expect(screen.getByText('−5 s … +2 s')).toBeTruthy()
+        })
+        it('should extend the start with [ (seeking to the new start) and the end with ]', () => {
+            const seek = seekSpy()
+            render(<SuggestionReview onClose={() => {}} />)
+            seek.mockClear()
+            act(() => { fireEvent.keyDown(window, { key: '[' }) })
+            act(() => { fireEvent.keyDown(window, { key: '[' }) })
+            expect(screen.getByText('−9 s … +2 s')).toBeTruthy()
+            expect(seek).toHaveBeenLastCalledWith(0, 91)
+            seek.mockClear()
+            act(() => { fireEvent.keyDown(window, { key: ']' }) })
+            expect(screen.getByText('−9 s … +4 s')).toBeTruthy()
+            expect(seek).not.toHaveBeenCalled()
+        })
+        it('should reset to the default for the next suggestion', () => {
+            render(<SuggestionReview onClose={() => {}} />)
+            act(() => { fireEvent.keyDown(window, { key: '[' }) })
+            act(() => { fireEvent.keyDown(window, { key: ']' }) })
+            act(() => { fireEvent.keyDown(window, { key: 'ArrowRight' }) })
+            expect(screen.getByText(/Suggestion 2 of 2/)).toBeTruthy()
+            expect(screen.getByText('−5 s … +2 s')).toBeTruthy()
+        })
+        it('should not start before 0 or end after the last file', () => {
+            useAppState.getState().setSuggestions(run, [{ timeSec: 7, score: 5 }, { timeSec: 598, score: 4 }])
+            render(<SuggestionReview onClose={() => {}} />)
+            for (let i = 0; i < 3; i++) act(() => { fireEvent.keyDown(window, { key: '[' }) })
+            expect(screen.getByText('−7 s … +2 s')).toBeTruthy()
+            act(() => { fireEvent.keyDown(window, { key: 'ArrowRight' }) })
+            for (let i = 0; i < 3; i++) act(() => { fireEvent.keyDown(window, { key: ']' }) })
+            expect(screen.getByText('−5 s … +2 s')).toBeTruthy() // 598 + 2 = 600 is already the end
+        })
+        it('should have 44 px buttons with labels, and ignore the keys with modifiers or repeat', () => {
+            render(<SuggestionReview onClose={() => {}} />)
+            expect(screen.getByRole('button', { name: 'Start 2 seconds earlier' }).className).toContain('review__btn')
+            expect(screen.getByRole('button', { name: 'End 2 seconds later' }).className).toContain('review__btn')
+            act(() => { fireEvent.keyDown(window, { key: '[', metaKey: true }) })
+            act(() => { fireEvent.keyDown(window, { key: ']', ctrlKey: true }) })
+            act(() => { fireEvent.keyDown(window, { key: '[', repeat: true }) })
+            expect(screen.getByText('−5 s … +2 s')).toBeTruthy()
+            fireEvent.click(screen.getByRole('button', { name: 'Start 2 seconds earlier' }))
+            expect(screen.getByText('−7 s … +2 s')).toBeTruthy()
+        })
+    })
+    describe('goal time', () => {
+        it('should show the estimate while playing and the playhead while paused', () => {
+            setPlayerPaused(false)
+            render(<SuggestionReview onClose={() => {}} />)
+            expect(screen.getByText(/estimate/)).toBeTruthy()
+            expect(screen.getByText('01:38.0')).toBeTruthy() // 100 s − 2 s
+            act(() => { useAppState.setState({ currentTimeInFileSec: 97.34 }) })
+            act(() => { setPlayerPaused(true) }) // the user paused after it was playing
+            expect(screen.getByText(/at playhead/)).toBeTruthy()
+            expect(screen.getByText('01:37.3')).toBeTruthy()
+        })
+        it('should keep at the estimate while playing', () => {
+            setPlayerPaused(false)
+            render(<SuggestionReview onClose={() => {}} />)
+            act(() => { fireEvent.keyDown(window, { key: 'h' }) })
+            expect(useAppState.getState().events[0]).toMatchObject({ type: 'highlight', matchTimeSec: 98, sourceFileIndex: 0 })
+        })
+        it('should keep at the playhead (file and time) while paused, on a two-file timeline', () => {
+            useAppState.setState({
+                files: [{ id: 'f', name: 'A.MP4', url: '', kind: 'full', durationSec: 600, file: new File([], 'A.MP4') }, { id: 'g', name: 'B.MP4', url: '', kind: 'full', durationSec: 600, file: new File([], 'B.MP4') }] as never,
+                cumulativeOffsets: [0, 600], currentFileIndex: 1, currentTimeInFileSec: 12.34,
+            })
+            useAppState.getState().setSuggestions(run, [{ timeSec: 610, score: 5 }])
+            render(<SuggestionReview onClose={() => {}} />)
+            const un = registerPlayerStep(vi.fn())
+            act(() => { fireEvent.keyDown(window, { key: 'ArrowUp' }) }) // user steps a frame
+            un()
+            act(() => { fireEvent.keyDown(window, { key: 's' }) })
+            expect(useAppState.getState().events[0]).toMatchObject({ type: 'save', sourceFileIndex: 1, matchTimeSec: 12.3 })
+        })
+        it('should keep the estimate when merely paused after a seek (user has not adjusted)', () => {
+            render(<SuggestionReview onClose={() => {}} />)
+            expect(screen.getByText(/estimate/)).toBeTruthy()
+            useAppState.setState({ currentTimeInFileSec: 50 })
+            act(() => { fireEvent.keyDown(window, { key: 'h' }) })
+            expect(useAppState.getState().events[0]).toMatchObject({ matchTimeSec: 98 })
+        })
+        it('should use the playhead after Space-pausing', () => {
+            setPlayerPaused(false)
+            const un = registerPlayerToggle(() => setPlayerPaused(true))
+            render(<SuggestionReview onClose={() => {}} />)
+            act(() => { fireEvent.keyDown(window, { key: ' ' }) })
+            useAppState.setState({ currentTimeInFileSec: 50.4 })
+            act(() => { fireEvent.keyDown(window, { key: 'h' }) })
+            un()
+            expect(useAppState.getState().events[0]).toMatchObject({ matchTimeSec: 50.4 })
+        })
+        it('should ignore Shift with decision and window keys', () => {
+            render(<SuggestionReview onClose={() => {}} />)
+            for (const key of ['g', 'o', 's', 'h', 'x', '[', ']']) act(() => { fireEvent.keyDown(window, { key, shiftKey: true }) })
+            expect(useAppState.getState().events).toHaveLength(0)
+            expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy()
+            expect(screen.getByText('−5 s … +2 s')).toBeTruthy()
+        })
+        it('should still extend the end when the total duration is unknown', () => {
+            useAppState.setState({ files: [{ id: 'f', name: 'A.MP4', url: '', kind: 'full', file: new File([], 'A.MP4') }] as never })
+            render(<SuggestionReview onClose={() => {}} />)
+            act(() => { fireEvent.keyDown(window, { key: ']' }) })
+            expect(screen.getByText('−5 s … +4 s')).toBeTruthy()
+        })
+        it('should not loop while paused, and loop again when playing', () => {
+            const seek = vi.fn()
+            useAppState.setState({ seekToGoal: seek })
+            setPlayerPaused(false)
+            render(<SuggestionReview onClose={() => {}} />)
+            act(() => { useAppState.setState({ currentTimeInFileSec: 96 }) }) // landed after the start seek
+            seek.mockClear()
+            act(() => { setPlayerPaused(true) })
+            act(() => { useAppState.setState({ currentTimeInFileSec: 102.5 }) })
+            expect(seek).not.toHaveBeenCalled()
+            act(() => { setPlayerPaused(false) })
+            act(() => { useAppState.setState({ currentTimeInFileSec: 102.6 }) })
+            expect(seek).toHaveBeenCalledTimes(1)
+        })
+        it('should step frames with the arrows and seconds with Shift, and from the buttons', () => {
+            const step = vi.fn()
+            const un = registerPlayerStep(step)
+            render(<SuggestionReview onClose={() => {}} />)
+            act(() => { fireEvent.keyDown(window, { key: 'ArrowUp' }) })
+            act(() => { fireEvent.keyDown(window, { key: 'ArrowDown', repeat: true }) })
+            act(() => { fireEvent.keyDown(window, { key: 'ArrowUp', shiftKey: true }) })
+            act(() => { fireEvent.keyDown(window, { key: 'ArrowDown', shiftKey: true }) })
+            act(() => { fireEvent.keyDown(window, { key: 'ArrowUp', metaKey: true }) })
+            expect(step.mock.calls).toEqual([['frame', 1], ['frame', -1], ['second', 1], ['second', -1]])
+            expect(screen.getByRole('button', { name: 'Back one frame' }).className).toContain('review__btn')
+            fireEvent.click(screen.getByRole('button', { name: 'Forward one frame' }))
+            expect(step).toHaveBeenLastCalledWith('frame', 1)
+            un()
+        })
+        it('should hide the frame buttons while playing', () => {
+            setPlayerPaused(false)
+            render(<SuggestionReview onClose={() => {}} />)
+            expect(screen.queryByRole('button', { name: 'Back one frame' })).toBeNull()
+        })
     })
     describe('copy feedback', () => {
         const toSummary = (): void => { useAppState.setState({ suggestions: [], suggestionRun: { ...run, total: 0 } }) }

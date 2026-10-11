@@ -147,9 +147,16 @@ describe('teams and picker', () => {
         expect(s().teams[0]).toMatchObject({ name: 'A', roster: ['x'] })
     })
 
+    it('should drop the removed adjustTimestampsByOffset setting (v18)', () => {
+        const migrate = useAppState.persist.getOptions().migrate!
+        const out = migrate({ adjustTimestampsByOffset: true, lengthBeforeGoalSec: 8 }, 17) as Record<string, unknown>
+        expect('adjustTimestampsByOffset' in out).toBe(false)
+        expect(out.lengthBeforeGoalSec).toBe(8)
+    })
+
     it('should migrate v8 legacy event types and persist teams (v9+)', () => {
         const opts = useAppState.persist.getOptions()
-        expect(opts.version).toBe(18)
+        expect(opts.version).toBe(19)
         const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
         expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
         expect(opts.partialize!(s())).toHaveProperty('teams')
@@ -367,7 +374,7 @@ describe('preview', () => {
     beforeEach(() => {
         useAppState.setState({
             files: [], events: [], cumulativeOffsets: [], undoStack: [], redoStack: [], currentFileIndex: 0, isPreviewMode: false,
-            adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
+            lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
             replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5,
         })
         s().setFiles([vf('a.mp4')])
@@ -503,7 +510,7 @@ describe('goal areas and replay framing', () => {
     beforeEach(() => {
         useAppState.setState({
             files: [], events: [], cumulativeOffsets: [], undoStack: [], redoStack: [], currentFileIndex: 0, isPreviewMode: false,
-            adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
+            lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
             replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5, goalAreas: null,
         })
         s().setFiles([vf('a.mp4')])
@@ -585,6 +592,12 @@ describe('suggestions', () => {
         expect(st.events[0]).toMatchObject({ type: 'goal', team: 'Whites', matchTimeSec: 98, sourceFileIndex: 0 })
         expect(st.suggestions[0]).toMatchObject({ status: 'kept', keptAs: 'goal', eventId: st.events[0].id })
         expect(st.undoStack).toHaveLength(1)
+    })
+    it('should use atSec (to 0.1 s) instead of the estimate when given', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        const id = useAppState.getState().suggestions[0].id
+        useAppState.getState().decideSuggestion(id, { kind: 'keep', type: 'goal', team: 'Whites', atSec: 97.26 })
+        expect(useAppState.getState().events[0]).toMatchObject({ matchTimeSec: 97.3, sourceFileIndex: 0 })
     })
     it('should make an undone keep pending again and not duplicate on re-keep', () => {
         useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
@@ -719,6 +732,9 @@ describe('goal marks', () => {
         const opts = useAppState.persist.getOptions()
         expect((opts.migrate!({}, 17) as { goalMarks: unknown }).goalMarks).toBeNull()
         expect((opts.migrate!({ goalMarks: { team1: MARKS, team2: 'junk' } }, 17) as { goalMarks: unknown }).goalMarks).toEqual({ team1: MARKS })
+        const out = opts.migrate!({ adjustTimestampsByOffset: true, goalMarks: { team1: MARKS } }, 17) as Record<string, unknown>
+        expect('adjustTimestampsByOffset' in out).toBe(false) // v18
+        expect(out.goalMarks).toEqual({ team1: MARKS }) // v19
         s().setGoalMarks('team1', MARKS)
         expect(opts.partialize!(s())).toHaveProperty('goalMarks')
     })

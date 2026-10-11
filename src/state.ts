@@ -26,7 +26,7 @@ function relinkEvents(events: MatchEvent[], files: VideoSourceFile[]): MatchEven
 }
 
 /** Menus and sheets; at most one is open, and never together with the event picker. */
-export type Panel = 'menu' | 'files' | 'match' | 'settings' | 'paste' | 'export' | 'event' | 'send' | 'shortcuts' | 'review'
+export type Panel = 'menu' | 'files' | 'match' | 'settings' | 'import' | 'export' | 'event' | 'send' | 'shortcuts' | 'review'
 
 type AppState = {
     files: VideoSourceFile[]
@@ -34,7 +34,6 @@ type AppState = {
     cumulativeOffsets: number[]
     currentTimeInFileSec: number
     currentFileIndex: number
-    adjustTimestampsByOffset: boolean
     // Highlight length configuration
     lengthBeforeGoalSec: number
     lengthAfterGoalSec: number
@@ -64,7 +63,6 @@ type AppState = {
     attachFullFiles: (files: File[]) => string[]
     setCurrentTimeInFile: (t: number) => void
     setCurrentFileIndex: (idx: number) => void
-    setAdjustTimestampsByOffset: (adjust: boolean) => void
     setLengthBeforeGoal: (seconds: number) => void
     setLengthAfterGoal: (seconds: number) => void
     setReplayWindow: (before: number, after: number) => void
@@ -128,7 +126,7 @@ type AppState = {
     reviewIndex: number
     setSuggestions: (run: SuggestionRun, moments: ScoredMoment[]) => void
     /** Keep adds the event; changing a kept decision removes the old event first (each is its own undo step). */
-    decideSuggestion: (id: string, decision: { kind: 'reject' } | { kind: 'keep'; type: KeepType; team?: string }) => void
+    decideSuggestion: (id: string, decision: { kind: 'reject' } | { kind: 'keep'; type: KeepType; team?: string; atSec?: number }) => void
     clearSuggestions: () => void
     setReviewIndex: (i: number) => void
     openReviewAt: (id: string) => void
@@ -203,7 +201,6 @@ export const useAppState = create<AppState>()(
             cumulativeOffsets: [],
             currentTimeInFileSec: 0,
             currentFileIndex: 0,
-            adjustTimestampsByOffset: false,
             // Highlight length configuration
             lengthBeforeGoalSec: 10,
             lengthAfterGoalSec: 4,
@@ -277,7 +274,6 @@ export const useAppState = create<AppState>()(
             }),
             setCurrentTimeInFile: (t) => set({ currentTimeInFileSec: t }),
             setCurrentFileIndex: (idx) => set({ currentFileIndex: Math.max(0, Math.min(idx, get().files.length - 1)) }),
-            setAdjustTimestampsByOffset: (adjust) => set({ adjustTimestampsByOffset: adjust }),
             setLengthBeforeGoal: (seconds) => set({ lengthBeforeGoalSec: Math.max(0, seconds) }),
             setLengthAfterGoal: (seconds) => set({ lengthAfterGoalSec: Math.max(0, seconds) }),
             setReplayWindow: (before, after) => set({
@@ -392,7 +388,7 @@ export const useAppState = create<AppState>()(
                     undoStack: [...state.undoStack, state.events],
                 })
             },
-            clear: () => set({ files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, undoStack: [], redoStack: [], picker: null, suggestions: [], suggestionRun: null, reviewIndex: 0, goalMarks: null }),
+            clear: () => set({ files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, undoStack: [], redoStack: [], picker: null, suggestions: [], suggestionRun: null, reviewIndex: 0, goalMarks: null }),
             // Start a new game: drop events, videos and kick-off; keep teams, rosters and clip/replay settings.
             // Events go on the undo stack so an accidental clear can be undone.
             newMatch: () => {
@@ -499,9 +495,9 @@ export const useAppState = create<AppState>()(
                     return
                 }
                 const durations = st.files.map((f) => f.durationSec ?? 0)
-                const at = globalToFileTime(st.cumulativeOffsets, durations, Math.max(0, s.globalTimeSec + AUDIO_DETECT.eventOffsetSec))
+                const at = globalToFileTime(st.cumulativeOffsets, durations, Math.max(0, decision.atSec ?? s.globalTimeSec + AUDIO_DETECT.eventOffsetSec))
                 const eventId = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-                get().addEvent({ id: eventId, matchTimeSec: Math.floor(at.timeSec), sourceFileIndex: at.fileIndex, type: decision.type, ...(decision.team ? { team: decision.team } : {}) })
+                get().addEvent({ id: eventId, matchTimeSec: decision.atSec !== undefined ? Math.round(at.timeSec * 10) / 10 : Math.floor(at.timeSec), sourceFileIndex: at.fileIndex, type: decision.type, ...(decision.team ? { team: decision.team } : {}) })
                 set({ suggestions: get().suggestions.map((x) => (x.id === id ? { ...x, status: 'kept', keptAs: decision.type, eventId } : x)) })
             },
             clearSuggestions: () => set({ suggestions: [], suggestionRun: null, reviewIndex: 0 }),
@@ -517,8 +513,6 @@ export const useAppState = create<AppState>()(
                 const segments = mergeOverlappingGoalSegments(
                     linkedEvents(state.events),
                     state.cumulativeOffsets,
-                    selectMatchStartSec(state),
-                    state.adjustTimestampsByOffset,
                     state.lengthBeforeGoalSec,
                     state.lengthAfterGoalSec
                 )
@@ -554,7 +548,6 @@ export const useAppState = create<AppState>()(
             // Persist events, match start time, and offset adjustment setting; files are ephemeral and cannot be restored across refresh
             partialize: (state) => ({
                 events: state.events,
-                adjustTimestampsByOffset: state.adjustTimestampsByOffset,
                 lengthBeforeGoalSec: state.lengthBeforeGoalSec,
                 lengthAfterGoalSec: state.lengthAfterGoalSec,
                 replayBeforeSec: state.replayBeforeSec,
@@ -570,7 +563,7 @@ export const useAppState = create<AppState>()(
                 suggestions: state.suggestions,
                 suggestionRun: state.suggestionRun,
             }),
-            version: 18,
+            version: 19,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -606,9 +599,8 @@ export const useAppState = create<AppState>()(
                     delete state.slowMotionEnabled
                     delete state.slowMotionSpeed
                 }
-                if (version < 6 && !('adjustTimestampsByOffset' in state)) {
-                    state.adjustTimestampsByOffset = false
-                }
+                // "Adjust timestamps by offset" was removed (v18): Kick off is an event now.
+                delete state.adjustTimestampsByOffset
                 // The card heading no longer counts matches (it says MATCH unless a matchday is typed).
                 delete state.matchNumber
                 if (version < 7) {
@@ -647,8 +639,8 @@ export const useAppState = create<AppState>()(
                     state.suggestionRun = state.suggestionRun ?? null
                 }
 
-                // Goal marks (v18).
-                if (version < 18) state.goalMarks = normaliseGoalMarks(state.goalMarks)
+                // Goal marks (v19).
+                if (version < 19) state.goalMarks = normaliseGoalMarks(state.goalMarks)
 
                 return state
             },

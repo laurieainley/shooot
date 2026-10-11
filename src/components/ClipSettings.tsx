@@ -6,8 +6,6 @@ export function ClipSettings() {
     const lengthAfterGoalSec = useAppState((s) => s.lengthAfterGoalSec)
     const setLengthBeforeGoal = useAppState((s) => s.setLengthBeforeGoal)
     const setLengthAfterGoal = useAppState((s) => s.setLengthAfterGoal)
-    const adjustTimestampsByOffset = useAppState((s) => s.adjustTimestampsByOffset)
-    const setAdjustTimestampsByOffset = useAppState((s) => s.setAdjustTimestampsByOffset)
     const replayBeforeSec = useAppState((s) => s.replayBeforeSec)
     const replayAfterSec = useAppState((s) => s.replayAfterSec)
     const replaySpeed = useAppState((s) => s.replaySpeed)
@@ -55,12 +53,6 @@ export function ClipSettings() {
                     </select>
                 </div>
             </fieldset>
-
-            <label className="toggle-row">
-                <input type="checkbox" checked={adjustTimestampsByOffset}
-                    onChange={(e) => setAdjustTimestampsByOffset(e.target.checked)} />
-                <span className="toggle-row__text">Adjust timestamps by offset</span>
-            </label>
         </div>
     )
 }

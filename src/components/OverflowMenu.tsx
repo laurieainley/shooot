@@ -58,7 +58,6 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
         { label: 'Files', panel: 'files' },
         ...(setupInMenu ? [{ label: 'Setup', panel: 'match' as const, aria: 'Match setup' }] : []),
         { label: 'Advanced settings', panel: 'settings' },
-        { label: 'Paste list', panel: 'paste' },
     ]
 
     if (confirmNew) {
@@ -68,7 +67,7 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
                     Clear {events.length} {events.length === 1 ? 'event' : 'events'} and unload the videos? Teams, rosters and clip settings stay. ⌘Z brings the events back.
                 </p>
                 <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => { cancelDetection(); const st = useAppState.getState(); st.newMatch(); st.closePanel(); void clearHandles() }} className="btn-primary">Clear and start new match</button>
+                    <button type="button" onClick={() => { cancelDetection(); const st = useAppState.getState(); st.newMatch(); st.closePanel(); void clearHandles() }} className="btn-quiet btn-danger">Clear match</button>
                     <button type="button" onClick={() => setConfirmNew(false)} className="btn-quiet">Keep</button>
                 </div>
             </div>
@@ -87,7 +86,8 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
                 <button key={panel} type="button" role="menuitem" aria-label={aria} onClick={() => useAppState.getState().openPanel(panel)}>{label}</button>
             ))}
             <button type="button" role="menuitem" onClick={() => useAppState.getState().openPanel('send')}>Send project to another device</button>
-            <ProjectIO menu />
+            <button type="button" role="menuitem" onClick={() => useAppState.getState().openPanel('import')}>Import…</button>
+            <ProjectIO />
             <button type="button" role="menuitem" onClick={() => useAppState.getState().openPanel('shortcuts')}>Shortcuts</button>
         </div>
     )

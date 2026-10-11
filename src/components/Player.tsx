@@ -3,8 +3,8 @@ import videojs from 'video.js'
 import 'video.js/dist/video-js.css'
 import { selectClockLong, useAppState } from '../state'
 import { shortcutFor, shouldHandleShortcut } from '../utils/shortcuts'
-import { registerPlayerToggle } from './playerControl'
-import { runShortcut, type ShortcutPlayer } from './playerShortcuts'
+import { registerPlayerStep, registerPlayerToggle, setPlayerPaused } from './playerControl'
+import { runShortcut, seekBy, stepFrame, type ShortcutPlayer } from './playerShortcuts'
 import { FullscreenControls } from './FullscreenControls'
 import { EventPicker } from './EventPicker'
 import { patchPlayerFullscreen, type FullscreenPlayer } from './fullscreen'
@@ -110,7 +110,7 @@ export function Player() {
     useEffect(() => {
         const p = playerRef.current
         if (!p) return
-        const sync = (): void => setPaused(p.paused() !== false)
+        const sync = (): void => { setPaused(p.paused() !== false); setPlayerPaused(p.paused() !== false) }
         const evts = ['play', 'playing', 'pause', 'ended', 'loadstart', 'emptied']
         sync()
         p.on(evts, sync)
@@ -124,6 +124,16 @@ export function Player() {
             if (!p) return
             if (p.paused()) void Promise.resolve(p.play()).catch(() => undefined)
             else p.pause()
+        })
+    }, [])
+
+    // One frame / one second steps for the review card.
+    useEffect(() => {
+        return registerPlayerStep((kind, direction) => {
+            const p = playerRef.current as ShortcutPlayer | null
+            if (!p) return
+            if (kind === 'frame') stepFrame(p, direction)
+            else seekBy(p, direction)
         })
     }, [])
 

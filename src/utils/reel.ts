@@ -10,14 +10,12 @@ export function reelSummary(args: {
     events: MatchEvent[]
     cumulativeOffsets: number[]
     durationsSec: number[]
-    matchStartSec: number
-    adjustTimestampsByOffset: boolean
     before: number
     after: number
     replay: ReplayOptions
 }): ReelSummary {
-    const { events, cumulativeOffsets, durationsSec, matchStartSec, adjustTimestampsByOffset, before, after, replay } = args
-    const segments = mergeOverlappingGoalSegments(linkedEvents(events), cumulativeOffsets, matchStartSec, adjustTimestampsByOffset, before, after)
+    const { events, cumulativeOffsets, durationsSec, before, after, replay } = args
+    const segments = mergeOverlappingGoalSegments(linkedEvents(events), cumulativeOffsets, before, after)
     const cuts = buildRenderPlan(segments, durationsSec, replay)
     const seconds = cuts.reduce((sum, c) => sum + (c.endSec - c.startSec) / (c.speed ?? 1), 0)
     return { seconds, clips: segments.length }
