@@ -335,6 +335,26 @@ describe('SuggestionReview', () => {
             press('g')
             expect(screen.getByRole('button', { name: /Colours/ })).toHaveAttribute('aria-pressed', 'true')
         })
+        describe('late ball tag', () => {
+            const card = (extra: { preselectType?: 'goal'; preselectTeam?: string }) => {
+                // eslint-disable-next-line @typescript-eslint/no-require-imports
+                return import('./SuggestionCard').then(({ SuggestionCard }) => <SuggestionCard suggestion={useAppState.getState().suggestions[0]} index={0} total={2} onNext={() => {}} onPrev={() => {}} {...extra} />)
+            }
+            it('should not re-select Goal after the user cleared the choice on the open card', async () => {
+                const { rerender } = render(await card({}))
+                press('m'); press('s'); press('Escape')
+                expect(screen.queryByRole('button', { name: 'Change what it was' })).toBeNull() // cleared
+                rerender(await card({ preselectType: 'goal', preselectTeam: 'Colours' }))
+                expect(screen.getByRole('button', { name: /^Goal/ })).toHaveAttribute('aria-pressed', 'false')
+                expect(screen.queryByRole('button', { name: 'Change what it was' })).toBeNull()
+            })
+            it('should still apply a late tag when the user has not touched the selection', async () => {
+                const { rerender } = render(await card({}))
+                press('m')
+                rerender(await card({ preselectType: 'goal', preselectTeam: 'Colours' }))
+                expect(screen.getByRole('button', { name: 'Change what it was' })).toHaveTextContent('Goal')
+            })
+        })
         describe('Labs ball check', () => {
             it('should show the hint, and Enter after marking saves a Goal for the scoring team', () => {
                 useAppState.setState({ suggestions: useAppState.getState().suggestions.map((s, i) => (i === 0 ? { ...s, ball: { goal: 'team1' as const, frames: 3 } } : s)) })
