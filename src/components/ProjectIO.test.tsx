@@ -3,7 +3,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { selectMatchStartSec, useAppState } from '../state'
+import { cancelDetection } from '../detectJobs'
 import { ProjectIO } from './ProjectIO'
+
+vi.mock('../detectJobs', async (orig) => ({ ...(await orig<typeof import('../detectJobs')>()), cancelDetection: vi.fn() }))
 
 describe('ProjectIO', () => {
     beforeEach(() => {
@@ -55,6 +58,16 @@ describe('ProjectIO', () => {
         expect(useAppState.getState().teams.map((t) => t.name)).toEqual(['Reds', 'Blues'])
         expect(useAppState.getState().events.find((e) => e.type === 'kick_off')).toMatchObject({ globalTimeSec: 30 })
         expect(selectMatchStartSec(useAppState.getState())).toBe(30)
+    })
+
+    it('should clear suggestions and cancel detection when a project is imported', async () => {
+        useAppState.setState({ suggestions: [{ id: 's', globalTimeSec: 5, score: 1, source: 'audio', status: 'pending' }], suggestionRun: { createdAt: 0, source: 'audio', configVersion: 2, analysedSec: 1, total: 1 } })
+        const { container } = render(<ProjectIO />)
+        const input = container.querySelector('input[type="file"]') as HTMLInputElement
+        fireEvent.change(input, { target: { files: [new File([JSON.stringify({ events: [] })], 'p.json', { type: 'application/json' })] } })
+        await waitFor(() => expect(useAppState.getState().suggestions).toEqual([]))
+        expect(useAppState.getState().suggestionRun).toBeNull()
+        expect(cancelDetection).toHaveBeenCalled()
     })
 
     it('should export and import the assist of a goal', async () => {

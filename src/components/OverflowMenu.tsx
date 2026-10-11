@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 import { useAppState, type Panel } from '../state'
 import { BetaTag } from './BetaTag'
-import { openFindGoals } from './findGoals'
+import { cancelDetection } from '../detectJobs'
+import { openFindGoals, useSuggestionsCurrent } from './findGoals'
 import { FloatingPanel } from './FloatingPanel'
 import { ProjectIO } from './ProjectIO'
 import { clearHandles } from '../files/handleStore'
@@ -48,7 +49,9 @@ interface MenuBodyProps {
 
 function MenuBody({ setupInMenu }: MenuBodyProps) {
     const events = useAppState((s) => s.events)
-    const hasSuggestions = useAppState((s) => s.suggestions.length > 0)
+    const anySuggestions = useAppState((s) => s.suggestions.length > 0)
+    const suggestionsCurrent = useSuggestionsCurrent()
+    const hasSuggestions = anySuggestions && suggestionsCurrent
     const hasFiles = useAppState((s) => s.files.length > 0)
     const [confirmNew, setConfirmNew] = useState(false)
     const items: MenuItem[] = [
@@ -65,7 +68,7 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
                     Clear {events.length} {events.length === 1 ? 'event' : 'events'} and unload the videos? Teams, rosters and clip settings stay. ⌘Z brings the events back.
                 </p>
                 <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => { const st = useAppState.getState(); st.newMatch(); st.closePanel(); void clearHandles() }} className="btn-primary">Clear and start new match</button>
+                    <button type="button" onClick={() => { cancelDetection(); const st = useAppState.getState(); st.newMatch(); st.closePanel(); void clearHandles() }} className="btn-primary">Clear and start new match</button>
                     <button type="button" onClick={() => setConfirmNew(false)} className="btn-quiet">Keep</button>
                 </div>
             </div>

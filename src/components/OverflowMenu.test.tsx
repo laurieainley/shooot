@@ -1,10 +1,13 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
+import { cancelDetection } from '../detectJobs'
 import { OverflowMenu } from './OverflowMenu'
 import type { MatchEvent, VideoSourceFile } from '../types'
+
+vi.mock('../detectJobs', async (orig) => ({ ...(await orig<typeof import('../detectJobs')>()), cancelDetection: vi.fn() }))
 
 const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec: 600, kind: 'full' })
 const two: MatchEvent[] = [
@@ -42,6 +45,26 @@ describe('OverflowMenu', () => {
         await open()
         expect(screen.getByRole('menuitem', { name: /Review suggestions/ })).toHaveTextContent('Beta')
         useAppState.setState({ suggestions: [] })
+    })
+
+    it('should offer Find goals again when the videos changed since the last run', async () => {
+        useAppState.setState({
+            suggestions: [{ id: 's', globalTimeSec: 5, score: 1, source: 'audio', status: 'pending' }],
+            suggestionRun: { createdAt: 0, source: 'audio', configVersion: 2, analysedSec: 600, total: 1, fileKeys: ['other.mp4'] },
+        })
+        render(<OverflowMenu />)
+        await open()
+        expect(screen.getByRole('menuitem', { name: /Find goals/ })).toBeInTheDocument()
+        expect(screen.queryByRole('menuitem', { name: /Review suggestions/ })).not.toBeInTheDocument()
+        useAppState.setState({ suggestions: [], suggestionRun: null })
+    })
+
+    it('should cancel a running Find goals when a new match starts', async () => {
+        render(<OverflowMenu />)
+        await open()
+        await userEvent.click(screen.getByRole('menuitem', { name: 'New match…' }))
+        await userEvent.click(screen.getByRole('button', { name: /Clear and start new match/ }))
+        expect(cancelDetection).toHaveBeenCalled()
     })
 
     it('should keep Setup in the menu on the phone, where the bar has no room for it', async () => {

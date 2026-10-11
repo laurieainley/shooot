@@ -1,5 +1,6 @@
 import { useAppState } from '../state'
 import { normaliseAreas } from '../utils/crop'
+import { cancelDetection } from '../detectJobs'
 import { migrateEvent } from '../utils/eventTypes'
 import type { TransferPayload } from '../utils/projectTransfer'
 
@@ -10,6 +11,7 @@ export function applyTransferPayload(p: TransferPayload): void {
     const st = useAppState.getState()
     const left = p.whitesAttackLeft ?? true
     st.setEvents(p.events.map((e) => migrateEvent(e, left, Array.isArray(p.teams) && p.teams.length === 2 ? p.teams : st.teams)))
+    cancelDetection()
     st.clearSuggestions() // suggestions belong to the old footage
     if (Array.isArray(p.teams) && p.teams.length === 2) st.setTeams(p.teams)
     st.setLengthBeforeGoal(num(p.lengthBeforeGoalSec, st.lengthBeforeGoalSec))

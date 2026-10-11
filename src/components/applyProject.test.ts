@@ -1,10 +1,20 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { useAppState } from '../state'
 import { buildTransferPayload } from '../utils/projectTransfer'
+import { cancelDetection } from '../detectJobs'
 import { applyTransferPayload } from './applyProject'
+
+vi.mock('../detectJobs', async (orig) => ({ ...(await orig<typeof import('../detectJobs')>()), cancelDetection: vi.fn() }))
 import type { MatchEvent } from '../types'
 
 describe('applyTransferPayload', () => {
+    it('should cancel detection and clear suggestions', () => {
+        useAppState.setState({ suggestions: [{ id: 's', globalTimeSec: 5, score: 1, source: 'audio', status: 'pending' }] })
+        applyTransferPayload(buildTransferPayload({ ...useAppState.getState(), events: [] }))
+        expect(cancelDetection).toHaveBeenCalled()
+        expect(useAppState.getState().suggestions).toEqual([])
+    })
+
     it('should load an old penalty_awarded event as penalty_conceded with the team flipped', () => {
         const awarded = { id: 'p', type: 'penalty_awarded', matchTimeSec: 10, team: 'Reds', scorer: 'Sam' } as unknown as MatchEvent
         const payload = buildTransferPayload({
