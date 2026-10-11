@@ -323,7 +323,8 @@ describe('themes', () => {
         expect(getTheme(undefined).id).toBe('shooot')
         expect(isThemeId('classic')).toBe(true)
         expect(isThemeId('neon')).toBe(false)
-        expect(THEMES.map((t) => t.id)).toEqual(['shooot', 'classic'])
+        expect(THEMES.map((t) => t.id)).toEqual(['shooot', 'classic', 'tnf'])
+        expect(isThemeId('tnf')).toBe(true)
     })
 
     it('should ship each theme with its own fonts: Bebas Neue only in Classic', () => {

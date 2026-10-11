@@ -2,7 +2,7 @@ import type { MatchEvent } from '../../types'
 import type { Ctx, PaintAssets } from '../paint'
 import type { BugSpec, CaptionSpec, CardSpec, CaptionTone } from '../types'
 
-export type ThemeId = 'shooot' | 'classic'
+export type ThemeId = 'shooot' | 'classic' | 'tnf'
 
 /** A font file the theme draws with; faces are added to `document.fonts` only when the theme is used. */
 export type ThemeFont = { family: string; url: string; unicodeRange?: string }
