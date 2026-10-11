@@ -20,6 +20,7 @@ import { playerOptions } from '../utils/playerOptions'
 import { previewVolume, shouldAdvance } from '../utils/preview'
 import { setGraphGain } from './previewGain'
 import { playQuietly } from '../utils/playQuietly'
+import { reportedTime, seekNow, type PendingSeek } from './pendingSeek'
 
 // video.js shows "0:05 / 24:00"; every time on screen uses the project's fixed width format instead.
 videojs.setFormatTime((seconds: number, guide: number) => formatClock(seconds, selectClockLong(useAppState.getState()) || guide >= 3600))
@@ -35,7 +36,6 @@ export function Player() {
     const [paused, setPaused] = useState(true)
     const [speedIndicator, setSpeedIndicator] = useState<number | null>(null)
     const speedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-    const setCurrentTimeInFile = useAppState((s) => s.setCurrentTimeInFile)
     // Preview mode state
     const isPreviewMode = useAppState((s) => s.isPreviewMode)
     const previewSteps = useAppState((s) => s.previewSteps)
@@ -73,39 +73,69 @@ export function Player() {
         return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKeyUp) }
     }, [])
 
+    // A seek into another file (or into a file still loading) waits here for that file's metadata.
+    const pendingSeekRef = useRef<PendingSeek | null>(null)
+    const metadataLoadedRef = useRef(false)
+
     useEffect(() => {
-        if (!videoRef.current) return
-        if (!playerRef.current) {
-            playerRef.current = videojs(videoRef.current, playerOptions(isPreviewMode))
-            patchPlayerFullscreen(playerRef.current as unknown as FullscreenPlayer, () => containerRef.current, {
-                get: () => useAppState.getState().immersive,
-                set: (on) => useAppState.getState().setImmersive(on),
-            })
-        }
-        const p = playerRef.current
-        if (files.length > 0) {
-            p.src({ src: files[currentFileIndex]?.url, type: 'video/mp4' })
-        }
-        p.on('timeupdate', () => {
-            const t = p.currentTime() || 0
-            setCurrentTimeInFile(t)
+        if (!videoRef.current || playerRef.current) return
+        const p = videojs(videoRef.current, playerOptions(isPreviewMode))
+        playerRef.current = p
+        patchPlayerFullscreen(p as unknown as FullscreenPlayer, () => containerRef.current, {
+            get: () => useAppState.getState().immersive,
+            set: (on) => useAppState.getState().setImmersive(on),
         })
+        // Registered once; they read the store, so they never act on a stale file index.
+        p.on('timeupdate', () => {
+            const t = reportedTime(p.currentTime() || 0, pendingSeekRef.current)
+            if (t !== null) useAppState.getState().setCurrentTimeInFile(t)
+        })
+        p.on('loadstart', () => { metadataLoadedRef.current = false })
+        p.on('loadedmetadata', () => {
+            metadataLoadedRef.current = true
+            const pending = pendingSeekRef.current
+            if (!pending || pending.fileIndex !== useAppState.getState().currentFileIndex) return
+            pendingSeekRef.current = null
+            p.currentTime(pending.timeSec)
+            if (pending.play) playQuietly(p)
+            else p.pause()
+        })
+        p.on('error', () => { pendingSeekRef.current = null })
         p.on('ratechange', () => {
-            const rate = p.playbackRate()
+            const rate = p.playbackRate() ?? 1
             setSpeedIndicator(rate)
             if (speedTimerRef.current) clearTimeout(speedTimerRef.current)
             speedTimerRef.current = setTimeout(() => setSpeedIndicator(null), 1000)
         })
         p.on('ended', () => {
-            if (currentFileIndex < files.length - 1) {
-                setCurrentFileIndex(currentFileIndex + 1)
-            }
+            const st = useAppState.getState()
+            if (st.currentFileIndex < st.files.length - 1) st.setCurrentFileIndex(st.currentFileIndex + 1)
         })
+    }, [isPreviewMode])
 
-        return () => {
-            // do not dispose across renders in dev HMR
-        }
+    useEffect(() => {
+        const p = playerRef.current
+        if (!p || files.length === 0) return
+        metadataLoadedRef.current = false
+        p.src({ src: files[currentFileIndex]?.url, type: 'video/mp4' })
     }, [files, currentFileIndex])
+
+    /** Seek anywhere on the timeline. Into another file: the playhead shows the target at once and the seek waits for that file to load. */
+    const seekRef = useRef<(fileIndex: number, timeSec: number, play: boolean) => void>(() => {})
+    seekRef.current = (fileIndex, timeSec, play) => {
+        const p = playerRef.current
+        const st = useAppState.getState()
+        if (!p || fileIndex < 0 || fileIndex >= st.files.length) return
+        if (seekNow(fileIndex, st.currentFileIndex, metadataLoadedRef.current, pendingSeekRef.current)) {
+            p.currentTime(timeSec)
+            if (play) playQuietly(p)
+            else p.pause()
+            return
+        }
+        pendingSeekRef.current = { fileIndex, timeSec, play }
+        if (fileIndex !== st.currentFileIndex) st.setCurrentFileIndex(fileIndex)
+        st.setCurrentTimeInFile(timeSec)
+    }
 
     // Paused indicator: follows the player's own state (play / pause / ended / a new source).
     useEffect(() => {
@@ -139,45 +169,17 @@ export function Player() {
     }, [])
 
     // Scrubbing the review timeline: seek (switching file if needed) and stay paused.
-    const seekPausedRef = useRef<(fileIndex: number, timeSec: number) => void>(() => {})
-    seekPausedRef.current = (fileIndex, timeSec) => {
-        const p = playerRef.current
-        if (!p || fileIndex >= files.length) return
-        if (fileIndex !== currentFileIndex) {
-            setCurrentFileIndex(fileIndex)
-            setTimeout(() => { playerRef.current?.currentTime(timeSec); playerRef.current?.pause() }, 100)
-        } else { p.currentTime(timeSec); p.pause() }
-    }
-    useEffect(() => registerPlayerSeekPaused((f, t) => seekPausedRef.current(f, t)), [])
+    useEffect(() => registerPlayerSeekPaused((f, t) => seekRef.current(f, t, false)), [])
 
-    // Listen for seekToGoal events
+    // Event list, match strip and review loop: seek and play.
     useEffect(() => {
-        const handleSeekToGoal = (event: CustomEvent) => {
-            const { fileIndex, timeSec } = event.detail
-            if (playerRef.current && files.length > 0) {
-                // Switch to the correct video if needed
-                if (fileIndex !== currentFileIndex && fileIndex < files.length) {
-                    setCurrentFileIndex(fileIndex)
-                    // Wait for video to load, then seek
-                    setTimeout(() => {
-                        if (playerRef.current) {
-                            playerRef.current.currentTime(timeSec)
-                            playQuietly(playerRef.current)
-                        }
-                    }, 100)
-                } else if (fileIndex === currentFileIndex) {
-                    // Same video, just seek and play
-                    playerRef.current.currentTime(timeSec)
-                    playQuietly(playerRef.current)
-                }
-            }
+        const onSeek = (event: Event) => {
+            const { fileIndex, timeSec } = (event as CustomEvent<{ fileIndex: number; timeSec: number }>).detail
+            seekRef.current(fileIndex, timeSec, true)
         }
-
-        window.addEventListener('seekToGoal', handleSeekToGoal as EventListener)
-        return () => {
-            window.removeEventListener('seekToGoal', handleSeekToGoal as EventListener)
-        }
-    }, [currentFileIndex, files, setCurrentFileIndex])
+        window.addEventListener('seekToGoal', onSeek)
+        return () => window.removeEventListener('seekToGoal', onSeek)
+    }, [])
 
     // Preview: play each step (clip or slowed replay) from its start, at its speed and volume.
     // The end check only arms once the playhead is seen inside the step, so a playhead that was already
