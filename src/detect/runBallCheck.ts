@@ -17,7 +17,8 @@ export type BallCheckArgs = {
 }
 export type BallCheckDeps = {
     frames: (file: File) => Promise<FrameSourceLike>
-    detector: () => BallDetectorLike
+    /** Creates the detector, or hands over one created earlier (the job loads it while the audio pass runs). */
+    detector: (onDownload?: (fraction: number) => void) => BallDetectorLike
 }
 
 const cancelled = (): Error => new Error('Cancelled')

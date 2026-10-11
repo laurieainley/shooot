@@ -4,7 +4,7 @@ import { decodeBalls, looksLikeOnnx, toTensorData, TILE_SIZE } from './ballModel
 import type { Box } from '../utils/ballSampling'
 
 export type BallWorkerIn = { type: 'init'; modelUrl: string; wasmOnly?: boolean } | { type: 'detect'; id: number; tiles: ImageData[] }
-export type BallWorkerOut = { type: 'ready'; ep: string } | { type: 'result'; id: number; boxes: Box[][] } | { type: 'error'; id?: number; message: string }
+export type BallWorkerOut = { type: 'ready'; ep: string } | { type: 'progress'; loaded: number; total: number } | { type: 'result'; id: number; boxes: Box[][] } | { type: 'error'; id?: number; message: string }
 
 // Self-hosted runtime (no CDN): ort 1.30's webgpu bundle loads the asyncify .wasm (emitted by Vite); the JS glue is inlined.
 ort.env.wasm.wasmPaths = { wasm: wasmUrl }
@@ -12,10 +12,30 @@ ort.env.wasm.wasmPaths = { wasm: wasmUrl }
 let session: ort.InferenceSession | null = null
 const post = (m: BallWorkerOut): void => (self as unknown as Worker).postMessage(m)
 
+/** The response body, posting progress at each whole-percent change (total 0 when the size is unknown). */
+async function readWithProgress(res: Response): Promise<Uint8Array> {
+    const total = Number(res.headers.get('content-length')) || 0
+    if (!res.body) return new Uint8Array(await res.arrayBuffer())
+    const reader = res.body.getReader()
+    const chunks: Uint8Array[] = []
+    let loaded = 0, lastPct = -1
+    for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        chunks.push(value); loaded += value.length
+        const pct = total > 0 ? Math.floor((loaded / total) * 100) : -1
+        if (pct !== lastPct) { lastPct = pct; post({ type: 'progress', loaded, total }) }
+    }
+    const out = new Uint8Array(loaded)
+    let at = 0
+    for (const c of chunks) { out.set(c, at); at += c.length }
+    return out
+}
+
 async function init(modelUrl: string, wasmOnly: boolean): Promise<void> {
     const res = await fetch(modelUrl)
     if (!res.ok) throw new Error('model not found')
-    const buf = new Uint8Array(await res.arrayBuffer())
+    const buf = await readWithProgress(res)
     if (!looksLikeOnnx(buf, res.headers.get('content-type'))) throw new Error('model not found') // e.g. an SPA fallback page
     const options = { graphOptimizationLevel: 'all' as const }
     let ep = wasmOnly ? 'wasm' : 'webgpu'

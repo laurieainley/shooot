@@ -7,6 +7,7 @@ describe('findGoalsProgress', () => {
     it('should describe the audio phase', () => expect(findGoalsProgress({ ...idle, phase: 'running', fraction: 0.66 })).toEqual({ line: 'Listening for the roar… 66%', percent: 66 }))
     it('should describe the ball model loading, then the check', () => {
         expect(findGoalsProgress({ ...idle, phase: 'done', ballPhase: 'running' })?.line).toBe('Loading the ball model…')
+        expect(findGoalsProgress({ ...idle, phase: 'done', ballPhase: 'running', ballDownload: 0.5 })).toEqual({ line: 'Downloading the ball model… 50%', percent: 50 })
         expect(findGoalsProgress({ ...idle, phase: 'done', ballPhase: 'running', ballFraction: 0.3, ballEp: 'webgpu' })).toEqual({ line: 'Checking the goal mouths… 30%', percent: 30 })
     })
 })

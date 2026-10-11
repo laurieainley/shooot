@@ -21,6 +21,7 @@ const defaultFactory = (): WorkerLike => new Worker(new URL('./ballDetector.work
 export function createBallDetector(
     modelUrl: string = import.meta.env.VITE_BALL_MODEL_URL ?? '/models/rfdetr-nano-fp16-v1.onnx',
     makeWorker: () => WorkerLike = defaultFactory,
+    onDownload?: (fraction: number) => void,
 ): BallDetector {
     const worker = makeWorker()
     let failure: Error | null = null
@@ -36,6 +37,7 @@ export function createBallDetector(
     worker.onmessage = (e) => {
         const m = e.data
         if (m.type === 'ready') resolveReady({ ep: m.ep })
+        else if (m.type === 'progress') { if (m.total > 0) onDownload?.(Math.min(1, m.loaded / m.total)) }
         else if (m.type === 'result') { const p = pending.get(m.id); pending.delete(m.id); p?.resolve(m.boxes) } // stale (aborted) ids are ignored
         else if (m.id !== undefined) { const p = pending.get(m.id); pending.delete(m.id); p?.reject(new Error(m.message)) } // that request only
         else fail(new Error(m.message))

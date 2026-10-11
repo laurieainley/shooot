@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useAppState } from '../state'
 import { cancelDetection, startDetection, useDetectJob } from '../detectJobs'
 import { hasMatchRange, openFindGoals, setRangeStep } from './findGoals'
-import { checkingGoalsLine, listeningLine } from '../utils/voice'
+import { checkingGoalsLine, downloadingModelLine, listeningLine } from '../utils/voice'
 
 const NO_VIDEO = 'Load the match videos first.'
 
@@ -36,10 +36,12 @@ export function DetectProgress() {
 export function BallProgress() {
     const fraction = useDetectJob((s) => s.ballFraction)
     const ep = useDetectJob((s) => s.ballEp)
-    const percent = Math.round(fraction * 100)
+    const download = useDetectJob((s) => s.ballDownload)
+    const downloading = ep === null && download != null
+    const percent = Math.round((downloading ? download : fraction) * 100)
     return (
         <div className="review__status">
-            <p className="m-0">{checkingGoalsLine(fraction, ep)}</p>
+            <p className="m-0">{downloading ? downloadingModelLine(download) : checkingGoalsLine(fraction, ep)}</p>
             <div className="review__bar" role="progressbar" aria-label="Ball check progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
                 <div style={{ width: `${percent}%` }} />
             </div>
