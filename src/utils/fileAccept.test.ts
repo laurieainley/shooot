@@ -34,9 +34,13 @@ describe('FILE_INPUT_ACCEPT', () => {
 describe('fileInputAccept', () => {
     const base = { userAgent: 'Mozilla/5.0', platform: 'Win32', maxTouchPoints: 0 }
 
-    it('should keep the extension list on desktop and Android', () => {
+    it('should keep the extension list on desktop Chrome', () => {
         expect(fileInputAccept(base)).toBe(FILE_INPUT_ACCEPT)
-        expect(fileInputAccept({ ...base, userAgent: 'Mozilla/5.0 (Linux; Android 14)', maxTouchPoints: 5 })).toBe(FILE_INPUT_ACCEPT)
+        expect(fileInputAccept({ userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/130.0 Safari/537.36', platform: 'MacIntel', maxTouchPoints: 0 })).toBe(FILE_INPUT_ACCEPT)
+    })
+
+    it('should return no accept on Android so .LRV files are not greyed out', () => {
+        expect(fileInputAccept({ ...base, userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 9 Pro XL) Chrome/130.0 Mobile Safari/537.36', maxTouchPoints: 5 })).toBe('')
     })
 
     it('should return no accept on iPhone and iPad user agents', () => {

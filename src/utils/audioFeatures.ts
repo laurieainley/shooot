@@ -15,6 +15,17 @@ export function downmix(interleaved: Float32Array, channels: number): Float32Arr
     return out
 }
 
+/** Averages interleaved channels straight into `out` from `at`; returns the number of frames written. */
+export function downmixInto(interleaved: Float32Array, channels: number, out: Float32Array, at: number): number {
+    const n = Math.floor(interleaved.length / Math.max(1, channels))
+    for (let i = 0; i < n; i++) {
+        let s = 0
+        for (let c = 0; c < channels; c++) s += interleaved[i * channels + c]
+        out[at + i] = s / channels
+    }
+    return n
+}
+
 const nextPow2 = (n: number): number => 2 ** Math.ceil(Math.log2(Math.max(2, n)))
 
 /**

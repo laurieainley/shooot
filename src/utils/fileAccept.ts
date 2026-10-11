@@ -23,12 +23,17 @@ export function isIOS(env: PickerEnv): boolean {
     return /iPhone|iPad|iPod/.test(env.userAgent) || (env.platform === 'MacIntel' && env.maxTouchPoints > 1)
 }
 
+/** Android browsers (Chrome maps `accept` extensions to MIME types, and `.lrv` has none). */
+export function isAndroid(env: PickerEnv): boolean {
+    return /Android/i.test(env.userAgent)
+}
+
 /**
- * The `accept` value for video inputs. iOS maps extensions to uniform types and `.lrv` has none, so the picker
- * greys LRV files out: there the attribute is dropped ('') and `isAcceptedVideo` rejects wrong picks instead.
+ * The `accept` value for video inputs. iOS and Android map extensions to MIME/uniform types and `.lrv` has none, so
+ * the picker greys LRV files out: there the attribute is dropped ('') and `isAcceptedVideo` rejects wrong picks instead.
  */
 export function fileInputAccept(env: PickerEnv): string {
-    return isIOS(env) ? '' : FILE_INPUT_ACCEPT
+    return isIOS(env) || isAndroid(env) ? '' : FILE_INPUT_ACCEPT
 }
 
 function currentEnv(): PickerEnv {
