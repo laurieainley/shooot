@@ -1197,6 +1197,9 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .rv__mark kbd { color: inherit; }
 .rv__dot { width: 10px; height: 10px; border-radius: 50%; background: var(--sh-rec); box-shadow: 0 0 0 2px var(--sh-ground); }
 .rv__steps > .rv__link { align-self: center; }
+.rv__moment { display: flex; flex-direction: column; gap: 8px; }
+.rv__momentline { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 28px; font-size: 16px; font-weight: 700; }
+.rv__moment > .rv__link { align-self: center; }
 .rv__chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .rv__chip { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 1px solid var(--sh-line); border-radius: 999px; background: var(--sh-surface-2); color: var(--sh-text); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
 .rv__chip:hover { border-color: var(--sh-text); }

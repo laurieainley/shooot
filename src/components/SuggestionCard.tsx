@@ -68,11 +68,9 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
     const touchedFor = useRef<string | null>(null)
     const touch = (a: Parameters<typeof dispatch>[0]): void => { touchedFor.current = suggestion.id; dispatch(a) }
     const [acceptedEstimate, setAcceptedEstimate] = useState(false)
-    const [remarking, setRemarking] = useState(false)
     useEffect(() => {
         dispatch({ kind: 'clear' })
         setAcceptedEstimate(false)
-        setRemarking(false)
         const keptAs = savedEvent && (TYPE_LABEL as Record<string, string>)[savedEvent.type] ? savedEvent.type as KeepType : null
         if (keptAs || rejected) {
             touchedFor.current = suggestion.id // the saved choice stands: no pre-selection over it
@@ -90,7 +88,7 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
     const savedSec = moment.markedSec ?? estimateSec
     const instruction = instructionText({ marked, decision, teamCount, clock: clock(savedSec) })
 
-    const mark = (): void => { moment.mark(); setRemarking(false) }
+    const mark = (): void => { moment.mark() }
     const step = (kind: 'frame' | 'second', dir: 1 | -1): void => { moment.followPlayhead(); stepPlayer(kind, dir) }
     const select = (type: ReviewType): void => touch({ kind: 'type', type, defaultTeam })
     const confirm = (): void => {
@@ -158,8 +156,7 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
         if (preselectType && sure && preselectedFor.current !== suggestion.id && touchedFor.current !== suggestion.id && decision.type === null) { preselectedFor.current = suggestion.id; select(preselectType) }
         // eslint-disable-next-line react-hooks/exhaustive-deps -- `select` only dispatches
     }, [armedFor, suggestion.id, preselectType, sure, decision.type])
-    const showMarkStep = !sure && decision.type === null || remarking
-    const showTypeStep = !showMarkStep && decision.type === null
+    const showTypeStep = sure && decision.type === null
     const hasChoice = decision.type !== null
     const teamStep = needsTeam(decision.type, teamCount)
 
@@ -191,25 +188,23 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
             {hint && <div className="rv__hint">{hint}</div>}
 
             <section className="rv__steps" aria-label="Decide">
-                {showMarkStep ? (
-                    <>
-                        <button type="button" className="rv__mark" onClick={mark}>
-                            <span className="rv__dot" aria-hidden="true" />Mark moment <kbd>M</kbd>
-                        </button>
-                        {!remarking && <button type="button" className="rv__link" onClick={() => setAcceptedEstimate(true)}>Use the estimate instead</button>}
-                    </>
-                ) : (
-                    <div className="rv__chips">
-                        <button type="button" className="rv__chip" onClick={() => { setRemarking(true); setAcceptedEstimate(false) }}>
+                <div className="rv__moment">
+                    {sure && (
+                        <p className="rv__momentline m-0">
                             <EventIcon event={{ type: 'goal' }} size={18} decorative />
-                            <span className="tc">{clock(savedSec)}</span> <span className="rv__chipnote">{marked ? 'marked' : 'estimate'}</span> <span aria-hidden="true">✎</span>
-                            <span className="sr-only">Mark again</span>
+                            <span className="tc rv__momentat">{clock(savedSec)}</span> <span className="rv__chipnote">{marked ? 'marked' : 'estimate'}</span>
+                        </p>
+                    )}
+                    <button type="button" className="rv__mark" onClick={mark}>
+                        <span className="rv__dot" aria-hidden="true" />{marked ? 'Mark again' : 'Mark moment'} <kbd>M</kbd>
+                    </button>
+                    {!sure && decision.type === null && <button type="button" className="rv__link" onClick={() => setAcceptedEstimate(true)}>Use the estimate instead</button>}
+                </div>
+                {hasChoice && (
+                    <div className="rv__chips">
+                        <button type="button" className="rv__chip" onClick={() => touch({ kind: 'clear' })} aria-label="Change what it was">
+                            {decision.type === 'reject' ? 'Not a goal' : TYPE_LABEL[decision.type as KeepType]}{decision.team && decision.type !== 'reject' ? ` · ${decision.team}` : ''} <span aria-hidden="true">✎</span>
                         </button>
-                        {hasChoice && (
-                            <button type="button" className="rv__chip" onClick={() => touch({ kind: 'clear' })} aria-label="Change what it was">
-                                {decision.type === 'reject' ? 'Not a goal' : TYPE_LABEL[decision.type as KeepType]}{decision.team && decision.type !== 'reject' ? ` · ${decision.team}` : ''} <span aria-hidden="true">✎</span>
-                            </button>
-                        )}
                     </div>
                 )}
 
