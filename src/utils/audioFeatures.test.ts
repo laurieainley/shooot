@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { downmix, FeatureAccumulator } from './audioFeatures'
+import { downmix, downmixInto, FeatureAccumulator } from './audioFeatures'
 
 const tone = (hz: number, sr: number, sec: number, amp = 0.5): Float32Array =>
     new Float32Array(Math.round(sr * sec)).map((_, i) => amp * Math.sin((2 * Math.PI * hz * i) / sr))
@@ -42,5 +42,30 @@ describe('FeatureAccumulator', () => {
     it('should give finite values for silence', () => {
         const acc = new FeatureAccumulator(16000, 0.2, [300, 3000]); acc.push(new Float32Array(16000))
         expect(acc.finish().loudDb.every(Number.isFinite)).toBe(true)
+    })
+})
+
+describe('downmixInto', () => {
+    it('should write the same values as downmix at an offset and return the frame count', () => {
+        const x = new Float32Array([1, 0, 0.5, 0.5, 0.25, 0.75])
+        const out = new Float32Array(5)
+        expect(downmixInto(x, 2, out, 2)).toBe(3)
+        expect(Array.from(out)).toEqual([0, 0, ...Array.from(downmix(x, 2))])
+    })
+})
+
+describe('FeatureAccumulator batching', () => {
+    it('should give identical features whether samples arrive in 1000-sample, 2 s or one chunk', () => {
+        const sr = 8000, n = sr * 9
+        const x = new Float32Array(n).map((_, i) => Math.sin(i * 0.05) * (1 + Math.sin(i / 3000)) + ((i * 7919) % 13) / 100)
+        const run = (size: number): { loudDb: Float32Array; voiceDb: Float32Array } => {
+            const acc = new FeatureAccumulator(sr, 0.2, [300, 3000])
+            for (let i = 0; i < n; i += size) acc.push(x.slice(i, i + size))
+            return acc.finish()
+        }
+        const small = run(1000), batched = run(2 * sr + 123), one = run(n)
+        expect(batched.loudDb).toEqual(small.loudDb)
+        expect(batched.voiceDb).toEqual(small.voiceDb)
+        expect(one.loudDb).toEqual(small.loudDb)
     })
 })
