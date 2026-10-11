@@ -20,13 +20,13 @@ describe('tnf cardLayout', () => {
     })
 
     it('should show the score on the full-time card with scorers', () => {
-        const scorers = { left: [{ name: 'SAM TAYLOR', minutes: "'13" }], right: [] }
+        const scorers = { left: [{ name: 'SAM TAYLOR', minutes: "13'" }], right: [] }
         const ops = cardLayout({ ...vs, heading: 'FULL TIME', centre: '2 - 3', scorers }, 2, 4, true)
         expect(texts(ops).map((o) => o.text)).toEqual(expect.arrayContaining(['2 - 3', 'FULL TIME', 'SAM TAYLOR']))
     })
 
     it('should keep a long scorers list to five lines', () => {
-        const many = Array.from({ length: 9 }, (_, i) => ({ name: `P${i}`, minutes: "'1" }))
+        const many = Array.from({ length: 9 }, (_, i) => ({ name: `P${i}`, minutes: "1'" }))
         const ops = cardLayout({ ...vs, heading: 'FULL TIME', centre: '9 - 0', scorers: { left: many, right: [] } }, 2, 4, false)
         expect(texts(ops).map((o) => o.text)).toContain('+5 MORE')
     })
@@ -52,7 +52,7 @@ describe('tnf cardLayout', () => {
 })
 
 describe('tnf captionLayout', () => {
-    const goal: CaptionSpec = { label: 'GOAL!', person: 'SAM', minute: "'34", stripe: '#f0f0f0', bug }
+    const goal: CaptionSpec = { label: 'GOAL!', person: 'SAM', minute: "34'", stripe: '#f0f0f0', bug }
 
     it('should put the event word on a yellow tab with navy text, striped for goals only', () => {
         const ops = captionLayout(goal, 2.5, true)

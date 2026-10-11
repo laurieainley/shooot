@@ -42,14 +42,14 @@ function bugFor(teams: Team[], score: Score): BugSpec {
 
 const absTime = (e: MatchEvent, offsets: number[]): number => e.globalTimeSec ?? (offsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec
 
-/** `'34`: the match minute, only when kick-off is marked (minutes from the start of a file would mislead). */
+/** `34'`: the match minute, only when kick-off is marked (minutes from the start of a file would mislead). */
 function minuteOf(e: MatchEvent, events: MatchEvent[], offsets: number[]): string | undefined {
     const kickOff = markerGlobalSec(events, offsets, 'kick_off')
-    return kickOff === null ? undefined : `'${matchMinute(absTime(e, offsets), kickOff)}`
+    return kickOff === null ? undefined : `${matchMinute(absTime(e, offsets), kickOff)}'`
 }
 
 /**
- * Who scored for each team, for the full-time card: chronological by first goal, minutes after the name (`'13 '44 PEN`),
+ * Who scored for each team, for the full-time card: chronological by first goal, minutes after the name (`13' 44' PEN`),
  * own goals under the team that was credited (`SMITH (OG)`). Goals without a name only count in the score.
  */
 export function scorerColumns(events: MatchEvent[], teams: Team[], offsets: number[]): { left: ScorerLine[]; right: ScorerLine[] } {
@@ -61,7 +61,7 @@ export function scorerColumns(events: MatchEvent[], teams: Team[], offsets: numb
         const who = e.scorer?.trim().toUpperCase()
         if (!side || !who) continue
         const name = e.type === 'own_goal' ? `${who} (OG)` : who
-        const mark = `'${matchMinute(absTime(e, offsets), kickOff)}${e.pen ? ' PEN' : ''}`
+        const mark = `${matchMinute(absTime(e, offsets), kickOff)}'${e.pen ? ' PEN' : ''}`
         const line = side.get(name)
         if (line) line.minutes += ` ${mark}`
         else side.set(name, { name, minutes: mark })

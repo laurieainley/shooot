@@ -258,9 +258,9 @@ describe('caption minute and tone', () => {
     it('should show the match minute once kick-off is marked (kick-off is minute 1)', () => {
         const spec = build([kick, ev('a', 20, { team: "Ryan's Rovers", scorer: 'Sam' }), ev('b', 55, { team: 'Walford Town', scorer: 'Alex' })])
         const specs = spec.overlays.filter((o) => o.kind === 'caption').map((o) => o.kind === 'caption' && o.spec.minute)
-        expect(new Set(specs)).toEqual(new Set(["'1"]))
+        expect(new Set(specs)).toEqual(new Set(["1'"]))
         const late = build([kick, ev('a', 10 + 61 * 60, { team: "Ryan's Rovers", scorer: 'Sam' })], ALL, [{ sourceIndex: 0, startSec: 3600, endSec: 3900 }])
-        expect(late.overlays[0].kind === 'caption' && late.overlays[0].spec.minute).toBe("'62")
+        expect(late.overlays[0].kind === 'caption' && late.overlays[0].spec.minute).toBe("62'")
     })
 
     it('should leave the minute out without a kick-off', () => {
@@ -293,20 +293,20 @@ describe('scorerColumns', () => {
             ev('d', 50 * 60, { team: R }),
         ]
         expect(scorerColumns(events, teams, [0])).toEqual({
-            left: [{ name: 'SAM TAYLOR', minutes: "'13 '44 PEN" }],
-            right: [{ name: 'ALEX', minutes: "'21" }],
+            left: [{ name: 'SAM TAYLOR', minutes: "13' 44' PEN" }],
+            right: [{ name: 'ALEX', minutes: "21'" }],
         })
     })
 
     it('should put an own goal under the credited team, marked OG', () => {
         const cols = scorerColumns([ev('o', 60, { type: 'own_goal', team: W, scorer: 'Smith' })], teams, [0])
-        expect(cols.right).toEqual([{ name: 'SMITH (OG)', minutes: "'2" }])
+        expect(cols.right).toEqual([{ name: 'SMITH (OG)', minutes: "2'" }])
         expect(cols.left).toEqual([])
     })
 
     it('should put the scorers on the full-time card only, and only when someone is named', () => {
         const spec = build([ev('a', 20, { team: R, scorer: 'Sam' })])
-        expect(spec.outro?.scorers?.left).toEqual([{ name: 'SAM', minutes: "'1" }])
+        expect(spec.outro?.scorers?.left).toEqual([{ name: 'SAM', minutes: "1'" }])
         expect(spec.intro?.scorers).toBeUndefined()
         expect(build([ev('a', 20, { team: R })]).outro?.scorers).toBeUndefined()
     })
