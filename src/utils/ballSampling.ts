@@ -53,7 +53,7 @@ const centre = (b: Box): { x: number; y: number } => ({ x: (b.x1 + b.x2) / 2, y:
 
 /**
  * Was the ball in a goal around the suggestion at `t`? Needs a ball inside the goal (`ballInGoal`) in at least 2 sampled
- * frames within [t − 1, t + 3] s. A detection that sits at the same place (±8 px) in at least 80% of the sampled frames of that goal
+ * frames within [t − 3, t + 3] s. A detection that sits at the same place (±8 px) in at least 80% of the sampled frames of that goal
  * and in the first one (t − 3), is a fixture (a ball-shaped patch of the scene) and is ignored. The goal with most frames wins.
  */
 export function ballVerdict(samples: BallSample[], marks: GoalMarksByTeam, frame: Frame, t: number): BallVerdict | null {
@@ -71,7 +71,7 @@ export function ballVerdict(samples: BallSample[], marks: GoalMarksByTeam, frame
         }
         let frames = 0
         for (const s of own) {
-            if (s.timeSec < t - 1 || s.timeSec > t + 3) continue
+            if (s.timeSec < t - 3 || s.timeSec > t + 3) continue
             if (s.boxes.some((b) => !isStatic(b) && ballInGoal({ cx: (b.x1 + b.x2) / 2, bottom: b.y2, w: b.x2 - b.x1 }, m, frame))) frames++
         }
         if (frames >= 2 && (!best || frames > best.frames)) best = { goal, frames }

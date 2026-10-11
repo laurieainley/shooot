@@ -30,7 +30,7 @@ injectable deps; `detectJobs` gains phase 2 after the audio suggestions are save
 - Model recipe (exact, from `spikes/rfdetr-web/REPORT.md`): input `input` float32 [1,3,384,384], RGB/255 then ImageNet
   mean [0.485,0.456,0.406] / std [0.229,0.224,0.225], planar CHW; outputs `dets` [1,300,4] (cx,cy,w,h normalised to the
   tile) and `labels` [1,300,91] logits; score = sigmoid(labels[q][37]); keep ≥ 0.2; no NMS.
-- Verdict: ball in a goal (`ballInGoal` from A) in ≥ 2 frames within [t − 1, t + 3] s, ignoring static detections
+- Verdict: ball in a goal (`ballInGoal` from A) in ≥ 2 frames within [t − 3, t + 3] s, ignoring static detections
   (same position ±8 px in every sampled frame including t − 3).
 - Copy (exact): progress "Checking the goal mouths… N%"; card hint "Ball in {team}'s goal" (use `teamGoalLabel` for the goal:
   "Ball in Colours' goal"); summary line "Ball seen in N." ; Labs menu item "Labs: on" (toggle to "Labs: off").

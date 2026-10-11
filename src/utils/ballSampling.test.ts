@@ -84,8 +84,16 @@ describe('ballVerdict', () => {
     it('should not count a single frame', () => {
         expect(ballVerdict([at(100, 'team1', inNear), at(101, 'team1')], marks, F, 100)).toBeNull()
     })
-    it('should ignore frames outside [t − 1, t + 3]', () => {
-        expect(ballVerdict([at(98, 'team1', inNear), at(98.5, 'team1', inNear), at(103.5, 'team1', inNear), at(97, 'team1')], marks, F, 100)).toBeNull()
+    it('should ignore frames outside [t − 3, t + 3]', () => {
+        expect(ballVerdict([at(96.5, 'team1', inNear), at(96.8, 'team1', inNear), at(103.5, 'team1', inNear), at(97, 'team1')], marks, F, 100)).toBeNull()
+    })
+    it('should count a ball in the net at t − 2.5 … t − 1 that is gone by t as a goal', () => {
+        const s = [at(97, 'team1'), at(97.5, 'team1', inNear), at(98, 'team1', box(3355, 1255, 60)), at(99, 'team1', box(3360, 1260, 60)), at(100, 'team1'), at(103, 'team1')]
+        expect(ballVerdict(s, marks, F, 100)).toEqual({ goal: 'team1', frames: 3 })
+    })
+    it('should treat a ball present from t − 3 through t + 3 as static', () => {
+        const s = [97, 98, 99, 100, 101, 102, 103].map((x) => at(x, 'team1', inNear))
+        expect(ballVerdict(s, marks, F, 100)).toBeNull()
     })
     it('should ignore a ball in front of the line', () => {
         const out = box(2900, 1250, 60)
