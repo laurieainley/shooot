@@ -1161,7 +1161,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .review__bar { height: 4px; background: var(--sh-line); border-radius: 2px; overflow: hidden; }
 .review__bar > div { height: 100%; background: var(--sh-text); transition: width .2s; }
 @media (prefers-reduced-motion: reduce) { .review__bar > div { transition: none; } }
-.review__kept { font-size: 18px; font-weight: 700; }
+.review__kept { margin-top: 4px; font-family: var(--sh-font); font-style: normal; font-stretch: normal; text-transform: none; font-size: 18px; font-weight: 700; } /* the panel's body text, not a display face, with room above */
 .review__note { color: var(--sh-muted); }
 @media (pointer: coarse) { .review { font-size: 15px; } .beta-tag { font-size: 14px; } }
 
@@ -1309,7 +1309,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .range__row .review__btn { flex: 0 0 10.5rem; }
 
 /* Toasts: one calm confirmation at a time. Top-right of the video (the scorebug is top-left); phone portrait: one line under the video. */
-.toast-host--video { position: absolute; top: 10px; right: 10px; z-index: 6; max-width: min(380px, calc(100% - 20px)); pointer-events: none; }
+.toast-host--video { position: absolute; top: 58px; right: 10px; /* below the scorebug row and the brief "Goal tagged." pill */  z-index: 6; max-width: min(380px, calc(100% - 20px)); pointer-events: none; }
 .toast-host--under { display: flex; justify-content: center; padding: 0 12px; }
 .toast-slot { display: flex; justify-content: flex-end; }
 .toast-host--under .toast-slot { justify-content: center; width: 100%; }
@@ -1320,8 +1320,10 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 @keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
 
-.tally { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 4px 6px; font-size: 14px; color: var(--sh-muted); }
+.tally { margin-bottom: 12px; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 4px 6px; font-size: 14px; color: var(--sh-muted); }
 .tally__team { font-size: 14px; color: var(--sh-text); }
 .tally__score { font-family: var(--sh-font-mono); font-weight: 700; font-size: 16px; color: var(--sh-text); }
 .rtl__handle kbd { margin-left: 3px; text-decoration: none; display: inline-block; }
 @media (pointer: coarse) { .rtl__handle kbd { display: none; } }
+.rv__steps .event-picker__person .event-picker__input { order: 0; }
+.rv__steps .event-picker__person .event-picker__list { order: 1; max-height: 144px; overflow-y: auto; }
