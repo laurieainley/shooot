@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAppState } from '../state'
-import { cancelDetection, startDetection, useDetectJob } from '../detectJobs'
-import { hasMatchRange, openFindGoals, setRangeStep } from './findGoals'
+import { cancelDetection, useDetectJob } from '../detectJobs'
+import { openFindGoals, setRangeStep } from './findGoals'
+import { topPicksLine } from '../utils/reviewLanes'
 import { checkingGoalsLine, downloadingModelLine, listeningLine } from '../utils/voice'
 
 const NO_VIDEO = 'Load the match videos first.'
@@ -12,7 +13,7 @@ export function DetectFailed() {
     return (
         <div className="review__status" role="alert">
             <p className="m-0">{error === NO_VIDEO ? error : `Couldn't read the audio: ${error}`}</p>
-            <button type="button" className="btn-quiet review__btn" onClick={() => startDetection()}>Try again</button>
+            <button type="button" className="btn-quiet review__btn" onClick={() => openFindGoals(true)}>Try again</button>
         </div>
     )
 }
@@ -37,11 +38,12 @@ export function BallProgress() {
     const fraction = useDetectJob((s) => s.ballFraction)
     const ep = useDetectJob((s) => s.ballEp)
     const download = useDetectJob((s) => s.ballDownload)
+    const topPicks = useAppState((s) => s.suggestions.filter((x) => x.ball).length)
     const downloading = ep === null && download != null
     const percent = Math.round((downloading ? download : fraction) * 100)
     return (
         <div className="review__status">
-            <p className="m-0">{downloading ? downloadingModelLine(download) : checkingGoalsLine(fraction, ep)}</p>
+            <p className="m-0">{downloading ? downloadingModelLine(download) : checkingGoalsLine(fraction, ep, topPicksLine(topPicks))}</p>
             <div className="review__bar" role="progressbar" aria-label="Ball check progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
                 <div style={{ width: `${percent}%` }} />
             </div>
@@ -66,7 +68,7 @@ export function DetectIdle({ cancelled, stale = false }: { cancelled?: boolean; 
         return (
             <div ref={dialogRef} tabIndex={-1} role="alertdialog" aria-label="Clear old suggestions" className="review__status">
                 <p className="m-0">The videos changed since the last Find goals. Clear the old suggestions and look for goals in these videos?</p>
-                <button type="button" className="btn-primary review__btn" onClick={() => { useAppState.getState().clearSuggestions(); if (hasMatchRange()) startDetection(); else setRangeStep(true) }}>Clear and find goals</button>
+                <button type="button" className="btn-primary review__btn" onClick={() => { useAppState.getState().clearSuggestions(); setRangeStep(true) }}>Clear and find goals</button>
                 <button type="button" className="btn-quiet review__btn" onClick={() => setConfirming(false)}>Cancel</button>
             </div>
         )

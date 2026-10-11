@@ -38,11 +38,14 @@ export function ballErrorLine(e: unknown): string {
 
 const sameFiles = (a: (File | undefined)[], b: (File | undefined)[]): boolean => a.length === b.length && a.every((f, i) => f === b[i])
 
-export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi<DetectJobState>; start: (opts?: { wholeVideo?: boolean }) => Promise<void>; cancel: () => void } {
+/** `wholeVideo` ignores Kick off / Final whistle; `ball` (Advanced detection) also runs the Labs goal-mouth check. */
+export type StartOptions = { wholeVideo?: boolean; ball?: boolean }
+
+export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi<DetectJobState>; start: (opts?: StartOptions) => Promise<void>; cancel: () => void } {
     const deps: JobDeps = { run: runAudioDetection, wakeLock: createRenderWakeLock, now: () => Date.now(), ball: runBallCheck, ballDeps: defaultBallDeps, preload: () => import('./detect/frameSource'), ...over }
     const store = createStore<DetectJobState>(() => ({ phase: 'idle', fraction: 0, error: null, scores: null, ...IDLE_BALL }))
     let ac: AbortController | null = null
-    const start = async (opts?: { wholeVideo?: boolean }): Promise<void> => {
+    const start = async (opts?: StartOptions): Promise<void> => {
         if (store.getState().phase === 'running') return
         ac?.abort() // a ball check still running from the last run: the new run replaces it
         const app = useAppState.getState()
@@ -74,7 +77,7 @@ export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi
         const app0 = useAppState.getState()
         let early: BallDetectorLike | undefined
         let disposeEarly = (): void => {}
-        if (app0.labs && app0.goalMarks && (app0.goalMarks.team1 || app0.goalMarks.team2) && ballFiles.length > 0) {
+        if (opts?.ball && app0.labs && app0.goalMarks && (app0.goalMarks.team1 || app0.goalMarks.team2) && ballFiles.length > 0) {
             const detector = deps.ballDeps.detector((f) => { if (ac === mine && !mine.signal.aborted) store.setState({ ballDownload: f }) })
             early = detector
             // Phase 2 disposes the detector it is given, the job's cleanup does too: only the first call counts.
@@ -97,7 +100,7 @@ export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi
             useAppState.getState().setSuggestions({ createdAt: now, source: 'audio', configVersion: AUDIO_DETECT.version, analysedSec: r.analysedSec, total: r.moments.length, durationMs: Math.max(0, now - startedAt), fileKeys: keys, bounded: range[0] > 0 || range[1] < totalSec }, r.moments)
             store.setState({ phase: 'done', fraction: 1, scores: r.scores })
             const after = useAppState.getState()
-            if (after.labs && after.goalMarks && (after.goalMarks.team1 || after.goalMarks.team2) && ballFiles.length > 0 && after.suggestions.length > 0) {
+            if (opts?.ball && after.labs && after.goalMarks && (after.goalMarks.team1 || after.goalMarks.team2) && ballFiles.length > 0 && after.suggestions.length > 0) {
                 const marks = after.goalMarks
                 const ballStart = deps.now()
                 store.setState({ ballPhase: 'running', ballFraction: 0, ballError: null, ballMs: null, ballEp: null, ballDetail: null })
@@ -128,8 +131,7 @@ export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi
 }
 
 const jobs = createDetectJobs()
-/** `wholeVideo` ignores any Kick off / Final whistle (the "Skip" choice). */
-export const startDetection = (opts?: { wholeVideo?: boolean }): void => { void jobs.start(opts) }
+export const startDetection = (opts?: StartOptions): void => { void jobs.start(opts) }
 export const cancelDetection = (): void => jobs.cancel()
 export function useDetectJob<T>(selector: (s: DetectJobState) => T): T { return useStore(jobs.store, selector) }
 export const getDetectJob = (): DetectJobState => jobs.store.getState()

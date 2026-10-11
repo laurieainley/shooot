@@ -44,18 +44,20 @@ export function downloadingModelLine(fraction: number): string {
     return `Downloading the ball model… ${pct(fraction)}%`
 }
 /** `ep` is the model's execution provider once it is ready; null = still loading. WASM is the slow fallback. */
-export function checkingGoalsLine(fraction: number, ep: string | null = 'webgpu'): string {
+export function checkingGoalsLine(fraction: number, ep: string | null = 'webgpu', topPicks = ''): string {
     if (ep === null) return LOADING_BALL_MODEL
-    return `Checking the goal mouths… ${pct(fraction)}%${ep === 'wasm' ? ' (slow on this device)' : ''}`
+    return `Checking the goal mouths… ${pct(fraction)}%${ep === 'wasm' ? ' (slow on this device)' : ''}${topPicks ? ` · ${topPicks}` : ''}`
 }
 
 export function ballSeenLine(n: number): string {
-    return `Ball seen in ${n}.`
+    return `Top picks: ${n}.`
 }
 
 export function keptSummary(kept: number, total: number): string {
     return `You kept ${kept} of ${total}.`
 }
 
+/** The Top picks lane when the ball check finished and saw the ball in no goal. */
+export const NO_TOP_PICKS = "No top picks — the ball wasn't seen in a goal for any suggestion."
 export const LOW_KEEP_NOTE = 'Detection struggled on this footage. Copy diagnostics and send it over.'
 export const NOTHING_STOOD_OUT = 'Nothing stood out in the audio. Tag goals as you watch.'

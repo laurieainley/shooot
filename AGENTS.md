@@ -192,9 +192,15 @@ npm run lint       # baseline: 12 known problems — add none
   kept in sync with `shortcutFor` by a test).
 - **Find goals review card** (`SuggestionCard`, `ReviewTimeline`, `useMarkedMoment`, `utils/reviewMark.ts`): one step at
   a time — watch & mark (mini timeline over the loop window: progress, red playhead, estimate ring, marked pin, +2 s end
-  handles; M marks, pausing/stepping also marks), then type, then team, then Save event (Enter). Type keys select, they
+  handles; M or the always-visible Mark moment button marks — Mark again once marked — and frame steps refine it;
+  Space only plays/pauses and never marks), then type, then team, then Save event (Enter). Type keys select, they
   never advance. Keys while open: M · G/O/S/H/X · 1/2 · Enter · Esc/Backspace clear · [ ] · ←/→ · ↑/↓ · Space.
   Supersedes the "Goal time · paused = at playhead" line in the suggested-goals spec.
+- **Find goals start form** (`MatchRangeStep`): always shown before a run (Kick off / Final whistle, pre-filled). With
+  Labs on, an **Advanced detection** tick box runs the goal-mouth ball check (`startDetection({ ball })`; needs goals
+  marked in Match setup). After such a run the panel shows **All · Top picks** lanes (`utils/reviewLanes.ts`): both in
+  match order; the panel never switches lane or jumps by itself; the Top picks count rises live as tags arrive.
+  Spec: `docs/superpowers/specs/2026-10-11-review-lanes-design.md`.
 - **Lime guard:** `utils/limeUsage.test.ts` fails if a lime token is used in App.css outside the allow-list
   (primary buttons, goal icon, scorebug score). Don't widen the allow-list without a design decision.
 
