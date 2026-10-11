@@ -10,12 +10,13 @@ vi.mock('../detectJobs', () => ({
     startDetection: (...a: unknown[]) => startDetectionMock(...a), cancelDetection: vi.fn(), getDetectJob: () => ({ ...job, phase: 'done' }),
 }))
 import { SuggestionReview } from './SuggestionReview'
-import { openFindGoals } from './findGoals'
+import { openFindGoals, setRangeStep } from './findGoals'
 import { isPlayerPaused, registerPlayerSeekPaused, registerPlayerStep, registerPlayerToggle, setPlayerPaused } from './playerControl'
 
 const press = (key: string, opts: KeyboardEventInit = {}): void => { act(() => { fireEvent.keyDown(window, { key, ...opts }) }) }
 const run = { createdAt: 1, source: 'audio' as const, configVersion: 1, analysedSec: 600, total: 2 }
 beforeEach(() => {
+    setRangeStep(false)
     setPlayerPaused(true)
     job.phase = 'done'; job.fraction = 1; job.error = null; job.ballPhase = 'idle'; job.ballFraction = 0; job.ballError = null; job.ballEp = null; job.ballMs = null; job.ballDetail = null
     useAppState.setState({
@@ -513,8 +514,27 @@ describe('SuggestionReview', () => {
             useAppState.getState().decideSuggestion(useAppState.getState().suggestions[0].id, { kind: 'reject' })
             useAppState.setState({ suggestionRun: { ...run, fileKeys: ['somethingelse'] } })
         }
-        it('should ask before clearing old suggestions, then clear and start', () => {
+        const withRange = (): void => useAppState.setState({ events: [{ id: 'k', type: 'kick_off', matchTimeSec: 10, sourceFileIndex: 0 }, { id: 'w', type: 'final_whistle', matchTimeSec: 500, sourceFileIndex: 0 }] })
+        it('should show the match start and end step after clearing when a marker is missing', () => {
             stale()
+            startDetectionMock.mockClear()
+            render(<SuggestionReview onClose={() => {}} />)
+            fireEvent.click(screen.getByRole('button', { name: 'Find goals' }))
+            fireEvent.click(screen.getByRole('button', { name: 'Clear and find goals' }))
+            expect(useAppState.getState().suggestions).toEqual([])
+            expect(startDetectionMock).not.toHaveBeenCalled()
+            expect(screen.getByText('First, set where the match starts and ends.')).toBeTruthy()
+        })
+        it('should keep Try again starting directly', () => {
+            job.phase = 'failed'; job.error = 'no decoder'
+            startDetectionMock.mockClear()
+            render(<SuggestionReview onClose={() => {}} />)
+            fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+            expect(startDetectionMock).toHaveBeenCalledTimes(1)
+            expect(screen.queryByText('First, set where the match starts and ends.')).toBeNull()
+        })
+        it('should ask before clearing old suggestions, then clear and start', () => {
+            stale(); withRange()
             startDetectionMock.mockClear()
             render(<SuggestionReview onClose={() => {}} />)
             fireEvent.click(screen.getByRole('button', { name: 'Find goals' }))
