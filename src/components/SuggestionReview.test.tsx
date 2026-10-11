@@ -12,7 +12,7 @@ vi.mock('../detectJobs', () => ({
 }))
 import { SuggestionReview } from './SuggestionReview'
 import { openFindGoals, setRangeStep } from './findGoals'
-import { isPlayerPaused, registerPlayerSeekPaused, registerPlayerStep, registerPlayerToggle, setPlayerPaused } from './playerControl'
+import { isPlayerPaused, registerPlayerShortcut, registerPlayerSeekPaused, registerPlayerStep, registerPlayerToggle, setPlayerPaused } from './playerControl'
 
 const press = (key: string, opts: KeyboardEventInit = {}): void => { act(() => { fireEvent.keyDown(window, { key, ...opts }) }) }
 const run = { createdAt: 1, source: 'audio' as const, configVersion: 1, analysedSec: 600, total: 2 }
@@ -141,9 +141,9 @@ describe('SuggestionReview', () => {
         useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }, { timeSec: 300, score: 4 }, { timeSec: 500, score: 3 }])
         act(() => { useAppState.getState().decideSuggestion(useAppState.getState().suggestions[1].id, { kind: 'keep', type: 'save', atSec: 301.5 }) })
         render(<SuggestionReview onClose={() => {}} />)
-        press('ArrowRight')
+        press(']')
         expect(screen.getByText(/Suggestion 2 of 3/)).toBeTruthy()
-        press('ArrowLeft')
+        press('[')
         press('x'); press('Enter')
         expect(screen.getByText(/Suggestion 3 of 3/)).toBeTruthy()
     })
@@ -208,45 +208,41 @@ describe('SuggestionReview', () => {
             render(<SuggestionReview onClose={() => {}} />)
             expect(screen.getByText('−5 s … +4 s')).toBeTruthy()
         })
-        it('should extend the start with [ (seeking to the new start) and the end with ]', () => {
+        const earlier = (): void => { fireEvent.click(screen.getByRole('button', { name: 'Start 2 seconds earlier' })) }
+        const later = (): void => { fireEvent.click(screen.getByRole('button', { name: 'End 2 seconds later' })) }
+        it('should extend the start with the earlier button (seeking to the new start) and the end with the later button', () => {
             const seek = seekSpy()
             render(<SuggestionReview onClose={() => {}} />)
             seek.mockClear()
-            act(() => { fireEvent.keyDown(window, { key: '[' }) })
-            act(() => { fireEvent.keyDown(window, { key: '[' }) })
+            earlier(); earlier()
             expect(screen.getByText('−9 s … +4 s')).toBeTruthy()
             expect(seek).toHaveBeenLastCalledWith(0, 91)
             seek.mockClear()
-            act(() => { fireEvent.keyDown(window, { key: ']' }) })
+            later()
             expect(screen.getByText('−9 s … +6 s')).toBeTruthy()
             expect(seek).not.toHaveBeenCalled()
         })
         it('should reset to the default for the next suggestion', () => {
             render(<SuggestionReview onClose={() => {}} />)
-            act(() => { fireEvent.keyDown(window, { key: '[' }) })
+            earlier(); later()
             act(() => { fireEvent.keyDown(window, { key: ']' }) })
-            act(() => { fireEvent.keyDown(window, { key: 'ArrowRight' }) })
             expect(screen.getByText(/Suggestion 2 of 2/)).toBeTruthy()
             expect(screen.getByText('−5 s … +4 s')).toBeTruthy()
         })
         it('should not start before 0 or end after the last file', () => {
             useAppState.getState().setSuggestions(run, [{ timeSec: 7, score: 5 }, { timeSec: 598, score: 4 }])
             render(<SuggestionReview onClose={() => {}} />)
-            for (let i = 0; i < 3; i++) act(() => { fireEvent.keyDown(window, { key: '[' }) })
+            earlier(); earlier(); earlier()
             expect(screen.getByText('−7 s … +4 s')).toBeTruthy()
-            act(() => { fireEvent.keyDown(window, { key: 'ArrowRight' }) })
-            for (let i = 0; i < 3; i++) act(() => { fireEvent.keyDown(window, { key: ']' }) })
+            act(() => { fireEvent.keyDown(window, { key: ']' }) })
+            later(); later(); later()
             expect(screen.getByText('−5 s … +2 s')).toBeTruthy() // 598 + 4 clamps at 600, so = 600 is already the end
         })
-        it('should have 44 px buttons with labels, and ignore the keys with modifiers or repeat', () => {
+        it('should have 44 px buttons with labels', () => {
             render(<SuggestionReview onClose={() => {}} />)
             expect(screen.getByRole('button', { name: 'Start 2 seconds earlier' })).toBeTruthy()
             expect(screen.getByRole('button', { name: 'End 2 seconds later' })).toBeTruthy()
-            act(() => { fireEvent.keyDown(window, { key: '[', metaKey: true }) })
-            act(() => { fireEvent.keyDown(window, { key: ']', ctrlKey: true }) })
-            act(() => { fireEvent.keyDown(window, { key: '[', repeat: true }) })
-            expect(screen.getByText('−5 s … +4 s')).toBeTruthy()
-            fireEvent.click(screen.getByRole('button', { name: 'Start 2 seconds earlier' }))
+            earlier()
             expect(screen.getByText('−7 s … +4 s')).toBeTruthy()
         })
     })
@@ -416,23 +412,23 @@ describe('SuggestionReview', () => {
             })
         })
         describe('Labs ball check', () => {
-            it('should show a neutral hint and preselect Goal, but not the team', () => {
+            it('should preselect Goal, but not the team, with no ball hint on the card', () => {
                 useAppState.setState({ suggestions: useAppState.getState().suggestions.map((s, i) => (i === 0 ? { ...s, ball: { goal: 'team1' as const, frames: 3 } } : s)) })
                 render(<SuggestionReview onClose={() => {}} />)
-                expect(screen.getByText('Ball seen in a goal mouth')).toBeTruthy()
+                expect(screen.queryByText(/Ball seen in a goal mouth/)).toBeNull()
                 press('m')
                 expect(screen.getByRole('button', { name: 'Change what it was' })).toHaveTextContent('Goal')
                 // Default team behaviour (the first team), not the team the ball tag would have implied (Colours).
                 expect(screen.getByRole('button', { name: /Whites/ })).toHaveAttribute('aria-pressed', 'true')
                 expect(screen.getByRole('button', { name: /Colours/ })).toHaveAttribute('aria-pressed', 'false')
             })
-            it('should give the same hint and the default team after half time', () => {
+            it('should give the same preselection and the default team after half time', () => {
                 useAppState.setState({
                     events: [{ id: 'ht', type: 'half_time', matchTimeSec: 50, sourceFileIndex: 0 }] as never,
                     suggestions: useAppState.getState().suggestions.map((s, i) => (i === 0 ? { ...s, ball: { goal: 'team1' as const, frames: 2 } } : s)),
                 })
                 render(<SuggestionReview onClose={() => {}} />)
-                expect(screen.getByText('Ball seen in a goal mouth')).toBeTruthy()
+                expect(screen.queryByText(/Ball seen in a goal mouth/)).toBeNull()
                 press('m')
                 expect(screen.getByRole('button', { name: /Whites/ })).toHaveAttribute('aria-pressed', 'true') // no half-time swap any more
                 expect(screen.getByRole('button', { name: /Colours/ })).toHaveAttribute('aria-pressed', 'false')
@@ -490,7 +486,7 @@ describe('SuggestionReview', () => {
         })
         it('should ignore Shift with decision and window keys', () => {
             render(<SuggestionReview onClose={() => {}} />)
-            for (const key of ['g', 'o', 's', 'h', 'x', '[', ']', 'm']) press(key, { shiftKey: true })
+            for (const key of ['g', 'o', 's', 'h', 'x', 'm']) press(key, { shiftKey: true })
             expect(useAppState.getState().events).toHaveLength(0)
             expect(screen.queryByRole('button', { name: /^Confirm/ })).toBeNull()
             expect(screen.getByText('−5 s … +4 s')).toBeTruthy()
@@ -498,7 +494,7 @@ describe('SuggestionReview', () => {
         it('should still extend the end when the total duration is unknown', () => {
             useAppState.setState({ files: [{ id: 'f', name: 'A.MP4', url: '', kind: 'full', file: new File([], 'A.MP4') }] as never })
             render(<SuggestionReview onClose={() => {}} />)
-            press(']')
+            fireEvent.click(screen.getByRole('button', { name: 'End 2 seconds later' }))
             expect(screen.getByText('−5 s … +6 s')).toBeTruthy()
         })
         it('should not loop while paused, and loop again when playing', () => {
@@ -864,13 +860,19 @@ describe('Find goals: Top picks lane', () => {
         expect(screen.getByText(/Suggestion 1 of 5/)).toBeTruthy()
         fireEvent.click(screen.getByRole('button', { name: /Next/ }))
         expect(screen.getByText(/Suggestion 2 of 5/)).toBeTruthy()
-        expect(screen.getByRole('button', { name: 'Next' })).toBeTruthy() // decided in the other lane: shown as decided
+        expect(screen.getByRole('button', { name: /^Next/ })).toBeTruthy() // decided in the other lane: shown as decided
     })
-    it('should badge a top pick', () => {
+    it('should not badge a top pick on the card (the lane says it)', () => {
         tag(0)
         render(<SuggestionReview onClose={() => {}} />)
-        expect(screen.getByText('Top pick')).toBeTruthy()
-        expect(screen.getByText(/Ball seen in a goal mouth/)).toBeTruthy()
+        expect(screen.queryByText('Top pick')).toBeNull()
+        expect(screen.queryByText(/Ball seen in a goal mouth/)).toBeNull()
+    })
+    it('should give the lane switch icons, with a star on Top picks', () => {
+        tag(0)
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(lane(/^Top picks/).querySelector('.lanes__star')).not.toBeNull()
+        expect(lane(/^All/).querySelector('.lanes__icon')).not.toBeNull()
     })
     it('should update the Top picks count live with a brief +1, without changing the current card', () => {
         job.ballPhase = 'running'; job.ballEp = 'webgpu'; job.ballFraction = 0.4
@@ -908,6 +910,28 @@ describe('Find goals: Top picks lane', () => {
         render(<SuggestionReview onClose={() => {}} />)
         for (let i = 0; i < 5; i++) { press('x'); press('Enter') }
         expect(screen.getByText('Top picks: 2.')).toBeTruthy()
+    })
+})
+
+describe('Review keys', () => {
+    it('should seek with the arrows like the editor, and move between suggestions with [ and ]', () => {
+        const run2 = vi.fn()
+        const off = registerPlayerShortcut(run2)
+        render(<SuggestionReview onClose={() => {}} />)
+        press('ArrowRight'); press('ArrowLeft', { shiftKey: true }); press(',')
+        expect(run2.mock.calls.map((c) => c[0])).toEqual(['seekForward', 'seekBackFine', 'speedDown'])
+        expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy() // arrows no longer move between suggestions
+        press(']')
+        expect(screen.getByText(/Suggestion 2 of 2/)).toBeTruthy()
+        press('[')
+        expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy()
+        off()
+    })
+    it('should show [ and ] on the Previous and Next buttons', () => {
+        useAppState.setState({ reviewIndex: 1 })
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(screen.getByRole('button', { name: 'Previous suggestion' }).textContent).toContain('[')
+        expect(screen.getByRole('button', { name: /^Next/ }).textContent).toContain(']')
     })
 })
 
@@ -987,7 +1011,7 @@ describe('Review toasts', () => {
     })
     it('should not toast for moving, marking or scrubbing', () => {
         render(<SuggestionReview onClose={() => {}} />)
-        press('ArrowRight'); press('m')
+        press(']'); press('m')
         fireEvent.click(screen.getByRole('button', { name: /Next/ }))
         expect(toastStore.getState().toast).toBeNull()
     })

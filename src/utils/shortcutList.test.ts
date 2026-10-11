@@ -19,6 +19,12 @@ describe('SHORTCUT_GROUPS', () => {
             expect(documented.has(shortcutFor(key(k))!), k).toBe(true)
         }
     })
+    it('should say [ ] move between suggestions in the review and ← → seek', () => {
+        const rows = SHORTCUT_GROUPS.find((g) => g.title === 'Find goals review')!.rows
+        expect(rows.find((r) => r.keys.join('') === '[]')?.what).toMatch(/previous \/ next suggestion/)
+        expect(rows.find((r) => r.keys.join('') === '←→')?.what).toMatch(/seek/)
+        expect(rows.some((r) => /2 s earlier/.test(r.what))).toBe(false)
+    })
     it('should give every row keys and a description', () => {
         for (const row of SHORTCUT_GROUPS.flatMap((g) => g.rows)) {
             expect(row.keys.length).toBeGreaterThan(0)

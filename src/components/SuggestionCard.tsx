@@ -2,7 +2,7 @@ import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
 import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import type { KeepType, Suggestion } from '../types'
 import { formatClock } from '../utils/timeline'
-import { seekPlayerPaused, stepPlayer, togglePlayerPlayback, usePlayerPaused } from './playerControl'
+import { runPlayerShortcut, seekPlayerPaused, stepPlayer, togglePlayerPlayback, usePlayerPaused } from './playerControl'
 import { AUDIO_DETECT } from '../detect/detectConfig'
 import { formatReviewWindow, withTenths } from '../utils/reviewLoop'
 import { globalToFileTime } from '../utils/matchStrip'
@@ -11,6 +11,7 @@ import {
 } from '../utils/reviewMark'
 import { showToast } from '../toasts'
 import { confirmedCopy, discardedCopy, matchClock } from '../utils/toastCopy'
+import { shortcutFor } from '../utils/shortcuts'
 import { useReviewLoop } from './useReviewLoop'
 import { useMarkedMoment } from './useMarkedMoment'
 import { ReviewTimeline } from './ReviewTimeline'
@@ -123,9 +124,10 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
             const target = e.target as HTMLElement | null
             if (target?.closest?.('input, textarea, select') || e.metaKey || e.ctrlKey || e.altKey) return
             const arrow = e.key === 'ArrowUp' || e.key === 'ArrowDown'
-            if (e.shiftKey && !arrow) return // only the arrows read Shift
+            const sideways = e.key === 'ArrowLeft' || e.key === 'ArrowRight'
+            if (e.shiftKey && !arrow && !sideways) return // only the arrows read Shift
             if (arrow) { e.preventDefault(); step(e.shiftKey ? 'second' : 'frame', e.key === 'ArrowUp' ? 1 : -1); return }
-            if (e.repeat) return
+            if (e.repeat && !sideways) return
             const k = e.key.toLowerCase()
             const button = target?.closest?.('button') ?? null
             const onButton = !!button
@@ -147,10 +149,13 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
             if (k === 'x') { e.preventDefault(); if (!rejected) discard(); return }
             const type = KEY_TO_TYPE[k]
             if (type) { e.preventDefault(); select(type); return }
-            if (e.key === '[') { e.preventDefault(); loop.earlier(); return }
-            if (e.key === ']') { e.preventDefault(); loop.later(); return }
-            if (e.key === 'ArrowRight') { e.preventDefault(); onNext() }
-            if (e.key === 'ArrowLeft') { e.preventDefault(); onPrev() }
+            // [ ] move between suggestions here (elsewhere they step between files); ← → seek like the editor.
+            if (e.key === '[') { e.preventDefault(); if (index > 0) onPrev(); return }
+            if (e.key === ']') { e.preventDefault(); onNext(); return }
+            if (sideways || k === ',' || k === '.' || k === '/') {
+                const action = shortcutFor(e)
+                if (action) { e.preventDefault(); moment.followPlayhead(); runPlayerShortcut(action) }
+            }
         }
         // A button activates on Space's key-up: stop that too.
         const onKeyUp = (e: KeyboardEvent): void => {
@@ -178,8 +183,8 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
             <header className="rv__head">
                 <p className="review__count">Suggestion {index + 1} of {total} · <span className="tc">{formatClock(Math.max(0, suggestion.globalTimeSec - kickOff), long)}</span></p>
                 <div className="rv__nav">
-                    <button type="button" className="rv__skip" aria-label="Previous suggestion" onClick={onPrev} disabled={index === 0}><Chevron dir="left" /> Previous</button>
-                    <button type="button" className="rv__skip" onClick={onNext}>Next <Chevron dir="right" /></button>
+                    <button type="button" className="rv__skip" aria-label="Previous suggestion" onClick={onPrev} disabled={index === 0}><Chevron dir="left" /> Previous <kbd>[</kbd></button>
+                    <button type="button" className="rv__skip" onClick={onNext}>Next <kbd>]</kbd> <Chevron dir="right" /></button>
                 </div>
             </header>
 

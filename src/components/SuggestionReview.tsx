@@ -71,8 +71,7 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
     )
 }
 
-/** The Labs ball hint and the Goal pre-selection for a suggestion the ball was seen on (the team is left to the user). */
+/** The Goal pre-selection for a suggestion the ball was seen on (the team is left to the user; being in Top picks is the hint). */
 function ballProps(s: Suggestion): { hint?: ReactNode; preselectType?: KeepType } {
-    if (!s.ball) return {}
-    return { hint: <><span className="tag rv__toppick">Top pick</span> Ball seen in a goal mouth</>, preselectType: 'goal' }
+    return s.ball ? { preselectType: 'goal' } : {}
 }
