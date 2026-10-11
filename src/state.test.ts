@@ -84,7 +84,7 @@ describe('teams and picker', () => {
         s().markEvent(42.9)
         const [e] = s().events
         expect(e).toMatchObject({ matchTimeSec: 42, sourceFileIndex: 0, type: 'goal' })
-        expect(s().picker).toEqual({ eventId: e.id })
+        expect(s().picker).toEqual({ eventId: e.id, fresh: true })
         s().closePicker()
         expect(s().picker).toBeNull()
     })
@@ -99,7 +99,7 @@ describe('teams and picker', () => {
             s().commitPending()
             expect(s().events).toHaveLength(1)
             expect(s().events[0]).toMatchObject({ id: picker.eventId, matchTimeSec: 42, sourceFileIndex: 0, type: 'goal' })
-            expect(s().picker).toEqual({ eventId: picker.eventId })
+            expect(s().picker).toEqual({ eventId: picker.eventId, fresh: true })
             expect(s().undoStack).toHaveLength(1)
         })
 

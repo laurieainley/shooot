@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, act } from '@testing-library/react'
+import { toastStore } from '../toasts'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import { EventLog } from './EventLog'
@@ -238,6 +239,10 @@ describe('EventLog replay toggle', () => {
         render(<EventLog />)
         await userEvent.click(screen.getAllByRole('button', { name: 'Delete event' })[0])
         expect(byId('g')).toBeUndefined()
+        const toast = toastStore.getState().toast
+        expect(toast?.text).toMatch(/^Goal at .* deleted$/)
+        act(() => { toast?.action?.run() })
+        expect(byId('g')).toBeDefined() // Undo brings it back
     })
 })
 
@@ -354,7 +359,7 @@ describe('EventLog header', () => {
         await userEvent.click(screen.getByRole('button', { name: /\+ tag event/i }))
         const [e] = useAppState.getState().events
         expect(e).toMatchObject({ matchTimeSec: 42, sourceFileIndex: 0, type: 'goal' })
-        expect(useAppState.getState().picker).toEqual({ eventId: e.id })
+        expect(useAppState.getState().picker).toEqual({ eventId: e.id, fresh: true })
         expect(screen.queryByPlaceholderText('00:42')).not.toBeInTheDocument()
     })
 

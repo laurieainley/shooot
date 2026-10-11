@@ -18,6 +18,8 @@ import { filterRoster, rosterTeamFor } from '../utils/roster'
 import { formatScore, scoresAfter } from '../utils/score'
 import { clockWidthCh, formatEventClock } from '../utils/timeline'
 import { TimeInput } from './TimeInput'
+import { showToast } from '../toasts'
+import { deletedCopy, eventGlobalSec, matchClock } from '../utils/toastCopy'
 import { RelinkBanner } from './RelinkBanner'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 import { ShortcutsButton } from './ShortcutsButton'
@@ -87,7 +89,9 @@ export function EventLog() {
         const e = events[index]
         if (!e) return
         const next = events[index + 1] ?? events[index - 1]
-        useAppState.getState().removeEvent(e.id)
+        const st = useAppState.getState()
+        showToast(deletedCopy(e.type, matchClock(eventGlobalSec(e, st.cumulativeOffsets), selectMatchStartSec(st), selectClockLong(st))), { label: 'Undo', run: () => { useAppState.getState().undo() } })
+        st.removeEvent(e.id)
         setSelectedId(next?.id ?? null)
     }
 

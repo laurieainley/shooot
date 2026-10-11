@@ -1,10 +1,12 @@
 import { teamBackground } from '../utils/teamColor'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { selectClockLong, useAppState } from '../state'
+import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
+import { showToast } from '../toasts'
+import { eventGlobalSec, matchClock, taggedCopy } from '../utils/toastCopy'
 import { nearbyMark } from '../utils/duplicates'
 import { EventTag } from './EventTag'
-import { PICKER_GROUPS, PICKER_OPTIONS, assistOf, controlLabel, type PickerOption } from '../utils/eventTypes'
+import { PICKER_GROUPS, PICKER_OPTIONS, assistOf, isMarker, controlLabel, type PickerOption } from '../utils/eventTypes'
 import { SKIP, initialPickerState, pickerReducer, touchPickerState, scorerCandidates, type PickerInput, type PickerState } from '../utils/eventPicker'
 import { teamShortcuts } from '../utils/roster'
 import { formatClock } from '../utils/timeline'
@@ -40,6 +42,17 @@ export function EventPicker() {
 
     useEffect(() => { setState(startState(!!useAppState.getState().picker?.pending)) }, [picker?.eventId])
 
+    // Closing a fresh tag announces it (with Undo); closing an edit, a marker or an empty mark says nothing here.
+    const finish = (fresh: boolean, id: string): void => {
+        const st = useAppState.getState()
+        const e = st.events.find((x) => x.id === id)
+        st.closePicker()
+        if (!fresh || !e || isMarker(e)) return
+        const kick = selectMatchStartSec(st)
+        showToast(taggedCopy(e.type, e.team, matchClock(eventGlobalSec(e, st.cumulativeOffsets), kick, selectClockLong(st))),
+            { label: 'Undo', run: () => { const s2 = useAppState.getState(); if (s2.events.some((x) => x.id === id)) s2.removeEvent(id) } })
+    }
+
     const dispatch = (input: PickerInput): void => {
         const store = useAppState.getState()
         const current = store.picker
@@ -55,7 +68,7 @@ export function EventPicker() {
             else if (fx.kind === 'remove') { if (useAppState.getState().events.some((e) => e.id === id)) store.removeEvent(id) }
             else if (fx.kind === 'addToRoster') store.addToRoster(fx.team, fx.name)
             else if (fx.kind === 'marker') store.placeMarker(id, fx.type)
-            else useAppState.getState().closePicker()
+            else finish(current.fresh === true, id)
         }
     }
 

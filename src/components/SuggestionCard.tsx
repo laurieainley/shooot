@@ -9,6 +9,8 @@ import { globalToFileTime } from '../utils/matchStrip'
 import {
     EMPTY_DECISION, canConfirm, confirmLabel, decisionReducer, instructionText, needsTeam, type ReviewType,
 } from '../utils/reviewMark'
+import { showToast } from '../toasts'
+import { confirmedCopy, discardedCopy, matchClock } from '../utils/toastCopy'
 import { useReviewLoop } from './useReviewLoop'
 import { useMarkedMoment } from './useMarkedMoment'
 import { ReviewTimeline } from './ReviewTimeline'
@@ -95,12 +97,16 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
     const confirm = (): void => {
         if (!canConfirm(decision, teamCount) || decision.type === null) return
         const st = useAppState.getState()
-        st.decideSuggestion(suggestion.id, { kind: 'keep', type: decision.type, atSec: moment.current() ?? estimateSec, ...(decision.team ? { team: decision.team } : {}) })
+        const atSec = moment.current() ?? estimateSec
+        st.decideSuggestion(suggestion.id, { kind: 'keep', type: decision.type, atSec, ...(decision.team ? { team: decision.team } : {}) })
+        showToast(confirmedCopy(decision.type, decision.team ?? undefined, matchClock(atSec, kickOff, long)))
         touch({ kind: 'clear' })
         onSaved()
     }
     const discard = (): void => {
-        useAppState.getState().decideSuggestion(suggestion.id, { kind: 'reject' })
+        const id = suggestion.id
+        useAppState.getState().decideSuggestion(id, { kind: 'reject' })
+        showToast(discardedCopy(matchClock(estimateSec, kickOff, long)), { label: 'Undo', run: () => { useAppState.getState().undoDiscard(id) } })
         touch({ kind: 'clear' })
         onSaved()
     }

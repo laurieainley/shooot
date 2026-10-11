@@ -4,6 +4,8 @@ import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import type { MarkerType, MatchEvent, Team } from '../types'
 import { assistEdit, optionForEvent, personEdit, typeChangePatch } from '../utils/eventEdit'
 import { PICKER_OPTIONS, isMarker } from '../utils/eventTypes'
+import { showToast } from '../toasts'
+import { deletedCopy, eventGlobalSec, matchClock } from '../utils/toastCopy'
 import { EventTag } from './EventTag'
 import { watchFromSec } from '../utils/markers'
 import { wantsReplay } from '../utils/replays'
@@ -46,6 +48,12 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
     const latest = useRef({ person, assist, note })
     latest.current = { person, assist, note }
 
+    const deleteEvent = (): void => {
+        const st = useAppState.getState()
+        showToast(deletedCopy(e.type, matchClock(eventGlobalSec(e, st.cumulativeOffsets), selectMatchStartSec(st), selectClockLong(st))), { label: 'Undo', run: () => { useAppState.getState().undo() } })
+        st.removeEvent(e.id)
+        st.closePanel()
+    }
     const update = (patch: Partial<MatchEvent>): void => useAppState.getState().updateEvent(e.id, patch)
     // Read the event from the store: a blur can land after Delete or another change.
     const current = (): MatchEvent | undefined => useAppState.getState().events.find((x) => x.id === e.id)
@@ -215,7 +223,7 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
             </>}
 
             <div className="sheet__actions">
-                <button type="button" className="btn-quiet btn-danger" onClick={() => { useAppState.getState().removeEvent(e.id); useAppState.getState().closePanel() }}>Delete</button>
+                <button type="button" className="btn-quiet btn-danger" onClick={() => deleteEvent()}>Delete</button>
                 <span className="flex-1" />
                 {!e.unlinked && <button type="button" className="btn-quiet" onClick={watch}>Watch</button>}
                 <button type="button" className="btn-primary" onClick={close}>Done</button>

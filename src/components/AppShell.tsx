@@ -8,6 +8,7 @@ import { Fab } from './Fab'
 import { GoalMarked } from './GoalMarked'
 import { MatchStrip } from './MatchStrip'
 import { Panels } from './Panels'
+import { Toast } from './Toast'
 import { Player } from './Player'
 import { PreviewControls } from './PreviewControls'
 import { Chevron, TopBar } from './TopBar'
@@ -70,6 +71,7 @@ export function AppShell() {
             {sideBySide && isPreviewMode && <div className="preview-bar"><PreviewControls /></div>}
             {collapsed && <RenderChip variant="overlay" />}
             {hasFiles && <GoalMarked />}
+            {sideBySide && <div className="toast-host toast-host--video"><Toast /></div>}
         </div>
     )
 
@@ -88,6 +90,7 @@ export function AppShell() {
             <main className={sideBySide ? 'bay' : 'stack'}>
                 <div className="bay__left">
                     {stage}
+                    {!sideBySide && <div className="toast-host toast-host--under"><Toast /></div>}
                     {!sideBySide && isPreviewMode && <div className="preview-bar preview-bar--inline"><PreviewControls /></div>}
                     <MatchStrip />
                 </div>

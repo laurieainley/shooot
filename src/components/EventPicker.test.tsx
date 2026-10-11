@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import { useAppState } from '../state'
+import { dismissToast, toastStore } from '../toasts'
 import { EventPicker } from './EventPicker'
 import { setCoarsePointer } from '../test/pointer'
 import type { VideoSourceFile } from '../types'
@@ -351,5 +352,41 @@ describe('EventPicker optional note', () => {
         fireEvent.change(screen.getByRole('textbox', { name: /note/i }), { target: { value: 'top corner' } })
         press('Enter')
         expect(s().events[0]).toMatchObject({ type: 'goal', scorer: 'Sam Taylor', notes: 'top corner' })
+    })
+})
+
+describe('EventPicker toasts', () => {
+    beforeEach(() => {
+        dismissToast()
+        useAppState.setState({
+            files: [vf('a.mp4')], events: [], cumulativeOffsets: [0], currentFileIndex: 0, undoStack: [], redoStack: [], picker: null,
+            teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }],
+        })
+    })
+    it('should announce a tag when the picker closes, and Undo removes it', () => {
+        act(() => s().markEvent(100))
+        render(<EventPicker />)
+        press('Enter'); press('w')
+        expect(toastStore.getState().toast).toBeNull() // nothing while still choosing
+        press('Escape')
+        expect(s().picker).toBeNull()
+        const toast = toastStore.getState().toast
+        expect(toast?.text).toBe('Goal · Whites tagged at 01:40')
+        act(() => { toast?.action?.run() })
+        expect(s().events).toHaveLength(0)
+    })
+    it('should say nothing when closing an empty mark or editing an existing event', () => {
+        act(() => s().markEvent(100, { deferred: true }))
+        render(<EventPicker />)
+        press('Escape')
+        expect(toastStore.getState().toast).toBeNull()
+        const id = 'x1'
+        act(() => { useAppState.setState({ events: [{ id, type: 'goal', matchTimeSec: 5, sourceFileIndex: 0 }] }); s().openPicker(id) })
+        press('Escape')
+        expect(toastStore.getState().toast).toBeNull()
+    })
+    it('should announce a marker being set', () => {
+        act(() => s().setMarkerAt('kick_off', 0, 125))
+        expect(toastStore.getState().toast?.text).toBe('Kick off set at 02:05')
     })
 })

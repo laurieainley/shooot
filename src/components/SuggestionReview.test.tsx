@@ -2,6 +2,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppState } from '../state'
+import { dismissToast, toastStore } from '../toasts'
 
 const startDetectionMock = vi.hoisted(() => vi.fn())
 const job = vi.hoisted(() => ({ phase: 'done', fraction: 1, error: null as string | null, ballPhase: 'idle', ballFraction: 0, ballError: null as string | null, ballEp: null as string | null, ballMs: null as number | null, ballDetail: null as string | null }))
@@ -954,5 +955,32 @@ describe('Review actions: move, discard, confirm', () => {
         act(() => { useAppState.getState().undo() })
         expect(useAppState.getState().suggestions[0].status).toBe('pending')
         expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy()
+    })
+})
+
+
+describe('Review toasts', () => {
+    beforeEach(() => { dismissToast() })
+    it('should confirm with a toast naming type, team and match clock', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        press('g'); press('1'); press('Enter')
+        expect(toastStore.getState().toast?.text).toMatch(/^Goal · Whites confirmed at \d\d:\d\d(\.\d)?$/)
+        expect(toastStore.getState().toast?.action).toBeUndefined()
+    })
+    it('should discard with a toast and an Undo that restores the suggestion and returns to its card', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        press('x')
+        const toast = toastStore.getState().toast
+        expect(toast?.text).toMatch(/^Discarded \d\d:\d\d/)
+        expect(toast?.action?.label).toBe('Undo')
+        act(() => { toast?.action?.run() })
+        expect(useAppState.getState().suggestions[0].status).toBe('pending')
+        expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy()
+    })
+    it('should not toast for moving, marking or scrubbing', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        press('ArrowRight'); press('m')
+        fireEvent.click(screen.getByRole('button', { name: /Next/ }))
+        expect(toastStore.getState().toast).toBeNull()
     })
 })

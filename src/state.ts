@@ -1,3 +1,5 @@
+import { showToast } from './toasts'
+import { markerSetCopy, matchClock } from './utils/toastCopy'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { GoalAreas, GoalMarks, GoalMarksByTeam, GoalTeam, KeepType, MarkerType, MatchEvent, Suggestion, SuggestionRun, Team, VideoSourceFile } from './types'
@@ -98,7 +100,7 @@ type AppState = {
      * The event the picker is editing. `pending` (touch ＋): the time was captured but no event exists yet; it is
      * created (one undo step) by `commitPending` when a type is chosen, and closing the picker creates nothing.
      */
-    picker: { eventId: string; pending?: { matchTimeSec: number; sourceFileIndex: number } } | null
+    picker: { eventId: string; pending?: { matchTimeSec: number; sourceFileIndex: number }; /** Opened by tagging (not by editing an existing event): closing it announces the tag. */ fresh?: boolean } | null
     setTeams: (teams: Team[]) => void
     renameTeam: (index: number, name: string) => void
     addToRoster: (team: string, name: string) => void
@@ -368,6 +370,8 @@ export const useAppState = create<AppState>()(
                     undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), state.events],
                     redoStack: [],
                 })
+                const placed = next.find((e) => e.id === id)
+                if (placed) showToast(markerSetCopy(type, matchClock((state.cumulativeOffsets[placed.sourceFileIndex ?? 0] ?? 0) + placed.matchTimeSec, 0, selectClockLong(state))))
             },
             setMarkerAt: (type, fileIndex, timeInFileSec) => {
                 const state = get()
@@ -384,6 +388,7 @@ export const useAppState = create<AppState>()(
                     undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), state.events],
                     redoStack: [],
                 })
+                showToast(markerSetCopy(type, matchClock((state.cumulativeOffsets[fileIndex] ?? 0) + added.matchTimeSec, 0, selectClockLong(state))))
             },
             sortEvents: () => {
                 const state = get()
@@ -458,18 +463,18 @@ export const useAppState = create<AppState>()(
                 const matchTimeSec = Math.floor(timeInFileSec)
                 const sourceFileIndex = get().currentFileIndex
                 if (opts?.deferred) {
-                    set({ picker: { eventId: id, pending: { matchTimeSec, sourceFileIndex } }, panel: null })
+                    set({ picker: { eventId: id, pending: { matchTimeSec, sourceFileIndex }, fresh: true }, panel: null })
                     return
                 }
                 get().addEvent({ id, matchTimeSec, sourceFileIndex, type: 'goal' })
-                set({ picker: { eventId: id }, panel: null })
+                set({ picker: { eventId: id, fresh: true }, panel: null })
             },
             commitPending: () => {
                 const pending = get().picker?.pending
                 const picker = get().picker
                 if (!picker || !pending) return
                 get().addEvent({ id: picker.eventId, ...pending, type: 'goal' })
-                set({ picker: { eventId: picker.eventId } })
+                set({ picker: { eventId: picker.eventId, ...(picker.fresh ? { fresh: true } : {}) } })
             },
             openPicker: (eventId) => set({ picker: { eventId }, panel: null }),
             closePicker: () => set({ picker: null }),
