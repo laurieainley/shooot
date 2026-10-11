@@ -194,7 +194,7 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
                         ref={picture}
                         className="goal-marks__picture"
                         data-testid="goal-marks-picture"
-                        style={{ transform: `translate(${zp.pan.x}px, ${zp.pan.y}px) scale(${zp.zoom})` }}
+                        style={{ transform: `translate(${zp.pan.x}px, ${zp.pan.y}px) scale(${zp.zoom})`, ['--zoom' as string]: String(zp.zoom) }}
                         onClick={onPictureClick}
                     >
                         <div className="goal-marks__content" style={{ aspectRatio: String(aspect), ['--aspect' as string]: String(aspect) }}>
