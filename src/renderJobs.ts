@@ -58,6 +58,10 @@ export type RenderJobsState = {
     job: RenderJob | null
     /** A second render was asked for while one runs (the panel offers to cancel the current one). */
     conflict: boolean
+    /** A cancelled render is still winding down (can take ~30 s). Its job is already gone from the UI; a new start waits for it. */
+    stopping: boolean
+    /** A render was asked for while the previous one is stopping; it starts when the stop completes. */
+    queued: boolean
     running: () => boolean
     start: (what: { kind: JobKind; quality: RenderQuality }, prepare: () => Promise<RenderRequest>) => Promise<'started' | 'busy'>
     cancel: () => void
@@ -73,6 +77,9 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
     let controller: AbortController | null = null
     let seq = 0
     let pending: ((ok: boolean) => void) | null = null
+    // The run in flight, and, once cancelled, the promise that settles when it has really stopped.
+    let current: { id: number; ended: Promise<void>; end: () => void } | null = null
+    let stopWait: Promise<void> | null = null
     return createStore<RenderJobsState>()((set, get) => {
         const patch = (id: number, p: Partial<RenderJob>): void => {
             const job = get().job
@@ -81,8 +88,16 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
         return {
             job: null,
             conflict: false,
+            stopping: false,
+            queued: false,
             running: () => get().job?.phase === 'running',
             start: async ({ kind, quality }, prepare) => {
+                if (stopWait) {
+                    if (get().queued) return 'busy'
+                    set({ queued: true })
+                    while (stopWait) await stopWait
+                    set({ queued: false })
+                }
                 if (get().running()) { set({ conflict: true }); return 'busy' }
                 const old = get().job?.result
                 if (old) deps.revokeUrl(old.url)
@@ -92,6 +107,9 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                 const lock = deps.wakeLock?.()
                 void lock?.acquire().catch(() => {})
                 const signal = controller.signal
+                let end!: () => void
+                const ended = new Promise<void>((r) => { end = r })
+                current = { id, ended, end }
                 set({ conflict: false, job: { id, kind, quality, phase: 'running', startedAt, fraction: 0, status: 'Preparing…', report: null, diagnostics: null, result: null, error: null, notice: null, finishedAt: null } })
                 try {
                     const req = await prepare()
@@ -111,6 +129,8 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                         onDiagnostics: (diagnostics) => patch(id, { diagnostics }),
                         ...(req.graphics ? { graphics: req.graphics } : {}),
                     })
+                    // Cancelled while it was finishing: the user said stop, so no file, no download, no notification.
+                    if (signal.aborted) throw new DOMException('Render cancelled', 'AbortError')
                     const file = out instanceof File && out.name === req.outputName ? out : new File([out], req.outputName, { type: 'video/mp4' })
                     const url = deps.createUrl(file)
                     const elapsed = deps.now() - startedAt
@@ -118,7 +138,7 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                     patch(id, { phase: 'done', fraction: 1, status: `Done in ${Math.max(1, Math.round(elapsed / 1000))} s`, result: { file, url, downloaded }, finishedAt: deps.now() })
                     deps.notify(get().job!, elapsed)
                 } catch (e) {
-                    if (e instanceof DOMException && e.name === 'AbortError') {
+                    if (signal.aborted || (e instanceof DOMException && e.name === 'AbortError')) {
                         if (get().job?.id === id) set({ job: null })
                     } else {
                         patch(id, { phase: 'failed', error: e instanceof Error ? e.message : String(e), status: 'Render failed', finishedAt: deps.now() })
@@ -126,10 +146,20 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                 } finally {
                     void lock?.release().catch(() => {})
                     if (seq === id) controller = null
+                    if (current?.id === id) current = null
+                    end()
+                    if (stopWait === ended) { stopWait = null; set({ stopping: false }) }
                 }
                 return 'started'
             },
-            cancel: () => { controller?.abort(); get().answerNotice(false); set({ conflict: false }) },
+            cancel: () => {
+                const wasRunning = get().running()
+                controller?.abort()
+                get().answerNotice(false)
+                // Hide the job at once; the engine may take a while to wind down, and nothing it reports afterwards is shown.
+                if (wasRunning && current) { stopWait = current.ended; set({ job: null, conflict: false, stopping: true }) }
+                else set({ conflict: false })
+            },
             answerNotice: (ok) => {
                 const resolve = pending
                 pending = null
