@@ -4,6 +4,9 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type Keyboard
 import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import type { MatchEvent, Team } from '../types'
 import { emptyLogLine } from '../utils/voice'
+import { FindGoalsProgress } from './FindGoalsProgress'
+import { useDetectJob } from '../detectJobs'
+import { findGoalsProgress } from '../utils/findGoalsProgress'
 import { controlLabel, isMarker } from '../utils/eventTypes'
 import { eventRowParts } from '../utils/eventRow'
 import { BetaTag } from './BetaTag'
@@ -28,6 +31,9 @@ function isTyping(el: Element | null): boolean {
 
 export function EventLog() {
     const events = useAppState((s) => s.events)
+    const reviewOpen = useAppState((s) => s.panel === 'review')
+    const job = useDetectJob((s) => s)
+    const finding = !reviewOpen && findGoalsProgress(job) !== null
     const files = useAppState((s) => s.files)
     const teams = useAppState((s) => s.teams)
     const offsets = useAppState((s) => s.cumulativeOffsets)
@@ -136,7 +142,9 @@ export function EventLog() {
             </header>
             <RelinkBanner />
 
-            {events.length === 0 ? (
+            {events.length === 0 && finding ? <FindGoalsProgress /> : null}
+            {events.length > 0 && <FindGoalsProgress />}
+            {events.length === 0 && !finding ? (
                 <>
                     <p className="empty-log m-0 px-3 py-4 text-[13px] text-muted">
                         <strong className="empty-log__lead voice-heading">{empty.lead}</strong>
