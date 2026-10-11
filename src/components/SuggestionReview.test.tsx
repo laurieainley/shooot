@@ -10,12 +10,13 @@ vi.mock('../detectJobs', () => ({
     startDetection: (...a: unknown[]) => startDetectionMock(...a), cancelDetection: vi.fn(), getDetectJob: () => ({ ...job, phase: 'done' }),
 }))
 import { SuggestionReview } from './SuggestionReview'
-import { openFindGoals } from './findGoals'
+import { openFindGoals, setRangeStep } from './findGoals'
 import { isPlayerPaused, registerPlayerSeekPaused, registerPlayerStep, registerPlayerToggle, setPlayerPaused } from './playerControl'
 
 const press = (key: string, opts: KeyboardEventInit = {}): void => { act(() => { fireEvent.keyDown(window, { key, ...opts }) }) }
 const run = { createdAt: 1, source: 'audio' as const, configVersion: 1, analysedSec: 600, total: 2 }
 beforeEach(() => {
+    setRangeStep(false)
     setPlayerPaused(true)
     job.phase = 'done'; job.fraction = 1; job.error = null; job.ballPhase = 'idle'; job.ballFraction = 0; job.ballError = null; job.ballEp = null; job.ballMs = null; job.ballDetail = null
     useAppState.setState({
@@ -513,8 +514,27 @@ describe('SuggestionReview', () => {
             useAppState.getState().decideSuggestion(useAppState.getState().suggestions[0].id, { kind: 'reject' })
             useAppState.setState({ suggestionRun: { ...run, fileKeys: ['somethingelse'] } })
         }
-        it('should ask before clearing old suggestions, then clear and start', () => {
+        const withRange = (): void => { useAppState.setState({ events: [{ id: 'k', type: 'kick_off', matchTimeSec: 10, sourceFileIndex: 0 }, { id: 'w', type: 'final_whistle', matchTimeSec: 500, sourceFileIndex: 0 }] }) }
+        it('should show the match start and end step after clearing when a marker is missing', () => {
             stale()
+            startDetectionMock.mockClear()
+            render(<SuggestionReview onClose={() => {}} />)
+            fireEvent.click(screen.getByRole('button', { name: 'Find goals' }))
+            fireEvent.click(screen.getByRole('button', { name: 'Clear and find goals' }))
+            expect(useAppState.getState().suggestions).toEqual([])
+            expect(startDetectionMock).not.toHaveBeenCalled()
+            expect(screen.getByText('First, set where the match starts and ends.')).toBeTruthy()
+        })
+        it('should keep Try again starting directly', () => {
+            job.phase = 'failed'; job.error = 'no decoder'
+            startDetectionMock.mockClear()
+            render(<SuggestionReview onClose={() => {}} />)
+            fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+            expect(startDetectionMock).toHaveBeenCalledTimes(1)
+            expect(screen.queryByText('First, set where the match starts and ends.')).toBeNull()
+        })
+        it('should ask before clearing old suggestions, then clear and start', () => {
+            stale(); withRange()
             startDetectionMock.mockClear()
             render(<SuggestionReview onClose={() => {}} />)
             fireEvent.click(screen.getByRole('button', { name: 'Find goals' }))
@@ -549,5 +569,111 @@ describe('SuggestionReview', () => {
             expect(st.suggestions.map((x) => x.status)).toEqual(['rejected', 'pending'])
             expect(st.reviewIndex).toBe(1)
         })
+    })
+})
+
+describe('Find goals: match start and end step', () => {
+    const ev = (id: string, type: 'kick_off' | 'final_whistle', t: number) => ({ id, type, matchTimeSec: t, sourceFileIndex: 0 })
+    const open = (): void => { act(() => { openFindGoals() }) }
+    beforeEach(() => {
+        startDetectionMock.mockClear()
+        useAppState.setState({ suggestions: [], suggestionRun: null, events: [], currentFileIndex: 0, currentTimeInFileSec: 403, undoStack: [] })
+    })
+    it('should show the step instead of starting when a marker is missing', () => {
+        useAppState.setState({ events: [ev('k', 'kick_off', 10)] })
+        render(<SuggestionReview onClose={() => {}} />)
+        open()
+        expect(startDetectionMock).not.toHaveBeenCalled()
+        expect(screen.getByText('First, set where the match starts and ends.')).toBeTruthy()
+        expect(screen.getByText('Scrub to the first kick, then to the final whistle.')).toBeTruthy()
+        expect(screen.getByText('Beta')).toBeTruthy()
+        expect(screen.getByText('00:10')).toBeTruthy()
+        expect(screen.getByText('not set')).toBeTruthy()
+    })
+    it('should start straight away when both markers exist', () => {
+        useAppState.setState({ events: [ev('k', 'kick_off', 10), ev('w', 'final_whistle', 500)] })
+        render(<SuggestionReview onClose={() => {}} />)
+        open()
+        expect(startDetectionMock).toHaveBeenCalledTimes(1)
+        expect(screen.queryByText('First, set where the match starts and ends.')).toBeNull()
+    })
+    it('should tag the markers at the playhead, moving an existing one, and enable Find goals', () => {
+        useAppState.setState({ events: [ev('k', 'kick_off', 10)] })
+        render(<SuggestionReview onClose={() => {}} />)
+        open()
+        const find = screen.getByRole('button', { name: /^Find goals/ }) as HTMLButtonElement
+        expect(find.disabled).toBe(true)
+        fireEvent.click(screen.getByRole('button', { name: /Kick off is here/ }))
+        expect(useAppState.getState().events.filter((e) => e.type === 'kick_off').map((e) => e.matchTimeSec)).toEqual([403])
+        act(() => { useAppState.setState({ currentTimeInFileSec: 580 }) })
+        fireEvent.click(screen.getByRole('button', { name: /Final whistle is here/ }))
+        expect(useAppState.getState().events.find((e) => e.type === 'final_whistle')).toMatchObject({ matchTimeSec: 580, sourceFileIndex: 0 })
+        expect(find.disabled).toBe(false)
+        fireEvent.click(find)
+        expect(startDetectionMock).toHaveBeenCalledWith(undefined)
+    })
+    it('should refuse a final whistle before kick off', () => {
+        useAppState.setState({ events: [ev('k', 'kick_off', 300)] })
+        render(<SuggestionReview onClose={() => {}} />)
+        open()
+        act(() => { useAppState.setState({ currentTimeInFileSec: 100 }) })
+        fireEvent.click(screen.getByRole('button', { name: /Final whistle is here/ }))
+        expect(screen.getByText('The final whistle must be after kick off.')).toBeTruthy()
+        expect((screen.getByRole('button', { name: /^Find goals/ }) as HTMLButtonElement).disabled).toBe(true)
+        press('Enter')
+        expect(startDetectionMock).not.toHaveBeenCalled()
+    })
+    it('should start on the whole video with Skip', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        open()
+        fireEvent.click(screen.getByRole('button', { name: 'Skip — use the whole video' }))
+        expect(startDetectionMock).toHaveBeenCalledWith({ wholeVideo: true })
+    })
+    it('should tag with K and W and start with Enter', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        open()
+        press('k')
+        act(() => { useAppState.setState({ currentTimeInFileSec: 580 }) })
+        press('Enter')
+        expect(startDetectionMock).not.toHaveBeenCalled()
+        press('w', { repeat: true })
+        expect(useAppState.getState().events.some((e) => e.type === 'final_whistle')).toBe(false)
+        press('w')
+        press('k', { metaKey: true })
+        expect(useAppState.getState().events.map((e) => e.type)).toEqual(['kick_off', 'final_whistle'])
+        press('Enter')
+        expect(startDetectionMock).toHaveBeenCalledTimes(1)
+    })
+    it('should keep Space and the arrow keys working for the video', () => {
+        const toggle = vi.fn(), seek = vi.fn()
+        const offT = registerPlayerToggle(toggle), offS = registerPlayerSeekPaused(seek)
+        render(<SuggestionReview onClose={() => {}} />)
+        open()
+        press(' '); press('ArrowRight')
+        expect(toggle).toHaveBeenCalledTimes(1)
+        expect(seek).toHaveBeenCalledWith(0, 408)
+        offT(); offS()
+    })
+})
+
+describe('Find goals: goal marks hint (Labs)', () => {
+    const marks = { postL: { x: 0.4, y: 0.5 }, postR: { x: 0.6, y: 0.5 }, barL: { x: 0.4, y: 0.4 }, barR: { x: 0.6, y: 0.4 } }
+    const HINT = 'Mark the goals in Match setup to also check the goal mouths.'
+    it('should point to Match setup when Labs is on and no goals are marked', () => {
+        useAppState.setState({ labs: true, goalMarks: null })
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(screen.getByText(HINT)).toBeTruthy()
+        fireEvent.click(screen.getByRole('button', { name: 'Open Match setup' }))
+        expect(useAppState.getState().panel).toBe('match')
+    })
+    it('should stay quiet with Labs off', () => {
+        useAppState.setState({ labs: false, goalMarks: null })
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(screen.queryByText(HINT)).toBeNull()
+    })
+    it('should stay quiet when goals are marked', () => {
+        useAppState.setState({ labs: true, goalMarks: { team1: marks } })
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(screen.queryByText(HINT)).toBeNull()
     })
 })

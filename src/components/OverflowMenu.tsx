@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 import { useAppState, type Panel } from '../state'
 import { BetaTag } from './BetaTag'
-import { cancelDetection } from '../detectJobs'
+import { cancelDetection, useDetectJob } from '../detectJobs'
+import { findGoalsProgress } from '../utils/findGoalsProgress'
 import { openFindGoals, useSuggestionsCurrent } from './findGoals'
 import { FloatingPanel } from './FloatingPanel'
 import { ProjectIO } from './ProjectIO'
@@ -51,6 +52,7 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
     const events = useAppState((s) => s.events)
     const anySuggestions = useAppState((s) => s.suggestions.length > 0)
     const suggestionsCurrent = useSuggestionsCurrent()
+    const running = findGoalsProgress(useDetectJob((j) => j))
     const hasSuggestions = anySuggestions && suggestionsCurrent
     const hasFiles = useAppState((s) => s.files.length > 0)
     const labs = useAppState((s) => s.labs)
@@ -81,7 +83,7 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
             <button type="button" role="menuitem" onClick={() => setConfirmNew(true)}>New match…</button>
             {hasFiles && (
                 <button type="button" role="menuitem" onClick={() => openFindGoals()}>
-                    {hasSuggestions ? 'Review suggestions' : 'Find goals'} <BetaTag />
+                    {running ? `Find goals — ${running.percent}%` : hasSuggestions ? 'Review suggestions' : 'Find goals'} <BetaTag />
                 </button>
             )}
             {items.map(({ label, panel, aria }) => (

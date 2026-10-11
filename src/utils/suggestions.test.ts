@@ -46,10 +46,14 @@ describe('suggestionMarks', () => {
 
 describe('detectionReport', () => {
     it('should list counts and settings without timestamps', () => {
-        const text = detectionReport({ createdAt: 0, source: 'audio', configVersion: 1, analysedSec: 2940, total: 30 },
-            { total: 30, kept: 6, rejected: 20, pending: 4, byType: { goal: 5, save: 1 } })
+        const run = { createdAt: 0, source: 'audio' as const, configVersion: 1, analysedSec: 2940, total: 30 }
+        const counts = { total: 30, kept: 6, rejected: 20, pending: 4, byType: { goal: 5, save: 1 } }
+        const text = detectionReport(run, counts)
         expect(text).toContain('Find goals (Beta), audio, config v1')
         expect(text).toContain('Analysed: 49:00')
+        expect(text).toContain('Range: —')
+        expect(detectionReport({ ...run, bounded: true }, counts)).toContain('Range: kick off → final whistle')
+        expect(detectionReport({ ...run, bounded: false }, counts)).toContain('Range: whole video')
         expect(text).toContain('Run time: —')
         expect(text).toContain('Kept 6 of 30 (goal 5, save 1), rejected 20, not reviewed 4')
     })

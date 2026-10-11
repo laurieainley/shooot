@@ -6,7 +6,8 @@ import { effectiveStatus } from '../utils/suggestions'
 import { BetaTag } from './BetaTag'
 import { ColumnPanel } from './ColumnPanel'
 import { BallFailed, BallProgress, DetectFailed, DetectIdle, DetectProgress } from './DetectProgress'
-import { useSuggestionsCurrent } from './findGoals'
+import { useRangeStep, useSuggestionsCurrent } from './findGoals'
+import { MatchRangeStep } from './MatchRangeStep'
 import { SuggestionCard } from './SuggestionCard'
 import { SuggestionSummary } from './SuggestionSummary'
 import { teamGoalLabel } from '../utils/attack'
@@ -33,15 +34,26 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
     const go = (i: number): void => useAppState.getState().setReviewIndex(i)
     const runCurrent = useSuggestionsCurrent()
     const stale = suggestions.length > 0 && !runCurrent
+    const rangeStep = useRangeStep()
+    const labs = useAppState((s) => s.labs)
+    const hasMarks = useAppState((s) => !!(s.goalMarks?.team1 || s.goalMarks?.team2))
+    const needMarks = labs && !hasMarks && !rangeStep && phase !== 'running' && !stale && (phase === 'done' || suggestions.length > 0)
     const failed = phase === 'failed'
     const announce = phase === 'running' ? 'Listening for goals.' : phase === 'done' ? 'Find goals finished.' : phase === 'cancelled' ? 'Find goals stopped.' : ''
     return (
         <ColumnPanel label="Suggested goals" onClose={onClose} className="review" badge={<BetaTag />}>
             <p className="sr-only" role="status" aria-live="polite">{announce}</p>
-            {failed && <DetectFailed />}
+            {rangeStep && phase !== 'running' ? <MatchRangeStep /> : null}
+            {failed && !rangeStep && <DetectFailed />}
+            {needMarks && (
+                <div className="review__status">
+                    <p className="review__note m-0">Mark the goals in Match setup to also check the goal mouths.</p>
+                    <button type="button" className="btn-quiet review__btn" onClick={() => useAppState.getState().openPanel('match')}>Open Match setup</button>
+                </div>
+            )}
             {ballPhase === 'running' && <BallProgress />}
             {ballPhase === 'failed' && <BallFailed />}
-            {phase === 'running' ? <DetectProgress /> : stale ? <DetectIdle stale />
+            {rangeStep && phase !== 'running' ? null : phase === 'running' ? <DetectProgress /> : stale ? <DetectIdle stale />
                 : current
                     ? <SuggestionCard suggestion={current} index={index} total={suggestions.length}
                         {...ballProps(current, teams, halfTimeSec(events, offsets))}

@@ -4,6 +4,21 @@ import { BallDecodeError } from './detect/runBallCheck'
 import { useAppState } from './state'
 
 describe('detection job', () => {
+    // First in the file: a run left hanging by a later test would also log.
+    it('should log once when the review panel closes during a run, and not otherwise', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        useAppState.setState({ files: [{ id: 'A', name: 'A.MP4', url: '', kind: 'full', durationSec: 100, file: new File([], 'A.MP4') }] as never, cumulativeOffsets: [0], events: [], suggestions: [], suggestionRun: null, panel: 'review' })
+        const run = vi.fn(async () => { useAppState.setState({ panel: 'files' }); useAppState.setState({ panel: 'match' }); return { moments: [], scores: new Float32Array(1), analysedSec: 100 } })
+        await createDetectJobs({ run: run as never, wakeLock: () => ({ acquire: async () => {}, release: async () => {}, status: () => '' }), now: () => 0 }).start()
+        expect(warn).toHaveBeenCalledTimes(1)
+        expect(warn.mock.calls[0][0]).toBe('[Find goals] review panel closed')
+        expect(warn.mock.calls[0][1]).toEqual({ to: 'files', picker: false })
+        warn.mockClear()
+        useAppState.setState({ panel: 'review' })
+        useAppState.setState({ panel: null })
+        expect(warn).not.toHaveBeenCalled() // no run in progress
+        warn.mockRestore()
+    })
     it('should run, write suggestions, hold and release the wake lock', async () => {
         const wake = { acquire: vi.fn(async () => {}), release: vi.fn(async () => {}), status: () => 'held' }
         const run = vi.fn(async () => ({ moments: [{ timeSec: 100, score: 3 }], scores: new Float32Array(3), analysedSec: 600 }))
@@ -87,6 +102,20 @@ describe('detection job and changing files', () => {
         const jobs = createDetectJobs({ run: vi.fn(async () => ({ moments: [], scores: new Float32Array(1), analysedSec: 100 })) as never, wakeLock: wl, now: () => 0 })
         await jobs.start()
         expect(useAppState.getState().suggestionRun?.fileKeys).toHaveLength(1)
+    })
+    it('should analyse kick off to final whistle, or the whole video when told to', async () => {
+        const ev = (id: string, type: 'kick_off' | 'final_whistle', t: number) => ({ id, type, matchTimeSec: t, sourceFileIndex: 0 })
+        useAppState.setState({ files: [file('A.MP4')] as never, cumulativeOffsets: [0], events: [ev('k', 'kick_off', 20), ev('w', 'final_whistle', 80)], suggestions: [], suggestionRun: null })
+        const run = vi.fn(async () => ({ moments: [], scores: new Float32Array(1), analysedSec: 100 }))
+        const jobs = createDetectJobs({ run: run as never, wakeLock: wl, now: () => 0 })
+        await jobs.start()
+        const rangeOf = (n: number): number[] => (run.mock.calls[n] as unknown as [unknown, number[]])[1]
+        expect(rangeOf(0)).toEqual([20, 80])
+        expect(useAppState.getState().suggestionRun?.bounded).toBe(true)
+        await jobs.start({ wholeVideo: true })
+        expect(rangeOf(1)[0]).toBe(0)
+        expect(rangeOf(1)[1]).toBe(100)
+        expect(useAppState.getState().suggestionRun?.bounded).toBe(false)
     })
 })
 

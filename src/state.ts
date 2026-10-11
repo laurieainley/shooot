@@ -77,6 +77,8 @@ type AppState = {
     updateEvent: (id: string, partial: Partial<MatchEvent>) => void
     /** Make an event the Kick off / Final whistle, moving any existing one (single instance; one undo step). */
     placeMarker: (id: string, type: MarkerType) => void
+    /** Put Kick off / Final whistle at a time in a file, moving any existing one (single instance; one undo step). */
+    setMarkerAt: (type: 'kick_off' | 'final_whistle', fileIndex: number, timeInFileSec: number) => void
     sortEvents: () => void
     clear: () => void
     newMatch: () => void
@@ -354,6 +356,22 @@ export const useAppState = create<AppState>()(
                         for (const k of ['team', 'scorer', 'assist', 'notes', 'replay', 'pen'] as const) delete m[k]
                         return m
                     })
+                set({
+                    events: next,
+                    ...follow(next),
+                    undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), state.events],
+                    redoStack: [],
+                })
+            },
+            setMarkerAt: (type, fileIndex, timeInFileSec) => {
+                const state = get()
+                const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+                const added: MatchEvent = { id, matchTimeSec: Math.floor(Math.max(0, timeInFileSec)), sourceFileIndex: fileIndex, type }
+                const next = relinkEvents([...state.events.filter((e) => e.type !== type), added], state.files).sort((a, b) => {
+                    const aTime = (state.cumulativeOffsets[a.sourceFileIndex ?? 0] || 0) + a.matchTimeSec
+                    const bTime = (state.cumulativeOffsets[b.sourceFileIndex ?? 0] || 0) + b.matchTimeSec
+                    return aTime - bTime
+                })
                 set({
                     events: next,
                     ...follow(next),

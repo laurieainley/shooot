@@ -77,7 +77,7 @@ export type Suggestion = {
     /** Labs ball check: the ball was seen inside this goal around the moment. */
     ball?: { goal: GoalTeam; frames: number }
 }
-export type SuggestionRun = { createdAt: number; source: 'audio'; configVersion: number; analysedSec: number; total: number; durationMs?: number; fileKeys?: string[] }
+export type SuggestionRun = { createdAt: number; source: 'audio'; configVersion: number; analysedSec: number; total: number; durationMs?: number; fileKeys?: string[]; /** True when the run was limited to kick off → final whistle (or a part of the video). */ bounded?: boolean }
 
 /** A point as fractions of the frame (0–1). */
 export type Pt = { x: number; y: number }

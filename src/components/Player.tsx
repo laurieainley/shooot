@@ -19,6 +19,7 @@ import { formatClock } from '../utils/timeline'
 import { playerOptions } from '../utils/playerOptions'
 import { previewVolume, shouldAdvance } from '../utils/preview'
 import { setGraphGain } from './previewGain'
+import { playQuietly } from '../utils/playQuietly'
 
 // video.js shows "0:05 / 24:00"; every time on screen uses the project's fixed width format instead.
 videojs.setFormatTime((seconds: number, guide: number) => formatClock(seconds, selectClockLong(useAppState.getState()) || guide >= 3600))
@@ -161,13 +162,13 @@ export function Player() {
                     setTimeout(() => {
                         if (playerRef.current) {
                             playerRef.current.currentTime(timeSec)
-                            playerRef.current.play()
+                            playQuietly(playerRef.current)
                         }
                     }, 100)
                 } else if (fileIndex === currentFileIndex) {
                     // Same video, just seek and play
                     playerRef.current.currentTime(timeSec)
-                    playerRef.current.play()
+                    playQuietly(playerRef.current)
                 }
             }
         }
