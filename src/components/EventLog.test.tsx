@@ -246,6 +246,36 @@ describe('EventLog replay toggle', () => {
     })
 })
 
+describe('EventLog review button', () => {
+    const run = { createdAt: 1, source: 'audio' as const, configVersion: 1, analysedSec: 600, total: 3 }
+    const files = [vf('a.mp4')]
+    beforeEach(() => {
+        setup([kickOff(0)], { panel: null })
+        useAppState.setState({ suggestions: [], suggestionRun: null })
+        useAppState.getState().setSuggestions({ ...run, fileKeys: undefined }, [{ timeSec: 100, score: 3 }, { timeSec: 200, score: 3 }, { timeSec: 300, score: 3 }])
+        useAppState.setState({ files, panel: null })
+    })
+    it('should offer Review suggestions with the number left, and open the review at the first one', () => {
+        useAppState.getState().decideSuggestion(useAppState.getState().suggestions[0].id, { kind: 'reject' })
+        useAppState.getState().setSuggestionBall(useAppState.getState().suggestions[2].id, { goal: 'team1', frames: 2 })
+        render(<EventLog />)
+        fireEvent.click(screen.getByRole('button', { name: 'Review suggestions (2 left · 1 top pick)' }))
+        const st = useAppState.getState()
+        expect(st.panel).toBe('review')
+        expect(st.reviewIndex).toBe(2) // Top picks first
+    })
+    it('should not show when nothing is left or the review is open', () => {
+        for (const x of useAppState.getState().suggestions) useAppState.getState().decideSuggestion(x.id, { kind: 'reject' })
+        const { rerender } = render(<EventLog />)
+        expect(screen.queryByRole('button', { name: /^Review suggestions/ })).toBeNull()
+        useAppState.getState().restoreSuggestion(useAppState.getState().suggestions[0].id)
+        rerender(<EventLog />)
+        expect(screen.getByRole('button', { name: 'Review suggestions (1 left)' })).toBeTruthy()
+        act(() => { useAppState.setState({ panel: 'review' }) })
+        expect(screen.queryByRole('button', { name: /^Review suggestions/ })).toBeNull()
+    })
+})
+
 describe('EventLog inline edit', () => {
     beforeEach(() => {
         setup([{ id: 'a', matchTimeSec: 30, sourceFileIndex: 0, type: 'goal', team: 'Colours' }])

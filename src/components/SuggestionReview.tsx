@@ -2,7 +2,7 @@ import { useRef, useState, type ReactNode } from 'react'
 import type { KeepType, Suggestion } from '../types'
 import { useAppState } from '../state'
 import { useDetectJob } from '../detectJobs'
-import { firstToReviewInLane, laneCounts, laneNeighbour, laneSwitchVisible, positionInLane, type Lane } from '../utils/reviewLanes'
+import { defaultLane, firstToReviewInLane, laneCounts, laneNeighbour, laneSwitchVisible, positionInLane, type Lane } from '../utils/reviewLanes'
 import { NO_TOP_PICKS } from '../utils/voice'
 import { LaneSwitch } from './LaneSwitch'
 import { BetaTag } from './BetaTag'
@@ -23,7 +23,12 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
     const index = useAppState((s) => s.reviewIndex)
     const ballPhase = useDetectJob((s) => s.ballPhase)
     const ids = new Set(events.map((e) => e.id))
-    const [pickedLane, setPickedLane] = useState<Lane>('all')
+    // Opens where the review is: the lane of the current suggestion (top picks first by default), All otherwise.
+    const [pickedLane, setPickedLane] = useState<Lane>(() => {
+        const st = useAppState.getState()
+        const cur = st.suggestions[st.reviewIndex]
+        return cur ? (cur.ball ? 'top' : 'all') : defaultLane(st.suggestions, new Set(st.events.map((e) => e.id)))
+    })
     const allIndex = useRef(0) // where you were in All while Top picks is open
     const go = (i: number): void => useAppState.getState().setReviewIndex(i)
     const runCurrent = useSuggestionsCurrent()

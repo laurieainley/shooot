@@ -622,6 +622,38 @@ describe('suggestions', () => {
         expect(useAppState.getState().suggestions[0]).toMatchObject({ status: 'pending' })
         expect(useAppState.getState().suggestions[0].eventId).toBeUndefined()
     })
+    it('should keep the review panel open while tagging, and come back to it after another panel closes', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        useAppState.setState({ panel: 'review', picker: null })
+        useAppState.getState().markEvent(50)
+        expect(useAppState.getState().panel).toBe('review')
+        expect(useAppState.getState().picker).not.toBeNull()
+        useAppState.getState().closePicker()
+        useAppState.getState().openPanel('match')
+        expect(useAppState.getState().panel).toBe('match')
+        useAppState.getState().closePanel()
+        expect(useAppState.getState().panel).toBe('review')
+        useAppState.getState().closePanel() // explicit close of the review
+        expect(useAppState.getState().panel).toBeNull()
+        useAppState.getState().openPanel('match'); useAppState.getState().closePanel()
+        expect(useAppState.getState().panel).toBeNull() // nothing to return to
+    })
+    it('should return to the review after the event sheet closes, not after an explicit review close', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        useAppState.getState().addEvent({ id: 'e1', matchTimeSec: 10, sourceFileIndex: 0, type: 'goal' })
+        useAppState.setState({ panel: 'review' })
+        useAppState.getState().editEvent('e1')
+        expect(useAppState.getState().panel).toBe('event')
+        useAppState.getState().closePanel()
+        expect(useAppState.getState().panel).toBe('review')
+    })
+    it('should link an existing event to a suggestion as kept', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        const id = useAppState.getState().suggestions[0].id
+        useAppState.getState().addEvent({ id: 'e1', matchTimeSec: 99, sourceFileIndex: 0, type: 'goal' })
+        useAppState.getState().linkSuggestionEvent(id, 'e1')
+        expect(useAppState.getState().suggestions[0]).toMatchObject({ status: 'kept', keptAs: 'goal', eventId: 'e1' })
+    })
     it('should use atSec (to 0.1 s) instead of the estimate when given', () => {
         useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
         const id = useAppState.getState().suggestions[0].id

@@ -809,6 +809,14 @@ describe('Find goals: Top picks lane', () => {
         expect(lane(/^Top picks \(2\)/).getAttribute('aria-pressed')).toBe('false')
         expect(screen.getByText(/Suggestion 1 of 5/)).toBeTruthy()
     })
+    it('should open on Top picks, at its first suggestion to review, when review is (re)opened with top picks left', () => {
+        tag(1); tag(3)
+        act(() => { openFindGoals() })
+        expect(useAppState.getState().reviewIndex).toBe(1)
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(lane(/^Top picks \(2\)/).getAttribute('aria-pressed')).toBe('true')
+        expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy()
+    })
     it('should count and navigate within Top picks only, with the header count per lane', () => {
         tag(1); tag(3)
         render(<SuggestionReview onClose={() => {}} />)

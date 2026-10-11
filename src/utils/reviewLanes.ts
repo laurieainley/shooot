@@ -46,3 +46,24 @@ export function laneSwitchVisible(ballPhase: string, suggestions: readonly Sugge
 export function topPicksLine(n: number): string {
     return n <= 0 ? '' : `${n} top ${n === 1 ? 'pick' : 'picks'} so far`
 }
+
+/** The lane review opens on: Top picks while any top pick is still to review, else All. */
+export function defaultLane(suggestions: readonly Suggestion[], eventIds: ReadonlySet<string>): Lane {
+    return suggestions.some((s) => !!s.ball && effectiveStatus(s, eventIds) === 'pending') ? 'top' : 'all'
+}
+
+/** Where review opens: the first suggestion still to review in the default lane; the end (summary) when none is. */
+export function openingIndex(suggestions: readonly Suggestion[], eventIds: ReadonlySet<string>): number {
+    if (!suggestions.some((s) => effectiveStatus(s, eventIds) === 'pending')) return suggestions.length
+    const lane = defaultLane(suggestions, eventIds)
+    const first = suggestions.findIndex((s) => (lane === 'all' || !!s.ball) && effectiveStatus(s, eventIds) === 'pending')
+    return first >= 0 ? first : suggestions.length
+}
+
+/** The quiet rail button after review was closed: "Review suggestions (5 left · 1 top pick)"; null when nothing is left. */
+export function reviewRailLabel(suggestions: readonly Suggestion[], eventIds: ReadonlySet<string>): string | null {
+    const left = suggestions.filter((s) => effectiveStatus(s, eventIds) === 'pending')
+    if (left.length === 0) return null
+    const top = left.filter((s) => !!s.ball).length
+    return `Review suggestions (${left.length} left${top > 0 ? ` · ${top} top ${top === 1 ? 'pick' : 'picks'}` : ''})`
+}

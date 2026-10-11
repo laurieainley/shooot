@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type Keyboard
 import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import type { MatchEvent, Team } from '../types'
 import { emptyLogLine } from '../utils/voice'
-import { FindGoalsProgress } from './FindGoalsProgress'
+import { FindGoalsProgress, ReviewRailButton } from './FindGoalsProgress'
 import { useDetectJob } from '../detectJobs'
 import { findGoalsProgress } from '../utils/findGoalsProgress'
 import { controlLabel, isMarker } from '../utils/eventTypes'
@@ -148,6 +148,7 @@ export function EventLog() {
 
             {events.length === 0 && finding ? <FindGoalsProgress /> : null}
             {events.length > 0 && <FindGoalsProgress />}
+            <ReviewRailButton />
             {events.length === 0 && !finding ? (
                 <>
                     <p className="empty-log m-0 px-3 py-4 text-[13px] text-muted">

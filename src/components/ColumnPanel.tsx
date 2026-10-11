@@ -1,6 +1,7 @@
 import { CloseButton } from './CloseButton'
 import { useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useAppState } from '../state'
 import { Sheet } from './Sheet'
 import { usePanelSlot } from './panelSlot'
 
@@ -35,6 +36,7 @@ function ColumnPanelBody({ label, onClose, children, className, badge }: ColumnP
         // Stacked layouts scroll the page: bring the picture back into view so it is never hidden behind the panel.
         window.scrollTo?.({ top: 0 })
         const onKey = (e: KeyboardEvent): void => {
+            if (e.key === 'Escape' && useAppState.getState().picker) return // the event picker on top owns Esc
             if (e.key === 'Escape' && (e.target as Element | null)?.closest?.('[data-owns-escape]')) return
             if (e.key === 'Escape' && !ref.current?.querySelector('[data-esc-clears]')) { e.preventDefault(); e.stopPropagation(); closeRef.current() }
         }

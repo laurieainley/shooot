@@ -1,5 +1,7 @@
 import { useAppState } from '../state'
 import { useDetectJob } from '../detectJobs'
+import { reopenReview, useSuggestionsCurrent } from './findGoals'
+import { reviewRailLabel } from '../utils/reviewLanes'
 import { findGoalsProgress } from '../utils/findGoalsProgress'
 
 /** Find goals running in the background (review panel closed): one live line and a way back in. */
@@ -16,6 +18,23 @@ export function FindGoalsProgress() {
         <div className="find-progress flex items-center gap-2 px-3 py-1 text-[13px] text-muted" data-testid="find-progress">
             <span className="min-w-0 flex-1">{progress.line}</span>
             <button type="button" className="btn-quiet review__btn" onClick={() => useAppState.getState().openPanel('review')}>Open</button>
+        </div>
+    )
+}
+
+/** After the review was closed with suggestions left: a quiet way back in. */
+export function ReviewRailButton() {
+    const suggestions = useAppState((s) => s.suggestions)
+    const events = useAppState((s) => s.events)
+    const panel = useAppState((s) => s.panel)
+    const phase = useDetectJob((s) => s.phase)
+    const current = useSuggestionsCurrent()
+    if (panel === 'review' || phase === 'running' || !current) return null
+    const label = reviewRailLabel(suggestions, new Set(events.map((e) => e.id)))
+    if (!label) return null
+    return (
+        <div className="find-progress px-3 py-1">
+            <button type="button" className="btn-quiet review__btn" onClick={reopenReview}>{label}</button>
         </div>
     )
 }

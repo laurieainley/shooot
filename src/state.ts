@@ -137,6 +137,10 @@ type AppState = {
     undoDiscard: (id?: string) => boolean
     /** A discarded suggestion goes back to pending. */
     restoreSuggestion: (id: string) => void
+    /** Where closing the open panel goes back to: the review, when another panel replaced it (not persisted). */
+    returnTo: 'review' | null
+    /** An event tagged during the review counts for the suggestion it lands in (kept, like Confirm). */
+    linkSuggestionEvent: (suggestionId: string, eventId: string) => void
     clearSuggestions: () => void
     setReviewIndex: (i: number) => void
     openReviewAt: (id: string) => void
@@ -170,6 +174,13 @@ type AppState = {
 }
 
 /** Kick-off on the whole timeline (0 when not marked): match clocks, Home, chapters and the full match start there. */
+/** Opening a panel over the review remembers to come back; opening one from nothing forgets; the review itself clears it. */
+function nextReturnTo(current: Panel | null, returnTo: 'review' | null, next: Panel): 'review' | null {
+    if (next === 'review') return null
+    if (current === 'review') return 'review'
+    return current === null ? null : returnTo
+}
+
 export function selectMatchStartSec(s: Pick<AppState, 'events' | 'cumulativeOffsets'>): number {
     return kickOffSec(s.events, s.cumulativeOffsets)
 }
@@ -229,7 +240,7 @@ export const useAppState = create<AppState>()(
             // Undo/redo stacks
             undoStack: [],
             redoStack: [],
-            suggestions: [], discardUndo: null,
+            suggestions: [], discardUndo: null, returnTo: null,
             suggestionRun: null,
             reviewIndex: 0,
             // Preview mode state
@@ -463,11 +474,11 @@ export const useAppState = create<AppState>()(
                 const matchTimeSec = Math.floor(timeInFileSec)
                 const sourceFileIndex = get().currentFileIndex
                 if (opts?.deferred) {
-                    set({ picker: { eventId: id, pending: { matchTimeSec, sourceFileIndex }, fresh: true }, panel: null })
+                    set({ picker: { eventId: id, pending: { matchTimeSec, sourceFileIndex }, fresh: true }, panel: get().panel === 'review' ? 'review' : null })
                     return
                 }
                 get().addEvent({ id, matchTimeSec, sourceFileIndex, type: 'goal' })
-                set({ picker: { eventId: id, fresh: true }, panel: null })
+                set({ picker: { eventId: id, fresh: true }, panel: get().panel === 'review' ? 'review' : null })
             },
             commitPending: () => {
                 const pending = get().picker?.pending
@@ -476,7 +487,7 @@ export const useAppState = create<AppState>()(
                 get().addEvent({ id: picker.eventId, ...pending, type: 'goal' })
                 set({ picker: { eventId: picker.eventId, ...(picker.fresh ? { fresh: true } : {}) } })
             },
-            openPicker: (eventId) => set({ picker: { eventId }, panel: null }),
+            openPicker: (eventId) => set({ picker: { eventId }, panel: get().panel === 'review' ? 'review' : null }),
             closePicker: () => set({ picker: null }),
             setGraphics: (partial) => set({ graphics: normaliseGraphics({ ...get().graphics, ...partial }, get().graphics) }),
             fullMatch: { cards: true, scoreBug: 'goals', intervalMin: 5, captions: true },
@@ -520,9 +531,9 @@ export const useAppState = create<AppState>()(
             setPlayerFullscreen: (on) => { if (get().playerFullscreen !== on) set({ playerFullscreen: on }) },
             setBarCollapsed: (collapsed) => set({ barCollapsed: collapsed }),
             editEvent: (id) => {
-                if (get().events.some((e) => e.id === id)) set({ panel: 'event', editingEventId: id, picker: null })
+                if (get().events.some((e) => e.id === id)) set({ panel: 'event', editingEventId: id, picker: null, returnTo: nextReturnTo(get().panel, get().returnTo, 'event') })
             },
-            openPanel: (panel) => set({ panel, picker: null }),
+            openPanel: (panel) => set({ panel, picker: null, returnTo: nextReturnTo(get().panel, get().returnTo, panel) }),
             setSuggestions: (run, moments) => {
                 const id = (): string => `sug-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
                 const ids = new Set(get().events.map((e) => e.id))
@@ -567,9 +578,19 @@ export const useAppState = create<AppState>()(
             setReviewIndex: (i) => set({ reviewIndex: Math.max(0, i) }),
             openReviewAt: (id) => {
                 const i = get().suggestions.findIndex((x) => x.id === id)
-                set({ reviewIndex: Math.max(0, i), panel: 'review', picker: null })
+                set({ reviewIndex: Math.max(0, i), panel: 'review', picker: null, returnTo: null })
             },
-            closePanel: () => set({ panel: null }),
+            closePanel: () => {
+                const st = get()
+                if (st.panel !== 'review' && st.returnTo === 'review' && st.suggestions.length > 0) set({ panel: 'review', returnTo: null })
+                else set({ panel: null, returnTo: null })
+            },
+            linkSuggestionEvent: (suggestionId, eventId) => {
+                const e = get().events.find((x) => x.id === eventId)
+                if (!e || (e.type !== 'goal' && e.type !== 'own_goal' && e.type !== 'save' && e.type !== 'highlight')) return
+                const type = e.type
+                set({ suggestions: get().suggestions.map((x) => (x.id === suggestionId ? { ...x, status: 'kept', keptAs: type, eventId } : x)) })
+            },
             // Preview mode actions
             startPreview: () => {
                 const state = get()

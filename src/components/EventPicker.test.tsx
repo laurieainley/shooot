@@ -389,4 +389,27 @@ describe('EventPicker toasts', () => {
         act(() => s().setMarkerAt('kick_off', 0, 125))
         expect(toastStore.getState().toast?.text).toBe('Kick off set at 02:05')
     })
+    describe('while reviewing', () => {
+        const sug = (): void => {
+            useAppState.getState().setSuggestions({ createdAt: 1, source: 'audio', configVersion: 1, analysedSec: 600, total: 1 }, [{ timeSec: 100, score: 5 }])
+            useAppState.setState({ panel: 'review', reviewIndex: 0 })
+        }
+        it('should link a goal tagged inside the loop window to the current suggestion, with the Confirm toast', () => {
+            sug()
+            act(() => s().markEvent(99))
+            render(<EventPicker />)
+            press('Enter'); press('w'); press('Escape')
+            expect(s().panel).toBe('review')
+            expect(s().suggestions[0]).toMatchObject({ status: 'kept', keptAs: 'goal', eventId: s().events[0].id })
+            expect(toastStore.getState().toast?.text).toBe('Goal · Whites confirmed at 01:39')
+        })
+        it('should not link a tag outside the window, and still announce it as tagged', () => {
+            sug()
+            act(() => s().markEvent(300))
+            render(<EventPicker />)
+            press('Enter'); press('w'); press('Escape')
+            expect(s().suggestions[0].status).toBe('pending')
+            expect(toastStore.getState().toast?.text).toBe('Goal · Whites tagged at 05:00')
+        })
+    })
 })
