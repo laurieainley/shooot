@@ -514,7 +514,7 @@ describe('SuggestionReview', () => {
             useAppState.getState().decideSuggestion(useAppState.getState().suggestions[0].id, { kind: 'reject' })
             useAppState.setState({ suggestionRun: { ...run, fileKeys: ['somethingelse'] } })
         }
-        const withRange = (): void => useAppState.setState({ events: [{ id: 'k', type: 'kick_off', matchTimeSec: 10, sourceFileIndex: 0 }, { id: 'w', type: 'final_whistle', matchTimeSec: 500, sourceFileIndex: 0 }] })
+        const withRange = (): void => { useAppState.setState({ events: [{ id: 'k', type: 'kick_off', matchTimeSec: 10, sourceFileIndex: 0 }, { id: 'w', type: 'final_whistle', matchTimeSec: 500, sourceFileIndex: 0 }] }) }
         it('should show the match start and end step after clearing when a marker is missing', () => {
             stale()
             startDetectionMock.mockClear()
