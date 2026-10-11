@@ -451,22 +451,64 @@
 }
 .sheet:focus { outline: none; }
 .sheet--narrow { width: min(420px, 100%); }
+.sheet--roomy { width: min(640px, 100%); }
+/* Match setup and the New match steps: wide on desktop so the two teams sit side by side. */
+.sheet--wide { width: min(920px, 92vw); }
 .sheet__body { padding: 4px 16px 16px; }
 .team-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 12px; }
 @media (max-width: 899px) and (orientation: portrait) {
   .sheet-backdrop { place-items: end stretch; padding: 0 0 var(--kb, 0px); }
-  .sheet, .sheet--narrow {
+  .sheet, .sheet--narrow, .sheet--roomy, .sheet--wide {
     width: 100%; max-height: calc(88dvh - var(--kb, 0px)); border-radius: var(--sh-radius-lg) var(--sh-radius-lg) 0 0; border-width: 1px 0 0;
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .team-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-height: 500px) {
-  .sheet:not(.sheet--narrow) { width: min(780px, 100%); } /* short screens: use the width, scroll less */
+  .sheet:not(.sheet--narrow):not(.sheet--wide):not(.sheet--roomy) { width: min(780px, 100%); } /* short screens: use the width, scroll less */
   .sheet-backdrop { padding: 8px 8px calc(8px + var(--kb, 0px)); }
   .sheet { max-height: calc(100dvh - 16px - var(--kb, 0px)); }
 }
-.team-card { display: flex; flex-direction: column; gap: 8px; border-top: 4px solid; padding-top: 10px; }
+.team-card { display: flex; flex-direction: column; gap: 10px; border-top: 4px solid; padding-top: 10px; min-width: 0; }
+.team-card__id { display: grid; grid-template-columns: minmax(0, 1fr) 84px; gap: 10px; align-items: end; }
+.match-details { display: grid; gap: 4px; padding-top: 8px; }
+.match-details__title .field { font-size: 15px; }
+.match-details .graphics-setup__logo { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--sh-line); }
+/* Roster as tags: name chips you can click to fix, × to remove, with the add field at the end. */
+.roster-tags {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 76px; align-content: flex-start; padding: 8px;
+  border: 1px solid var(--sh-line); border-radius: var(--sh-radius-sm); background: var(--sh-ground); cursor: text;
+}
+.roster-tags:focus-within { border-color: var(--sh-text); }
+.roster-tag {
+  display: inline-flex; align-items: stretch; max-width: 100%; border: 1px solid var(--sh-line); border-radius: 999px;
+  background: var(--sh-surface-2); color: var(--sh-text); font-size: 13px; overflow: hidden;
+}
+.roster-tag__name, .roster-tag__remove, .roster-tag__edit { font: inherit; color: inherit; background: none; border: 0; }
+.roster-tag__name { padding: 3px 4px 3px 11px; cursor: text; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.roster-tag__name:hover { text-decoration: underline; text-decoration-color: var(--sh-muted); text-underline-offset: 3px; }
+.roster-tag__remove { display: grid; place-items: center; padding: 0 9px 0 5px; color: var(--sh-muted); cursor: pointer; }
+.roster-tag__remove:hover { color: var(--sh-text); }
+.roster-tag__edit { padding: 3px 4px 3px 11px; min-width: 4ch; outline: none; box-shadow: inset 0 -2px 0 var(--sh-text); }
+.roster-tags__input { flex: 1 1 120px; min-width: 100px; border: 0; background: none; color: var(--sh-text); font: inherit; font-size: 13px; padding: 4px 2px; outline: none; }
+.roster-tags__input::placeholder { color: var(--sh-muted); opacity: 1; }
+@media (pointer: coarse) {
+  .roster-tag__name { padding-top: 9px; padding-bottom: 9px; }
+  .roster-tag__remove { padding: 0 14px 0 8px; }
+  .roster-tags__input { font-size: 16px; min-height: 36px; }
+}
+/* New match steps */
+.steps { display: flex; gap: 6px; list-style: none; margin: 8px 0 0; padding: 0; }
+.steps__item { display: flex; align-items: center; gap: 8px; flex: 1; padding: 6px 0; border-bottom: 2px solid var(--sh-line); color: var(--sh-muted); font-size: 13px; font-weight: 600; }
+.steps__item[aria-current="step"] { color: var(--sh-text); border-bottom-color: var(--sh-text); }
+.steps__item[data-done] { color: var(--sh-text); }
+.steps__num { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; border: 1px solid currentColor; font-size: 11px; flex: none; }
+.steps__item[aria-current="step"] .steps__num { background: var(--sh-text); color: var(--sh-surface); }
+.steps__panel { padding: 12px 0 4px; min-height: 160px; }
+.steps__videos { display: grid; gap: 12px; }
+.steps__files { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 200px; overflow: auto; }
+.steps__files li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 10px; border: 1px solid var(--sh-line); border-radius: var(--sh-radius-sm); font-size: 13px; font-variant-numeric: tabular-nums; }
+.steps__nav { position: sticky; bottom: -16px; display: flex; align-items: center; gap: 8px; margin: 12px -16px -16px; padding: 12px 16px; background: var(--sh-surface); border-top: 1px solid var(--sh-line); }
 .swatch {
   width: 22px; height: 22px; padding: 0; border-radius: 50%; cursor: pointer;
   border: 1px solid color-mix(in srgb, var(--sh-text) 25%, transparent);
@@ -808,8 +850,6 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .kb-open .sheet__body { padding-top: 8px; }
 
 /* Match setup: where kick-off went (it is an event now). */
-.match-setup__kickoff { display: flex; align-items: flex-start; gap: 10px; margin: 16px 0 4px; padding-top: 12px; border-top: 1px solid var(--sh-line); font-size: 13px; color: var(--sh-muted); line-height: 1.4; }
-.match-setup__kickoff .kickoff-flag { flex: none; margin-top: 3px; }
 .export-note { margin: 4px 0 0; padding: 8px 10px; border-left: 3px solid var(--sh-text); background: color-mix(in srgb, var(--sh-text) 6%, transparent); font-size: 12px; color: var(--sh-muted); line-height: 1.4; }
 @media (pointer: coarse) { .export-note { font-size: 14px; } }
 /* Rendering counts as "recording": the one place besides the playhead where --sh-rec fills a surface. Deepened so white text clears 4.5:1 in both themes. */

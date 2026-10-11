@@ -42,3 +42,6 @@ export function rosterTeamFor(teams: Team[], team: string | undefined, type: Eve
     if (idx === -1) return undefined
     return type === 'own_goal' ? teams[1 - idx] : teams[idx]
 }
+
+/** Rosters in Match setup are shown and kept in alphabetical order (case-insensitive). */
+export const sortNames = (names: string[]): string[] => [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))

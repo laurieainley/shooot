@@ -67,10 +67,19 @@ describe('OverflowMenu', () => {
         expect(cancelDetection).toHaveBeenCalled()
     })
 
-    it('should keep Setup in the menu on the phone, where the bar has no room for it', async () => {
+    it('should open the stepped New match setup after clearing', async () => {
+        render(<OverflowMenu />)
+        await open()
+        await userEvent.click(screen.getByRole('menuitem', { name: 'New match…' }))
+        await userEvent.click(screen.getByRole('button', { name: /Clear match/ }))
+        expect(s().panel).toBe('newmatch')
+        expect(s().files).toEqual([])
+    })
+
+    it('should keep Match setup in the menu on the phone, where the bar has no room for it', async () => {
         render(<OverflowMenu layout="phone" />)
         await open()
-        expect(screen.getAllByRole('menuitem').map((b) => b.textContent)).toContain('Setup')
+        expect(screen.getAllByRole('menuitem').map((b) => b.textContent)).toContain('Match setup')
         await userEvent.click(screen.getByRole('menuitem', { name: 'Match setup' }))
         expect(s().panel).toBe('match')
     })

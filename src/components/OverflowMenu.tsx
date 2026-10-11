@@ -10,7 +10,7 @@ import { clearHandles } from '../files/handleStore'
 import type { Layout } from './useMediaQuery'
 
 interface OverflowMenuProps {
-    /** Desktop and tablet have a Setup button in the bar; narrower layouts keep it in here. */
+    /** Desktop and tablet have a Match setup button in the bar; narrower layouts keep it in here. */
     layout?: Layout
 }
 
@@ -60,7 +60,7 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
     const [confirmNew, setConfirmNew] = useState(false)
     const items: MenuItem[] = [
         { label: 'Files', panel: 'files' },
-        ...(setupInMenu ? [{ label: 'Setup', panel: 'match' as const, aria: 'Match setup' }] : []),
+        ...(setupInMenu ? [{ label: 'Match setup', panel: 'match' as const }] : []),
         { label: 'Advanced settings', panel: 'settings' },
     ]
 
@@ -71,7 +71,7 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
                     Clear {events.length} {events.length === 1 ? 'event' : 'events'} and unload the videos? Teams, rosters and clip settings stay. ⌘Z brings the events back.
                 </p>
                 <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => { cancelDetection(); const st = useAppState.getState(); st.newMatch(); st.closePanel(); void clearHandles() }} className="btn-quiet btn-danger">Clear match</button>
+                    <button type="button" onClick={() => { cancelDetection(); const st = useAppState.getState(); st.newMatch(); st.openPanel('newmatch'); void clearHandles() }} className="btn-quiet btn-danger">Clear match</button>
                     <button type="button" onClick={() => setConfirmNew(false)} className="btn-quiet">Keep</button>
                 </div>
             </div>

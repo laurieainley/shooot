@@ -1,11 +1,14 @@
 /** Team colour value for a kit with no single colour (stored as this string; painted as stripes). */
 export const MULTI_COLOR = 'multi'
 
-/** The stripe colours of the multicolour kit; graphics paint the same ones. */
+/** The stripe colours the in-video graphics paint for the multicolour kit. */
 export const MULTI_STRIPES = ['#e63946', '#f4a261', '#2a9d8f', '#457b9d', '#f1fa8c'] as const
 
-const STRIPE = 100 / MULTI_STRIPES.length
-const MULTI_BACKGROUND = `linear-gradient(135deg, ${MULTI_STRIPES.map((c, i) => `${c} ${i * STRIPE}% ${(i + 1) * STRIPE}%`).join(', ')})`
+/** The UI swatch / dot for the multicolour kit: three bold segments, so it reads as "colours" at 22px. */
+export const MULTI_SEGMENTS = ['#e63946', '#f1c40f', '#457b9d'] as const
+
+const SEGMENT = 100 / MULTI_SEGMENTS.length
+const MULTI_BACKGROUND = `linear-gradient(135deg, ${MULTI_SEGMENTS.map((c, i) => `${c} ${i * SEGMENT}% ${(i + 1) * SEGMENT}%`).join(', ')})`
 
 export const isMultiColor = (color: string | undefined): boolean => color === MULTI_COLOR
 

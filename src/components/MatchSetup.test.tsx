@@ -3,7 +3,10 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
+import { vi } from 'vitest'
 import { MatchSetup } from './MatchSetup'
+
+vi.mock('./frameGrab', () => ({ useFrameAt: () => ({ status: 'idle', frame: null }), useStillAt: () => ({ status: 'idle', frame: null }) }))
 
 const s = () => useAppState.getState()
 
@@ -36,19 +39,25 @@ describe('MatchSetup', () => {
         expect(swatch.style.background).toMatch(/linear-gradient/)
     })
 
-    it('should parse a pasted roster on blur', () => {
+    it('should not show the kick-off hint', () => {
         render(<MatchSetup onClose={() => {}} />)
-        const roster = screen.getByLabelText('Team 2 roster')
-        fireEvent.change(roster, { target: { value: '1. Jo\n2. Alex, Jo' } })
-        fireEvent.blur(roster)
-        expect(s().teams[1].roster).toEqual(['Jo', 'Alex'])
+        expect(screen.queryByText(/Kick off, Half time and Final whistle/i)).not.toBeInTheDocument()
+        expect(screen.queryByLabelText('Match start')).not.toBeInTheDocument()
     })
 
-    it('should have no match start field: kick-off is marked as an event', () => {
+    it('should hide Goal areas until a video is loaded', () => {
+        const { unmount } = render(<MatchSetup onClose={() => {}} />)
+        expect(screen.queryByRole('region', { name: 'Goal areas' })).not.toBeInTheDocument()
+        unmount()
+        useAppState.setState({ files: [{ id: 'a', name: 'a.mp4', url: 'blob:a', file: new File([''], 'a.mp4'), durationSec: 60, kind: 'full' }] })
         render(<MatchSetup onClose={() => {}} />)
-        expect(screen.queryByLabelText('Match start')).not.toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: /use current time/i })).not.toBeInTheDocument()
-        expect(screen.getByText(/Kick off, Half time and Final whistle/i)).toBeInTheDocument()
+        expect(screen.getByRole('region', { name: 'Goal areas' })).toBeInTheDocument()
+    })
+
+    it('should lead with Title and the teams', () => {
+        render(<MatchSetup onClose={() => {}} />)
+        const title = screen.getByLabelText('Title')
+        expect(title.compareDocumentPosition(screen.getByLabelText('Team 1 name')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
     it('should say that teams and rosters are remembered', () => {

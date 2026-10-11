@@ -43,7 +43,7 @@ export function TopBar({ layout }: TopBarProps) {
                     <FilesButton />
                     <span className="flex-1" />
                     <span className="top-bar__actions">
-                        <button type="button" aria-label="Match setup" onClick={() => useAppState.getState().openPanel('match')} className="top-btn top-btn--quiet">Setup</button>
+                        <button type="button" onClick={() => useAppState.getState().openPanel('match')} className="top-btn top-btn--quiet">Match setup</button>
                         <ExportPanel />
                         <OverflowMenu layout={layout} />
                     </span>

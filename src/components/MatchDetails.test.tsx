@@ -11,11 +11,11 @@ vi.mock('../graphics/logoStore', () => ({
     clearCustomLogo: vi.fn(async () => { saved.blob = null }),
 }))
 
-import { MatchGraphicsSetup } from './MatchGraphicsSetup'
+import { MatchDetails } from './MatchDetails'
 
 const s = () => useAppState.getState()
 
-describe('MatchGraphicsSetup', () => {
+describe('MatchDetails', () => {
     beforeEach(() => {
         saved.blob = null
         URL.createObjectURL = vi.fn(() => 'blob:logo')
@@ -26,26 +26,51 @@ describe('MatchGraphicsSetup', () => {
         })
     })
 
-    it('should show an example matchday as a placeholder only and keep an edited one', () => {
-        render(<MatchGraphicsSetup />)
-        const field = screen.getByLabelText('Matchday')
-        expect(field).toHaveAttribute('placeholder', 'e.g. Matchday 3')
+    it('should call the heading Title, show an example as a placeholder only and keep an edited one', () => {
+        render(<MatchDetails />)
+        const field = screen.getByLabelText('Title')
+        expect(field).toHaveAttribute('placeholder', 'Matchday 3')
         expect(field).toHaveValue('')
         fireEvent.change(field, { target: { value: 'Cup final' } })
         fireEvent.blur(field)
         expect(s().matchdayLabel).toBe('Cup final')
     })
 
-    it('should suggest initials from the team names and store edits', () => {
-        render(<MatchGraphicsSetup />)
-        const rr = screen.getByLabelText("Ryan's Rovers initials")
-        expect(rr).toHaveAttribute('placeholder', 'RR')
-        fireEvent.change(screen.getByLabelText('Walford Town initials'), { target: { value: 'wft' } })
+    it('should put the full name first with its initials beside it, derived from the name', () => {
+        render(<MatchDetails />)
+        const name = screen.getByLabelText('Team 1 name')
+        const initials = screen.getByLabelText('Team 1 initials')
+        expect(initials).toHaveValue('RR')
+        expect(name.compareDocumentPosition(initials) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        fireEvent.change(name, { target: { value: 'Real Madrid CF' } })
+        expect(initials).toHaveValue('RMC')
+        expect(s().teams[0].initials).toBeUndefined() // derived, not stored
+    })
+
+    it('should keep initials the user typed, and return to derived when cleared', async () => {
+        render(<MatchDetails />)
+        const initials = screen.getByLabelText('Team 2 initials')
+        await userEvent.clear(initials)
+        await userEvent.type(initials, 'wft')
         expect(s().teams[1].initials).toBe('WFT')
+        fireEvent.change(screen.getByLabelText('Team 2 name'), { target: { value: 'Other Name' } })
+        expect(initials).toHaveValue('WFT')
+        await userEvent.clear(initials)
+        expect(s().teams[1].initials).toBeUndefined()
+        await userEvent.tab()
+        expect(initials).toHaveValue('ON')
+    })
+
+    it('should show the roster as tags that save straight to the team', async () => {
+        render(<MatchDetails />)
+        await userEvent.type(screen.getByLabelText('Team 2 roster'), 'Jo{Enter}Alex,')
+        expect(s().teams[1].roster).toEqual(['Alex', 'Jo'])
+        await userEvent.click(screen.getByRole('button', { name: 'Remove Jo' }))
+        expect(s().teams[1].roster).toEqual(['Alex'])
     })
 
     it('should show the default logo and let a picked image replace it', async () => {
-        render(<MatchGraphicsSetup />)
+        render(<MatchDetails />)
         expect(screen.getByRole('img', { name: /league logo/i })).toHaveAttribute('src', '/brand/tnf-logo.webp')
         const input = screen.getByLabelText('Logo file')
         await userEvent.upload(input, new File(['png'], 'badge.png', { type: 'image/png' }))
