@@ -23,6 +23,7 @@ import { deletedCopy, eventGlobalSec, matchClock } from '../utils/toastCopy'
 import { RelinkBanner } from './RelinkBanner'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 import { ShortcutsButton } from './ShortcutsButton'
+import { EventActions } from './EventActions'
 
 type Field = 'scorer' | 'team' | 'time' | 'notes'
 type Editing = { id: string; field: Field } | null
@@ -118,7 +119,7 @@ export function EventLog() {
             case 't': case 'T': if (sel) setEditing({ id: sel.id, field: 'team' }); break
             case 'n': case 'N': if (sel) setEditing({ id: sel.id, field: 'notes' }); break
             case 'g': case 'G': { const st = useAppState.getState(); st.markEvent(st.currentTimeInFileSec); break }
-            case 'Escape': rootRef.current?.blur(); break
+            case 'Escape': if (selectedId) setSelectedId(null); else rootRef.current?.blur(); break
             default: handled = false
         }
         if (handled) { ev.preventDefault(); ev.stopPropagation() }
@@ -174,14 +175,8 @@ export function EventLog() {
                             selected={e.id === selectedId}
                             clock={formatEventClock((offsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec, e.matchTimeSec, matchStartTimeSec, clockLong)}
                             score={scores.get(e.id)}
-                            fileTag={files.length > 1 ? `V${(e.sourceFileIndex ?? 0) + 1}` : null}
-                            fileSlot={files.length > 1}
                             editing={editing?.id === e.id ? editing.field : null}
-                            onSelect={() => {
-                                setSelectedId(e.id)
-                                // Touch: no double-click or keys, so a tap opens the editor (desktop edits inline).
-                                if (coarse) useAppState.getState().editEvent(e.id)
-                            }}
+                            onSelect={() => setSelectedId(e.id)}
                             onWatch={() => { setSelectedId(e.id); watch(e) }}
                             onEdit={(field) => { setSelectedId(e.id); setEditing(field ? { id: e.id, field } : null) }}
                             onToggleReplay={() => toggleReplay(e)}
@@ -203,9 +198,6 @@ interface EventRowProps {
     selected: boolean
     clock: string
     score?: [number, number]
-    fileTag: string | null
-    /** More than one file: every row keeps a badge column so rows line up. */
-    fileSlot: boolean
     editing: Field | null
     onSelect: () => void
     onWatch: () => void
@@ -214,20 +206,19 @@ interface EventRowProps {
     onFraming: () => void
     onRemove: () => void
     restoreFocus: () => void
-    /** Touch: delete lives in the edit sheet (a tap opens it), so the row keeps only the replay toggle. */
+    /** Touch: larger icon and action buttons. */
     touch?: boolean
 }
 
-function EventRow({ event: e, teams, selected, clock, score, fileTag, fileSlot, editing, onSelect, onWatch, onEdit, onToggleReplay, onFraming, onRemove, restoreFocus, touch = false }: EventRowProps) {
+function EventRow({ event: e, teams, selected, clock, score, editing, onSelect, onWatch, onEdit, onToggleReplay, onFraming, onRemove, restoreFocus, touch = false }: EventRowProps) {
     const team = teams.find((t) => t.name === e.team)
-    const replay = wantsReplay(e)
     const parts = eventRowParts(e)
     const title = `${parts.title}${e.team ? ` – ${e.team}` : ''}`
     const stop = (ev: React.SyntheticEvent): void => ev.stopPropagation()
     const done = (): void => { onEdit(null); restoreFocus() }
     const update = useAppState((s) => s.updateEvent)
 
-    if (isMarker(e)) return <MarkerRow event={e} selected={selected} clock={clock} fileTag={fileTag} fileSlot={fileSlot} editing={editing} onSelect={onSelect} onWatch={onWatch} onEdit={onEdit} onRemove={onRemove} restoreFocus={restoreFocus} touch={touch} />
+    if (isMarker(e)) return <MarkerRow event={e} selected={selected} clock={clock} editing={editing} onSelect={onSelect} onWatch={onWatch} onEdit={onEdit} onRemove={onRemove} restoreFocus={restoreFocus} touch={touch} />
 
     return (
         <li
@@ -284,42 +275,28 @@ function EventRow({ event: e, teams, selected, clock, score, fileTag, fileSlot, 
                 <span className="event-row__content" title={title}>
                     <span className="event-row__main" onDoubleClick={(ev) => { stop(ev); onEdit('scorer') }}>
                         {parts.person
-                            ? <span className="ev-person voice-shirt">{parts.person}</span>
+                            ? <span className="ev-person">{parts.person}</span>
                             : <span className="event-row__type">{controlLabel(e)}</span>}
                     </span>
-                    {parts.sub.length > 0 && (
-                        <span className="event-row__sub">
-                            {parts.sub.map((part) => part.startsWith('—')
-                                ? <span key={part} className="event-row__note" onDoubleClick={(ev) => { stop(ev); onEdit('notes') }}>{part}</span>
-                                : <span key={part} className="event-row__assist">{part}</span>)}
-                        </span>
-                    )}
+                    {parts.note && <span className="event-row__note" onDoubleClick={(ev) => { stop(ev); onEdit('notes') }}>{parts.note}</span>}
                 </span>
             )}
 
             <span className="event-row__end">
                 <span {...(score ? { 'data-score': '' } : {})} className="tc row-score" title={score ? 'Score after this goal' : undefined}>{score ? formatScore(score) : null}</span>
-                <FileSlot unlinked={e.unlinked} fileKey={e.sourceFileKey} fileTag={fileTag} show={fileSlot} />
+                <FileSlot unlinked={e.unlinked} fileKey={e.sourceFileKey} />
                 <WatchButton onWatch={onWatch} disabled={e.unlinked} />
-                <button type="button" aria-label="Replay" aria-pressed={replay} title={replay ? 'Slow-mo replay on (R)' : 'Slow-mo replay off (R)'}
-                    tabIndex={-1} onClick={(ev) => { stop(ev); onToggleReplay() }} className="row-btn replay-btn">↻</button>
-                {!touch && (replay ? (
-                    <button type="button" aria-label="Replay framing" title="Replay framing (zoom to the goal)" tabIndex={-1}
-                        onClick={(ev) => { stop(ev); onFraming() }} className="row-btn framing-btn">⌖</button>
-                ) : <span className="row-btn row-btn--gap" aria-hidden="true" />)}
-                {!touch && (
-                    <button type="button" aria-label="Delete event" title="Delete (⌫)" tabIndex={-1}
-                        onClick={(ev) => { stop(ev); onRemove() }} className="row-btn delete-btn">×</button>
-                )}
             </span>
+            {selected && <EventActions event={e} touch={touch} onToggleReplay={onToggleReplay} onFraming={onFraming}
+                onEdit={() => useAppState.getState().editEvent(e.id)} onRemove={onRemove} />}
         </li>
     )
 }
 
-type MarkerRowProps = Pick<EventRowProps, 'event' | 'selected' | 'clock' | 'fileTag' | 'fileSlot' | 'editing' | 'onSelect' | 'onWatch' | 'onEdit' | 'onRemove' | 'restoreFocus' | 'touch'>
+type MarkerRowProps = Pick<EventRowProps, 'event' | 'selected' | 'clock' | 'editing' | 'onSelect' | 'onWatch' | 'onEdit' | 'onRemove' | 'restoreFocus' | 'touch'>
 
 /** Kick off / Half time / Final whistle: a flag, the label and the time — no team, person, score or replay. */
-function MarkerRow({ event: e, selected, clock, fileTag, fileSlot, editing, onSelect, onWatch, onEdit, onRemove, restoreFocus, touch = false }: MarkerRowProps) {
+function MarkerRow({ event: e, selected, clock, editing, onSelect, onWatch, onEdit, onRemove, restoreFocus, touch = false }: MarkerRowProps) {
     const stop = (ev: React.SyntheticEvent): void => ev.stopPropagation()
     const update = useAppState((s) => s.updateEvent)
     return (
@@ -338,15 +315,11 @@ function MarkerRow({ event: e, selected, clock, fileTag, fileSlot, editing, onSe
             <span className="event-row__content"><span className="event-row__main event-row__label">{controlLabel(e)}</span></span>
             <span className="event-row__end">
                 <span className="row-score" aria-hidden="true" />
-                <FileSlot unlinked={e.unlinked} fileKey={e.sourceFileKey} fileTag={fileTag} show={fileSlot} />
+                <FileSlot unlinked={e.unlinked} fileKey={e.sourceFileKey} />
                 <WatchButton onWatch={onWatch} disabled={e.unlinked} />
-                <span className="row-btn row-btn--gap" aria-hidden="true" />
-                {!touch && <span className="row-btn row-btn--gap" aria-hidden="true" />}
-                {!touch && (
-                    <button type="button" aria-label="Delete event" title="Delete (⌫)" tabIndex={-1}
-                        onClick={(ev) => { stop(ev); onRemove() }} className="row-btn delete-btn">×</button>
-                )}
             </span>
+            {selected && <EventActions event={e} touch={touch} onToggleReplay={() => undefined} onFraming={() => undefined}
+                onEdit={() => useAppState.getState().editEvent(e.id)} onRemove={onRemove} />}
         </li>
     )
 }
@@ -354,15 +327,12 @@ function MarkerRow({ event: e, selected, clock, fileTag, fileSlot, editing, onSe
 interface FileSlotProps {
     unlinked?: boolean
     fileKey?: string
-    fileTag: string | null
-    show: boolean
 }
 
-/** The file badge column: "V2" with several files, "file missing" when unlinked, empty space otherwise so rows line up. */
-function FileSlot({ unlinked, fileKey, fileTag, show }: FileSlotProps) {
-    if (unlinked) return <span className="tag tag-warn" title={fileKey}>file missing</span>
-    if (!show) return null
-    return <span className="tag row-file">{fileTag}</span>
+/** The "file missing" warning when the event's file is not linked; nothing otherwise. */
+function FileSlot({ unlinked, fileKey }: FileSlotProps) {
+    if (!unlinked) return null
+    return <span className="tag tag-warn" title={fileKey}>file missing</span>
 }
 
 interface WatchButtonProps {
