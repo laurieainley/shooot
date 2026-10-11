@@ -5,8 +5,8 @@ import { shortcutFor } from './shortcuts'
 const key = (k: string) => ({ key: k, shiftKey: false, ctrlKey: false, metaKey: false, altKey: false })
 
 describe('SHORTCUT_GROUPS', () => {
-    it('should list the five groups', () => {
-        expect(SHORTCUT_GROUPS.map((g) => g.title)).toEqual(['Playback', 'Tagging', 'Navigation', 'Zoom', 'Editing'])
+    it('should list the groups', () => {
+        expect(SHORTCUT_GROUPS.map((g) => g.title)).toEqual(['Playback', 'Tagging', 'Navigation', 'Find goals review', 'Zoom', 'Editing'])
     })
     it('should only document keys the handler really maps to that action', () => {
         for (const row of SHORTCUT_GROUPS.flatMap((g) => g.rows)) {

@@ -35,7 +35,7 @@ function ColumnPanelBody({ label, onClose, children, className, badge }: ColumnP
         // Stacked layouts scroll the page: bring the picture back into view so it is never hidden behind the panel.
         window.scrollTo?.({ top: 0 })
         const onKey = (e: KeyboardEvent): void => {
-            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeRef.current() }
+            if (e.key === 'Escape' && !ref.current?.querySelector('[data-esc-clears]')) { e.preventDefault(); e.stopPropagation(); closeRef.current() }
         }
         window.addEventListener('keydown', onKey, true)
         return () => window.removeEventListener('keydown', onKey, true)

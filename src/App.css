@@ -1097,6 +1097,70 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .review__copy { width: 100%; font-family: var(--sh-font-mono); font-size: 12px; color: var(--sh-text); background: var(--sh-surface, transparent); border: 1px solid var(--sh-line); border-radius: 6px; padding: 8px; }
 @media (pointer: coarse) { .review__btn kbd { display: none; } .review__copy { font-size: 14px; } }
 
+/* Review card: one step at a time (mark, what was it, team, save). Lime is only the Save button and the goal icons; red is only the playhead / REC dot. */
+.rv { display: flex; flex-direction: column; gap: 20px; }
+.rv__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rv__head .review__count { font-size: 14px; }
+.rv__nav { display: flex; align-items: center; gap: 4px; }
+.rv__icon { display: inline-grid; place-items: center; width: 44px; height: 44px; flex: none; padding: 0; border: 0; border-radius: var(--sh-radius-md); background: transparent; color: var(--sh-text); cursor: pointer; }
+.rv__icon:hover:not(:disabled) { background: var(--sh-surface-2); }
+.rv__icon:disabled { opacity: .3; cursor: default; }
+.rv__skip, .rv__link { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 44px; padding: 0 10px; border: 0; background: transparent; color: var(--sh-muted); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.rv__skip:hover, .rv__link:hover { color: var(--sh-text); }
+.rv__link { align-self: flex-start; padding: 0 4px; text-decoration: underline; text-underline-offset: 3px; }
+.rv kbd { margin-left: 6px; padding: 0 5px; font-family: var(--sh-font-mono); font-size: 12px; font-weight: 500; line-height: 1.5; color: var(--sh-muted); background: transparent; border: 1px solid currentColor; border-radius: 4px; }
+.rv__watch { display: flex; flex-direction: column; gap: 10px; }
+.rv__clock { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.rv__time { min-width: 6ch; text-align: center; font-size: 28px; font-weight: 700; line-height: 1; }
+.rv__say { margin: 4px 0 0; text-align: center; font-size: 15px; line-height: 1.4; color: var(--sh-text); }
+.rv__warn { margin: 0; text-align: center; font-size: 13px; color: var(--sh-muted); }
+.rv__warn::before { content: '\26A0\FE0E'; margin-right: 6px; }
+.rv__hint { font-size: 14px; color: var(--sh-muted); text-align: center; }
+.rv__steps { display: flex; flex-direction: column; gap: 14px; }
+.rv__mark { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; border: 0; border-radius: var(--sh-radius-md); background: var(--sh-text); color: var(--sh-ground); font: inherit; font-size: 16px; font-weight: 800; cursor: pointer; }
+.rv__mark kbd { color: inherit; }
+.rv__dot { width: 10px; height: 10px; border-radius: 50%; background: var(--sh-rec); box-shadow: 0 0 0 2px var(--sh-ground); }
+.rv__steps > .rv__link { align-self: center; }
+.rv__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.rv__chip { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 1px solid var(--sh-line); border-radius: 999px; background: var(--sh-surface-2); color: var(--sh-text); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.rv__chip:hover { border-color: var(--sh-text); }
+.rv__chipnote { color: var(--sh-muted); font-weight: 500; }
+.rv__type { display: flex; flex-direction: column; gap: 10px; }
+.rv__type > .rv__link { align-self: center; }
+.rv__seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--sh-line); border-radius: var(--sh-radius-md); overflow: hidden; background: var(--sh-surface-2); }
+.rv__choice { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; padding: 0 8px; border: 0; background: transparent; color: var(--sh-text); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.rv__choice + .rv__choice { border-left: 1px solid var(--sh-line); }
+.rv__choice kbd { margin-left: 2px; }
+.rv__choice:hover { background: var(--sh-line); }
+.rv__choice[aria-pressed="true"] { background: var(--sh-text); color: var(--sh-ground); font-weight: 800; }
+.rv__choice[aria-pressed="true"] kbd { color: inherit; }
+.rv__save { width: 100%; min-height: 52px; font-size: 16px; }
+.rv__save kbd { color: inherit; }
+.rv__save:disabled { opacity: .45; }
+@media (max-width: 480px) { .rv__seg:not(.rv__seg--team) { grid-auto-flow: row; grid-template-columns: 1fr 1fr; } .rv__seg:not(.rv__seg--team) .rv__choice:nth-child(3) { border-left: 0; } .rv__seg:not(.rv__seg--team) .rv__choice:nth-child(n+3) { border-top: 1px solid var(--sh-line); } }
+@media (max-width: 480px) { .rv { gap: 10px; } .rv__steps { gap: 10px; } .rv__time { font-size: 24px; } .rv__say { margin: 0; } .rv__mark, .rv__save { min-height: 48px; } }
+@media (pointer: coarse) { .rv kbd { display: none; } .rv__say { font-size: 16px; } .rv__warn, .rv__hint { font-size: 14px; } .rv__choice { min-height: 52px; font-size: 15px; } }
+
+/* Mini timeline: the loop window as a bar. Fill = playback progress, red line = playhead, ring = estimate, pin = marked. */
+.rtl { display: flex; flex-direction: column; gap: 4px; }
+.rtl__bar { position: relative; height: 44px; border: 1px solid var(--sh-line); border-radius: var(--sh-radius-md); background: var(--sh-surface-2); cursor: ew-resize; touch-action: none; user-select: none; }
+.rtl__bar:focus-visible { outline: 2px solid var(--sh-text); outline-offset: 2px; }
+.rtl__fill { position: absolute; inset: 0 auto 0 0; background: color-mix(in srgb, var(--sh-text) 14%, transparent); border-radius: var(--sh-radius-md) 0 0 var(--sh-radius-md); pointer-events: none; }
+.rtl__tick { position: absolute; bottom: 0; width: 1px; height: 6px; background: var(--sh-muted); opacity: .6; pointer-events: none; }
+.rtl__tick--major { height: 12px; opacity: 1; }
+.rtl__playhead { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--sh-rec); border-radius: 1px; pointer-events: none; }
+.rtl__playhead::before { content: ''; position: absolute; top: -3px; left: 50%; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--sh-rec); }
+.rtl__estimate { position: absolute; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; box-sizing: border-box; border: 2px solid var(--sh-text); border-radius: 50%; background: transparent; pointer-events: none; }
+.rtl__pin { position: absolute; top: 50%; margin: -13px 0 0 -13px; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: var(--sh-surface); pointer-events: none; }
+.rtl__labels { position: relative; height: 18px; }
+.rtl__label { position: absolute; top: 0; font-size: 13px; color: var(--sh-muted); white-space: nowrap; }
+.rtl__label--marked { color: var(--sh-text); font-weight: 700; }
+.rtl__ends { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--sh-muted); }
+.rtl__gap { flex: 1; }
+.rtl__handle { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; margin: -10px 0; padding: 0 4px; border: 0; background: transparent; color: var(--sh-text); font: inherit; font-family: var(--sh-font-mono); font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.rtl__handle:first-child { margin-left: -4px; } .rtl__handle:last-child { margin-right: -4px; }
+@media (pointer: coarse) { .rtl__bar { height: 56px; } .rtl__ends { font-size: 14px; } .rtl__label { font-size: 14px; } }
+
 /* Import… dialog: project file (left) and pasted goal times (right); one column, file first, on phones. */
 .sheet.sheet--import { width: min(880px, 100%); }
 .import-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 24px; padding-top: 4px; }
