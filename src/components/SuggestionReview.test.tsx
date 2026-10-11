@@ -655,3 +655,25 @@ describe('Find goals: match start and end step', () => {
         offT(); offS()
     })
 })
+
+describe('Find goals: goal marks hint (Labs)', () => {
+    const marks = { postL: { x: 0.4, y: 0.5 }, postR: { x: 0.6, y: 0.5 }, barL: { x: 0.4, y: 0.4 }, barR: { x: 0.6, y: 0.4 } }
+    const HINT = 'Mark the goals in Match setup to also check the goal mouths.'
+    it('should point to Match setup when Labs is on and no goals are marked', () => {
+        useAppState.setState({ labs: true, goalMarks: null })
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(screen.getByText(HINT)).toBeTruthy()
+        fireEvent.click(screen.getByRole('button', { name: 'Open Match setup' }))
+        expect(useAppState.getState().panel).toBe('match')
+    })
+    it('should stay quiet with Labs off', () => {
+        useAppState.setState({ labs: false, goalMarks: null })
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(screen.queryByText(HINT)).toBeNull()
+    })
+    it('should stay quiet when goals are marked', () => {
+        useAppState.setState({ labs: true, goalMarks: { team1: marks } })
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(screen.queryByText(HINT)).toBeNull()
+    })
+})
