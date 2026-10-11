@@ -1147,7 +1147,8 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .event-actions { padding-left: 12px; flex-wrap: nowrap; }
   .event-actions .act-btn { flex: 1 1 auto; padding: 0 8px; }
 }
-@container event-log (max-width: 300px) {
+@container event-log (max-width: 360px) {
+  .event-actions { flex-wrap: wrap; } /* icons only; wrap rather than clip if even they do not fit */
   .event-actions__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .act-btn { min-width: 36px; padding: 0 6px; }
   .act-btn--touch { min-width: 44px; }
