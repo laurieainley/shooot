@@ -3,7 +3,7 @@ import videojs from 'video.js'
 import 'video.js/dist/video-js.css'
 import { selectClockLong, useAppState } from '../state'
 import { shortcutFor, shouldHandleShortcut } from '../utils/shortcuts'
-import { registerPlayerStep, registerPlayerToggle, setPlayerPaused } from './playerControl'
+import { registerPlayerSeekPaused, registerPlayerStep, registerPlayerToggle, setPlayerPaused } from './playerControl'
 import { runShortcut, seekBy, stepFrame, type ShortcutPlayer } from './playerShortcuts'
 import { FullscreenControls } from './FullscreenControls'
 import { EventPicker } from './EventPicker'
@@ -136,6 +136,18 @@ export function Player() {
             else seekBy(p, direction)
         })
     }, [])
+
+    // Scrubbing the review timeline: seek (switching file if needed) and stay paused.
+    const seekPausedRef = useRef<(fileIndex: number, timeSec: number) => void>(() => {})
+    seekPausedRef.current = (fileIndex, timeSec) => {
+        const p = playerRef.current
+        if (!p || fileIndex >= files.length) return
+        if (fileIndex !== currentFileIndex) {
+            setCurrentFileIndex(fileIndex)
+            setTimeout(() => { playerRef.current?.currentTime(timeSec); playerRef.current?.pause() }, 100)
+        } else { p.currentTime(timeSec); p.pause() }
+    }
+    useEffect(() => registerPlayerSeekPaused((f, t) => seekPausedRef.current(f, t)), [])
 
     // Listen for seekToGoal events
     useEffect(() => {

@@ -44,6 +44,17 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
         ],
     },
     {
+        title: 'Find goals review',
+        rows: [
+            { keys: ['M'], what: 'In the review: mark the exact moment (pauses; overrides mute)' },
+            { keys: ['G', 'O', 'S', 'H', 'X'], what: 'In the review: choose goal, own goal, save, highlight, not a goal' },
+            { keys: ['1', '2'], what: 'In the review: choose the team' },
+            { keys: ['⏎'], what: 'In the review: save (or reject) and go to the next' },
+            { keys: ['Esc', '⌫'], what: 'In the review: undo the choice' },
+            { keys: ['[', ']'], what: 'In the review: look 2 s earlier / later' },
+        ],
+    },
+    {
         title: 'Zoom',
         rows: [
             { keys: ['Z'], what: 'Cycle zoom 1 → 1.5 → 2 → 3 → 4×', action: 'zoomCycle', key: 'z' },
