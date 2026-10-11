@@ -13,6 +13,12 @@ interface GoalMarksEditorProps {
     initial: GoalMarks | null
     onDone: (marks: GoalMarks) => void
     onCancel: () => void
+    /** Present when editing saved marks: offers a quiet "Clear marks" in the footer. */
+    onClear?: () => void
+    /** Which moment of the video the picture shows, in seconds. The scrubber appears when these three are given. */
+    time?: number
+    duration?: number
+    onTimeChange?: (sec: number) => void
 }
 
 const LABELS: Record<MarkKey, string> = {
@@ -25,13 +31,22 @@ const LABELS: Record<MarkKey, string> = {
 }
 const NUDGE = 0.002
 const NUDGE_BIG = 0.01
-const DONE_TEXT = 'All set — drag a dot to adjust.'
+const DONE_TEXT = 'All set — drag a dot to adjust'
+export const MAX_EDITOR_ZOOM = 10
+const ZOOM_STEP = 1.6
+const FRAME_STEP_SEC = 5
 const DRAG_START_PX = 6
-const VIEW_LABEL = 'Goal picture. Use a mouse or touch to place points; arrow keys nudge the selected point.'
-const HINT_FINE = 'Scroll or pinch to zoom · drag with two fingers, right button or Space to move'
-const HINT_TOUCH = 'Pinch to zoom · drag with two fingers to move'
+const VIEW_LABEL_FINE = 'Goal picture. Use a mouse or touch to place points; arrow keys nudge the selected point. Scroll or pinch to zoom; drag with two fingers, right button or Space to move.'
+const VIEW_LABEL_TOUCH = 'Goal picture. Tap to place points; arrow keys nudge the selected point. Pinch to zoom; drag with two fingers to move.'
+const ZOOM_TITLE_FINE = 'Scroll or pinch to zoom · drag with two fingers, right button or Space to move'
+const ZOOM_TITLE_TOUCH = 'Pinch to zoom · drag with two fingers to move'
 
 const clamp01 = (v: number): number => Math.min(1, Math.max(0, v))
+const clock = (sec: number): string => {
+    const t = Math.max(0, Math.round(sec))
+    const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), r = t % 60
+    return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}` : `${m}:${String(r).padStart(2, '0')}`
+}
 const line = (a: Pt, b: Pt): string => `M${a.x} ${a.y}L${b.x} ${b.y}`
 
 /**
@@ -39,7 +54,7 @@ const line = (a: Pt, b: Pt): string => `M${a.x} ${a.y}L${b.x} ${b.y}`
  * of the net on the floor. Click or tap to place each point in turn, drag a dot to adjust it. Wheel / pinch zooms,
  * space+drag or two fingers pan.
  */
-export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: GoalMarksEditorProps) {
+export function GoalMarksEditor({ team, frame, initial, onDone, onCancel, onClear, time, duration, onTimeChange }: GoalMarksEditorProps) {
     const touch = useMediaQuery(COARSE_QUERY)
     const [partial, setPartial] = useState<Partial<GoalMarks>>(initial ?? {})
     const [skipped, setSkipped] = useState<ReadonlySet<MarkKey>>(() => new Set<MarkKey>())
@@ -56,7 +71,7 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
     const zp = useZoomPan(() => {
         const r = viewport.current?.getBoundingClientRect()
         return { width: r?.width || 1, height: r?.height || 1 }
-    })
+    }, MAX_EDITOR_ZOOM)
     const zpRef = useRef(zp)
     zpRef.current = zp
 
@@ -210,14 +225,27 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
             data-owns-escape
             onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onCancel() } }}
         >
-            <p className="goal-marks__prompt" role="status">{current ? promptFor(current, touch) : DONE_TEXT}</p>
+            <p className="goal-marks__prompt" role="status">
+                {current ? (
+                    <>
+                        <span className="goal-marks__count">{`${MARK_STEPS.findIndex((x) => x.key === current) + 1} of ${MARK_STEPS.length} ·`}</span>
+                        {' '}<span>{promptFor(current, touch)}</span>
+                        {step?.optional && <button type="button" className="btn-text" onClick={skip}>Skip</button>}
+                    </>
+                ) : (
+                    <>
+                        <span>{DONE_TEXT}</span>
+                        {partial.backL && partial.backR && <button type="button" className="btn-text" onClick={removeCorners}>Remove net corners</button>}
+                    </>
+                )}
+            </p>
             <div
                 ref={viewport}
                 className="goal-marks__view"
                 style={{ aspectRatio: String(aspect) }}
                 tabIndex={0}
                 role="application"
-                aria-label={VIEW_LABEL}
+                aria-label={touch ? VIEW_LABEL_TOUCH : VIEW_LABEL_FINE}
                 onContextMenu={(e) => e.preventDefault()}
                 onPointerDown={viewDown}
                 onPointerMove={viewMove}
@@ -231,6 +259,7 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
                     <div
                         ref={picture}
                         className="goal-marks__picture"
+                        data-loading={frame.status === 'loading' || undefined}
                         data-testid="goal-marks-picture"
                         style={{ transform: `translate(${zp.pan.x}px, ${zp.pan.y}px) scale(${zp.zoom})`, ['--zoom' as string]: String(zp.zoom) }}
                         onClick={onPictureClick}
@@ -267,11 +296,43 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
                     </div>
                 ) : <p className="frame-boxes__empty" role="status">{frame.status === 'loading' ? 'Loading a frame…' : 'No picture available for this video here.'}</p>}
             </div>
-            <p className="goal-marks__hint">{touch ? HINT_TOUCH : HINT_FINE}</p>
-            <div className="goal-areas__row">
-                {step?.optional && <button type="button" className="btn-quiet" onClick={skip}>Skip</button>}
-                {partial.backL && partial.backR && <button type="button" className="btn-quiet" onClick={removeCorners}>Remove net corners</button>}
-                {zp.zoom > 1 && <button type="button" className="btn-quiet" onClick={() => { zp.reset(); focusView() }}>Reset zoom</button>}
+            <div className="goal-marks__toolbar">
+                {duration && onTimeChange && time !== undefined ? (
+                    <div className="goal-marks__scrub" role="group" aria-label="Frame">
+                        <button type="button" className="goal-marks__icon" aria-label="Earlier frame" title={`Back ${FRAME_STEP_SEC} s`} disabled={time <= 0} onClick={() => onTimeChange(Math.max(0, time - FRAME_STEP_SEC))}>
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+                        </button>
+                        <input
+                            type="range"
+                            className="goal-marks__slider"
+                            aria-label="Moment in the video"
+                            min={0}
+                            max={Math.floor(duration)}
+                            step={1}
+                            value={Math.min(Math.round(time), Math.floor(duration))}
+                            aria-valuetext={clock(time)}
+                            onChange={(e) => onTimeChange(Number(e.target.value))}
+                        />
+                        <button type="button" className="goal-marks__icon" aria-label="Later frame" title={`Forward ${FRAME_STEP_SEC} s`} disabled={time >= duration} onClick={() => onTimeChange(Math.min(Math.floor(duration), time + FRAME_STEP_SEC))}>
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
+                        </button>
+                        <span className="goal-marks__time" aria-hidden="true">{clock(time)}</span>
+                    </div>
+                ) : <span />}
+                <div className="goal-marks__zoom" role="group" aria-label="Zoom" title={touch ? ZOOM_TITLE_TOUCH : ZOOM_TITLE_FINE}>
+                    <button type="button" className="goal-marks__icon" aria-label="Zoom out" disabled={zp.zoom <= 1} onClick={() => { zp.zoomAt(1 / ZOOM_STEP, { x: 0, y: 0 }); focusView() }}>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg>
+                    </button>
+                    <button type="button" className="goal-marks__icon" aria-label="Zoom in" disabled={zp.zoom >= MAX_EDITOR_ZOOM - 1e-6} onClick={() => { zp.zoomAt(ZOOM_STEP, { x: 0, y: 0 }); focusView() }}>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14" /></svg>
+                    </button>
+                    <button type="button" className="goal-marks__icon" aria-label="Fit picture" title="Fit the whole picture" disabled={zp.zoom <= 1} onClick={() => { zp.reset(); focusView() }}>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg>
+                    </button>
+                </div>
+            </div>
+            <div className="goal-marks__footer">
+                {onClear && <button type="button" className="btn-text goal-marks__clear" onClick={onClear}>Clear marks</button>}
                 <button type="button" className="btn-quiet" onClick={onCancel}>Cancel</button>
                 <button type="button" className="btn-primary" disabled={!isComplete(partial)} onClick={done}>Done</button>
             </div>

@@ -961,8 +961,28 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .goal-marks { display: grid; gap: 8px; --tone: var(--sh-text); }
 .goal-marks--team1 { --tone: var(--sh-kit-sky); }
 .goal-marks--team2 { --tone: var(--sh-kit-yellow); }
-.goal-marks__hint { margin: 0; font-size: 12px; color: var(--sh-muted); }
-.goal-marks__prompt { margin: 0; font-size: 14px; color: var(--sh-text); }
+/* Inline text button: no border, underlined, for small secondary actions in a sentence or row. */
+.btn-text { border: 0; background: none; padding: 4px 6px; margin: 0; font: inherit; font-size: 13px; color: var(--sh-muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; border-radius: var(--sh-radius-sm); }
+.btn-text:hover:not(:disabled) { color: var(--sh-text); }
+.btn-text:disabled { opacity: 0.35; cursor: not-allowed; }
+.goal-marks__prompt { margin: 0; font-size: 14px; color: var(--sh-text); display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; min-height: 28px; }
+.goal-marks__count { color: var(--sh-muted); font-variant-numeric: tabular-nums; }
+.goal-marks__prompt .btn-text { margin-left: 4px; }
+.goal-marks__toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; }
+.goal-marks__scrub { display: flex; align-items: center; gap: 4px; flex: 1 1 220px; min-width: 0; }
+.goal-marks__zoom { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.goal-marks__slider { flex: 1 1 80px; min-width: 60px; margin: 0; accent-color: var(--sh-text); min-height: 32px; }
+.goal-marks__time { font-size: 13px; color: var(--sh-muted); font-variant-numeric: tabular-nums; min-width: 4.5ch; text-align: right; }
+.goal-marks__icon {
+  display: inline-grid; place-items: center; flex: none; width: 32px; height: 32px; padding: 0; border: 1px solid var(--sh-line); border-radius: var(--sh-radius-sm);
+  background: transparent; color: var(--sh-text); cursor: pointer;
+}
+.goal-marks__icon:hover:not(:disabled) { border-color: var(--sh-text); }
+.goal-marks__icon:disabled { opacity: 0.35; cursor: not-allowed; }
+.goal-marks__icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.goal-marks__footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.goal-marks__clear { margin-right: auto; }
+.goal-marks__picture[data-loading] { opacity: 0.75; transition: opacity 0.15s; }
 .goal-marks__view {
   position: relative; width: 100%; max-height: 52vh; max-width: min(100%, calc(52vh * 16 / 9)); margin-inline: auto; overflow: hidden;
   background: var(--sh-video); border-radius: var(--sh-radius-sm); touch-action: none; user-select: none; -webkit-user-select: none; cursor: crosshair;
@@ -984,7 +1004,13 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 }
 .goal-marks__dot:focus-visible { outline: 3px solid var(--sh-on-video); outline-offset: -4px; }
 .goal-areas__marks { display: inline-flex; gap: 8px; }
-@media (pointer: coarse) { .goal-marks .btn-quiet, .goal-marks .btn-primary { min-height: 44px; } }
+@media (pointer: coarse) {
+  .goal-marks .btn-quiet, .goal-marks .btn-primary { min-height: 44px; }
+  .goal-marks__icon { width: 44px; height: 44px; }
+  .goal-marks__slider { min-height: 44px; }
+  .goal-marks .btn-text, .goal-areas .btn-text { min-height: 44px; padding-inline: 10px; font-size: 14px; }
+}
+.goal-areas__more { display: flex; flex-wrap: wrap; gap: 0 4px; }
 
 .replay-framing__zoom { display: grid; gap: 4px; font-size: 14px; }
 .replay-framing__zoom input[type="range"] { width: 100%; min-height: 44px; margin: 0; accent-color: var(--sh-text); }
@@ -992,7 +1018,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .replay-framing__warn::before { content: '\26A0\FE0E  '; }
 .chip:disabled { opacity: 0.4; cursor: not-allowed; }
 @media (pointer: coarse) {
-  .goal-marks__hint, .goal-areas__hint, .goal-areas__label, .frame-boxes__empty, .frame-box__tag { font-size: 14px; }
+  .goal-areas__hint, .goal-areas__label, .frame-boxes__empty, .frame-box__tag { font-size: 14px; }
   .goal-areas .btn-quiet { min-height: 44px; }
 }
 
