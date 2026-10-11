@@ -63,3 +63,14 @@ until the user tries (iPad Safari WebGPU support varies).
 ## Out of scope
 
 Ball-only suggestions (full-match scan), fine-tuned weights, per-user training, far-goal net-motion cue (future), Safari tuning.
+
+## 2026-10-11 change: neutral hint, resting balls ignored
+
+Real matches (24-09, 29-09 TNF): a ball can sit in the far goal for minutes while players walk in front of it, so the 80% static
+filter misses it and the wrong goal gets tagged. Changes:
+
+- The review card no longer pre-selects the team from the ball tag and no longer names a goal. Hint: "Ball seen in a goal mouth";
+  Goal is still pre-selected as the type.
+- `sampleTimes` adds look-back samples at t − 20 s and t − 12 s (dropped, not clamped, before the start; 15 frames per suggestion).
+  In `ballVerdict`, samples at or before t − 10 s never count as frames and are excluded from the static filter; a window detection
+  within ±12 px of a detection in a look-back sample of the same goal is a ball already resting there and is ignored.
