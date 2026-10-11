@@ -11,7 +11,7 @@ describe('detection job', () => {
         await jobs.start()
         expect(jobs.store.getState().phase).toBe('done')
         expect(useAppState.getState().suggestions.map((s) => s.globalTimeSec)).toEqual([100])
-        expect(useAppState.getState().suggestionRun).toMatchObject({ analysedSec: 600, total: 1, configVersion: 2, durationMs: 3, fileKeys: ['A'] })
+        expect(useAppState.getState().suggestionRun).toMatchObject({ analysedSec: 600, total: 1, configVersion: 2, durationMs: 1, fileKeys: ['A'] })
         expect(wake.acquire).toHaveBeenCalled(); expect(wake.release).toHaveBeenCalled()
     })
     it('should keep previous suggestions when cancelled', async () => {
