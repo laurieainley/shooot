@@ -129,6 +129,12 @@ type AppState = {
     setSuggestions: (run: SuggestionRun, moments: ScoredMoment[]) => void
     /** Keep adds the event; changing a kept decision removes the old event first (each is its own undo step). */
     decideSuggestion: (id: string, decision: { kind: 'reject' } | { kind: 'keep'; type: KeepType; team?: string; atSec?: number }) => void
+    /** The last Discard, undoable with ⌘Z / the toast's Undo while no event change has happened since (not persisted). */
+    discardUndo: { prev: Suggestion; depth: number; hadEvent: boolean } | null
+    /** Undo the last Discard (back to its previous status, review returns to it); false when it can't be undone any more. */
+    undoDiscard: (id?: string) => boolean
+    /** A discarded suggestion goes back to pending. */
+    restoreSuggestion: (id: string) => void
     clearSuggestions: () => void
     setReviewIndex: (i: number) => void
     openReviewAt: (id: string) => void
@@ -221,7 +227,7 @@ export const useAppState = create<AppState>()(
             // Undo/redo stacks
             undoStack: [],
             redoStack: [],
-            suggestions: [],
+            suggestions: [], discardUndo: null,
             suggestionRun: null,
             reviewIndex: 0,
             // Preview mode state
@@ -393,6 +399,10 @@ export const useAppState = create<AppState>()(
                 })
             },
             undo: () => {
+                const d = get().discardUndo
+                if (d && get().undoDiscard()) {
+                    if (!d.hadEvent) return // a plain discard: that was the whole step
+                }
                 const state = get()
                 if (state.undoStack.length === 0) return
                 const previous = relinkEvents(state.undoStack[state.undoStack.length - 1], state.files)
@@ -526,7 +536,10 @@ export const useAppState = create<AppState>()(
                 const live = s.eventId && st.events.some((e) => e.id === s.eventId) ? s.eventId : undefined
                 if (live) get().removeEvent(live)
                 if (decision.kind === 'reject') {
-                    set({ suggestions: get().suggestions.map((x) => (x.id === id ? { ...x, status: 'rejected', keptAs: live ? x.keptAs : undefined, eventId: live } : x)) })
+                    set({
+                        suggestions: get().suggestions.map((x) => (x.id === id ? { ...x, status: 'rejected', keptAs: live ? x.keptAs : undefined, eventId: live } : x)),
+                        discardUndo: { prev: s, depth: get().undoStack.length, hadEvent: !!live },
+                    })
                     return
                 }
                 const durations = st.files.map((f) => f.durationSec ?? 0)
@@ -535,7 +548,17 @@ export const useAppState = create<AppState>()(
                 get().addEvent({ id: eventId, matchTimeSec: decision.atSec !== undefined ? Math.round(at.timeSec * 10) / 10 : Math.floor(at.timeSec), sourceFileIndex: at.fileIndex, type: decision.type, ...(decision.team ? { team: decision.team } : {}) })
                 set({ suggestions: get().suggestions.map((x) => (x.id === id ? { ...x, status: 'kept', keptAs: decision.type, eventId } : x)) })
             },
-            clearSuggestions: () => set({ suggestions: [], suggestionRun: null, reviewIndex: 0 }),
+            undoDiscard: (id) => {
+                const st = get()
+                const d = st.discardUndo
+                if (!d || d.depth !== st.undoStack.length || (id !== undefined && d.prev.id !== id)) return false
+                const at = st.suggestions.findIndex((x) => x.id === d.prev.id)
+                if (at < 0) { set({ discardUndo: null }); return false }
+                set({ suggestions: st.suggestions.map((x, i) => (i === at ? d.prev : x)), discardUndo: null, reviewIndex: at })
+                return true
+            },
+            restoreSuggestion: (id) => set({ suggestions: get().suggestions.map((x) => (x.id === id ? { ...x, status: 'pending', keptAs: undefined, eventId: undefined } : x)), discardUndo: null }),
+            clearSuggestions: () => set({ discardUndo: null, suggestions: [], suggestionRun: null, reviewIndex: 0 }),
             setReviewIndex: (i) => set({ reviewIndex: Math.max(0, i) }),
             openReviewAt: (id) => {
                 const i = get().suggestions.findIndex((x) => x.id === id)

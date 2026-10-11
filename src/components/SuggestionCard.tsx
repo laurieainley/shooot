@@ -18,10 +18,10 @@ interface SuggestionCardProps {
     suggestion: Suggestion
     index: number
     total: number
-    /** Next suggestion (Skip / Next, →). */
+    /** Next suggestion (Next, →) — only moves, never decides. */
     onNext: () => void
     onPrev: () => void
-    /** After Save: the next suggestion still to review. */
+    /** After Confirm or Discard: the next suggestion still to review. */
     onSaved: () => void
     /** Team pre-selected after Goal / Own goal, so Enter saves with it (defaults to the first team). */
     preselectTeam?: string
@@ -36,7 +36,7 @@ const TYPES: { type: KeepType; label: string; key: string }[] = [
     { type: 'save', label: 'Save', key: 'S' }, { type: 'highlight', label: 'Highlight', key: 'H' },
 ]
 const TYPE_LABEL: Record<KeepType, string> = { goal: 'Goal', own_goal: 'Own goal', save: 'Save', highlight: 'Highlight' }
-const KEY_TO_TYPE: Record<string, ReviewType> = { g: 'goal', o: 'own_goal', s: 'save', h: 'highlight', x: 'reject' }
+const KEY_TO_TYPE: Record<string, ReviewType> = { g: 'goal', o: 'own_goal', s: 'save', h: 'highlight' }
 
 function Chevron({ dir }: { dir: 'left' | 'right' }) {
     return (
@@ -48,7 +48,8 @@ function Chevron({ dir }: { dir: 'left' | 'right' }) {
 
 /**
  * One suggested moment, one step at a time: watch and mark the exact moment, say what it was (and which team), then
- * save. Keys and buttons only select; Save (Enter) confirms and moves on. Finished steps fold into a chip that reopens them.
+ * confirm. Keys and buttons only select; Confirm (Enter) saves and moves on, Discard (X) drops it and moves on.
+ * Previous / Next only move. Finished steps fold into a chip that reopens them.
  */
 export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSaved, preselectTeam, preselectType, hint }: SuggestionCardProps) {
     const teams = useAppState((s) => s.teams)
@@ -74,7 +75,7 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
         const keptAs = savedEvent && (TYPE_LABEL as Record<string, string>)[savedEvent.type] ? savedEvent.type as KeepType : null
         if (keptAs || rejected) {
             touchedFor.current = suggestion.id // the saved choice stands: no pre-selection over it
-            dispatch({ kind: 'type', type: keptAs ?? 'reject', defaultTeam: savedEvent?.team ?? null })
+            if (keptAs) dispatch({ kind: 'type', type: keptAs, defaultTeam: savedEvent?.team ?? null })
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the suggestion changes
     }, [suggestion.id])
@@ -94,11 +95,16 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
     const confirm = (): void => {
         if (!canConfirm(decision, teamCount) || decision.type === null) return
         const st = useAppState.getState()
-        if (decision.type === 'reject') st.decideSuggestion(suggestion.id, { kind: 'reject' })
-        else st.decideSuggestion(suggestion.id, { kind: 'keep', type: decision.type, atSec: moment.current() ?? estimateSec, ...(decision.team ? { team: decision.team } : {}) })
+        st.decideSuggestion(suggestion.id, { kind: 'keep', type: decision.type, atSec: moment.current() ?? estimateSec, ...(decision.team ? { team: decision.team } : {}) })
         touch({ kind: 'clear' })
         onSaved()
     }
+    const discard = (): void => {
+        useAppState.getState().decideSuggestion(suggestion.id, { kind: 'reject' })
+        touch({ kind: 'clear' })
+        onSaved()
+    }
+    const restore = (): void => { useAppState.getState().restoreSuggestion(suggestion.id) }
     const scrub = (sec: number): void => {
         const st = useAppState.getState()
         const at = globalToFileTime(st.cumulativeOffsets, st.files.map((f) => f.durationSec ?? 0), sec)
@@ -132,6 +138,7 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
             if (needsTeam(decision.type, teamCount) && (k === '1' || k === '2') && teams[Number(k) - 1]) {
                 e.preventDefault(); touch({ kind: 'team', team: teams[Number(k) - 1].name }); return
             }
+            if (k === 'x') { e.preventDefault(); if (!rejected) discard(); return }
             const type = KEY_TO_TYPE[k]
             if (type) { e.preventDefault(); select(type); return }
             if (e.key === '[') { e.preventDefault(); loop.earlier(); return }
@@ -165,8 +172,8 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
             <header className="rv__head">
                 <p className="review__count">Suggestion {index + 1} of {total} · <span className="tc">{formatClock(Math.max(0, suggestion.globalTimeSec - kickOff), long)}</span></p>
                 <div className="rv__nav">
-                    <button type="button" className="rv__icon" aria-label="Previous suggestion" onClick={onPrev} disabled={index === 0}><Chevron dir="left" /></button>
-                    <button type="button" className="rv__skip" onClick={onNext}>{savedEvent || rejected ? 'Next' : 'Skip'} <Chevron dir="right" /></button>
+                    <button type="button" className="rv__skip" aria-label="Previous suggestion" onClick={onPrev} disabled={index === 0}><Chevron dir="left" /> Previous</button>
+                    <button type="button" className="rv__skip" onClick={onNext}>Next <Chevron dir="right" /></button>
                 </div>
             </header>
 
@@ -200,10 +207,16 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
                     </button>
                     {!sure && decision.type === null && <button type="button" className="rv__link" onClick={() => setAcceptedEstimate(true)}>Use the estimate instead</button>}
                 </div>
+                {rejected && (
+                    <div className="rv__discarded">
+                        <span className="rv__discardednote">Discarded</span>
+                        <button type="button" className="rv__quiet" onClick={restore}>Restore</button>
+                    </div>
+                )}
                 {hasChoice && (
                     <div className="rv__chips">
                         <button type="button" className="rv__chip" onClick={() => touch({ kind: 'clear' })} aria-label="Change what it was">
-                            {decision.type === 'reject' ? 'Not a goal' : TYPE_LABEL[decision.type as KeepType]}{decision.team && decision.type !== 'reject' ? ` · ${decision.team}` : ''} <span aria-hidden="true">✎</span>
+                            {TYPE_LABEL[decision.type as KeepType]}{decision.team ? ` · ${decision.team}` : ''} <span aria-hidden="true">✎</span>
                         </button>
                     </div>
                 )}
@@ -217,7 +230,6 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
                                 </button>
                             ))}
                         </div>
-                        <button type="button" className="rv__link" onClick={() => select('reject')}>Not a goal <kbd>X</kbd></button>
                     </div>
                 )}
 
@@ -233,8 +245,11 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
 
                 {hasChoice && (
                     <button type="button" className="btn-primary rv__save" disabled={!canConfirm(decision, teamCount)} onClick={confirm}>
-                        {confirmLabel(decision.type, marked)} <kbd>⏎</kbd>
+                        {confirmLabel(marked)} <kbd>⏎</kbd>
                     </button>
+                )}
+                {!rejected && (
+                    <button type="button" className="rv__quiet rv__discard" onClick={discard}>Discard <kbd>X</kbd></button>
                 )}
             </section>
         </div>

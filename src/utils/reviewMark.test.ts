@@ -67,7 +67,6 @@ describe('canConfirm', () => {
         expect(canConfirm(EMPTY_DECISION, 2)).toBe(false)
         expect(canConfirm({ type: 'goal', team: null }, 2)).toBe(false)
         expect(canConfirm({ type: 'goal', team: null }, 0)).toBe(true)
-        expect(canConfirm({ type: 'reject', team: null }, 2)).toBe(true)
         expect(canConfirm({ type: 'save', team: null }, 2)).toBe(true)
     })
 })
@@ -82,19 +81,17 @@ describe('instructionText', () => {
     })
     it('should say what will be saved, and warn when unmarked', () => {
         const i = instructionText({ ...base, marked: true, decision: { type: 'goal', team: 'Whites' } })
-        expect(i).toEqual({ text: 'Goal · Whites at 23:41.6 — press Enter to save', warning: null })
+        expect(i).toEqual({ text: 'Goal · Whites at 23:41.6 — press Enter to confirm', warning: null })
         expect(instructionText({ ...base, marked: false, decision: { type: 'save', team: null } }).warning).toBe('Using the estimate — mark the exact moment for accurate clips')
     })
-    it('should ask for the team when a goal has none, and say reject plainly', () => {
+    it('should ask for the team when a goal has none, ', () => {
         expect(instructionText({ ...base, marked: true, decision: { type: 'goal', team: null } }).text).toContain('choose the team')
-        expect(instructionText({ ...base, marked: false, decision: { type: 'reject', team: null } })).toEqual({ text: 'Not a goal — press Enter to reject', warning: null })
     })
 })
 
 describe('confirmLabel', () => {
-    it('should read Save event, Save event at estimate or Reject', () => {
-        expect(confirmLabel('goal', true)).toBe('Save event'); expect(confirmLabel('goal', false)).toBe('Save event at estimate')
-        expect(confirmLabel('reject', false)).toBe('Reject'); expect(confirmLabel(null, false)).toBe('Save event at estimate')
+    it('should read Confirm, or Confirm at estimate when never marked', () => {
+        expect(confirmLabel(true)).toBe('Confirm'); expect(confirmLabel(false)).toBe('Confirm at estimate')
     })
 })
 

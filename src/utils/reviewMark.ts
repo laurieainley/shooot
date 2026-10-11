@@ -60,7 +60,7 @@ export function timelineLayout(w: LoopWindow, estimateSec: number, playheadSec: 
     }
 }
 
-export type ReviewType = KeepType | 'reject'
+export type ReviewType = KeepType
 export type DecisionState = { type: ReviewType | null; team: string | null }
 export const EMPTY_DECISION: DecisionState = { type: null, team: null }
 
@@ -114,14 +114,12 @@ export function instructionText({ marked, decision, teamCount, clock }: Instruct
             ? { text: `Marked at ${clock} — now choose what it was`, warning: null }
             : { text: 'Pause when the ball crosses the line or the moment happens, then press M (or tap Mark moment)', warning: null }
     }
-    if (type === 'reject') return { text: 'Not a goal — press Enter to reject', warning: null }
     if (needsTeam(type, teamCount) && team === null) return { text: `${TYPE_NAME[type]} at ${clock} — choose the team (1 / 2)`, warning: marked ? null : UNMARKED_WARNING }
     const what = team ? `${TYPE_NAME[type]} · ${team}` : TYPE_NAME[type]
-    return { text: `${what} at ${clock} — press Enter to save`, warning: marked ? null : UNMARKED_WARNING }
+    return { text: `${what} at ${clock} — press Enter to confirm`, warning: marked ? null : UNMARKED_WARNING }
 }
 
 /** Label of the confirm button. */
-export function confirmLabel(type: ReviewType | null, marked: boolean): string {
-    if (type === 'reject') return 'Reject'
-    return marked ? 'Save event' : 'Save event at estimate'
+export function confirmLabel(marked: boolean): string {
+    return marked ? 'Confirm' : 'Confirm at estimate'
 }

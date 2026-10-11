@@ -593,6 +593,35 @@ describe('suggestions', () => {
         expect(st.suggestions[0]).toMatchObject({ status: 'kept', keptAs: 'goal', eventId: st.events[0].id })
         expect(st.undoStack).toHaveLength(1)
     })
+    it('should undo a discard with undo() (back to pending, review returns to it) without touching events', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }, { timeSec: 300, score: 4 }])
+        const [a, b] = useAppState.getState().suggestions
+        useAppState.getState().decideSuggestion(a.id, { kind: 'reject' })
+        useAppState.getState().setReviewIndex(1)
+        useAppState.getState().undo()
+        const st = useAppState.getState()
+        expect(st.suggestions.map((x) => x.status)).toEqual(['pending', 'pending'])
+        expect(st.reviewIndex).toBe(0)
+        expect(b.status).toBe('pending')
+    })
+    it('should fall back to the event undo once something else changed after the discard', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }, { timeSec: 300, score: 4 }])
+        const [a, b] = useAppState.getState().suggestions
+        useAppState.getState().decideSuggestion(a.id, { kind: 'reject' })
+        useAppState.getState().decideSuggestion(b.id, { kind: 'keep', type: 'goal', team: 'Whites' })
+        useAppState.getState().undo()
+        const st = useAppState.getState()
+        expect(st.events).toHaveLength(0)
+        expect(st.suggestions[0].status).toBe('rejected')
+    })
+    it('should restore a discarded suggestion to pending', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        const id = useAppState.getState().suggestions[0].id
+        useAppState.getState().decideSuggestion(id, { kind: 'reject' })
+        useAppState.getState().restoreSuggestion(id)
+        expect(useAppState.getState().suggestions[0]).toMatchObject({ status: 'pending' })
+        expect(useAppState.getState().suggestions[0].eventId).toBeUndefined()
+    })
     it('should use atSec (to 0.1 s) instead of the estimate when given', () => {
         useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
         const id = useAppState.getState().suggestions[0].id
