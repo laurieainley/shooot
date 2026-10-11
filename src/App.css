@@ -934,6 +934,33 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .frame-box__handle::after { opacity: 0; transition: opacity 0.12s; }
   .frame-box:hover .frame-box__handle::after, .frame-box:focus-within .frame-box__handle::after, .frame-box__handle:hover::after { opacity: 1; }
 }
+/* Goal marks editor (Match setup) */
+.goal-marks { display: grid; gap: 8px; --tone: var(--sh-text); }
+.goal-marks--team1 { --tone: var(--sh-kit-sky); }
+.goal-marks--team2 { --tone: var(--sh-kit-yellow); }
+.goal-marks__prompt { margin: 0; font-size: 14px; color: var(--sh-text); }
+.goal-marks__view {
+  position: relative; width: 100%; max-height: 52vh; max-width: min(100%, calc(52vh * 16 / 9)); margin-inline: auto; overflow: hidden;
+  background: var(--sh-video); border-radius: var(--sh-radius-sm); touch-action: none; user-select: none; -webkit-user-select: none; cursor: crosshair;
+}
+.goal-marks__view:focus-visible { outline: 3px solid var(--sh-on-video); outline-offset: 2px; }
+.goal-marks__picture { position: absolute; inset: 0; transform-origin: center; }
+.goal-marks__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.goal-marks__svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.goal-marks__stroke { fill: none; stroke: var(--tone); stroke-width: 2px; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.8)); }
+.goal-marks__stroke--base { stroke-width: 4px; }
+.goal-marks__foot { fill: color-mix(in srgb, var(--tone) 22%, transparent); stroke: var(--tone); stroke-width: 1px; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
+.goal-marks__dot {
+  position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: grab; touch-action: none;
+}
+.goal-marks__dot::after {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; box-sizing: border-box; border-radius: 50%;
+  background: var(--tone); border: 2px solid var(--sh-on-lime); box-shadow: 0 0 0 1px rgb(0 0 0 / 0.7);
+}
+.goal-marks__dot:focus-visible { outline: 3px solid var(--sh-on-video); outline-offset: -4px; }
+.goal-areas__marks { display: inline-flex; gap: 8px; }
+@media (pointer: coarse) { .goal-marks .btn-quiet, .goal-marks .btn-primary { min-height: 44px; } }
+
 .replay-framing__zoom { display: grid; gap: 4px; font-size: 14px; }
 .replay-framing__zoom input[type="range"] { width: 100%; min-height: 44px; margin: 0; accent-color: var(--sh-text); }
 .replay-framing__warn { margin: 0; font-size: 14px; color: var(--sh-text); }

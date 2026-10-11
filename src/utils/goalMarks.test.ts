@@ -56,6 +56,11 @@ describe('ballInGoal', () => {
     })
 })
 describe('normaliseGoalMarks / swapGoalMarks', () => {
+    it('should round points to 4 decimals', () => {
+        const m = { postL: { x: 0.123456, y: 0.2 }, postR: { x: 0.3, y: 0.2 }, barL: { x: 0.1, y: 0.1 }, barR: { x: 0.3, y: 0.1 } }
+        expect(normaliseGoalMarks({ team1: m })!.team1!.postL).toEqual({ x: 0.1235, y: 0.2 })
+    })
+
     it('should keep valid goals, drop malformed ones and clamp to the frame', () => {
         const out = normaliseGoalMarks({ team1: { ...FAR, postL: { x: 1.5, y: 0.2 } }, team2: { postL: { x: NaN, y: 0 } } })
         expect(out?.team1?.postL.x).toBe(1)

@@ -450,11 +450,12 @@ export const useAppState = create<AppState>()(
             setGoalMarks: (team, marks) => {
                 const { goalMarks, goalAreas } = get()
                 const next: GoalMarksByTeam = { ...goalMarks }
-                if (marks) next[team] = marks
+                const clean = marks ? normaliseGoalMarks({ [team]: marks })?.[team] : undefined
+                if (clean) next[team] = clean
                 else delete next[team]
                 set({
                     goalMarks: next.team1 || next.team2 ? next : null,
-                    ...(marks ? { goalAreas: normaliseAreas({ ...goalAreas, [team]: goalRectFromMarks(marks) }) } : {}),
+                    ...(clean ? { goalAreas: normaliseAreas({ ...goalAreas, [team]: goalRectFromMarks(clean) }) } : {}),
                 })
             },
             setAllGoalMarks: (marks) => set({ goalMarks: normaliseGoalMarks(marks) }),

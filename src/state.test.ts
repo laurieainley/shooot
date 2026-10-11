@@ -681,6 +681,11 @@ describe('goal marks', () => {
         expect(s().goalAreas!.team1).toEqual(goalRectFromMarks(MARKS))
     })
 
+    it('should round stored mark coordinates to 4 decimals', () => {
+        s().setGoalMarks('team1', { ...MARKS, postL: { x: 0.123456789, y: 0.98765432 } })
+        expect(s().goalMarks!.team1!.postL).toEqual({ x: 0.1235, y: 0.9877 })
+    })
+
     it('should remove marks but keep the rectangle', () => {
         s().setGoalMarks('team1', MARKS)
         s().setGoalMarks('team1', null)

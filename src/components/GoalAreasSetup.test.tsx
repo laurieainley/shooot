@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import { defaultGoalAreas } from '../utils/crop'
@@ -103,5 +103,58 @@ describe('GoalAreasSetup', () => {
         render(<GoalAreasSetup />)
         expect(screen.getByText('Load a video to set the goal areas.')).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Set goal areas' })).toBeDisabled()
+    })
+
+    describe('goal marks', () => {
+        const M = { postL: { x: 0.2, y: 0.6 }, postR: { x: 0.4, y: 0.6 }, barL: { x: 0.2, y: 0.4 }, barR: { x: 0.4, y: 0.4 } }
+        const setup = (): void => { useAppState.setState({ goalAreas: defaultGoalAreas(), goalMarks: null }) }
+
+        it('should offer Mark goal per goal without marks and Edit/Clear with marks', () => {
+            useAppState.setState({ goalAreas: defaultGoalAreas(), goalMarks: { team1: M } })
+            render(<GoalAreasSetup />)
+            expect(screen.getByRole('button', { name: /^Edit marks/ })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /^Clear marks/ })).toBeInTheDocument()
+            expect(screen.getAllByRole('button', { name: /^Mark goal/ })).toHaveLength(1)
+        })
+
+        it('should store the marks and update the rectangle on Done, hiding the boxes while editing', async () => {
+            setup()
+            render(<GoalAreasSetup />)
+            await userEvent.click(screen.getByRole('button', { name: /^Mark goal, Whites/ }))
+            expect(screen.queryByRole('group', { name: "Whites' goal box" })).not.toBeInTheDocument()
+            const pic = screen.getByTestId('goal-marks-picture')
+            pic.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 500, right: 1000, bottom: 500, x: 0, y: 0, toJSON: () => ({}) })
+            for (const [x, y] of [[200, 300], [400, 300], [200, 200], [400, 200]]) fireEvent.click(pic, { clientX: x, clientY: y })
+            await userEvent.click(screen.getByRole('button', { name: 'Done' }))
+            expect(useAppState.getState().goalMarks).toEqual({ team1: M })
+            expect(useAppState.getState().goalAreas!.team1).not.toEqual(defaultGoalAreas().team1)
+            expect(screen.getByRole('group', { name: "Whites' goal box" })).toBeInTheDocument()
+        })
+
+        it('should keep the old marks on Cancel', async () => {
+            useAppState.setState({ goalAreas: defaultGoalAreas(), goalMarks: { team1: M } })
+            render(<GoalAreasSetup />)
+            await userEvent.click(screen.getByRole('button', { name: /^Edit marks/ }))
+            await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+            expect(useAppState.getState().goalMarks).toEqual({ team1: M })
+        })
+
+        it('should clear only the marks on Clear marks', async () => {
+            useAppState.setState({ goalAreas: defaultGoalAreas(), goalMarks: { team1: M } })
+            render(<GoalAreasSetup />)
+            await userEvent.click(screen.getByRole('button', { name: /^Clear marks/ }))
+            expect(useAppState.getState().goalMarks).toBeNull()
+            expect(useAppState.getState().goalAreas).not.toBeNull()
+        })
+
+        it('should keep marks on Reset boxes and clear them on Remove', async () => {
+            useAppState.setState({ goalAreas: defaultGoalAreas(), goalMarks: { team1: M } })
+            render(<GoalAreasSetup />)
+            await userEvent.click(screen.getByRole('button', { name: 'Reset boxes' }))
+            expect(useAppState.getState().goalMarks).toEqual({ team1: M })
+            await userEvent.click(screen.getByRole('button', { name: 'Remove' }))
+            expect(useAppState.getState().goalMarks).toBeNull()
+            expect(useAppState.getState().goalAreas).toBeNull()
+        })
     })
 })

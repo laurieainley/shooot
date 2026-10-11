@@ -58,7 +58,9 @@ export function ballInGoal(ball: { cx: number; bottom: number; w: number }, m: G
 }
 
 const isPt = (v: unknown): v is Pt => !!v && typeof v === 'object' && Number.isFinite((v as Pt).x) && Number.isFinite((v as Pt).y)
-const clampPt = (p: Pt): Pt => ({ x: Math.min(1, Math.max(0, p.x)), y: Math.min(1, Math.max(0, p.y)) })
+/** Clamped to the frame and rounded to 4 decimals (about 0.2 px on 4K), which keeps transfer links short. */
+const r4 = (v: number): number => Math.round(Math.min(1, Math.max(0, v)) * 10000) / 10000
+const clampPt = (p: Pt): Pt => ({ x: r4(p.x), y: r4(p.y) })
 
 function normaliseOne(v: unknown): GoalMarks | undefined {
     if (!v || typeof v !== 'object') return undefined
