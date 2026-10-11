@@ -61,11 +61,11 @@ export function GoalAreasSetup() {
                     {boxes.map((b) => marks?.[b.id as GoalTeam]
                         ? (
                             <span key={b.id} className="goal-areas__marks">
-                                <button type="button" className="btn-quiet" aria-label={`Edit marks, ${b.label}`} onClick={() => setEditing(b.id as GoalTeam)}>Edit marks</button>
-                                <button type="button" className="btn-quiet" aria-label={`Clear marks, ${b.label}`} onClick={() => setMarks(b.id as GoalTeam, null)}>Clear marks</button>
+                                <button type="button" className="btn-quiet" onClick={() => setEditing(b.id as GoalTeam)}>{`Edit marks, ${b.short}`}</button>
+                                <button type="button" className="btn-quiet" onClick={() => setMarks(b.id as GoalTeam, null)}>{`Clear marks, ${b.short}`}</button>
                             </span>
                         )
-                        : <button key={b.id} type="button" className="btn-quiet" aria-label={`Mark goal, ${b.label}`} onClick={() => setEditing(b.id as GoalTeam)}>Mark goal</button>)}
+                        : <button key={b.id} type="button" className="btn-quiet" onClick={() => setEditing(b.id as GoalTeam)}>{`Mark goal, ${b.short}`}</button>)}
                 </div>
             )}
             <div className="goal-areas__row">
