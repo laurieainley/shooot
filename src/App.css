@@ -1277,6 +1277,15 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .sheet-backdrop:has(.sheet--import) { place-items: center; padding: 16px; }
   .sheet.sheet--import { width: min(880px, 100%); max-height: calc(100dvh - 32px); border-radius: var(--sh-radius-md); border-width: 1px; }
 }
+.lanes { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--sh-line); border-radius: var(--sh-radius-md); overflow: hidden; background: var(--sh-surface-2); }
+.lanes__btn { min-height: 44px; padding: 0 10px; border: 0; background: transparent; color: var(--sh-text); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.lanes__btn + .lanes__btn { border-left: 1px solid var(--sh-line); }
+.lanes__btn:hover { background: var(--sh-line); }
+.lanes__btn[aria-pressed="true"] { background: var(--sh-text); color: var(--sh-ground); font-weight: 800; }
+.lanes__gain { font-family: var(--sh-font-mono); font-weight: 800; }
+@media (prefers-reduced-motion: no-preference) { .lanes__gain { animation: lanes-gain 2.5s ease-out both; } }
+@keyframes lanes-gain { 0% { opacity: 0; transform: translateY(3px); } 12% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: .6; } }
+.rv__toppick { font-family: var(--sh-font-ui, inherit); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--sh-text); border-color: var(--sh-muted); padding: 1px 6px; margin-right: 6px; }
 .range__adv { display: flex; flex-direction: column; gap: 8px; }
 .range__tick { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; padding: 8px 0; cursor: pointer; font-size: 14px; }
 .range__tick input { flex: 0 0 auto; width: 22px; height: 22px; margin: 0; accent-color: var(--sh-text); }

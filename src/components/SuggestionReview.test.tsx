@@ -473,10 +473,10 @@ describe('SuggestionReview', () => {
                 expect(screen.getByText('Ball check unavailable: model not found.')).toBeTruthy()
                 expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy()
             })
-            it('should add "Ball seen in N." to the summary', () => {
+            it('should add "Top picks: N." to the summary', () => {
                 useAppState.setState({ reviewIndex: 2, suggestions: useAppState.getState().suggestions.map((s) => ({ ...s, ball: { goal: 'team2' as const, frames: 2 } })) })
                 render(<SuggestionReview onClose={() => {}} />)
-                expect(screen.getByText('Ball seen in 2.')).toBeTruthy()
+                expect(screen.getByText('Top picks: 2.')).toBeTruthy()
             })
         })
         it('should scrub from the timeline without marking, pausing at that time', () => {
@@ -789,5 +789,118 @@ describe('Find goals: Advanced detection (Labs)', () => {
         open()
         press('Enter')
         expect(startDetectionMock).toHaveBeenCalledWith({ ball: true })
+    })
+})
+
+describe('Find goals: Top picks lane', () => {
+    const tag = (i: number): void => { act(() => { useAppState.getState().setSuggestionBall(useAppState.getState().suggestions[i].id, { goal: 'team1', frames: 2 }) }) }
+    beforeEach(() => {
+        useAppState.setState({ suggestions: [], suggestionRun: null, events: [], reviewIndex: 0 })
+        useAppState.getState().setSuggestions(run, [100, 200, 300, 400, 500].map((t) => ({ timeSec: t, score: 3 })))
+        useAppState.setState({ reviewIndex: 0 })
+    })
+    const lane = (name: RegExp): HTMLElement => screen.getByRole('button', { name })
+    it('should show no switch without Advanced detection', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(screen.queryByRole('group', { name: 'Suggestions to review' })).toBeNull()
+    })
+    it('should show All (5) and Top picks (2) once suggestions carry a ball tag, defaulting to All', () => {
+        tag(1); tag(3)
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(lane(/^All \(5\)/).getAttribute('aria-pressed')).toBe('true')
+        expect(lane(/^Top picks \(2\)/).getAttribute('aria-pressed')).toBe('false')
+        expect(screen.getByText(/Suggestion 1 of 5/)).toBeTruthy()
+    })
+    it('should count and navigate within Top picks only, with the header count per lane', () => {
+        tag(1); tag(3)
+        render(<SuggestionReview onClose={() => {}} />)
+        fireEvent.click(lane(/^Top picks/))
+        expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy()
+        expect(useAppState.getState().reviewIndex).toBe(1)
+        expect(screen.getByRole('button', { name: 'Previous suggestion' })).toBeDisabled()
+        fireEvent.click(screen.getByRole('button', { name: /Skip/ }))
+        expect(screen.getByText(/Suggestion 2 of 2/)).toBeTruthy()
+        expect(useAppState.getState().reviewIndex).toBe(3)
+        fireEvent.click(screen.getByRole('button', { name: 'Previous suggestion' }))
+        expect(useAppState.getState().reviewIndex).toBe(1)
+        fireEvent.click(screen.getByRole('button', { name: /Skip/ }))
+        fireEvent.click(screen.getByRole('button', { name: /Skip/ }))
+        expect(screen.getByText('You kept 0 of 5.')).toBeTruthy() // past the last top pick: the summary
+    })
+    it('should open Top picks at the first top pick still to review, and return to where you were in All', () => {
+        tag(1); tag(3)
+        useAppState.getState().decideSuggestion(useAppState.getState().suggestions[1].id, { kind: 'reject' })
+        useAppState.setState({ reviewIndex: 2 })
+        render(<SuggestionReview onClose={() => {}} />)
+        fireEvent.click(lane(/^Top picks/))
+        expect(useAppState.getState().reviewIndex).toBe(3)
+        expect(screen.getByText(/Suggestion 2 of 2/)).toBeTruthy()
+        fireEvent.click(lane(/^All/))
+        expect(useAppState.getState().reviewIndex).toBe(2)
+        expect(screen.getByText(/Suggestion 3 of 5/)).toBeTruthy()
+    })
+    it('should open the first top pick when all top picks are decided', () => {
+        tag(1); tag(3)
+        for (const i of [1, 3]) useAppState.getState().decideSuggestion(useAppState.getState().suggestions[i].id, { kind: 'reject' })
+        render(<SuggestionReview onClose={() => {}} />)
+        fireEvent.click(lane(/^Top picks/))
+        expect(useAppState.getState().reviewIndex).toBe(1)
+    })
+    it('should save on to the next top pick still to review, and share decisions between lanes', () => {
+        tag(1); tag(3)
+        render(<SuggestionReview onClose={() => {}} />)
+        fireEvent.click(lane(/^Top picks/))
+        press('x'); press('Enter')
+        expect(useAppState.getState().reviewIndex).toBe(3)
+        fireEvent.click(lane(/^All/))
+        expect(useAppState.getState().suggestions[1].status).toBe('rejected')
+        fireEvent.click(lane(/^All/))
+        expect(screen.getByText(/Suggestion 1 of 5/)).toBeTruthy()
+        fireEvent.click(screen.getByRole('button', { name: /Skip/ }))
+        expect(screen.getByText(/Suggestion 2 of 5/)).toBeTruthy()
+        expect(screen.getByRole('button', { name: 'Next' })).toBeTruthy() // decided in the other lane: shown as decided
+    })
+    it('should badge a top pick', () => {
+        tag(0)
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(screen.getByText('Top pick')).toBeTruthy()
+        expect(screen.getByText(/Ball seen in a goal mouth/)).toBeTruthy()
+    })
+    it('should update the Top picks count live with a brief +1, without changing the current card', () => {
+        job.ballPhase = 'running'; job.ballEp = 'webgpu'; job.ballFraction = 0.4
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(lane(/^Top picks \(0\)/)).toBeTruthy()
+        expect(screen.getByText('Checking the goal mouths… 40%')).toBeTruthy()
+        tag(3)
+        expect(lane(/^Top picks \(1\)/)).toBeTruthy()
+        expect(screen.getByText('+1')).toBeTruthy()
+        expect(screen.getByText(/Suggestion 1 of 5/)).toBeTruthy()
+        expect(lane(/^All \(5\)/).getAttribute('aria-pressed')).toBe('true')
+        expect(screen.getByText('Checking the goal mouths… 40% · 1 top pick so far')).toBeTruthy()
+        tag(1)
+        expect(screen.getByText('Checking the goal mouths… 40% · 2 top picks so far')).toBeTruthy()
+    })
+    it('should keep the current card when a tag arrives while in Top picks', () => {
+        job.ballPhase = 'running'; job.ballEp = 'webgpu'
+        render(<SuggestionReview onClose={() => {}} />)
+        tag(1)
+        fireEvent.click(lane(/^Top picks/))
+        tag(3)
+        expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy()
+        expect(useAppState.getState().reviewIndex).toBe(1)
+    })
+    it('should say so when the ball check finished with no top picks', () => {
+        job.ballPhase = 'done'
+        render(<SuggestionReview onClose={() => {}} />)
+        fireEvent.click(lane(/^Top picks \(0\)/))
+        expect(screen.getByText("No top picks — the ball wasn't seen in a goal for any suggestion.")).toBeTruthy()
+        fireEvent.click(lane(/^All/))
+        expect(screen.getByText(/Suggestion 1 of 5/)).toBeTruthy()
+    })
+    it('should list Top picks in the summary', () => {
+        tag(0); tag(2)
+        render(<SuggestionReview onClose={() => {}} />)
+        for (let i = 0; i < 5; i++) { press('x'); press('Enter') }
+        expect(screen.getByText('Top picks: 2.')).toBeTruthy()
     })
 })
