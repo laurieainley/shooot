@@ -26,7 +26,7 @@ export function Sheet({ label, onClose, children, className = '', badge }: Sheet
         sheetRef.current?.focus({ preventScroll: true })
         const onKey = (e: KeyboardEvent): void => {
             if (e.key === 'Escape' && (e.target as Element | null)?.closest?.('[data-owns-escape]')) return
-            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeRef.current() }
+            if (e.key === 'Escape' && !sheetRef.current?.querySelector('[data-esc-clears]')) { e.preventDefault(); e.stopPropagation(); closeRef.current() }
         }
         window.addEventListener('keydown', onKey, true)
         return () => {

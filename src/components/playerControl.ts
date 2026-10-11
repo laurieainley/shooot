@@ -32,3 +32,12 @@ export function registerPlayerStep(fn: (kind: PlayerStep, direction: 1 | -1) => 
 }
 /** Steps the player one frame (pausing it) or one second. */
 export function stepPlayer(kind: PlayerStep, direction: 1 | -1): void { step?.(kind, direction) }
+
+let seekPaused: ((fileIndex: number, timeSec: number) => void) | null = null
+/** Returns an unregister that only clears the handle if it is still this one. */
+export function registerPlayerSeekPaused(fn: (fileIndex: number, timeSec: number) => void): () => void {
+    seekPaused = fn
+    return () => { if (seekPaused === fn) seekPaused = null }
+}
+/** Seeks to a time in a file and leaves the player paused (scrubbing the review timeline). */
+export function seekPlayerPaused(fileIndex: number, timeSec: number): void { seekPaused?.(fileIndex, timeSec) }

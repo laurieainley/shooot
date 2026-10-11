@@ -36,7 +36,7 @@ function ColumnPanelBody({ label, onClose, children, className, badge }: ColumnP
         window.scrollTo?.({ top: 0 })
         const onKey = (e: KeyboardEvent): void => {
             if (e.key === 'Escape' && (e.target as Element | null)?.closest?.('[data-owns-escape]')) return
-            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeRef.current() }
+            if (e.key === 'Escape' && !ref.current?.querySelector('[data-esc-clears]')) { e.preventDefault(); e.stopPropagation(); closeRef.current() }
         }
         window.addEventListener('keydown', onKey, true)
         return () => window.removeEventListener('keydown', onKey, true)

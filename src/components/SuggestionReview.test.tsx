@@ -11,8 +11,9 @@ vi.mock('../detectJobs', () => ({
 }))
 import { SuggestionReview } from './SuggestionReview'
 import { openFindGoals } from './findGoals'
-import { registerPlayerStep, registerPlayerToggle, setPlayerPaused } from './playerControl'
+import { isPlayerPaused, registerPlayerSeekPaused, registerPlayerStep, registerPlayerToggle, setPlayerPaused } from './playerControl'
 
+const press = (key: string, opts: KeyboardEventInit = {}): void => { act(() => { fireEvent.keyDown(window, { key, ...opts }) }) }
 const run = { createdAt: 1, source: 'audio' as const, configVersion: 1, analysedSec: 600, total: 2 }
 beforeEach(() => {
     setPlayerPaused(true)
@@ -33,22 +34,24 @@ describe('SuggestionReview', () => {
     })
     it('should keep a goal for the chosen team with G then 2, and move on', () => {
         render(<SuggestionReview onClose={() => {}} />)
-        act(() => { fireEvent.keyDown(window, { key: 'g' }) })
+        press('g')
         expect(screen.getByRole('button', { name: /Colours/ })).toBeTruthy()
-        act(() => { fireEvent.keyDown(window, { key: '2' }) })
+        press('2')
+        expect(useAppState.getState().events).toHaveLength(0) // selecting never saves
+        press('Enter')
         expect(useAppState.getState().events[0]).toMatchObject({ type: 'goal', team: 'Colours' })
         expect(screen.getByText(/Suggestion 2 of 2/)).toBeTruthy()
     })
     it('should reject with X and show the summary at the end', () => {
         render(<SuggestionReview onClose={() => {}} />)
-        act(() => { fireEvent.keyDown(window, { key: 'x' }) })
-        act(() => { fireEvent.keyDown(window, { key: 's' }) })
+        press('x'); press('Enter')
+        press('s'); press('Enter')
         expect(screen.getByText('You kept 1 of 2.')).toBeTruthy()
     })
     it('should warn when very few were kept', () => {
         useAppState.getState().setSuggestions(run, Array.from({ length: 10 }, (_, i) => ({ timeSec: 30 + i * 40, score: 1 })))
         render(<SuggestionReview onClose={() => {}} />)
-        for (let i = 0; i < 10; i++) act(() => { fireEvent.keyDown(window, { key: 'x' }) })
+        for (let i = 0; i < 10; i++) { press('x'); press('Enter') }
         expect(screen.getByText('Detection struggled on this footage. Copy diagnostics and send it over.')).toBeTruthy()
     })
     it('should say nothing stood out when there are no suggestions', () => {
@@ -59,15 +62,18 @@ describe('SuggestionReview', () => {
     })
     it('should keep a goal from the touch buttons (44 px class) without the keyboard', () => {
         render(<SuggestionReview onClose={() => {}} />)
-        expect(screen.getByRole('button', { name: /^Goal/ }).className).toContain('review__btn')
+        fireEvent.click(screen.getByRole('button', { name: 'Use the estimate instead' }))
+        expect(screen.getByRole('button', { name: /^Goal/ }).className).toContain('rv__choice')
         fireEvent.click(screen.getByRole('button', { name: /^Goal/ }))
         fireEvent.click(screen.getByRole('button', { name: /Whites/ }))
+        expect(useAppState.getState().events).toHaveLength(0)
+        fireEvent.click(screen.getByRole('button', { name: /^Save/ }))
         expect(useAppState.getState().events[0]).toMatchObject({ type: 'goal', team: 'Whites' })
     })
     it('should decide only once for a repeated keydown', () => {
         render(<SuggestionReview onClose={() => {}} />)
-        act(() => { fireEvent.keyDown(window, { key: 'x' }) })
-        act(() => { fireEvent.keyDown(window, { key: 'x', repeat: true }) })
+        press('x'); press('Enter')
+        press('x', { repeat: true }); press('Enter', { repeat: true })
         expect(screen.getByText(/Suggestion 2 of 2/)).toBeTruthy()
         expect(useAppState.getState().suggestions[1].status).toBe('pending')
     })
@@ -99,15 +105,13 @@ describe('SuggestionReview', () => {
 
     it('should confirm the first team with Enter after G', () => {
         render(<SuggestionReview onClose={() => {}} />)
-        act(() => { fireEvent.keyDown(window, { key: 'g' }) })
-        act(() => { fireEvent.keyDown(window, { key: 'Enter' }) })
+        press('g'); press('Enter')
         expect(useAppState.getState().events[0]).toMatchObject({ type: 'goal', team: 'Whites' })
     })
     it('should confirm the pre-selected team with Enter', async () => {
         const { SuggestionCard } = await import('./SuggestionCard')
         render(<SuggestionCard suggestion={useAppState.getState().suggestions[0]} index={0} total={2} onNext={() => {}} onPrev={() => {}} preselectTeam="Colours" />)
-        act(() => { fireEvent.keyDown(window, { key: 'o' }) })
-        act(() => { fireEvent.keyDown(window, { key: 'Enter' }) })
+        press('o'); press('Enter')
         expect(useAppState.getState().events[0]).toMatchObject({ type: 'own_goal', team: 'Colours' })
     })
     it('should play or pause the player with Space', () => {
@@ -201,8 +205,8 @@ describe('SuggestionReview', () => {
         })
         it('should have 44 px buttons with labels, and ignore the keys with modifiers or repeat', () => {
             render(<SuggestionReview onClose={() => {}} />)
-            expect(screen.getByRole('button', { name: 'Start 2 seconds earlier' }).className).toContain('review__btn')
-            expect(screen.getByRole('button', { name: 'End 2 seconds later' }).className).toContain('review__btn')
+            expect(screen.getByRole('button', { name: 'Start 2 seconds earlier' })).toBeTruthy()
+            expect(screen.getByRole('button', { name: 'End 2 seconds later' })).toBeTruthy()
             act(() => { fireEvent.keyDown(window, { key: '[', metaKey: true }) })
             act(() => { fireEvent.keyDown(window, { key: ']', ctrlKey: true }) })
             act(() => { fireEvent.keyDown(window, { key: '[', repeat: true }) })
@@ -211,24 +215,85 @@ describe('SuggestionReview', () => {
             expect(screen.getByText('−7 s … +2 s')).toBeTruthy()
         })
     })
-    describe('goal time', () => {
-        it('should show the estimate while playing and the playhead while paused', () => {
+    describe('marking the moment', () => {
+        const at = (sec: number): void => { act(() => { useAppState.setState({ currentTimeInFileSec: sec }) }) }
+        it('should tell the user to pause and mark before marking, and show the estimate ring only', () => {
+            render(<SuggestionReview onClose={() => {}} />)
+            expect(screen.getByText('Pause when the ball crosses the line or the moment happens, then press M (or tap Mark moment)')).toBeTruthy()
+            expect(screen.getByTestId('rtl-estimate')).toBeTruthy()
+            expect(screen.queryByTestId('rtl-marked')).toBeNull()
+        })
+        it('should mark at the playhead with M, show the pin and ask what it was', () => {
+            at(97.34)
+            render(<SuggestionReview onClose={() => {}} />)
+            press('m')
+            expect(screen.getByText('Marked at 01:37.3 — now choose what it was')).toBeTruthy()
+            expect(screen.getByTestId('rtl-marked')).toBeTruthy()
+        })
+        it('should pause a playing player when marking, and re-mark with M', () => {
+            setPlayerPaused(false)
+            const un = registerPlayerToggle(() => setPlayerPaused(true))
+            at(96)
+            render(<SuggestionReview onClose={() => {}} />)
+            press('m')
+            expect(isPlayerPaused()).toBe(true)
+            at(97)
+            press('m')
+            at(99.9) // paused after marking: the playhead only moves if the user steps
+            press('h'); press('Enter')
+            un()
+            expect(useAppState.getState().events[0].matchTimeSec).toBeCloseTo(99.9, 1)
+        })
+        it('should mark from the Mark moment button', () => {
+            at(50.4)
+            render(<SuggestionReview onClose={() => {}} />)
+            fireEvent.click(screen.getByRole('button', { name: /Mark moment/ }))
+            expect(screen.getByText(/^Marked at 00:50\.4/)).toBeTruthy()
+        })
+        it('should select H without saving or advancing, and save on Enter with the marked time', () => {
+            at(97.34)
+            render(<SuggestionReview onClose={() => {}} />)
+            press('m'); press('h')
+            expect(useAppState.getState().events).toHaveLength(0)
+            expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy()
+            expect(screen.getByText('Highlight at 01:37.3 — press Enter to save')).toBeTruthy()
+            press('Enter')
+            expect(useAppState.getState().events[0]).toMatchObject({ type: 'highlight', matchTimeSec: 97.3, sourceFileIndex: 0 })
+            expect(screen.getByText(/Suggestion 2 of 2/)).toBeTruthy()
+        })
+        it('should name the goal in the instruction once a team is chosen', () => {
+            at(97.34)
+            render(<SuggestionReview onClose={() => {}} />)
+            press('m'); press('g')
+            expect(screen.getByText('Goal · Whites at 01:37.3 — press Enter to save')).toBeTruthy()
+            press('2')
+            expect(screen.getByText('Goal · Colours at 01:37.3 — press Enter to save')).toBeTruthy()
+        })
+        it('should save at the estimate, with a warning and the Save event at estimate label, when never marked', () => {
+            render(<SuggestionReview onClose={() => {}} />)
+            press('h')
+            expect(screen.getByText('Using the estimate — mark the exact moment for accurate clips')).toBeTruthy()
+            expect(screen.getByRole('button', { name: /^Save event at estimate/ })).toBeTruthy()
+            press('Enter')
+            expect(useAppState.getState().events[0]).toMatchObject({ type: 'highlight', matchTimeSec: 98 })
+        })
+        it('should not count the brief pause after a seek as a mark', () => {
+            render(<SuggestionReview onClose={() => {}} />)
+            at(50)
+            expect(screen.queryByTestId('rtl-marked')).toBeNull()
+            press('h'); press('Enter')
+            expect(useAppState.getState().events[0]).toMatchObject({ matchTimeSec: 98 })
+        })
+        it('should count pausing after playing as a mark', () => {
             setPlayerPaused(false)
             render(<SuggestionReview onClose={() => {}} />)
-            expect(screen.getByText(/estimate/)).toBeTruthy()
-            expect(screen.getByText('01:38.0')).toBeTruthy() // 100 s − 2 s
-            act(() => { useAppState.setState({ currentTimeInFileSec: 97.34 }) })
-            act(() => { setPlayerPaused(true) }) // the user paused after it was playing
-            expect(screen.getByText(/at playhead/)).toBeTruthy()
-            expect(screen.getByText('01:37.3')).toBeTruthy()
+            at(97.34)
+            act(() => { setPlayerPaused(true) })
+            expect(screen.getByTestId('rtl-marked')).toBeTruthy()
+            press('h'); press('Enter')
+            expect(useAppState.getState().events[0]).toMatchObject({ matchTimeSec: 97.3 })
         })
-        it('should keep at the estimate while playing', () => {
-            setPlayerPaused(false)
-            render(<SuggestionReview onClose={() => {}} />)
-            act(() => { fireEvent.keyDown(window, { key: 'h' }) })
-            expect(useAppState.getState().events[0]).toMatchObject({ type: 'highlight', matchTimeSec: 98, sourceFileIndex: 0 })
-        })
-        it('should keep at the playhead (file and time) while paused, on a two-file timeline', () => {
+        it('should count stepping a frame as a mark, on a two-file timeline', () => {
             useAppState.setState({
                 files: [{ id: 'f', name: 'A.MP4', url: '', kind: 'full', durationSec: 600, file: new File([], 'A.MP4') }, { id: 'g', name: 'B.MP4', url: '', kind: 'full', durationSec: 600, file: new File([], 'B.MP4') }] as never,
                 cumulativeOffsets: [0, 600], currentFileIndex: 1, currentTimeInFileSec: 12.34,
@@ -236,39 +301,62 @@ describe('SuggestionReview', () => {
             useAppState.getState().setSuggestions(run, [{ timeSec: 610, score: 5 }])
             render(<SuggestionReview onClose={() => {}} />)
             const un = registerPlayerStep(vi.fn())
-            act(() => { fireEvent.keyDown(window, { key: 'ArrowUp' }) }) // user steps a frame
+            press('ArrowUp')
             un()
-            act(() => { fireEvent.keyDown(window, { key: 's' }) })
+            press('s'); press('Enter')
             expect(useAppState.getState().events[0]).toMatchObject({ type: 'save', sourceFileIndex: 1, matchTimeSec: 12.3 })
         })
-        it('should keep the estimate when merely paused after a seek (user has not adjusted)', () => {
+        it('should keep the mark once playback resumes', () => {
+            at(97.34)
             render(<SuggestionReview onClose={() => {}} />)
-            expect(screen.getByText(/estimate/)).toBeTruthy()
-            useAppState.setState({ currentTimeInFileSec: 50 })
-            act(() => { fireEvent.keyDown(window, { key: 'h' }) })
-            expect(useAppState.getState().events[0]).toMatchObject({ matchTimeSec: 98 })
+            press('m')
+            act(() => { setPlayerPaused(false) })
+            at(101)
+            press('h'); press('Enter')
+            expect(useAppState.getState().events[0]).toMatchObject({ matchTimeSec: 97.3 })
         })
-        it('should use the playhead after Space-pausing', () => {
-            setPlayerPaused(false)
-            const un = registerPlayerToggle(() => setPlayerPaused(true))
+        it('should need Enter for Not a goal too, and clear a choice with Esc or Backspace', () => {
             render(<SuggestionReview onClose={() => {}} />)
-            act(() => { fireEvent.keyDown(window, { key: ' ' }) })
-            useAppState.setState({ currentTimeInFileSec: 50.4 })
-            act(() => { fireEvent.keyDown(window, { key: 'h' }) })
+            press('x')
+            expect(screen.getByRole('button', { name: /^Reject/ })).toBeTruthy()
+            expect(useAppState.getState().suggestions[0].status).toBe('pending')
+            press('Escape')
+            expect(screen.queryByRole('button', { name: /^Reject/ })).toBeNull()
+            press('g'); press('Backspace')
+            expect(screen.queryByRole('button', { name: /^Save/ })).toBeNull()
+            expect(useAppState.getState().events).toHaveLength(0)
+            press('x'); press('Enter')
+            expect(useAppState.getState().suggestions[0].status).toBe('rejected')
+        })
+        it('should pre-select the given team and show the hint slot', async () => {
+            const { SuggestionCard } = await import('./SuggestionCard')
+            render(<SuggestionCard suggestion={useAppState.getState().suggestions[0]} index={0} total={2} onNext={() => {}} onPrev={() => {}} preselectTeam="Colours" hint="Ball in Colours' goal" />)
+            expect(screen.getByText("Ball in Colours' goal")).toBeTruthy()
+            press('g')
+            expect(screen.getByRole('button', { name: /Colours/ })).toHaveAttribute('aria-pressed', 'true')
+        })
+        it('should scrub from the timeline without marking, pausing at that time', () => {
+            const seek = vi.fn()
+            const un = registerPlayerSeekPaused(seek)
+            render(<SuggestionReview onClose={() => {}} />)
+            const bar = screen.getByRole('slider')
+            bar.getBoundingClientRect = () => ({ left: 0, width: 700, top: 0, height: 44, right: 700, bottom: 44, x: 0, y: 0, toJSON: () => ({}) })
+            fireEvent.pointerDown(bar, { clientX: 350, pointerId: 1 })
             un()
-            expect(useAppState.getState().events[0]).toMatchObject({ matchTimeSec: 50.4 })
+            expect(seek).toHaveBeenCalledWith(0, 98.5) // window 95…102, halfway
+            expect(screen.queryByTestId('rtl-marked')).toBeNull()
         })
         it('should ignore Shift with decision and window keys', () => {
             render(<SuggestionReview onClose={() => {}} />)
-            for (const key of ['g', 'o', 's', 'h', 'x', '[', ']']) act(() => { fireEvent.keyDown(window, { key, shiftKey: true }) })
+            for (const key of ['g', 'o', 's', 'h', 'x', '[', ']', 'm']) press(key, { shiftKey: true })
             expect(useAppState.getState().events).toHaveLength(0)
-            expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy()
+            expect(screen.queryByRole('button', { name: /^Save/ })).toBeNull()
             expect(screen.getByText('−5 s … +2 s')).toBeTruthy()
         })
         it('should still extend the end when the total duration is unknown', () => {
             useAppState.setState({ files: [{ id: 'f', name: 'A.MP4', url: '', kind: 'full', file: new File([], 'A.MP4') }] as never })
             render(<SuggestionReview onClose={() => {}} />)
-            act(() => { fireEvent.keyDown(window, { key: ']' }) })
+            press(']')
             expect(screen.getByText('−5 s … +4 s')).toBeTruthy()
         })
         it('should not loop while paused, and loop again when playing', () => {
@@ -285,25 +373,27 @@ describe('SuggestionReview', () => {
             act(() => { useAppState.setState({ currentTimeInFileSec: 102.6 }) })
             expect(seek).toHaveBeenCalledTimes(1)
         })
-        it('should step frames with the arrows and seconds with Shift, and from the buttons', () => {
+        it('should step frames with the arrows and seconds with Shift, and from the nudge buttons while paused', () => {
             const step = vi.fn()
             const un = registerPlayerStep(step)
             render(<SuggestionReview onClose={() => {}} />)
-            act(() => { fireEvent.keyDown(window, { key: 'ArrowUp' }) })
-            act(() => { fireEvent.keyDown(window, { key: 'ArrowDown', repeat: true }) })
-            act(() => { fireEvent.keyDown(window, { key: 'ArrowUp', shiftKey: true }) })
-            act(() => { fireEvent.keyDown(window, { key: 'ArrowDown', shiftKey: true }) })
-            act(() => { fireEvent.keyDown(window, { key: 'ArrowUp', metaKey: true }) })
+            press('ArrowUp'); press('ArrowDown', { repeat: true }); press('ArrowUp', { shiftKey: true }); press('ArrowDown', { shiftKey: true }); press('ArrowUp', { metaKey: true })
             expect(step.mock.calls).toEqual([['frame', 1], ['frame', -1], ['second', 1], ['second', -1]])
-            expect(screen.getByRole('button', { name: 'Back one frame' }).className).toContain('review__btn')
             fireEvent.click(screen.getByRole('button', { name: 'Forward one frame' }))
             expect(step).toHaveBeenLastCalledWith('frame', 1)
             un()
         })
-        it('should hide the frame buttons while playing', () => {
+        it('should disable the nudge buttons while playing', () => {
             setPlayerPaused(false)
             render(<SuggestionReview onClose={() => {}} />)
-            expect(screen.queryByRole('button', { name: 'Back one frame' })).toBeNull()
+            expect(screen.getByRole('button', { name: 'Back one frame' })).toBeDisabled()
+        })
+        it('should keep one step at a time: no type buttons until marked or the estimate is accepted', () => {
+            render(<SuggestionReview onClose={() => {}} />)
+            expect(screen.queryByRole('group', { name: 'What was it?' })).toBeNull()
+            fireEvent.click(screen.getByRole('button', { name: 'Use the estimate instead' }))
+            expect(screen.getByRole('group', { name: 'What was it?' })).toBeTruthy()
+            expect(screen.getByRole('button', { name: /Not a goal/ })).toBeTruthy()
         })
     })
     describe('copy feedback', () => {
