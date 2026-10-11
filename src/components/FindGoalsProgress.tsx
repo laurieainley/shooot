@@ -14,7 +14,7 @@ export function FindGoalsProgress() {
     if (!progress || panel === 'review') return null
     return (
         <div className="find-progress flex items-center gap-2 px-3 py-1 text-[13px] text-muted" data-testid="find-progress">
-            <span className="min-w-0 flex-1" role="status">{progress.line}</span>
+            <span className="min-w-0 flex-1">{progress.line}</span>
             <button type="button" className="btn-quiet review__btn" onClick={() => useAppState.getState().openPanel('review')}>Open</button>
         </div>
     )

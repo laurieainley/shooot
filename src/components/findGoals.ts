@@ -18,10 +18,10 @@ const rangeStep = createStore<{ open: boolean }>(() => ({ open: false }))
 export const useRangeStep = (): boolean => useStore(rangeStep, (s) => s.open)
 export const setRangeStep = (open: boolean): void => rangeStep.setState({ open })
 
-/** Kick off and Final whistle are both tagged (so Find goals can start straight away). */
+/** Kick off and Final whistle are both tagged, in order (so Find goals can start straight away). */
 export function hasMatchRange(): boolean {
     const { events, cumulativeOffsets } = useAppState.getState()
-    return markerGlobalSec(events, cumulativeOffsets, 'kick_off') !== null && markerGlobalSec(events, cumulativeOffsets, 'final_whistle') !== null
+    return rangeIsValid(events, cumulativeOffsets)
 }
 
 /** Both markers set and the whistle after kick off. */

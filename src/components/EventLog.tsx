@@ -32,8 +32,8 @@ function isTyping(el: Element | null): boolean {
 export function EventLog() {
     const events = useAppState((s) => s.events)
     const reviewOpen = useAppState((s) => s.panel === 'review')
-    const job = useDetectJob((s) => s)
-    const finding = !reviewOpen && findGoalsProgress(job) !== null
+    const running = useDetectJob((s) => findGoalsProgress(s) !== null)
+    const finding = !reviewOpen && running
     const files = useAppState((s) => s.files)
     const teams = useAppState((s) => s.teams)
     const offsets = useAppState((s) => s.cumulativeOffsets)
