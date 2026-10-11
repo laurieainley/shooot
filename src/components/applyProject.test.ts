@@ -1,10 +1,20 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { useAppState } from '../state'
 import { buildTransferPayload } from '../utils/projectTransfer'
+import { cancelDetection } from '../detectJobs'
 import { applyTransferPayload } from './applyProject'
+
+vi.mock('../detectJobs', async (orig) => ({ ...(await orig<typeof import('../detectJobs')>()), cancelDetection: vi.fn() }))
 import type { MatchEvent } from '../types'
 
 describe('applyTransferPayload', () => {
+    it('should cancel detection and clear suggestions', () => {
+        useAppState.setState({ suggestions: [{ id: 's', globalTimeSec: 5, score: 1, source: 'audio', status: 'pending' }] })
+        applyTransferPayload(buildTransferPayload({ ...useAppState.getState(), events: [] }))
+        expect(cancelDetection).toHaveBeenCalled()
+        expect(useAppState.getState().suggestions).toEqual([])
+    })
+
     it('should load an old penalty_awarded event as penalty_conceded with the team flipped', () => {
         const awarded = { id: 'p', type: 'penalty_awarded', matchTimeSec: 10, team: 'Reds', scorer: 'Sam' } as unknown as MatchEvent
         const payload = buildTransferPayload({
@@ -26,5 +36,13 @@ describe('applyTransferPayload', () => {
         applyTransferPayload({ ...base, graphics: { ...useAppState.getState().graphics, theme: 'neon' as never } })
         expect(useAppState.getState().graphics.theme).toBe('classic')
         useAppState.getState().setGraphics({ theme: 'shooot' })
+    })
+
+    it('should clear suggestions when a project is applied', () => {
+        useAppState.getState().setSuggestions({ createdAt: 1, source: 'audio', configVersion: 1, analysedSec: 60, total: 1 }, [{ timeSec: 10, score: 1 }])
+        const base = buildTransferPayload({ ...useAppState.getState(), events: [], teams: [] })
+        applyTransferPayload(base)
+        expect(useAppState.getState().suggestions).toEqual([])
+        expect(useAppState.getState().suggestionRun).toBeNull()
     })
 })

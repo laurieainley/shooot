@@ -3,6 +3,7 @@ import videojs from 'video.js'
 import 'video.js/dist/video-js.css'
 import { selectClockLong, useAppState } from '../state'
 import { shortcutFor, shouldHandleShortcut } from '../utils/shortcuts'
+import { registerPlayerToggle } from './playerControl'
 import { runShortcut, type ShortcutPlayer } from './playerShortcuts'
 import { FullscreenControls } from './FullscreenControls'
 import { EventPicker } from './EventPicker'
@@ -114,6 +115,16 @@ export function Player() {
         sync()
         p.on(evts, sync)
         return () => p.off(evts, sync)
+    }, [])
+
+    // Play / pause for the review card, which sits over the global shortcuts.
+    useEffect(() => {
+        return registerPlayerToggle(() => {
+            const p = playerRef.current as ShortcutPlayer | null
+            if (!p) return
+            if (p.paused()) void Promise.resolve(p.play()).catch(() => undefined)
+            else p.pause()
+        })
     }, [])
 
     // Listen for seekToGoal events

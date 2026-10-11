@@ -334,7 +334,7 @@ export const AUDIO_DETECT = {
     peakWindowSec: [-3, 3] as readonly [number, number],
     hushWindowSec: [5, 15] as readonly [number, number],
     minGapSec: 20,
-    maxSuggestions: 30,
+    maxPerHour: 45, minSuggestions: 10, maxSuggestionsCap: 60, // count = clamp(round(45 × hours), 10, 60)
     eventOffsetSec: -2,
     reviewWindowSec: [-3, 2] as readonly [number, number],
     lowKeepRatio: 0.15,
@@ -1012,7 +1012,7 @@ export async function runAudioDetection(files: DetectFile[], rangeSec: [number, 
     const timeline = placeOnTimeline(parts, totalSec, AUDIO_DETECT.hopSec)
     const scores = goalScores(timeline, AUDIO_DETECT)
     const moments = parts.length === 0 ? [] : pickMoments(scores, AUDIO_DETECT.hopSec,
-        { minGapSec: AUDIO_DETECT.minGapSec, max: AUDIO_DETECT.maxSuggestions, startSec: rangeSec[0], endSec: rangeSec[1] })
+        { minGapSec: AUDIO_DETECT.minGapSec, max: suggestionCount(rangeSec[1] - rangeSec[0]), startSec: rangeSec[0], endSec: rangeSec[1] })
     onProgress(1)
     return { moments, scores, analysedSec: Math.round(rangeSec[1] - rangeSec[0]) }
 }

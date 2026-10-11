@@ -31,3 +31,15 @@ export function goalMarkedFor(before: Pick<MatchEvent, 'id' | 'type'>[], after: 
     const added = after.filter((e) => !known.has(e.id))
     return added.length === 1 && isScoring(added[0]) ? added[0].id : null
 }
+
+/** Find goals (Beta) progress (brand voice). */
+export function listeningLine(fraction: number): string {
+    return `Listening for the roar… ${pct(fraction)}%`
+}
+
+export function keptSummary(kept: number, total: number): string {
+    return `You kept ${kept} of ${total}.`
+}
+
+export const LOW_KEEP_NOTE = 'Detection struggled on this footage. Copy diagnostics and send it over.'
+export const NOTHING_STOOD_OUT = 'Nothing stood out in the audio. Tag goals as you watch.'

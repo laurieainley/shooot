@@ -1,5 +1,8 @@
 import { useRef, useState } from 'react'
 import { useAppState, type Panel } from '../state'
+import { BetaTag } from './BetaTag'
+import { cancelDetection } from '../detectJobs'
+import { openFindGoals, useSuggestionsCurrent } from './findGoals'
 import { FloatingPanel } from './FloatingPanel'
 import { ProjectIO } from './ProjectIO'
 import { clearHandles } from '../files/handleStore'
@@ -46,6 +49,10 @@ interface MenuBodyProps {
 
 function MenuBody({ setupInMenu }: MenuBodyProps) {
     const events = useAppState((s) => s.events)
+    const anySuggestions = useAppState((s) => s.suggestions.length > 0)
+    const suggestionsCurrent = useSuggestionsCurrent()
+    const hasSuggestions = anySuggestions && suggestionsCurrent
+    const hasFiles = useAppState((s) => s.files.length > 0)
     const [confirmNew, setConfirmNew] = useState(false)
     const items: MenuItem[] = [
         { label: 'Files', panel: 'files' },
@@ -61,7 +68,7 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
                     Clear {events.length} {events.length === 1 ? 'event' : 'events'} and unload the videos? Teams, rosters and clip settings stay. ⌘Z brings the events back.
                 </p>
                 <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => { const st = useAppState.getState(); st.newMatch(); st.closePanel(); void clearHandles() }} className="btn-primary">Clear and start new match</button>
+                    <button type="button" onClick={() => { cancelDetection(); const st = useAppState.getState(); st.newMatch(); st.closePanel(); void clearHandles() }} className="btn-primary">Clear and start new match</button>
                     <button type="button" onClick={() => setConfirmNew(false)} className="btn-quiet">Keep</button>
                 </div>
             </div>
@@ -71,6 +78,11 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
     return (
         <div role="menu" aria-label="Menu" className="menu-list">
             <button type="button" role="menuitem" onClick={() => setConfirmNew(true)}>New match…</button>
+            {hasFiles && (
+                <button type="button" role="menuitem" onClick={() => openFindGoals()}>
+                    {hasSuggestions ? 'Review suggestions' : 'Find goals'} <BetaTag />
+                </button>
+            )}
             {items.map(({ label, panel, aria }) => (
                 <button key={panel} type="button" role="menuitem" aria-label={aria} onClick={() => useAppState.getState().openPanel(panel)}>{label}</button>
             ))}

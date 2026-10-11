@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { matchdayText, selectMatchStartSec, useAppState } from './state'
 import type { MatchEvent, VideoSourceFile } from './types'
+import { effectiveStatus, reviewCounts } from './utils/suggestions'
 
 const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec: 100, kind: 'full' })
 const goalIn = (fileIndex: number, id = `g${fileIndex}`): MatchEvent => ({ id, matchTimeSec: 10, sourceFileIndex: fileIndex, type: 'goal' })
@@ -147,7 +148,7 @@ describe('teams and picker', () => {
 
     it('should migrate v8 legacy event types and persist teams (v9+)', () => {
         const opts = useAppState.persist.getOptions()
-        expect(opts.version).toBe(16)
+        expect(opts.version).toBe(17)
         const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
         expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
         expect(opts.partialize!(s())).toHaveProperty('teams')
@@ -566,5 +567,102 @@ describe('graphics theme setting', () => {
         const migrate = useAppState.persist.getOptions().migrate!
         const out = migrate({ graphics: { cards: true, lowerThirds: false, replayTag: true } }, 15) as { graphics: unknown }
         expect(out.graphics).toEqual({ cards: true, lowerThirds: false, replayTag: true, theme: 'shooot' })
+    })
+})
+
+describe('suggestions', () => {
+    const files = [{ id: 'f1', name: 'A.MP4', url: '', kind: 'full', durationSec: 600, file: new File([], 'A.MP4') }] as unknown as VideoSourceFile[]
+    const run = { createdAt: 1, source: 'audio' as const, configVersion: 1, analysedSec: 600, total: 2 }
+    beforeEach(() => { useAppState.setState({ files, cumulativeOffsets: [0], events: [], suggestions: [], suggestionRun: null, undoStack: [], redoStack: [], teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#000', roster: [] }] }) })
+
+    it('should keep a suggestion as a goal two seconds before the shout, in one undo step', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }, { timeSec: 300, score: 4 }])
+        const [first] = useAppState.getState().suggestions
+        useAppState.getState().decideSuggestion(first.id, { kind: 'keep', type: 'goal', team: 'Whites' })
+        const st = useAppState.getState()
+        expect(st.events).toHaveLength(1)
+        expect(st.events[0]).toMatchObject({ type: 'goal', team: 'Whites', matchTimeSec: 98, sourceFileIndex: 0 })
+        expect(st.suggestions[0]).toMatchObject({ status: 'kept', keptAs: 'goal', eventId: st.events[0].id })
+        expect(st.undoStack).toHaveLength(1)
+    })
+    it('should make an undone keep pending again and not duplicate on re-keep', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        const id = useAppState.getState().suggestions[0].id
+        useAppState.getState().decideSuggestion(id, { kind: 'keep', type: 'goal', team: 'Whites' })
+        useAppState.getState().undo()
+        expect(useAppState.getState().events).toHaveLength(0)
+        useAppState.getState().decideSuggestion(id, { kind: 'keep', type: 'save' })
+        expect(useAppState.getState().events).toHaveLength(1)
+        expect(useAppState.getState().events[0].type).toBe('save')
+    })
+    it('should remove the kept event when a decision changes to reject', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        const id = useAppState.getState().suggestions[0].id
+        useAppState.getState().decideSuggestion(id, { kind: 'keep', type: 'goal', team: 'Whites' })
+        useAppState.getState().decideSuggestion(id, { kind: 'reject' })
+        expect(useAppState.getState().events).toHaveLength(0)
+        expect(useAppState.getState().suggestions[0].status).toBe('rejected')
+    })
+    it('should keep decisions when finding goals again', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }, { timeSec: 300, score: 4 }])
+        const id = useAppState.getState().suggestions[1].id
+        useAppState.getState().decideSuggestion(id, { kind: 'reject' })
+        useAppState.getState().setSuggestions(run, [{ timeSec: 305, score: 9 }, { timeSec: 450, score: 3 }])
+        expect(useAppState.getState().suggestions.map((x) => [x.globalTimeSec, x.status])).toEqual([[300, 'rejected'], [450, 'pending']])
+    })
+    it('should clear suggestions on new match', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        useAppState.getState().newMatch()
+        expect(useAppState.getState().suggestions).toEqual([])
+        expect(useAppState.getState().suggestionRun).toBeNull()
+    })
+    it('should migrate v16 state with empty suggestions', () => {
+        const migrate = (useAppState as unknown as { persist: { getOptions: () => { migrate: (s: unknown, v: number) => Record<string, unknown> } } }).persist.getOptions().migrate
+        const out = migrate({ events: [], teams: [] }, 16)
+        expect(out.suggestions).toEqual([])
+        expect(out.suggestionRun).toBeNull()
+    })
+    it('should replace a keep whose event was undone when finding goals again', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        const id = useAppState.getState().suggestions[0].id
+        useAppState.getState().decideSuggestion(id, { kind: 'keep', type: 'goal', team: 'Whites' })
+        useAppState.getState().undo()
+        useAppState.getState().setSuggestions(run, [{ timeSec: 102, score: 6 }])
+        const list = useAppState.getState().suggestions
+        expect(list).toHaveLength(1)
+        expect(list[0]).toMatchObject({ status: 'pending', globalTimeSec: 102 })
+        expect(list[0].id).not.toBe(id)
+    })
+    it('should count a keep as kept again when reject is undone', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        const id = useAppState.getState().suggestions[0].id
+        useAppState.getState().decideSuggestion(id, { kind: 'keep', type: 'goal', team: 'Whites' })
+        useAppState.getState().decideSuggestion(id, { kind: 'reject' })
+        useAppState.getState().undo()
+        const st = useAppState.getState()
+        const ids = new Set(st.events.map((e) => e.id))
+        expect(effectiveStatus(st.suggestions[0], ids)).toBe('kept')
+        expect(reviewCounts(st.suggestions, ids).kept).toBe(1)
+    })
+    it('should keep in the second file of a two-file timeline', () => {
+        const two = [files[0], { ...files[0], id: 'f2', name: 'B.MP4' }] as VideoSourceFile[]
+        useAppState.setState({ files: two, cumulativeOffsets: [0, 600] })
+        useAppState.getState().setSuggestions(run, [{ timeSec: 700, score: 5 }])
+        useAppState.getState().decideSuggestion(useAppState.getState().suggestions[0].id, { kind: 'keep', type: 'goal', team: 'Whites' })
+        expect(useAppState.getState().events[0]).toMatchObject({ sourceFileIndex: 1, matchTimeSec: 98 })
+    })
+    it('should reset suggestions on clear', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        useAppState.getState().clear()
+        expect(useAppState.getState().suggestions).toEqual([])
+        expect(useAppState.getState().suggestionRun).toBeNull()
+    })
+    it('should persist suggestions but not the review index', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        const partialize = (useAppState as unknown as { persist: { getOptions: () => { partialize: (s: unknown) => Record<string, unknown> } } }).persist.getOptions().partialize
+        const out = partialize(useAppState.getState())
+        expect(out).toHaveProperty('suggestions')
+        expect(out).toHaveProperty('suggestionRun')
+        expect(out).not.toHaveProperty('reviewIndex')
     })
 })
