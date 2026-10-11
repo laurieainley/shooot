@@ -39,6 +39,7 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
     const touch = useMediaQuery(COARSE_QUERY)
     const [partial, setPartial] = useState<Partial<GoalMarks>>(initial ?? {})
     const [skipped, setSkipped] = useState<ReadonlySet<MarkKey>>(() => new Set(initial && !initial.backL ? (['backL', 'backR'] as MarkKey[]) : []))
+    const root = useRef<HTMLDivElement | null>(null)
     const viewport = useRef<HTMLDivElement | null>(null)
     const picture = useRef<HTMLDivElement | null>(null)
     const space = useRef(false)
@@ -52,6 +53,9 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
     })
     const zpRef = useRef(zp)
     zpRef.current = zp
+
+    // The editor replaces the boxes picture and is taller: bring it (prompt, picture, Done) into the sheet's view.
+    useEffect(() => { root.current?.scrollIntoView?.({ block: 'start' }) }, [])
 
     // Wheel needs a non-passive listener to stop the page scrolling.
     useEffect(() => {
@@ -159,7 +163,7 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
     const aspect = frame.frame?.aspect ?? 16 / 9
 
     return (
-        <div className={`goal-marks goal-marks--${team}`}>
+        <div ref={root} className={`goal-marks goal-marks--${team}`}>
             <p className="goal-marks__prompt" role="status">{current ? promptFor(current, touch) : DONE_TEXT}</p>
             <div
                 ref={viewport}
