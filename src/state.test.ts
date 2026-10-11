@@ -714,14 +714,15 @@ describe('goal marks', () => {
         expect(s().goalAreas!.team2).toEqual(other)
     })
 
-    it('should not reset a hand-tuned rectangle when the marks are unchanged', () => {
-        s().setGoalMarks('team1', MARKS)
+    it('should never move an existing replay box when the marks are saved or changed', () => {
         const tuned = { x: 0.1, y: 0.1, w: 0.3, h: 0.3 }
-        s().setGoalAreas({ ...s().goalAreas!, team1: tuned })
-        s().setGoalMarks('team1', { ...MARKS })
+        useAppState.setState({ goalAreas: { team1: tuned } })
+        s().setGoalMarks('team1', MARKS)
         expect(s().goalAreas!.team1).toEqual(tuned)
         s().setGoalMarks('team1', { ...MARKS, postR: { x: 0.34, y: 0.235 } })
-        expect(s().goalAreas!.team1).not.toEqual(tuned)
+        expect(s().goalAreas!.team1).toEqual(tuned)
+        s().setGoalMarks('team1', null)
+        expect(s().goalAreas!.team1).toEqual(tuned)
     })
 
     it('should keep the marks when the rectangle is dragged', () => {

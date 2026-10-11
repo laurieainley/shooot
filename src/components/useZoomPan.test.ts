@@ -64,3 +64,14 @@ describe('useZoomPan', () => {
         expect(seen).toEqual([1.5, 2, 3, 4, 1])
     })
 })
+
+describe('useZoomPan maximum', () => {
+    it('should stop the player at 4× but allow a higher maximum when asked', () => {
+        const player = renderHook(() => useZoomPan(viewport))
+        act(() => player.result.current.zoomAt(100, { x: 0, y: 0 }))
+        expect(player.result.current.zoom).toBe(4)
+        const editor = renderHook(() => useZoomPan(viewport, 10))
+        act(() => editor.result.current.zoomAt(100, { x: 0, y: 0 }))
+        expect(editor.result.current.zoom).toBe(10)
+    })
+})
