@@ -43,6 +43,14 @@ describe('GoalMarksEditor', () => {
         expect(screen.getByText('Click the bottom of the right post')).toBeInTheDocument()
     })
 
+    it('should place the next point when the tap lands on an existing dot', () => {
+        const { pic } = mount()
+        clickAt(pic, 0.2, 0.6)
+        fireEvent.click(screen.getByRole('button', { name: 'Left post bottom' }), { detail: 1, clientX: 100 + 0.25 * 1000, clientY: 50 + 0.5 * 562.5 })
+        expect(screen.getByRole('button', { name: 'Right post bottom' })).toHaveStyle({ left: '25%', top: '50%' })
+        expect(screen.getByRole('button', { name: 'Left post bottom' })).toHaveStyle({ left: '20%', top: '60%' })
+    })
+
     it('should offer Skip for the optional points and then say all set', async () => {
         const { pic } = mount()
         expect(screen.queryByRole('button', { name: 'Skip' })).not.toBeInTheDocument()

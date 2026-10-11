@@ -47,6 +47,7 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
     const gesture = useRef<{ dist: number; zoom: number } | null>(null)
     const panned = useRef(false)
     const dragging = useRef<MarkKey | null>(null)
+    const dragMoved = useRef(false)
     const zp = useZoomPan(() => {
         const r = viewport.current?.getBoundingClientRect()
         return { width: r?.width || 1, height: r?.height || 1 }
@@ -127,10 +128,12 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
         e.stopPropagation()
         if (space.current) return
         dragging.current = key
+        dragMoved.current = false
         e.currentTarget.setPointerCapture?.(e.pointerId)
     }
     const dotMove = (key: MarkKey) => (e: PointerEvent<HTMLButtonElement>): void => {
         if (dragging.current !== key) return
+        dragMoved.current = true
         place(key, toFraction(e.clientX, e.clientY))
     }
     const dotUp = (key: MarkKey) => (e: PointerEvent<HTMLButtonElement>): void => {
@@ -139,6 +142,13 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
         e.currentTarget.releasePointerCapture?.(e.pointerId)
         panned.current = true // the click that follows a drag must not place a point
         setTimeout(() => { panned.current = false }, 0)
+    }
+    // A plain tap on a dot while a point is still to be placed places that point: the dots' 44 px targets overlap the
+    // spot to tap next when the goal is small in the picture (a drag, or Enter on the dot, does not).
+    const dotClick = (e: React.MouseEvent<HTMLButtonElement>): void => {
+        e.stopPropagation()
+        if (dragMoved.current || e.detail === 0 || space.current || !current) return
+        place(current, toFraction(e.clientX, e.clientY))
     }
     const dotKey = (key: MarkKey) => (e: KeyboardEvent<HTMLButtonElement>): void => {
         const p = partial[key]
@@ -206,7 +216,7 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
                                     className="goal-marks__dot"
                                     aria-label={LABELS[key]}
                                     style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%`, transform: `translate(-50%, -50%) scale(${1 / zp.zoom})` }}
-                                    onClick={(e) => e.stopPropagation()}
+                                    onClick={dotClick}
                                     onPointerDown={dotDown(key)}
                                     onPointerMove={dotMove(key)}
                                     onPointerUp={dotUp(key)}
