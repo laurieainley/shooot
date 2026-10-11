@@ -1,5 +1,5 @@
 import { useId, useMemo, useState } from 'react'
-import { selectMatchStartSec, useAppState } from '../state'
+import { useAppState } from '../state'
 import { clipSettingsLine, formatReelLength, reelSummary } from '../utils/reel'
 import { ClipSettings } from './ClipSettings'
 

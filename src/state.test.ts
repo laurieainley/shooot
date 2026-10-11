@@ -155,7 +155,7 @@ describe('teams and picker', () => {
 
     it('should migrate v8 legacy event types and persist teams (v9+)', () => {
         const opts = useAppState.persist.getOptions()
-        expect(opts.version).toBe(17)
+        expect(opts.version).toBe(18)
         const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
         expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
         expect(opts.partialize!(s())).toHaveProperty('teams')

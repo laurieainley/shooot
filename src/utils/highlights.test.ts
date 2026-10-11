@@ -56,8 +56,6 @@ describe('mergeOverlappingGoalSegments', () => {
     const result = mergeOverlappingGoalSegments(
       [goal('a', 60, 0), goal('b', 60, 1)],
       [0, 70],
-      0,
-      false,
       BEFORE,
       AFTER,
     )
