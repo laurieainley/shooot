@@ -1049,16 +1049,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .render-ready { display: flex; align-items: center; gap: 10px; flex-basis: 100%; margin: 0; }
 .render-ready span:last-child { font-size: 15px; line-height: 1.2; }
 .opening-status .sh-net { flex: none; }
-/* "Goal tagged." over the picture, a beat after a scoring event is added. */
-.goal-marked {
-  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 25; pointer-events: none;
-  display: inline-flex; align-items: center; gap: 8px; padding: 4px 16px 4px 8px; border-radius: 999px;
-  background: var(--sh-scrim); color: var(--sh-on-video); border: 1px solid var(--sh-on-video); font-weight: 700; font-size: 14px;
-  animation: goal-marked-in 1.6s var(--sh-ease-out) both;
-}
-@keyframes goal-marked-in { 0% { opacity: 0; transform: translate(-50%, -8px); } 12%, 80% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .goal-marked { animation: none; }
   .render-chip__text::before, .spinner, .export-btn__dot { animation: none !important; }
 }
 
@@ -1309,7 +1300,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .range__row .review__btn { flex: 0 0 10.5rem; }
 
 /* Toasts: one calm confirmation at a time. Top-right of the video (the scorebug is top-left); phone portrait: one line under the video. */
-.toast-host--video { position: absolute; top: 58px; right: 10px; /* below the scorebug row and the brief "Goal tagged." pill */  z-index: 6; max-width: min(380px, calc(100% - 20px)); pointer-events: none; }
+.toast-host--video { position: absolute; top: 10px; right: 10px; z-index: 6; max-width: min(380px, calc(100% - 20px)); pointer-events: none; }
 .toast-host--under { display: flex; justify-content: center; padding: 0 12px; }
 .toast-slot { display: flex; justify-content: flex-end; }
 .toast-host--under .toast-slot { justify-content: center; width: 100%; }

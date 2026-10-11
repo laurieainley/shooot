@@ -87,6 +87,9 @@ export function EventPicker() {
         }
     }
 
+    const dispatchRef = useRef(dispatch)
+    dispatchRef.current = dispatch
+
     const cancel = (): void => {
         const store = useAppState.getState()
         const id = store.picker?.eventId
@@ -117,10 +120,10 @@ export function EventPicker() {
             const caretKey = step === 'text' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')
             if (HANDLED.has(e.key) && !(inText && e.key === 'Backspace') && !caretKey) {
                 e.preventDefault()
-                dispatch({ kind: 'key', key: e.key })
+                dispatchRef.current({ kind: 'key', key: e.key })
             } else if (isLetter && !inText) {
                 e.preventDefault()
-                dispatch({ kind: 'key', key: e.key })
+                dispatchRef.current({ kind: 'key', key: e.key })
             }
             // letters in the scorer / text steps fall through to the focused text field (default action not prevented)
         }

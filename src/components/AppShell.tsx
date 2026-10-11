@@ -5,7 +5,6 @@ import { shortcutFor, shouldHandleShortcut } from '../utils/shortcuts'
 import { EmptyPlayer } from './EmptyPlayer'
 import { EventLog } from './EventLog'
 import { Fab } from './Fab'
-import { GoalMarked } from './GoalMarked'
 import { MatchStrip } from './MatchStrip'
 import { Panels } from './Panels'
 import { Toast } from './Toast'
@@ -70,7 +69,6 @@ export function AppShell() {
             {hasFiles ? <Player /> : <EmptyPlayer />}
             {sideBySide && isPreviewMode && <div className="preview-bar"><PreviewControls /></div>}
             {collapsed && <RenderChip variant="overlay" />}
-            {hasFiles && <GoalMarked />}
             {sideBySide && <div className="toast-host toast-host--video"><Toast /></div>}
         </div>
     )
