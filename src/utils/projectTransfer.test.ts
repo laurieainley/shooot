@@ -12,7 +12,7 @@ const payload = (over: Partial<TransferPayload> = {}): TransferPayload => ({
     lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5,
     graphics: { cards: true, lowerThirds: true, replayTag: false, theme: 'shooot' },
     fullMatch: { cards: true, scoreBug: 'periodic', intervalMin: 5, captions: false },
-    matchdayLabel: 'Matchday 3', goalAreas: null, adjustTimestampsByOffset: false,
+    matchdayLabel: 'Matchday 3', goalAreas: null,
     ...over,
 })
 
@@ -87,5 +87,12 @@ describe('buildTransferPayload', () => {
     it('should pick only project fields, never files', () => {
         const p = buildTransferPayload({ ...payload(), files: [{ name: 'x' }], panel: 'menu', undoStack: [] } as never)
         expect(Object.keys(p).sort()).toEqual(Object.keys(payload()).sort())
+    })
+})
+
+describe('removed adjustTimestampsByOffset', () => {
+    it('should not carry the old flag in a new payload, and ignore it in an old link', () => {
+        const old = { ...payload(), adjustTimestampsByOffset: true } as unknown as TransferPayload
+        expect('adjustTimestampsByOffset' in buildTransferPayload(old)).toBe(false)
     })
 })

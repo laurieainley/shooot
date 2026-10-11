@@ -17,12 +17,11 @@ export interface TransferPayload {
     goalAreas: GoalAreas | null
     /** Only in projects from before goal areas belonged to teams (read, never written). */
     whitesAttackLeft?: boolean
-    adjustTimestampsByOffset: boolean
 }
 
 const KEYS: (keyof TransferPayload)[] = [
     'events', 'teams', 'lengthBeforeGoalSec', 'lengthAfterGoalSec', 'replayBeforeSec', 'replayAfterSec', 'replaySpeed',
-    'graphics', 'fullMatch', 'matchdayLabel', 'goalAreas', 'adjustTimestampsByOffset',
+    'graphics', 'fullMatch', 'matchdayLabel', 'goalAreas',
 ]
 
 /** The transferable slice of the app state (never files). */
