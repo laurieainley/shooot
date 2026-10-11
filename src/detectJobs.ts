@@ -61,7 +61,9 @@ export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi
         const snapshot = app.files.map((f) => f.file)
         const keys = fileKeys(app.files)
         const startedAt = deps.now()
-        const unwatch = useAppState.subscribe((s) => {
+        const unwatch = useAppState.subscribe((s, prev) => {
+            // Diagnostic (Beta): the review panel should never close by itself while Find goals runs.
+            if (prev.panel === 'review' && s.panel !== 'review') console.warn('[Find goals] review panel closed', { to: s.panel, picker: !!s.picker }, new Error().stack)
             if (!sameFiles(snapshot, s.files.map((f) => f.file))) mine.abort()
             else if (!s.labs && store.getState().ballPhase === 'running') mine.abort() // Labs switched off: stop phase 2, the audio results stay
         })
