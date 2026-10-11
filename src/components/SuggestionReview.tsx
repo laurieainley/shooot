@@ -30,9 +30,6 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
     const runCurrent = useSuggestionsCurrent()
     const stale = suggestions.length > 0 && !runCurrent
     const rangeStep = useRangeStep()
-    const labs = useAppState((s) => s.labs)
-    const hasMarks = useAppState((s) => !!(s.goalMarks?.team1 || s.goalMarks?.team2))
-    const needMarks = labs && !hasMarks && !rangeStep && phase !== 'running' && !stale && (phase === 'done' || suggestions.length > 0)
     const failed = phase === 'failed'
     const announce = phase === 'running' ? 'Listening for goals.' : phase === 'done' ? 'Find goals finished.' : phase === 'cancelled' ? 'Find goals stopped.' : ''
     return (
@@ -40,12 +37,6 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
             <p className="sr-only" role="status" aria-live="polite">{announce}</p>
             {rangeStep && phase !== 'running' ? <MatchRangeStep /> : null}
             {failed && !rangeStep && <DetectFailed />}
-            {needMarks && (
-                <div className="review__status">
-                    <p className="review__note m-0">Mark the goals in Match setup to also check the goal mouths.</p>
-                    <button type="button" className="btn-quiet review__btn" onClick={() => useAppState.getState().openPanel('match')}>Open Match setup</button>
-                </div>
-            )}
             {ballPhase === 'running' && <BallProgress />}
             {ballPhase === 'failed' && <BallFailed />}
             {rangeStep && phase !== 'running' ? null : phase === 'running' ? <DetectProgress /> : stale ? <DetectIdle stale />

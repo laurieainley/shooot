@@ -1277,6 +1277,11 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .sheet-backdrop:has(.sheet--import) { place-items: center; padding: 16px; }
   .sheet.sheet--import { width: min(880px, 100%); max-height: calc(100dvh - 32px); border-radius: var(--sh-radius-md); border-width: 1px; }
 }
+.range__adv { display: flex; flex-direction: column; gap: 8px; }
+.range__tick { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; padding: 8px 0; cursor: pointer; font-size: 14px; }
+.range__tick input { flex: 0 0 auto; width: 22px; height: 22px; margin: 0; accent-color: var(--sh-text); }
+.range__tick input:disabled { cursor: not-allowed; }
+.range__advnote { display: block; }
 .range__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .range__label { font-size: 16px; }
 .range .btn-primary:disabled { opacity: .45; }
