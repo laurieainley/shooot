@@ -100,6 +100,15 @@ export function EventLog() {
 
     const onKeyDown = (ev: ReactKeyboardEvent<HTMLElement>): void => {
         if (isTyping(ev.target as Element) || ev.metaKey || ev.ctrlKey || ev.altKey) return
+        // A focused button (action row, Watch) owns Enter/Space and the row shortcuts; only Esc collapses and returns focus to the log.
+        if ((ev.target as Element).closest('button')) {
+            if (ev.key === 'Escape') {
+                ev.preventDefault(); ev.stopPropagation()
+                if (selectedId) setSelectedId(null)
+                rootRef.current?.focus()
+            }
+            return
+        }
         const sel = events[selectedIndex]
         const move = (d: number): void => {
             if (events.length === 0) return

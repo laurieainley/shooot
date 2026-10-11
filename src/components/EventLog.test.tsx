@@ -608,6 +608,28 @@ describe('EventLog action row', () => {
         expect(within(rows()[0]).getByRole('button', { name: 'Watch' })).toBeDisabled()
     })
 
+    it('should activate a focused action button with Enter without watching', async () => {
+        setup([goal('a', 100)])
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        within(rows()[0]).getByRole('button', { name: 'Edit details' }).focus()
+        await userEvent.keyboard('{Enter}')
+        expect(useAppState.getState()).toMatchObject({ panel: 'event', editingEventId: 'a' })
+        expect(seekToGoal).not.toHaveBeenCalled()
+    })
+
+    it('should collapse on Esc from an action button and keep focus in the log; a second Esc blurs it', async () => {
+        setup([goal('a', 100)])
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        within(rows()[0]).getByRole('button', { name: 'Delete event' }).focus()
+        await userEvent.keyboard('{Escape}')
+        expect(screen.queryByRole('group', { name: 'Event actions' })).toBeNull()
+        expect(log()).toHaveFocus()
+        await userEvent.keyboard('{Escape}')
+        expect(log()).not.toHaveFocus()
+    })
+
     it('should render the download slot when given one (Part B)', async () => {
         const { EventActions } = await import('./EventActions')
         render(<EventActions event={goal('a', 1)} touch={false} onToggleReplay={() => undefined} onFraming={() => undefined}

@@ -1126,7 +1126,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 /* Narrow event labels (landscape phone, desktop rail): a tighter tag so "Pen goal" and a name both fit. */
 /* Selected row: a second line of actions under the icon column (labels hide when the rail is narrow). */
 .event-row .clock, .event-row .row-score { font-size: 12px; }
-@media (pointer: coarse) { .event-row .clock, .event-row .row-score { font-size: 14px; } }
+@media (pointer: coarse) { .event-row .clock, .event-row .row-score, .event-row__note, .event-row__type, .event-row .tag { font-size: 14px; } }
 .event-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0 2px calc(var(--clock-ch, 5) * 1ch + 8px); white-space: nowrap; cursor: default; }
 .event-actions__download { display: inline-flex; }
 .act-btn {
@@ -1137,7 +1137,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .act-btn[aria-pressed="true"] { border-color: var(--sh-text); }
 .act-btn[aria-pressed="false"] { color: var(--sh-muted); }
 .act-btn--touch { min-height: 44px; min-width: 44px; font-size: 14px; }
-.act-btn--delete:hover { color: var(--sh-rec); }
+.act-btn--delete:hover { color: var(--sh-text); border-color: var(--sh-text); }
 @container event-log (max-width: 300px) {
   .event-actions__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .act-btn { min-width: 36px; padding: 0 6px; }
