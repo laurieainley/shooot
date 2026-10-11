@@ -75,7 +75,7 @@ describe('canConfirm', () => {
 describe('instructionText', () => {
     const base = { teamCount: 2, clock: '23:41.6' }
     it('should tell the user to pause and mark before marking', () => {
-        expect(instructionText({ ...base, marked: false, decision: EMPTY_DECISION }).text).toBe('Pause when the ball crosses the line, then press M (or tap Mark moment)')
+        expect(instructionText({ ...base, marked: false, decision: EMPTY_DECISION }).text).toBe('Pause when the ball crosses the line or the moment happens, then press M (or tap Mark moment)')
     })
     it('should confirm the mark and ask what it was', () => {
         expect(instructionText({ ...base, marked: true, decision: EMPTY_DECISION }).text).toBe('Marked at 23:41.6 — now choose what it was')
@@ -92,9 +92,9 @@ describe('instructionText', () => {
 })
 
 describe('confirmLabel', () => {
-    it('should read Save, Save at estimate or Reject', () => {
-        expect(confirmLabel('goal', true)).toBe('Save'); expect(confirmLabel('goal', false)).toBe('Save at estimate')
-        expect(confirmLabel('reject', false)).toBe('Reject'); expect(confirmLabel(null, false)).toBe('Save at estimate')
+    it('should read Save event, Save event at estimate or Reject', () => {
+        expect(confirmLabel('goal', true)).toBe('Save event'); expect(confirmLabel('goal', false)).toBe('Save event at estimate')
+        expect(confirmLabel('reject', false)).toBe('Reject'); expect(confirmLabel(null, false)).toBe('Save event at estimate')
     })
 })
 

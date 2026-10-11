@@ -219,7 +219,7 @@ describe('SuggestionReview', () => {
         const at = (sec: number): void => { act(() => { useAppState.setState({ currentTimeInFileSec: sec }) }) }
         it('should tell the user to pause and mark before marking, and show the estimate ring only', () => {
             render(<SuggestionReview onClose={() => {}} />)
-            expect(screen.getByText('Pause when the ball crosses the line, then press M (or tap Mark moment)')).toBeTruthy()
+            expect(screen.getByText('Pause when the ball crosses the line or the moment happens, then press M (or tap Mark moment)')).toBeTruthy()
             expect(screen.getByTestId('rtl-estimate')).toBeTruthy()
             expect(screen.queryByTestId('rtl-marked')).toBeNull()
         })
@@ -269,11 +269,11 @@ describe('SuggestionReview', () => {
             press('2')
             expect(screen.getByText('Goal · Colours at 01:37.3 — press Enter to save')).toBeTruthy()
         })
-        it('should save at the estimate, with a warning and the Save at estimate label, when never marked', () => {
+        it('should save at the estimate, with a warning and the Save event at estimate label, when never marked', () => {
             render(<SuggestionReview onClose={() => {}} />)
             press('h')
             expect(screen.getByText('Using the estimate — mark the exact moment for accurate clips')).toBeTruthy()
-            expect(screen.getByRole('button', { name: /^Save at estimate/ })).toBeTruthy()
+            expect(screen.getByRole('button', { name: /^Save event at estimate/ })).toBeTruthy()
             press('Enter')
             expect(useAppState.getState().events[0]).toMatchObject({ type: 'highlight', matchTimeSec: 98 })
         })
