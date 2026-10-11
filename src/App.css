@@ -1317,3 +1317,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .toast__action { flex: none; min-width: 44px; min-height: 44px; padding: 0 12px; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+
+.tally { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 4px 6px; font-size: 14px; color: var(--sh-muted); }
+.tally__team { font-size: 14px; color: var(--sh-text); }
+.tally__score { font-family: var(--sh-font-mono); font-weight: 700; font-size: 16px; color: var(--sh-text); }

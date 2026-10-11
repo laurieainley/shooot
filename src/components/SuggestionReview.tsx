@@ -5,6 +5,7 @@ import { showToast } from '../toasts'
 import { useDetectJob } from '../detectJobs'
 import { TOP_PICKS_DONE, defaultLane, firstPendingInLane, firstToReviewInLane, laneCounts, laneNeighbour, laneSwitchVisible, positionInLane, type Lane } from '../utils/reviewLanes'
 import { NO_TOP_PICKS } from '../utils/voice'
+import { GoalsTally } from './GoalsTally'
 import { LaneSwitch } from './LaneSwitch'
 import { BetaTag } from './BetaTag'
 import { ColumnPanel } from './ColumnPanel'
@@ -85,6 +86,7 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
     return (
         <ColumnPanel label="Suggested goals" onClose={onClose} className="review" badge={<BetaTag />}>
             <p className="sr-only" role="status" aria-live="polite">{announce}</p>
+            {suggestions.length > 0 && !rangeStep && !stale && phase !== 'running' && <GoalsTally />}
             {switchShown && <LaneSwitch lane={lane} counts={counts} onSelect={selectLane} />}
             {rangeStep && phase !== 'running' ? <MatchRangeStep /> : null}
             {failed && !rangeStep && <DetectFailed />}
