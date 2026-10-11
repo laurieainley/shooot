@@ -98,4 +98,16 @@ describe('MatchStrip', () => {
         render(<MatchStrip />)
         expect(screen.queryByRole('slider', { name: 'Match timeline' })).not.toBeInTheDocument()
     })
+
+    it('should show pending suggestions as rings that open the review', () => {
+        useAppState.setState({ suggestions: [
+            { id: 's1', globalTimeSec: 120, score: 1, source: 'audio', status: 'pending' },
+            { id: 's2', globalTimeSec: 240, score: 1, source: 'audio', status: 'rejected' },
+        ] })
+        render(<MatchStrip />)
+        const rings = screen.getAllByRole('button', { name: /Suggested moment/ })
+        expect(rings).toHaveLength(1)
+        fireEvent.click(rings[0])
+        expect(useAppState.getState().panel).toBe('review')
+    })
 })

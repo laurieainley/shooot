@@ -1084,3 +1084,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .review__kept { font-size: 18px; font-weight: 700; }
 .review__note { color: var(--sh-muted); }
 @media (pointer: coarse) { .review { font-size: 15px; } .beta-tag { font-size: 14px; } }
+
+.strip-suggestion { position: absolute; bottom: 2px; width: 12px; height: 12px; margin-left: -6px; padding: 0; border-radius: 50%;
+  border: 2px solid var(--sh-text); background: transparent; opacity: .8; cursor: pointer; }
+.strip-suggestion::after { content: ''; position: absolute; inset: -16px; } /* 44 px touch target */

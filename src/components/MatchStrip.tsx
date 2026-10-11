@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointer
 import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import { buildMatchStrip, globalToFileTime, stackLanes } from '../utils/matchStrip'
 import { formatClock, formatEventClock } from '../utils/timeline'
+import { suggestionMarks } from '../utils/suggestions'
 import { EventIcon } from './icons/EventIcon'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 
@@ -36,6 +37,7 @@ export function MatchStrip() {
     const events = useAppState((s) => s.events)
     const teams = useAppState((s) => s.teams)
     const matchStartSec = useAppState(selectMatchStartSec)
+    const suggestions = useAppState((s) => s.suggestions)
     const clockLong = useAppState(selectClockLong)
     const currentFileIndex = useAppState((s) => s.currentFileIndex)
     const currentTimeSec = useAppState((s) => s.currentTimeInFileSec)
@@ -59,6 +61,10 @@ export function MatchStrip() {
     const durations = files.map((f) => f.durationSec ?? 0)
     const absNow = (cumulativeOffsets[currentFileIndex] ?? 0) + currentTimeSec
     const iconPx = coarse ? ICON_TOUCH : ICON_MOUSE
+    const marks = useMemo(
+        () => suggestionMarks(suggestions, new Set(events.map((e) => e.id)), strip.totalSec),
+        [suggestions, events, strip.totalSec],
+    )
     const lanes = useMemo(() => stackLanes(strip.events.map((e) => e.leftPct), trackPx, iconPx + 2), [strip.events, trackPx, iconPx])
 
     const fracAt = (ev: ReactPointerEvent<HTMLDivElement>): number | null => {
@@ -146,6 +152,16 @@ export function MatchStrip() {
                             <div key={f.id} className={`strip-flag strip-flag--${f.kind}`} title={f.title} style={{ left: `${f.leftPct}%` }}>
                                 <EventIcon event={{ type: f.kind }} size={13} />
                             </div>
+                        ))}
+                        {marks.map((m) => (
+                            <button
+                                key={m.id}
+                                type="button"
+                                className="strip-suggestion"
+                                style={{ left: `${m.leftPct}%` }}
+                                aria-label={`Suggested moment at ${formatEventClock(m.timeSec, m.timeSec, matchStartSec, clockLong)}`}
+                                onClick={() => useAppState.getState().openReviewAt(m.id)}
+                            />
                         ))}
                         {strip.events.map((e, i) => (
                             <button
