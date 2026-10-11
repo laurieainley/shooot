@@ -351,6 +351,7 @@ describe('SuggestionReview', () => {
                     suggestions: useAppState.getState().suggestions.map((s, i) => (i === 0 ? { ...s, ball: { goal: 'team1' as const, frames: 2 } } : s)),
                 })
                 render(<SuggestionReview onClose={() => {}} />)
+                expect(screen.getByText("Ball in Colours' goal")).toBeTruthy() // ends swapped: team1's goal is now Colours'
                 press('m')
                 expect(screen.getByRole('button', { name: /Whites/ })).toHaveAttribute('aria-pressed', 'true')
             })

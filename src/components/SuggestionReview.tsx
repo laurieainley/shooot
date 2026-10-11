@@ -56,5 +56,8 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
 /** The Labs ball hint and the Goal + scoring team pre-selection for a suggestion the ball was seen on. */
 function ballProps(s: Suggestion, teams: Team[], halfTime: number | null): { hint?: ReactNode; preselectTeam?: string; preselectType?: KeepType } {
     if (!s.ball) return {}
-    return { hint: <>Ball in {teamGoalLabel(teams, s.ball.goal)}</>, preselectTeam: scoringTeam(s.ball.goal, teams, halfTime, s.globalTimeSec), preselectType: 'goal' }
+    // After half time the team defending that goal is the other one: the same swap scoringTeam uses.
+    const swapped = halfTime !== null && s.globalTimeSec >= halfTime
+    const defended = swapped ? (s.ball.goal === 'team1' ? 'team2' : 'team1') : s.ball.goal
+    return { hint: <>Ball in {teamGoalLabel(teams, defended)}</>, preselectTeam: scoringTeam(s.ball.goal, teams, halfTime, s.globalTimeSec), preselectType: 'goal' }
 }
