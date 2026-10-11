@@ -1,5 +1,6 @@
 import type { Team } from '../types'
 
+import { deriveInitials } from '../utils/initials'
 import { C } from './themes/shooot/brandColors'
 
 /** Ink on a light kit colour: the brand's on-lime near-black. */
@@ -9,12 +10,9 @@ export const WHITE = '#ffffff'
 
 export type TeamBadge = { name: string; initials: string; colour: string; ink: string }
 
-/** "Ryan's Rovers" → RR, "Whites" → WH: first letters of up to two words, or two letters of one word. */
+/** Initials for a name (see deriveInitials); '?' when the name is blank. */
 export function autoInitials(name: string): string {
-    const words = name.split(/\s+/).map((w) => w.replace(/[^\p{L}\p{N}]/gu, '')).filter(Boolean)
-    if (words.length === 0) return '?'
-    if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
-    return (words[0][0] + words[1][0]).toUpperCase()
+    return deriveInitials(name) || '?'
 }
 
 function luminance(hex: string): number {
