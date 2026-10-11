@@ -36,6 +36,13 @@ describe('ProjectIO', () => {
         useAppState.getState().setGraphics({ theme: 'shooot' })
     })
 
+    it('should carry goal marks out', async () => {
+        const marks = { team1: { postL: { x: 0.1, y: 0.5 }, postR: { x: 0.2, y: 0.5 }, barL: { x: 0.1, y: 0.4 }, barR: { x: 0.2, y: 0.4 } } }
+        useAppState.setState({ goalMarks: marks })
+        expect((await exported()).goalMarks).toEqual(marks)
+        useAppState.setState({ goalMarks: null })
+    })
+
     it('should be disabled with no events', () => {
         useAppState.setState({ events: [] })
         render(<ProjectIO />)

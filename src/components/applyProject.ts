@@ -1,5 +1,6 @@
 import { useAppState } from '../state'
 import { normaliseAreas } from '../utils/crop'
+import { normaliseGoalMarks } from '../utils/goalMarks'
 import { cancelDetection } from '../detectJobs'
 import { migrateEvent } from '../utils/eventTypes'
 import type { TransferPayload } from '../utils/projectTransfer'
@@ -22,4 +23,5 @@ export function applyTransferPayload(p: TransferPayload): void {
     if (p.fullMatch) st.setFullMatch(p.fullMatch)
     st.setMatchdayLabel(typeof p.matchdayLabel === 'string' ? p.matchdayLabel : null)
     st.setGoalAreas(normaliseAreas(p.goalAreas, left))
+    st.setAllGoalMarks(normaliseGoalMarks(p.goalMarks))
 }

@@ -20,7 +20,7 @@ frame, zoom/pan, point placement) opened from the existing `GoalAreasSetup` sect
 - Persisted shape: version **17 → 18** with migration `goalMarks: null` and a test.
 - Points are fractions of the frame (0–1). "Left/right" = as seen in the picture. `team1`/`team2` = the goal that team defends at kick-off.
 - Brand: team tones as in `FrameBoxes` (no lime except the **Done** primary button via `btn-primary`; no red). Touch targets ≥ 44 px; text ≥ 14 px on touch; contrast ≥ 4.5:1; `prefers-reduced-motion` respected.
-- Copy (exact): button **"Mark goal"**, **"Edit marks"**, **"Clear marks"**; prompts **"Click the bottom of the left post"**, **"Click the bottom of the right post"**, **"Click the top of the left post"**, **"Click the top of the right post"**, **"Click the back-left corner of the net on the floor (optional)"**, **"Click the back-right corner of the net on the floor (optional)"**; buttons **"Skip"**, **"Done"**, **"Cancel"**. On touch, "Click" reads "Tap".
+- Copy (exact): buttons **"Mark Whites' goal"**, **"Edit Whites' goal marks"**, **"Clear Whites' goal marks"** (team name via `teamGoalLabel`); prompts **"Click the bottom of the left post"**, **"Click the bottom of the right post"**, **"Click the top of the left post"**, **"Click the top of the right post"**, **"Click the back-left corner of the net on the floor (optional)"**, **"Click the back-right corner of the net on the floor (optional)"**; buttons **"Skip"**, **"Done"**, **"Cancel"**. On touch, "Click" reads "Tap".
 - Gates: `npm run test:run`, `npx tsc -b --noEmit`, `npm run build`, `npm run lint` (baseline 12, add none).
 
 ## Review Focus
@@ -324,7 +324,7 @@ Behaviour (each line is a test in `GoalMarksEditor.test.tsx`, happy-dom; simulat
 - Rendering: an SVG overlay in frame-fraction coordinates (`viewBox="0 0 1 1"`, `preserveAspectRatio="none"`) draws the goal line (post bases, thicker), posts and bar (thin), the footprint polygon (translucent) when back corners exist, using the team tone CSS variables used by `FrameBoxes` (no lime/red). Dots get a 44 px hit area (transparent circle or padded button).
 - Zoom/pan: wheel and pinch zoom via `useZoomPan` (`zoomAt`), pan with two-finger drag or space+drag; a **Reset zoom** quiet button. (Test: wheel event changes the transform scale.)
 
-`GoalAreasSetup.tsx`: under the boxes, per team goal (that has a box): `Mark goal` (no marks) / `Edit marks` + `Clear marks` (marks exist). While an editor is open the FrameBoxes are hidden and the editor replaces them; `onDone` → `setGoalMarks(team, marks)` (which also resets that team's rectangle); `Clear marks` → `setGoalMarks(team, null)`. Tests: buttons per state; Done stores marks and updates the rectangle; Cancel keeps old marks; Clear removes marks only.
+`GoalAreasSetup.tsx`: under the boxes, per team goal (that has a box): `Mark <teamGoalLabel>` (no marks) / `Edit <label> marks` + `Clear <label> marks` (marks exist). While an editor is open the FrameBoxes are hidden and the editor replaces them; `onDone` → `setGoalMarks(team, marks)` (which also resets that team's rectangle); `Clear marks` → `setGoalMarks(team, null)`. Tests: buttons per state; Done stores marks and updates the rectangle; Cancel keeps old marks; Clear removes marks only.
 
 - [ ] Steps: failing tests → implement → focused tests, full suite, tsc, lint, build → commit `feat(goals): mark goal posts, bar and net in Match setup`.
 
@@ -333,6 +333,6 @@ Behaviour (each line is a test in `GoalMarksEditor.test.tsx`, happy-dom; simulat
 ### Task 4: Verification
 
 - [ ] Gates (tests, tsc, build, lint) with exit codes.
-- [ ] Screenshots with a generated test clip (≤ 30 s, 1280×720; draw two simple goal shapes with ffmpeg `drawbox`/`drawgrid` so posts/bar are visible): Match setup Goal areas with **Mark goal** buttons; the editor mid-way (prompt + some dots + lines); zoomed in; after Done (rectangle updated, Edit/Clear buttons) — at 390×844, 844×390, 834×1194, 1280×800, 1440×900, dark and light, touch emulation for phone/tablet. Look at every screenshot; fix small layout defects in this feature; report the rest.
+- [ ] Screenshots with a generated test clip (≤ 30 s, 1280×720; draw two simple goal shapes with ffmpeg `drawbox`/`drawgrid` so posts/bar are visible): Match setup Goal areas with **Mark <team>'s goal** buttons; the editor mid-way (prompt + some dots + lines); zoomed in; after Done (rectangle updated, Edit/Clear buttons) — at 390×844, 844×390, 834×1194, 1280×800, 1440×900, dark and light, touch emulation for phone/tablet. Look at every screenshot; fix small layout defects in this feature; report the rest.
 - [ ] Round-trip: export a project JSON with marks and import it in a fresh profile; marks restored.
 - [ ] Report what was not verified (real phones, real 4K footage).

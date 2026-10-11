@@ -45,4 +45,15 @@ describe('applyTransferPayload', () => {
         expect(useAppState.getState().suggestions).toEqual([])
         expect(useAppState.getState().suggestionRun).toBeNull()
     })
+
+    it('should apply goal marks, and treat malformed or missing marks as none without throwing', () => {
+        const marks = { team1: { postL: { x: 0.1, y: 0.5 }, postR: { x: 0.2, y: 0.5 }, barL: { x: 0.1, y: 0.4 }, barR: { x: 0.2, y: 0.4 } } }
+        const base = buildTransferPayload({ ...useAppState.getState(), events: [], teams: [] })
+        applyTransferPayload({ ...base, goalMarks: marks })
+        expect(useAppState.getState().goalMarks).toEqual(marks)
+        expect(() => applyTransferPayload({ ...base, goalMarks: { team1: 'x' } as never })).not.toThrow()
+        expect(useAppState.getState().goalMarks).toBeNull()
+        applyTransferPayload({ ...base, goalMarks: undefined as never })
+        expect(useAppState.getState().goalMarks).toBeNull()
+    })
 })

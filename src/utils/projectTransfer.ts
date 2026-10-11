@@ -1,4 +1,4 @@
-import type { GoalAreas, MatchEvent, Team } from '../types'
+import type { GoalAreas, GoalMarksByTeam, MatchEvent, Team } from '../types'
 import type { GraphicsSettings } from '../graphics/plan'
 import type { FullMatchSettings } from './exportPlans'
 
@@ -15,13 +15,14 @@ export interface TransferPayload {
     fullMatch: FullMatchSettings
     matchdayLabel: string | null
     goalAreas: GoalAreas | null
+    goalMarks: GoalMarksByTeam | null
     /** Only in projects from before goal areas belonged to teams (read, never written). */
     whitesAttackLeft?: boolean
 }
 
 const KEYS: (keyof TransferPayload)[] = [
     'events', 'teams', 'lengthBeforeGoalSec', 'lengthAfterGoalSec', 'replayBeforeSec', 'replayAfterSec', 'replaySpeed',
-    'graphics', 'fullMatch', 'matchdayLabel', 'goalAreas',
+    'graphics', 'fullMatch', 'matchdayLabel', 'goalAreas', 'goalMarks',
 ]
 
 /** The transferable slice of the app state (never files). */

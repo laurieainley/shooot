@@ -2,6 +2,7 @@ import { useAppState } from '../state'
 import { migrateEvent } from '../utils/eventTypes'
 import { normaliseAreas } from '../utils/crop'
 import { cancelDetection } from '../detectJobs'
+import { normaliseGoalMarks } from '../utils/goalMarks'
 import { withMigratedKickOff } from '../utils/matchClock'
 
 export type ProjectFileData = Record<string, unknown>
@@ -37,5 +38,6 @@ export function applyProjectData(data: ProjectFileData): number {
     if (teams) st.setTeams(teams)
     if (typeof data.graphicsTheme === 'string') st.setGraphics({ theme: data.graphicsTheme as never })
     if ('goalAreas' in data) st.setGoalAreas(normaliseAreas(data.goalAreas, left))
+    if ('goalMarks' in data || 'goalAreas' in data) st.setAllGoalMarks(normaliseGoalMarks(data.goalMarks)) // files from before marks have neither: keep the current marks
     return imported ? imported.length : 0
 }

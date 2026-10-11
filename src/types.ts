@@ -75,3 +75,9 @@ export type Suggestion = {
     eventId?: string
 }
 export type SuggestionRun = { createdAt: number; source: 'audio'; configVersion: number; analysedSec: number; total: number; durationMs?: number; fileKeys?: string[] }
+
+/** A point as fractions of the frame (0–1). */
+export type Pt = { x: number; y: number }
+/** Four required goal points (post bottoms, post tops) plus optional back-of-net floor corners. */
+export type GoalMarks = { postL: Pt; postR: Pt; barL: Pt; barR: Pt; backL?: Pt; backR?: Pt }
+export type GoalMarksByTeam = { team1?: GoalMarks; team2?: GoalMarks }
