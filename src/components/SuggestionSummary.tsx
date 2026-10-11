@@ -3,7 +3,7 @@ import { useAppState } from '../state'
 import { AUDIO_DETECT } from '../detect/detectConfig'
 import { getDetectJob } from '../detectJobs'
 import { detectionReport, reviewCounts } from '../utils/suggestions'
-import { keptSummary, LOW_KEEP_NOTE, NOTHING_STOOD_OUT } from '../utils/voice'
+import { ballSeenLine, keptSummary, LOW_KEEP_NOTE, NOTHING_STOOD_OUT } from '../utils/voice'
 import { openFindGoals } from './findGoals'
 
 interface SuggestionSummaryProps { onClose: () => void }
@@ -19,6 +19,7 @@ export function SuggestionSummary({ onClose }: SuggestionSummaryProps) {
     const events = useAppState((s) => s.events)
     const counts = reviewCounts(suggestions, new Set(events.map((e) => e.id)))
     const decided = counts.kept + counts.rejected
+    const ballSeen = suggestions.filter((s) => s.ball).length
     // null: nothing copied yet; text is set when copying failed, so it can be selected by hand.
     const [copy, setCopy] = useState<{ ok: boolean; text: string } | null>(null)
     const doCopy = async (text: string): Promise<void> => {
@@ -33,6 +34,7 @@ export function SuggestionSummary({ onClose }: SuggestionSummaryProps) {
     return (
         <div className="review__summary">
             {counts.total === 0 ? <p className="m-0">{NOTHING_STOOD_OUT}</p> : <p className="m-0 review__kept">{keptSummary(counts.kept, counts.total)}</p>}
+            {ballSeen > 0 && <p className="m-0 review__note">{ballSeenLine(ballSeen)}</p>}
             {counts.pending > 0 && <p className="m-0 review__note">{counts.pending} not reviewed.</p>}
             {decided >= MIN_DECIDED && counts.kept / decided < AUDIO_DETECT.lowKeepRatio && <p className="m-0 review__note">{LOW_KEEP_NOTE}</p>}
             <div className="review__nav">

@@ -37,6 +37,15 @@ export function listeningLine(fraction: number): string {
     return `Listening for the roar… ${pct(fraction)}%`
 }
 
+/** Find goals phase 2 (Labs ball check) progress (brand voice). */
+export function checkingGoalsLine(fraction: number): string {
+    return `Checking the goal mouths… ${pct(fraction)}%`
+}
+
+export function ballSeenLine(n: number): string {
+    return `Ball seen in ${n}.`
+}
+
 export function keptSummary(kept: number, total: number): string {
     return `You kept ${kept} of ${total}.`
 }

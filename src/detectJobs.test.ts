@@ -79,3 +79,70 @@ describe('detection job and changing files', () => {
         expect(useAppState.getState().suggestionRun?.fileKeys).toHaveLength(1)
     })
 })
+
+describe('detection job phase 2 (ball check)', () => {
+    const wake = () => ({ acquire: vi.fn(async () => {}), release: vi.fn(async () => {}), status: () => 'held' })
+    const marks = { postL: { x: 0.4, y: 0.5 }, postR: { x: 0.6, y: 0.5 }, barL: { x: 0.4, y: 0.4 }, barR: { x: 0.6, y: 0.4 } }
+    const audio = vi.fn(async () => ({ moments: [{ timeSec: 100, score: 3 }, { timeSec: 300, score: 2 }], scores: new Float32Array(3), analysedSec: 600 }))
+    const setup = (labs: boolean, withMarks = true): void => {
+        useAppState.setState({ files: [{ id: 'f', name: 'A', url: '', kind: 'full', durationSec: 600, file: new File([], 'A') }] as never, cumulativeOffsets: [0], events: [], suggestions: [], suggestionRun: null, labs, goalMarks: withMarks ? { team1: marks } : null })
+    }
+    const ballDeps = { frames: vi.fn(), detector: vi.fn() } as never
+
+    it('should tag suggestions as verdicts arrive, holding one wake lock across both phases', async () => {
+        setup(true)
+        const w = wake()
+        const ball = vi.fn(async (a: { suggestions: { id: string }[] }, _d, _s, onProgress: (f: number) => void, onVerdict: (id: string, b: { goal: 'team1'; frames: number } | null) => void) => {
+            onVerdict(a.suggestions[0].id, { goal: 'team1', frames: 3 }); onProgress(0.5)
+            onVerdict(a.suggestions[1].id, null); onProgress(1)
+        })
+        const jobs = createDetectJobs({ run: audio as never, wakeLock: () => w, now: (() => { let t = 0; return () => (t += 10) })(), ball: ball as never, ballDeps })
+        await jobs.start()
+        const s = useAppState.getState().suggestions
+        expect(s[0].ball).toEqual({ goal: 'team1', frames: 3 })
+        expect(s[1].ball).toBeUndefined()
+        expect(jobs.store.getState()).toMatchObject({ phase: 'done', ballPhase: 'done', ballFraction: 1, ballError: null })
+        expect(jobs.store.getState().ballMs).toBeGreaterThan(0)
+        expect(w.acquire).toHaveBeenCalledTimes(1); expect(w.release).toHaveBeenCalledTimes(1)
+    })
+    it('should not run the ball check without Labs, without goal marks, or without suggestions', async () => {
+        const ball = vi.fn()
+        setup(false)
+        await createDetectJobs({ run: audio as never, wakeLock: wake, now: () => 0, ball: ball as never, ballDeps }).start()
+        setup(true, false)
+        await createDetectJobs({ run: audio as never, wakeLock: wake, now: () => 0, ball: ball as never, ballDeps }).start()
+        setup(true)
+        await createDetectJobs({ run: vi.fn(async () => ({ moments: [], scores: new Float32Array(1), analysedSec: 600 })) as never, wakeLock: wake, now: () => 0, ball: ball as never, ballDeps }).start()
+        expect(ball).not.toHaveBeenCalled()
+    })
+    it('should say the model is missing and keep the audio suggestions', async () => {
+        setup(true)
+        const jobs = createDetectJobs({ run: audio as never, wakeLock: wake, now: () => 0, ball: vi.fn(async () => { throw new Error('model not found') }) as never, ballDeps })
+        await jobs.start()
+        expect(jobs.store.getState()).toMatchObject({ phase: 'done', ballPhase: 'failed', ballError: 'Ball check unavailable: model not found.' })
+        expect(useAppState.getState().suggestions).toHaveLength(2)
+    })
+    it('should report any other ball failure plainly', async () => {
+        setup(true)
+        const jobs = createDetectJobs({ run: audio as never, wakeLock: wake, now: () => 0, ball: vi.fn(async () => { throw new Error('no WebGPU') }) as never, ballDeps })
+        await jobs.start()
+        expect(jobs.store.getState().ballError).toBe('Ball check failed: no WebGPU')
+        expect(jobs.store.getState().phase).toBe('done')
+    })
+    it('should stop on Cancel, keep tags already written and not show an error', async () => {
+        setup(true)
+        const ball = vi.fn((a: { suggestions: { id: string }[] }, _d, signal: AbortSignal, _p, onVerdict: (id: string, b: { goal: 'team1'; frames: number }) => void) => {
+            onVerdict(a.suggestions[0].id, { goal: 'team1', frames: 2 })
+            return new Promise<never>((_, rej) => signal.addEventListener('abort', () => rej(new Error('Cancelled'))))
+        })
+        const w = wake()
+        const jobs = createDetectJobs({ run: audio as never, wakeLock: () => w, now: () => 0, ball: ball as never, ballDeps })
+        const p = jobs.start()
+        await vi.waitFor(() => expect(jobs.store.getState().ballPhase).toBe('running'))
+        jobs.cancel(); await p
+        expect(jobs.store.getState()).toMatchObject({ phase: 'done', ballPhase: 'idle', ballError: null })
+        expect(useAppState.getState().suggestions[0].ball).toEqual({ goal: 'team1', frames: 2 })
+        expect(useAppState.getState().suggestions).toHaveLength(2)
+        expect(w.release).toHaveBeenCalled()
+    })
+})

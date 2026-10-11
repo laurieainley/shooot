@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState, type ReactNode } from 'react'
+import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
 import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import type { KeepType, Suggestion } from '../types'
 import { formatClock } from '../utils/timeline'
@@ -22,6 +22,8 @@ interface SuggestionCardProps {
     onPrev: () => void
     /** Team pre-selected after Goal / Own goal, so Enter saves with it (defaults to the first team). */
     preselectTeam?: string
+    /** Type pre-selected once the moment is settled (marked or estimate accepted), so Enter saves it. */
+    preselectType?: KeepType
     /** One optional line above the actions, e.g. "Ball in Colours' goal". */
     hint?: ReactNode
 }
@@ -45,7 +47,7 @@ function Chevron({ dir }: { dir: 'left' | 'right' }) {
  * One suggested moment, one step at a time: watch and mark the exact moment, say what it was (and which team), then
  * save. Keys and buttons only select; Save (Enter) confirms and moves on. Finished steps fold into a chip that reopens them.
  */
-export function SuggestionCard({ suggestion, index, total, onNext, onPrev, preselectTeam, hint }: SuggestionCardProps) {
+export function SuggestionCard({ suggestion, index, total, onNext, onPrev, preselectTeam, preselectType, hint }: SuggestionCardProps) {
     const teams = useAppState((s) => s.teams)
     const kickOff = useAppState(selectMatchStartSec)
     const long = useAppState(selectClockLong)
@@ -59,6 +61,8 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, prese
     const [remarking, setRemarking] = useState(false)
     useEffect(() => { dispatch({ kind: 'clear' }); setAcceptedEstimate(false); setRemarking(false) }, [suggestion.id])
 
+    const preselectedFor = useRef<string | null>(null)
+    const [armedFor, setArmedFor] = useState<string | null>(null)
     const teamCount = teams.length
     const defaultTeam = teamCount >= 2 ? preselectTeam ?? teams[0]?.name ?? null : null
     const marked = moment.markedSec !== null
@@ -121,6 +125,13 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, prese
     })
 
     const sure = marked || acceptedEstimate // the moment step is done
+    // Once per suggestion, when the moment is settled; clearing the choice afterwards stays cleared.
+    useEffect(() => {
+        // Right after the suggestion changed, `sure` still belongs to the previous one: wait for the reset render.
+        if (armedFor !== suggestion.id) { setArmedFor(suggestion.id); return }
+        if (preselectType && sure && preselectedFor.current !== suggestion.id && decision.type === null) { preselectedFor.current = suggestion.id; select(preselectType) }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- `select` only dispatches
+    }, [armedFor, suggestion.id, preselectType, sure, decision.type])
     const showMarkStep = !sure && decision.type === null || remarking
     const showTypeStep = !showMarkStep && decision.type === null
     const hasChoice = decision.type !== null
