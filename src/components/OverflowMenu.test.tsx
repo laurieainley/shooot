@@ -121,7 +121,7 @@ describe('OverflowMenu', () => {
     })
 
     it('should not show a Labs item while labs is off', async () => {
-        useAppState.setState({ labs: false, panel: null })
+        useAppState.setState({ labs: false, labsSeen: false, panel: null })
         render(<OverflowMenu />)
         await open()
         expect(screen.queryByRole('menuitem', { name: /Labs/ })).not.toBeInTheDocument()
@@ -133,6 +133,16 @@ describe('OverflowMenu', () => {
         await open()
         await userEvent.click(screen.getByRole('menuitem', { name: 'Labs: on' }))
         expect(useAppState.getState().labs).toBe(false)
+    })
+
+    it('should keep a "Labs: off" toggle once Labs has been on, and switch it back on', async () => {
+        useAppState.setState({ labs: false, labsSeen: false, panel: null })
+        useAppState.getState().setLabs(true)
+        useAppState.getState().setLabs(false)
+        render(<OverflowMenu />)
+        await open()
+        await userEvent.click(screen.getByRole('menuitem', { name: 'Labs: off' }))
+        expect(useAppState.getState().labs).toBe(true)
     })
 })
 

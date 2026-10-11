@@ -758,6 +758,24 @@ describe('goal marks', () => {
     })
 })
 
+describe('labsSeen', () => {
+    it('should remember that Labs was on, default false and persist it', () => {
+        const opts = (useAppState as unknown as { persist: { getOptions: () => { partialize?: (s: unknown) => unknown } } }).persist.getOptions()
+        useAppState.setState({ labs: false, labsSeen: false })
+        useAppState.getState().setLabs(false)
+        expect(useAppState.getState().labsSeen).toBe(false)
+        useAppState.getState().setLabs(true)
+        useAppState.getState().setLabs(false)
+        expect(useAppState.getState()).toMatchObject({ labs: false, labsSeen: true })
+        expect(opts.partialize!(useAppState.getState())).toHaveProperty('labsSeen', true)
+    })
+    it('should count an already-on Labs as seen when it is switched off', () => {
+        useAppState.setState({ labs: true, labsSeen: false })
+        useAppState.getState().setLabs(false)
+        expect(useAppState.getState().labsSeen).toBe(true)
+    })
+})
+
 describe('labs and ball tags', () => {
     it('should default labs off, set it, persist it and migrate older state to a boolean (v20)', () => {
         const opts = useAppState.persist.getOptions()

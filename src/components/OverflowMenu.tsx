@@ -54,6 +54,7 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
     const hasSuggestions = anySuggestions && suggestionsCurrent
     const hasFiles = useAppState((s) => s.files.length > 0)
     const labs = useAppState((s) => s.labs)
+    const labsSeen = useAppState((s) => s.labsSeen)
     const [confirmNew, setConfirmNew] = useState(false)
     const items: MenuItem[] = [
         { label: 'Files', panel: 'files' },
@@ -90,7 +91,7 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
             <button type="button" role="menuitem" onClick={() => useAppState.getState().openPanel('import')}>Import…</button>
             <ProjectIO />
             <button type="button" role="menuitem" onClick={() => useAppState.getState().openPanel('shortcuts')}>Shortcuts</button>
-            {labs && <button type="button" role="menuitem" onClick={() => { useAppState.getState().setLabs(false); useAppState.getState().closePanel() }}>Labs: on</button>}
+            {(labs || labsSeen) && <button type="button" role="menuitem" onClick={() => { useAppState.getState().setLabs(!labs); useAppState.getState().closePanel() }}>{labs ? 'Labs: on' : 'Labs: off'}</button>}
         </div>
     )
 }
