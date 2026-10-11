@@ -53,14 +53,14 @@ describe('cardLayout', () => {
     })
 
     it('should list the scorers in two columns with minutes, and end with "Made with Shooot"', () => {
-        const scorers = { left: [{ name: 'SAM TAYLOR', minutes: "'13 '44" }], right: [{ name: 'JO BLOGGS', minutes: "'60 PEN" }] }
+        const scorers = { left: [{ name: 'SAM TAYLOR', minutes: "13' 44'" }], right: [{ name: 'JO BLOGGS', minutes: "60' PEN" }] }
         const ops = cardLayout({ ...vs, heading: 'FULL TIME', centre: '1 - 1', scorers }, 2, 4, true)
         const sam = texts(ops).find((o) => o.text === 'SAM TAYLOR')!
         const jo = texts(ops).find((o) => o.text === 'JO BLOGGS')!
         expect(sam).toMatchObject({ voice: 'shirt' })
         expect(sam.x).toBeLessThan(960)
         expect(jo.x).toBeGreaterThan(960)
-        expect(texts(ops).find((o) => o.text === "'13 '44")).toMatchObject({ voice: 'mono', y: sam.y })
+        expect(texts(ops).find((o) => o.text === "13' 44'")).toMatchObject({ voice: 'mono', y: sam.y })
         expect(texts(ops).find((o) => o.text === 'FULL TIME')).toBeDefined()
         expect(textOf(ops)).toContain('Made with Shooot')
         expect(ops.some((o) => o.kind === 'circle' && o.fill === C.rec)).toBe(true)
@@ -349,7 +349,7 @@ describe('multicolour team in cards', () => {
 
 describe('captionLayout brand look', () => {
     const bug: BugSpec = { left: 'RR', right: 'WT', leftColour: '#f0f0f0', rightColour: '#ec5fa4', text: '1–0' }
-    const goal: CaptionSpec = { label: 'GOAL!', person: 'SAM TAYLOR', minute: "'34", stripe: '#f0f0f0', bug }
+    const goal: CaptionSpec = { label: 'GOAL!', person: 'SAM TAYLOR', minute: "34'", stripe: '#f0f0f0', bug }
     const rects = (ops: DrawOp[]): RectOp[] => ops.filter((o): o is RectOp => o.kind === 'rect')
     const slabOf = (ops: DrawOp[], label: string): RectOp => {
         const t = texts(ops).find((o) => o.text === label)!
@@ -391,7 +391,7 @@ describe('captionLayout brand look', () => {
         expect(texts(ops).find((o) => o.text === 'GOAL!')).toMatchObject({ voice: 'stadium', color: C.onLime })
         expect(slabOf(ops, 'GOAL!').fill).toBe(C.lime)
         const name = texts(ops).find((o) => o.text === 'SAM TAYLOR')!
-        const minute = texts(ops).find((o) => o.text === "'34")!
+        const minute = texts(ops).find((o) => o.text === "34'")!
         expect(name.voice).toBe('shirt')
         expect(minute.voice).toBe('mono')
         expect(name.x).toBeGreaterThan(texts(ops).find((o) => o.text === 'GOAL!')!.x)
@@ -418,8 +418,8 @@ describe('captionLayout brand look', () => {
         const tag = replayTagLayout(1, 6).find((o): o is RectOp => o.kind === 'rect')!
         const ops = captionLayout({ ...goal, person: 'MAXIMILIAN ALEXANDER-FOTHERINGHAM THE THIRD' }, 2.5, true)
         const name = texts(ops).find((o) => o.text.startsWith('MAXIMILIAN'))!
-        const minute = texts(ops).find((o) => o.text === "'34")!
+        const minute = texts(ops).find((o) => o.text === "34'")!
         expect(name.x + name.maxWidth!).toBeLessThanOrEqual(minute.x)
-        expect(minute.x + estimateTextWidth("'34", minute.size, 'mono')).toBeLessThan(tag.x)
+        expect(minute.x + estimateTextWidth("34'", minute.size, 'mono')).toBeLessThan(tag.x)
     })
 })

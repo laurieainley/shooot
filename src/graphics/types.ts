@@ -1,7 +1,7 @@
 import type { TeamBadge } from './teamStyle'
 import type { ThemeId } from './themes/types'
 
-/** One scorer on the full-time card: the name and their minutes, e.g. `'13 '44`. */
+/** One scorer on the full-time card: the name and their minutes, e.g. `13' 44'`. */
 export type ScorerLine = { name: string; minutes: string }
 
 /** VS / full-time card content; `scorers` (full time only) are the two columns, one per team. */
@@ -19,7 +19,7 @@ export type CaptionSpec = {
     label: string
     /** Slab colour; goal when omitted. */
     tone?: CaptionTone
-    /** Match minute shown after the name as `'34` (only when kick-off is marked). */
+    /** Match minute shown after the name as `34'` (only when kick-off is marked). */
     minute?: string
     person?: string
     /** Goals: shown as a smaller `ASSIST: JO` line under the event line. */

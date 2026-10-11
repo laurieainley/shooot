@@ -133,35 +133,43 @@
 .file-add { border-style: dashed; color: var(--sh-muted); font-weight: 500; }
 .file-add:hover { color: var(--sh-text); border-color: var(--sh-text); }
 
-/* Files sheet */
+/* Files sheet: numbered dotted slots; cards drag between them. */
 .files-intro { margin: 0 0 8px; font-size: 13px; line-height: 1.45; color: var(--sh-muted); }
 .files-status { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0; font-size: 12px; color: var(--sh-muted); }
 .files-status--warn { justify-content: space-between; padding: 6px 6px 6px 10px; border: 1px solid var(--sh-line); border-radius: var(--sh-radius-sm); background: var(--sh-surface-2); font-size: 13px; }
-.files-note { margin: 8px 0 0; font-size: 12px; color: var(--sh-muted); }
-.file-list { list-style: none; margin: 8px 0 0; padding: 0; }
-.file-row {
-  position: relative; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; padding: 6px 0;
-  border-bottom: 1px solid var(--sh-line);
+.file-slots { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.file-slot { position: relative; display: grid; grid-template-columns: 20px 1fr; column-gap: 8px; align-items: center; }
+.file-slot__num { grid-row: 1; font-size: 12px; font-weight: 600; color: var(--sh-muted); text-align: center; }
+.file-slot[aria-current="true"] .file-slot__num { color: var(--sh-text); }
+/* The slot itself: a dotted box that shows when its card is lifted out. */
+.file-slot::after {
+  content: ''; grid-row: 1; grid-column: 2; align-self: stretch; z-index: 0;
+  border: 1.5px dashed transparent; border-radius: var(--sh-radius-sm); transition: border-color 120ms;
 }
-/* Numbered chips joined by a line: one match, played top to bottom. */
-.file-row__index {
-  position: relative; z-index: 1; flex: none; display: grid; place-items: center; width: 24px; height: 24px;
-  border: 1px solid var(--sh-line); border-radius: 50%; background: var(--sh-surface); font-size: 11px; font-weight: 600; color: var(--sh-muted);
+.file-slots--dragging .file-slot::after { border-color: var(--sh-line); }
+.file-slots--dragging .file-slot--target::after { border-color: var(--sh-muted); }
+.file-card {
+  grid-row: 1; grid-column: 2; position: relative; z-index: 1; display: flex; align-items: center; gap: 2px; min-width: 0;
+  border: 1px solid var(--sh-line); border-radius: var(--sh-radius-sm); background: var(--sh-surface);
+  transition: transform 160ms ease, box-shadow 160ms; cursor: grab; user-select: none; -webkit-user-select: none;
 }
-.file-row:not(:last-child)::before {
-  content: ''; position: absolute; left: 12px; top: 50%; bottom: -50%; border-left: 1px dashed var(--sh-line);
+.file-slot[aria-current="true"] .file-card { border-color: var(--sh-muted); }
+.file-card--dragging { z-index: 2; transition: box-shadow 160ms; cursor: grabbing; box-shadow: 0 8px 24px rgb(0 0 0 / 0.28); }
+.file-card__grip {
+  flex: none; align-self: stretch; display: grid; place-items: center; width: 28px; padding: 0; border: 0; background: transparent;
+  color: var(--sh-muted); cursor: grab; touch-action: none; border-radius: var(--sh-radius-sm) 0 0 var(--sh-radius-sm);
 }
-.file-row__main {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; flex: 1 1 200px; min-width: 0; min-height: 40px;
-  padding: 4px 8px; border: 0; border-radius: var(--sh-radius-sm); background: transparent; color: var(--sh-muted); text-align: left; cursor: pointer;
+.file-card__main {
+  display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-width: 0; padding: 6px 4px; border: 0; background: transparent;
+  color: var(--sh-text); text-align: left; cursor: inherit;
 }
-.file-row[aria-current="true"] .file-row__main { color: var(--sh-text); }
-.file-row[aria-current="true"] .file-row__index { border-color: var(--sh-text); color: var(--sh-text); }
-.file-row__name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
-.file-row__meta { display: flex; flex-wrap: wrap; gap: 0 10px; font-size: 11px; color: var(--sh-muted); }
-.file-row__tags { display: flex; flex-wrap: wrap; gap: 4px; }
-.file-row__tools { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; }
-.file-row__replace { min-height: 32px; }
+.file-card__thumb { flex: none; width: 72px; height: 40px; object-fit: cover; border-radius: 4px; background: var(--sh-surface-2); pointer-events: none; }
+.file-card__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.file-card__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 13px; }
+.file-card__meta { display: flex; flex-wrap: wrap; gap: 0 10px; font-size: 11px; color: var(--sh-muted); }
+.file-card__tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.file-card__more { flex: none; margin-right: 2px; }
+.file-slot__actions { grid-column: 2; display: flex; gap: 6px; padding-top: 6px; }
 
 /* Opening (probing) progress */
 .opening-status { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--sh-muted); min-width: 0; }
@@ -741,7 +749,6 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .swatch[aria-pressed="true"] { outline-offset: -4px; }
   .swatches { gap: 0; }
   .field { min-height: 44px; font-size: 16px; } /* 16px: no zoom-on-focus in mobile Safari */
-  .file-row__main { min-height: 44px; }
   .graphics-setup .btn-quiet, .graphics-setup__field .field { min-height: 44px; }
   .btn-quiet, .btn-primary, .file-add { min-height: 44px; }
   .top-btn { height: 44px; min-height: 44px; }
@@ -753,7 +760,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .btn-quiet, .btn-primary, .file-add, .field, .tag, .row-score, .menu > button, .menu-item,
   .reel-summary, .shortcuts-row, .link-btn, .export-section__title, .settings-group legend, .export-section__hint, .toggle-row__hint, .settings-field, .settings-field .unit,
   .strip-label, .strip-file__num, .graphics-setup__field, .opening-status, .event-picker__hint, .event-picker__title, .event-picker__warn,
-  .control-btn, .file-row__index, .file-pill__dur,
+  .control-btn, .file-pill__dur,
   .player-container .video-js .vjs-time-control { font-size: 14px; }
   .tag { line-height: 18px; }
   .zoom-chip { min-width: 44px; min-height: 44px; font-size: 14px; }

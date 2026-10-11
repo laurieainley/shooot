@@ -29,18 +29,19 @@ describe('FilesSheet', () => {
         expect(row('a.mp4')).toHaveAttribute('aria-current', 'true')
     })
 
-    it('should number the files in timeline order before the name', () => {
+    it('should number the slots in timeline order', () => {
         render(<FilesSheet onClose={onClose} />)
-        expect(row('a.mp4').querySelector('.file-row__index')?.textContent).toBe('1')
-        expect(row('b.mp4').querySelector('.file-row__index')?.textContent).toBe('2')
-        expect(row('b.mp4').querySelector('.file-row__name')?.textContent).toBe('b.mp4')
+        expect(row('a.mp4').querySelector('.file-slot__num')?.textContent).toBe('1')
+        expect(row('b.mp4').querySelector('.file-slot__num')?.textContent).toBe('2')
+        expect(row('b.mp4').querySelector('.file-card__name')?.textContent).toBe('b.mp4')
     })
 
     it('should explain the order and show where each file starts', () => {
         render(<FilesSheet onClose={onClose} />)
-        expect(screen.getByText(/play back to back as one match/i)).toBeInTheDocument()
+        expect(screen.getByText(/arrange them in chronological order/i)).toBeInTheDocument()
         expect(row('b.mp4').textContent).toContain('Starts 10:00')
-        expect(screen.getByText(/check the order yourself/i)).toBeInTheDocument()
+        expect(row('b.mp4').textContent).toContain('Duration 10:00')
+        expect(screen.getByText(/check the thumbnails/i)).toBeInTheDocument()
     })
 
     it('should confirm filming order when recording times agree', () => {
@@ -65,13 +66,23 @@ describe('FilesSheet', () => {
         expect(onClose).toHaveBeenCalled()
     })
 
-    it('should reorder and remove without closing', async () => {
+    it('should reorder with arrow keys on the grip and remove from the ⋯ menu without closing', async () => {
         render(<FilesSheet onClose={onClose} />)
-        await userEvent.click(screen.getByRole('button', { name: 'Move b.mp4 earlier' }))
+        screen.getByRole('button', { name: 'Reorder b.mp4' }).focus()
+        await userEvent.keyboard('{ArrowUp}')
         expect(s().files.map((f) => f.name)).toEqual(['b.mp4', 'a.mp4'])
+        await userEvent.click(screen.getByRole('button', { name: 'More for a.mp4' }))
         await userEvent.click(screen.getByRole('button', { name: 'Remove a.mp4' }))
         expect(s().files.map((f) => f.name)).toEqual(['b.mp4'])
         expect(onClose).not.toHaveBeenCalled()
+    })
+
+    it('should show the filming time as a time of day', () => {
+        const at = new Date(2026, 9, 11, 19, 1).getTime()
+        s().setFiles([{ ...vf('a.mp4'), recordedAtMs: at }, { ...vf('b.mp4'), recordedAtMs: at + 3_600_000 }])
+        render(<FilesSheet onClose={onClose} />)
+        expect(row('a.mp4').textContent).toContain('Filmed 7:01pm')
+        expect(row('b.mp4').textContent).toContain('Filmed 8:01pm')
     })
 
     it('should replace one entry with a newly picked file', async () => {
