@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
 import { useAppState, type Panel } from '../state'
+import { BetaTag } from './BetaTag'
+import { openFindGoals } from './findGoals'
 import { FloatingPanel } from './FloatingPanel'
 import { ProjectIO } from './ProjectIO'
 import { clearHandles } from '../files/handleStore'
@@ -46,6 +48,8 @@ interface MenuBodyProps {
 
 function MenuBody({ setupInMenu }: MenuBodyProps) {
     const events = useAppState((s) => s.events)
+    const hasSuggestions = useAppState((s) => s.suggestions.length > 0)
+    const hasFiles = useAppState((s) => s.files.length > 0)
     const [confirmNew, setConfirmNew] = useState(false)
     const items: MenuItem[] = [
         { label: 'Files', panel: 'files' },
@@ -71,6 +75,11 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
     return (
         <div role="menu" aria-label="Menu" className="menu-list">
             <button type="button" role="menuitem" onClick={() => setConfirmNew(true)}>New match…</button>
+            {hasFiles && (
+                <button type="button" role="menuitem" onClick={() => openFindGoals()}>
+                    {hasSuggestions ? 'Review suggestions' : 'Find goals'} <BetaTag />
+                </button>
+            )}
             {items.map(({ label, panel, aria }) => (
                 <button key={panel} type="button" role="menuitem" aria-label={aria} onClick={() => useAppState.getState().openPanel(panel)}>{label}</button>
             ))}

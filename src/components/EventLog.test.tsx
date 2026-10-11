@@ -396,6 +396,20 @@ describe('EventLog empty state', () => {
     })
 })
 
+describe('EventLog find goals', () => {
+    it('should offer Find goals in the empty state when videos are loaded', () => {
+        setup([])
+        render(<EventLog />)
+        expect(screen.getByRole('button', { name: /Find goals/ })).toHaveTextContent('Beta')
+    })
+
+    it('should not offer it without videos', () => {
+        setup([], { files: [], cumulativeOffsets: [] })
+        render(<EventLog />)
+        expect(screen.queryByRole('button', { name: /Find goals/ })).toBeNull()
+    })
+})
+
 describe('EventLog on touch screens', () => {
     beforeEach(() => {
         setCoarsePointer(true)

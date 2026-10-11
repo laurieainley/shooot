@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { EventType, MatchEvent } from '../types'
-import { emptyLogLine, POLISHING, polishingChip, REEL_READY, GOAL_MARKED, goalMarkedFor } from './voice'
+import { emptyLogLine, POLISHING, polishingChip, REEL_READY, GOAL_MARKED, goalMarkedFor, listeningLine, keptSummary } from './voice'
 
 describe('voice', () => {
     it('should greet an empty log with the brand line, then say what to do', () => {
@@ -35,4 +35,9 @@ describe('goalMarkedFor', () => {
         expect(goalMarkedFor([], [goal('a'), goal('b')])).toBeNull()
         expect(goalMarkedFor([goal('a')], [goal('a')])).toBeNull()
     })
+})
+
+describe('find goals lines', () => {
+    it('should show progress in the brand voice', () => { expect(listeningLine(0.4)).toBe('Listening for the roar… 40%') })
+    it('should summarise kept suggestions', () => { expect(keptSummary(6, 22)).toBe('You kept 6 of 22.') })
 })

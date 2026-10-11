@@ -1066,3 +1066,21 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .event-row__end .row-btn { width: 36px; }
   .event-row__end .row-score { min-width: 3.6ch; margin-right: 2px; }
 }
+
+/* Find goals (Beta) review panel */
+.beta-tag { display: inline-block; margin-left: 6px; padding: 1px 6px; border: 1px solid var(--sh-line); border-radius: 4px;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--sh-muted); vertical-align: middle; }
+.review { display: flex; flex-direction: column; gap: 12px; }
+.review__title { margin: 0; font-size: 16px; }
+.review__card, .review__summary { display: flex; flex-direction: column; gap: 12px; }
+.review__count { margin: 0; color: var(--sh-muted); }
+.review__actions, .review__nav { display: flex; flex-wrap: wrap; gap: 8px; }
+.review__btn { min-height: 44px; }
+.review__btn kbd { margin-left: 6px; font-family: var(--sh-font-mono); font-size: 12px; opacity: .7; }
+.review__status { display: flex; flex-direction: column; gap: 8px; }
+.review__bar { height: 4px; background: var(--sh-line); border-radius: 2px; overflow: hidden; }
+.review__bar > div { height: 100%; background: var(--sh-text); transition: width .2s; }
+@media (prefers-reduced-motion: reduce) { .review__bar > div { transition: none; } }
+.review__kept { font-size: 18px; font-weight: 700; }
+.review__note { color: var(--sh-muted); }
+@media (pointer: coarse) { .review { font-size: 15px; } }

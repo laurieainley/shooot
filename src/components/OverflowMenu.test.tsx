@@ -28,7 +28,20 @@ describe('OverflowMenu', () => {
         expect(screen.queryByRole('menu')).not.toBeInTheDocument()
         await open()
         const items = screen.getAllByRole('menuitem').map((b) => b.textContent)
-        expect(items).toEqual(['New match…', 'Files', 'Advanced settings', 'Paste list', 'Send project to another device', 'Export project', 'Import project', 'Shortcuts'])
+        expect(items).toEqual(['New match…', 'Find goals Beta', 'Files', 'Advanced settings', 'Paste list', 'Send project to another device', 'Export project', 'Import project', 'Shortcuts'])
+    })
+
+    it('should offer Find goals (Beta), or Review suggestions once there are some', async () => {
+        useAppState.setState({ suggestions: [] })
+        const { unmount } = render(<OverflowMenu />)
+        await open()
+        expect(screen.getByRole('menuitem', { name: /Find goals/ })).toHaveTextContent('Beta')
+        unmount()
+        useAppState.setState({ suggestions: [{ id: 's', globalTimeSec: 5, score: 1, source: 'audio', status: 'pending' }], panel: null })
+        render(<OverflowMenu />)
+        await open()
+        expect(screen.getByRole('menuitem', { name: /Review suggestions/ })).toHaveTextContent('Beta')
+        useAppState.setState({ suggestions: [] })
     })
 
     it('should keep Setup in the menu on the phone, where the bar has no room for it', async () => {

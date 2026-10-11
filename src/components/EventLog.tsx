@@ -6,6 +6,8 @@ import type { MatchEvent, Team } from '../types'
 import { emptyLogLine } from '../utils/voice'
 import { controlLabel, isMarker } from '../utils/eventTypes'
 import { eventRowParts } from '../utils/eventRow'
+import { BetaTag } from './BetaTag'
+import { openFindGoals } from './findGoals'
 import { EventIcon } from './icons/EventIcon'
 import { watchFromSec } from '../utils/markers'
 import { wantsReplay } from '../utils/replays'
@@ -135,10 +137,17 @@ export function EventLog() {
             <RelinkBanner />
 
             {events.length === 0 ? (
-                <p className="empty-log m-0 px-3 py-4 text-[13px] text-muted">
-                    <strong className="empty-log__lead voice-heading">{empty.lead}</strong>
-                    {' '}{empty.key ? <>{empty.hint} <kbd>{empty.key}</kbd> {empty.tail}</> : empty.hint}
-                </p>
+                <>
+                    <p className="empty-log m-0 px-3 py-4 text-[13px] text-muted">
+                        <strong className="empty-log__lead voice-heading">{empty.lead}</strong>
+                        {' '}{empty.key ? <>{empty.hint} <kbd>{empty.key}</kbd> {empty.tail}</> : empty.hint}
+                    </p>
+                    {files.length > 0 && (
+                        <div className="px-3 pb-4">
+                            <button type="button" className="btn-quiet empty-log__find" onClick={() => openFindGoals()}>Find goals <BetaTag /></button>
+                        </div>
+                    )}
+                </>
             ) : (
                 <ol ref={listRef} role="listbox" aria-label="Event list" className="m-0 min-h-0 flex-1 list-none overflow-y-auto overscroll-contain p-0"
                     style={{ '--clock-ch': clockWidthCh(clockLong, true) } as CSSProperties}>
