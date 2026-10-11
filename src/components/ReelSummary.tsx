@@ -1,5 +1,5 @@
 import { useId, useMemo, useState } from 'react'
-import { selectMatchStartSec, useAppState } from '../state'
+import { useAppState } from '../state'
 import { clipSettingsLine, formatReelLength, reelSummary } from '../utils/reel'
 import { ClipSettings } from './ClipSettings'
 
@@ -8,8 +8,6 @@ export function ReelSummary() {
     const files = useAppState((s) => s.files)
     const events = useAppState((s) => s.events)
     const cumulativeOffsets = useAppState((s) => s.cumulativeOffsets)
-    const matchStartSec = useAppState(selectMatchStartSec)
-    const adjustTimestampsByOffset = useAppState((s) => s.adjustTimestampsByOffset)
     const before = useAppState((s) => s.lengthBeforeGoalSec)
     const after = useAppState((s) => s.lengthAfterGoalSec)
     const replayBeforeSec = useAppState((s) => s.replayBeforeSec)
@@ -19,9 +17,9 @@ export function ReelSummary() {
     const panelId = useId()
 
     const reel = useMemo(() => reelSummary({
-        events, cumulativeOffsets, durationsSec: files.map((f) => f.durationSec ?? Infinity), matchStartSec, adjustTimestampsByOffset,
+        events, cumulativeOffsets, durationsSec: files.map((f) => f.durationSec ?? Infinity),
         before, after, replay: { beforeSec: replayBeforeSec, afterSec: replayAfterSec, speed: replaySpeed },
-    }), [events, cumulativeOffsets, files, matchStartSec, adjustTimestampsByOffset, before, after, replayBeforeSec, replayAfterSec, replaySpeed])
+    }), [events, cumulativeOffsets, files, before, after, replayBeforeSec, replayAfterSec, replaySpeed])
 
     return (
         <div role="group" aria-label="Reel summary" className="reel-summary">

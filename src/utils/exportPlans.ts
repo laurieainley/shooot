@@ -8,7 +8,6 @@ import { CARD_SEC } from '../graphics/layout'
 import { estimateBytes, fullMatchCuts, fullMatchSpan, recordingGaps } from './fullMatch'
 import { mergeOverlappingGoalSegments } from './highlights'
 import { jobSignature } from './jobSignature'
-import { kickOffSec } from './matchClock'
 import { linkedEvents } from './relink'
 import { buildRenderPlan } from './renderPlan'
 import { resolveRenderSources, type RenderQuality } from './renderSources'
@@ -20,7 +19,6 @@ export type ExportState = {
     files: VideoSourceFile[]
     events: MatchEvent[]
     cumulativeOffsets: number[]
-    adjustTimestampsByOffset: boolean
     lengthBeforeGoalSec: number
     lengthAfterGoalSec: number
     replayBeforeSec: number
@@ -66,7 +64,7 @@ function finish(kind: 'highlights' | 'fullMatch', quality: RenderQuality, s: Exp
 
 export function highlightsExport(s: ExportState, quality: RenderQuality): ExportPlan {
     const linked = linkedEvents(s.events)
-    const segments = mergeOverlappingGoalSegments(linked, s.cumulativeOffsets, kickOffSec(linked, s.cumulativeOffsets), s.adjustTimestampsByOffset, s.lengthBeforeGoalSec, s.lengthAfterGoalSec)
+    const segments = mergeOverlappingGoalSegments(linked, s.cumulativeOffsets, s.lengthBeforeGoalSec, s.lengthAfterGoalSec)
     const cuts = buildRenderPlan(segments, s.files.map((f) => f.durationSec ?? Infinity), replayOptionsFor({ ...s, events: linked }))
     const spec = nonEmpty(buildGraphicsSpec({ events: linked, teams: s.teams, cuts, cumulativeOffsets: s.cumulativeOffsets, settings: s.graphics, matchday: matchday(s) }))
     return finish('highlights', quality, s, cuts, spec, 'highlights', false)

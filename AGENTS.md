@@ -67,7 +67,7 @@ self-hosted fonts (@fontsource Archivo variable, Big Shoulders Display, JetBrain
 
 ```bash
 npm run dev        # https://localhost:5174 (the user's own dev server port — agents use another port)
-npm run test:run   # all tests once (~1,300 tests)
+npm run test:run   # all tests once (~1,400 tests)
 npx tsc -b --noEmit
 npm run build      # tsc + vite build
 npm run lint       # baseline: 12 known problems — add none
@@ -94,6 +94,11 @@ npm run lint       # baseline: 12 known problems — add none
 - **Full match:** Kick off → Final whistle across files, stream-copied; score bug windows (Off / After goals /
   Periodic) and event captions are the only re-encoded parts.
 - **Goal areas:** per team (`team1`/`team2`), drawn in Match setup; `replayGoalFor()` picks the replay crop.
+- **Reel order:** segments sort by whole-timeline time (`cumulativeOffsets[file] + matchTimeSec`); the old
+  "Adjust timestamps by offset" option is gone (persist v18 deletes it; Kick off defines the match clock).
+- **Import:** ⋯ → Import… opens one dialog: left, a project `.json` from Export project (asks before replacing existing
+  events); right, pasted goal times — one per line, `MM:SS`, `H:MM:SS` or seconds, optionally "Team - Scorer"
+  (`utils/bulkPaste.ts`, live preview). Export project is its own menu item.
 - **Projects:** export/import JSON, and transfer links (`#p=`, deflate + base64url in the URL fragment — never sent
   to a server). Files are relinked by key on the receiving device.
 

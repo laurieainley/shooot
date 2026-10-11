@@ -31,7 +31,7 @@ describe('OverflowMenu', () => {
         expect(screen.queryByRole('menu')).not.toBeInTheDocument()
         await open()
         const items = screen.getAllByRole('menuitem').map((b) => b.textContent)
-        expect(items).toEqual(['New match…', 'Find goals Beta', 'Files', 'Advanced settings', 'Paste list', 'Send project to another device', 'Export project', 'Import project', 'Shortcuts'])
+        expect(items).toEqual(['New match…', 'Find goals Beta', 'Files', 'Advanced settings', 'Send project to another device', 'Import…', 'Export project', 'Shortcuts'])
     })
 
     it('should offer Find goals (Beta), or Review suggestions once there are some', async () => {
@@ -82,7 +82,7 @@ describe('OverflowMenu', () => {
         expect(s().panel).toBe('shortcuts')
     })
 
-    it.each([['Files', 'files'], ['Advanced settings', 'settings'], ['Paste list', 'paste']] as const)(
+    it.each([['Files', 'files'], ['Advanced settings', 'settings'], ['Import…', 'import']] as const)(
         'should open %s as its own panel', async (item, panel) => {
             render(<OverflowMenu />)
             await open()
