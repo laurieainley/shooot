@@ -1138,6 +1138,15 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .act-btn[aria-pressed="false"] { color: var(--sh-muted); }
 .act-btn--touch { min-height: 44px; min-width: 44px; font-size: 14px; }
 .act-btn--delete:hover { color: var(--sh-text); border-color: var(--sh-text); }
+/* Touch and narrow rails: no clock-column indent; the buttons share one line. */
+@media (pointer: coarse) {
+  .event-actions { padding-left: 12px; flex-wrap: nowrap; }
+  .event-actions .act-btn { flex: 1 1 auto; padding: 0 8px; }
+}
+@container event-log (max-width: 420px) {
+  .event-actions { padding-left: 12px; flex-wrap: nowrap; }
+  .event-actions .act-btn { flex: 1 1 auto; padding: 0 8px; }
+}
 @container event-log (max-width: 300px) {
   .event-actions__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .act-btn { min-width: 36px; padding: 0 6px; }
