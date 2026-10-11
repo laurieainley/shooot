@@ -8,6 +8,7 @@ export type BallWorkerOut = { type: 'ready'; ep: string } | { type: 'progress'; 
 
 // Self-hosted runtime (no CDN): ort 1.30's webgpu bundle loads the asyncify .wasm (emitted by Vite); the JS glue is inlined.
 ort.env.wasm.wasmPaths = { wasm: wasmUrl }
+ort.env.logLevel = 'error' // its model-loading notes (constant folding, CPU-assigned shape ops) are harmless and flood the console
 
 let session: ort.InferenceSession | null = null
 const post = (m: BallWorkerOut): void => (self as unknown as Worker).postMessage(m)
@@ -37,7 +38,7 @@ async function init(modelUrl: string, wasmOnly: boolean): Promise<void> {
     if (!res.ok) throw new Error('model not found')
     const buf = await readWithProgress(res)
     if (!looksLikeOnnx(buf, res.headers.get('content-type'))) throw new Error('model not found') // e.g. an SPA fallback page
-    const options = { graphOptimizationLevel: 'all' as const }
+    const options = { graphOptimizationLevel: 'all' as const, logSeverityLevel: 3 as const }
     let ep = wasmOnly ? 'wasm' : 'webgpu'
     try {
         if (wasmOnly) throw new Error('wasm only')
