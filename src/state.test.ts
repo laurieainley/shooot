@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { matchdayText, selectMatchStartSec, useAppState } from './state'
-import type { MatchEvent, VideoSourceFile } from './types'
+import type { GoalMarks, MatchEvent, VideoSourceFile } from './types'
+import { goalRectFromMarks } from './utils/goalMarks'
 import { effectiveStatus, reviewCounts } from './utils/suggestions'
 
 const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec: 100, kind: 'full' })
@@ -148,7 +149,7 @@ describe('teams and picker', () => {
 
     it('should migrate v8 legacy event types and persist teams (v9+)', () => {
         const opts = useAppState.persist.getOptions()
-        expect(opts.version).toBe(17)
+        expect(opts.version).toBe(18)
         const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
         expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
         expect(opts.partialize!(s())).toHaveProperty('teams')
@@ -664,5 +665,56 @@ describe('suggestions', () => {
         expect(out).toHaveProperty('suggestions')
         expect(out).toHaveProperty('suggestionRun')
         expect(out).not.toHaveProperty('reviewIndex')
+    })
+})
+
+describe('goal marks', () => {
+    const MARKS: GoalMarks = {
+        postL: { x: 0.27, y: 0.25 }, postR: { x: 0.32, y: 0.235 },
+        barL: { x: 0.265, y: 0.217 }, barR: { x: 0.315, y: 0.207 },
+    }
+    beforeEach(() => { useAppState.setState({ goalMarks: null, goalAreas: null }) })
+
+    it('should store marks and set the rectangle from them', () => {
+        s().setGoalMarks('team1', MARKS)
+        expect(s().goalMarks!.team1).toEqual(MARKS)
+        expect(s().goalAreas!.team1).toEqual(goalRectFromMarks(MARKS))
+    })
+
+    it('should remove marks but keep the rectangle', () => {
+        s().setGoalMarks('team1', MARKS)
+        s().setGoalMarks('team1', null)
+        expect(s().goalMarks).toBeNull()
+        expect(s().goalAreas!.team1).toEqual(goalRectFromMarks(MARKS))
+    })
+
+    it('should keep the marks when the rectangle is dragged', () => {
+        s().setGoalMarks('team1', MARKS)
+        s().setGoalAreas({ team1: { x: 0.1, y: 0.1, w: 0.3, h: 0.3 } })
+        expect(s().goalMarks!.team1).toEqual(MARKS)
+    })
+
+    it('should reset on newMatch and clear', () => {
+        s().setGoalMarks('team1', MARKS)
+        s().clear()
+        expect(s().goalMarks).toBeNull()
+        s().setGoalMarks('team2', MARKS)
+        s().newMatch()
+        expect(s().goalMarks).toBeNull()
+    })
+
+    it('should replace all marks with setAllGoalMarks', () => {
+        s().setAllGoalMarks({ team2: MARKS })
+        expect(s().goalMarks).toEqual({ team2: MARKS })
+        s().setAllGoalMarks(null)
+        expect(s().goalMarks).toBeNull()
+    })
+
+    it('should migrate from v17 to null marks, keep valid ones, and persist them', () => {
+        const opts = useAppState.persist.getOptions()
+        expect((opts.migrate!({}, 17) as { goalMarks: unknown }).goalMarks).toBeNull()
+        expect((opts.migrate!({ goalMarks: { team1: MARKS, team2: 'junk' } }, 17) as { goalMarks: unknown }).goalMarks).toEqual({ team1: MARKS })
+        s().setGoalMarks('team1', MARKS)
+        expect(opts.partialize!(s())).toHaveProperty('goalMarks')
     })
 })

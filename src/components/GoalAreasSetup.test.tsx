@@ -32,6 +32,15 @@ describe('GoalAreasSetup', () => {
         expect(screen.getByRole('group', { name: "Colours' goal box" })).toBeInTheDocument()
     })
 
+    it('should swap the goal marks along with the boxes', async () => {
+        const m = (x: number) => ({ postL: { x, y: 0.5 }, postR: { x: x + 0.1, y: 0.5 }, barL: { x, y: 0.4 }, barR: { x: x + 0.1, y: 0.4 } })
+        useAppState.setState({ goalAreas: defaultGoalAreas(), goalMarks: { team1: m(0.1) } })
+        render(<GoalAreasSetup />)
+        await userEvent.click(screen.getByRole('button', { name: 'Swap which goal is whose' }))
+        expect(useAppState.getState().goalMarks).toEqual({ team2: m(0.1) })
+        expect(useAppState.getState().goalAreas!.team2).toEqual(defaultGoalAreas().team1)
+    })
+
     it('should store a moved box', async () => {
         useAppState.setState({ goalAreas: defaultGoalAreas() })
         render(<GoalAreasSetup />)

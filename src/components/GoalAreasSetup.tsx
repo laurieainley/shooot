@@ -2,6 +2,7 @@ import { useAppState } from '../state'
 import type { CropRect, GoalAreas, GoalTeam } from '../types'
 import { teamGoalLabel } from '../utils/attack'
 import { defaultGoalAreas, isSoft, swapGoalAreas } from '../utils/crop'
+import { swapGoalMarks } from '../utils/goalMarks'
 import { FrameBoxes, type FrameBox } from './FrameBoxes'
 import { useFrameAt } from './frameGrab'
 
@@ -13,6 +14,8 @@ import { useFrameAt } from './frameGrab'
 export function GoalAreasSetup() {
     const areas = useAppState((s) => s.goalAreas)
     const setAreas = useAppState((s) => s.setGoalAreas)
+    const marks = useAppState((s) => s.goalMarks)
+    const setAllMarks = useAppState((s) => s.setAllGoalMarks)
     const teams = useAppState((s) => s.teams)
     const first = useAppState((s) => s.files[0])
     const frame = useFrameAt(first?.url, first?.durationSec ? first.durationSec / 2 : null)
@@ -41,7 +44,7 @@ export function GoalAreasSetup() {
                 {!areas
                     ? <button type="button" className="btn-quiet" disabled={!frame.frame} onClick={() => setAreas(defaultGoalAreas())}>Set goal areas</button>
                     : <>
-                        <button type="button" className="btn-quiet" onClick={() => setAreas(swapGoalAreas(areas))}>Swap which goal is whose</button>
+                        <button type="button" className="btn-quiet" onClick={() => { setAreas(swapGoalAreas(areas)); if (marks) setAllMarks(swapGoalMarks(marks)) }}>Swap which goal is whose</button>
                         <button type="button" className="btn-quiet" onClick={() => setAreas(defaultGoalAreas())}>Reset boxes</button>
                         <button type="button" className="btn-quiet" onClick={() => setAreas(null)}>Remove</button>
                     </>}

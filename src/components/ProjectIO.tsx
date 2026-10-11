@@ -1,6 +1,7 @@
 import { useRef, useState, type ChangeEvent } from 'react'
 import { selectMatchStartSec, useAppState } from '../state'
 import { migrateEvent } from '../utils/eventTypes'
+import { normaliseGoalMarks } from '../utils/goalMarks'
 import { normaliseAreas } from '../utils/crop'
 import { cancelDetection } from '../detectJobs'
 import { withMigratedKickOff } from '../utils/matchClock'
@@ -18,9 +19,9 @@ export function ProjectIO({ menu = false }: ProjectIOProps) {
 
     const onExport = (): void => {
         const st = useAppState.getState()
-        const { teams, goalAreas } = st
+        const { teams, goalAreas, goalMarks } = st
         const matchStartTimeSec = selectMatchStartSec(st) // kept for older versions of the app
-        const blob = new Blob([JSON.stringify({ events, goals: events, teams, matchStartTimeSec, goalAreas, graphicsTheme: st.graphics.theme }, null, 2)], { type: 'application/json' })
+        const blob = new Blob([JSON.stringify({ events, goals: events, teams, matchStartTimeSec, goalAreas, goalMarks, graphicsTheme: st.graphics.theme }, null, 2)], { type: 'application/json' })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
@@ -47,6 +48,7 @@ export function ProjectIO({ menu = false }: ProjectIOProps) {
             if (Array.isArray(data.teams) && data.teams.length === 2) st.setTeams(data.teams)
             if (typeof data.graphicsTheme === 'string') st.setGraphics({ theme: data.graphicsTheme as never })
             if ('goalAreas' in data) st.setGoalAreas(normaliseAreas(data.goalAreas, left))
+            st.setAllGoalMarks(normaliseGoalMarks(data.goalMarks)) // old files have none
             setMessage(imported ? `Imported ${imported.length} events` : 'Imported')
         } catch {
             setMessage('Could not read that file as a project (JSON).')

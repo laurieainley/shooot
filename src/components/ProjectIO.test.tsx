@@ -45,6 +45,27 @@ describe('ProjectIO', () => {
         useAppState.getState().setGraphics({ theme: 'shooot' })
     })
 
+    it('should export goal marks, import them, and leave them null for an old file', async () => {
+        const marks = { team1: { postL: { x: 0.1, y: 0.5 }, postR: { x: 0.2, y: 0.5 }, barL: { x: 0.1, y: 0.4 }, barR: { x: 0.2, y: 0.4 } } }
+        const createObjectURL = vi.fn((b: Blob) => { void b; return 'blob:x' })
+        Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() })
+        const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+        useAppState.setState({ goalMarks: marks })
+        const { container } = render(<ProjectIO />)
+        await userEvent.click(screen.getByRole('button', { name: /export project/i }))
+        const data = JSON.parse(await (createObjectURL.mock.calls[0][0] as Blob).text())
+        click.mockRestore()
+        expect(data.goalMarks).toEqual(marks)
+        useAppState.setState({ goalMarks: null })
+        const input = container.querySelector('input[type="file"]') as HTMLInputElement
+        fireEvent.change(input, { target: { files: [new File([JSON.stringify(data)], 'p.json', { type: 'application/json' })] } })
+        await waitFor(() => expect(useAppState.getState().goalMarks).toEqual(marks))
+        useAppState.setState({ goalMarks: null })
+        fireEvent.change(input, { target: { files: [new File([JSON.stringify({ events: [], teams: [] })], 'old.json', { type: 'application/json' })] } })
+        await waitFor(() => expect(screen.getByRole('status')).toBeInTheDocument())
+        expect(useAppState.getState().goalMarks).toBeNull()
+    })
+
     it('should import events (migrating legacy goals), teams and match start', async () => {
         const { container } = render(<ProjectIO />)
         const input = container.querySelector('input[type="file"]') as HTMLInputElement

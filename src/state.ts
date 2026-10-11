@@ -1,12 +1,13 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { GoalAreas, KeepType, MarkerType, MatchEvent, Suggestion, SuggestionRun, Team, VideoSourceFile } from './types'
+import type { GoalAreas, GoalMarks, GoalMarksByTeam, GoalTeam, KeepType, MarkerType, MatchEvent, Suggestion, SuggestionRun, Team, VideoSourceFile } from './types'
 import type { ScoredMoment } from './utils/goalAudioScore'
 import { effectiveStatus, firstPendingIndex, mergeSuggestions, runMatchesFiles } from './utils/suggestions'
 import { globalToFileTime } from './utils/matchStrip'
 import { AUDIO_DETECT } from './detect/detectConfig'
 import { replayOptionsFor } from './utils/attack'
 import { normaliseAreas } from './utils/crop'
+import { goalRectFromMarks, normaliseGoalMarks } from './utils/goalMarks'
 import { migrateEvent } from './utils/eventTypes'
 import { computeCumulativeOffsets, isLongTimeline } from './utils/timeline'
 import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/highlights'
@@ -148,6 +149,10 @@ type AppState = {
     /** Replay zoom: where each team's goal is in the picture (null = not set). */
     goalAreas: GoalAreas | null
     setGoalAreas: (areas: GoalAreas | null) => void
+    /** Corner marks per goal (null = none). Complete marks also set the goal's replay rectangle. */
+    goalMarks: GoalMarksByTeam | null
+    setGoalMarks: (team: GoalTeam, marks: GoalMarks | null) => void
+    setAllGoalMarks: (marks: GoalMarksByTeam | null) => void
 }
 
 /** Kick-off on the whole timeline (0 when not marked): match clocks, Home, chapters and the full match start there. */
@@ -194,6 +199,7 @@ export const useAppState = create<AppState>()(
             graphics: DEFAULT_GRAPHICS,
             matchdayLabel: null,
             goalAreas: null,
+            goalMarks: null,
             cumulativeOffsets: [],
             currentTimeInFileSec: 0,
             currentFileIndex: 0,
@@ -386,7 +392,7 @@ export const useAppState = create<AppState>()(
                     undoStack: [...state.undoStack, state.events],
                 })
             },
-            clear: () => set({ files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, undoStack: [], redoStack: [], picker: null, suggestions: [], suggestionRun: null, reviewIndex: 0 }),
+            clear: () => set({ files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, undoStack: [], redoStack: [], picker: null, suggestions: [], suggestionRun: null, reviewIndex: 0, goalMarks: null }),
             // Start a new game: drop events, videos and kick-off; keep teams, rosters and clip/replay settings.
             // Events go on the undo stack so an accidental clear can be undone.
             newMatch: () => {
@@ -396,7 +402,7 @@ export const useAppState = create<AppState>()(
                     files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0,
                     isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, picker: null, panel: null,
                     undoStack: [...state.undoStack.slice(-49), state.events], redoStack: [],
-                    matchdayLabel: null, goalAreas: null,
+                    matchdayLabel: null, goalAreas: null, goalMarks: null,
                     suggestions: [], suggestionRun: null, reviewIndex: 0,
                 })
             },
@@ -441,6 +447,17 @@ export const useAppState = create<AppState>()(
             setExportTab: (tab) => set({ exportTab: tab }),
             setFullMatch: (partial) => set({ fullMatch: { ...get().fullMatch, ...partial } }),
             setGoalAreas: (areas) => set({ goalAreas: areas ? normaliseAreas(areas) : null }),
+            setGoalMarks: (team, marks) => {
+                const { goalMarks, goalAreas } = get()
+                const next: GoalMarksByTeam = { ...goalMarks }
+                if (marks) next[team] = marks
+                else delete next[team]
+                set({
+                    goalMarks: next.team1 || next.team2 ? next : null,
+                    ...(marks ? { goalAreas: normaliseAreas({ ...goalAreas, [team]: goalRectFromMarks(marks) }) } : {}),
+                })
+            },
+            setAllGoalMarks: (marks) => set({ goalMarks: normaliseGoalMarks(marks) }),
             setMatchdayLabel: (label) => set({ matchdayLabel: label?.trim() ? label : null }),
             setTeamInitials: (index, initials) => set({
                 teams: get().teams.map((t, i) => {
@@ -547,11 +564,12 @@ export const useAppState = create<AppState>()(
                 fullMatch: state.fullMatch,
                 matchdayLabel: state.matchdayLabel,
                 goalAreas: state.goalAreas,
+                goalMarks: state.goalMarks,
                 barCollapsed: state.barCollapsed,
                 suggestions: state.suggestions,
                 suggestionRun: state.suggestionRun,
             }),
-            version: 17,
+            version: 18,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -627,6 +645,9 @@ export const useAppState = create<AppState>()(
                     state.suggestions = Array.isArray(state.suggestions) ? state.suggestions : []
                     state.suggestionRun = state.suggestionRun ?? null
                 }
+
+                // Goal marks (v18).
+                if (version < 18) state.goalMarks = normaliseGoalMarks(state.goalMarks)
 
                 return state
             },

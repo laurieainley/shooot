@@ -12,7 +12,7 @@ const payload = (over: Partial<TransferPayload> = {}): TransferPayload => ({
     lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5,
     graphics: { cards: true, lowerThirds: true, replayTag: false, theme: 'shooot' },
     fullMatch: { cards: true, scoreBug: 'periodic', intervalMin: 5, captions: false },
-    matchdayLabel: 'Matchday 3', goalAreas: null, adjustTimestampsByOffset: false,
+    matchdayLabel: 'Matchday 3', goalAreas: null, goalMarks: null, adjustTimestampsByOffset: false,
     ...over,
 })
 
@@ -87,5 +87,14 @@ describe('buildTransferPayload', () => {
     it('should pick only project fields, never files', () => {
         const p = buildTransferPayload({ ...payload(), files: [{ name: 'x' }], panel: 'menu', undoStack: [] } as never)
         expect(Object.keys(p).sort()).toEqual(Object.keys(payload()).sort())
+    })
+})
+
+describe('goal marks in transfers', () => {
+    it('should include goalMarks in the payload and round trip them', async () => {
+        const marks = { team1: { postL: { x: 0.1, y: 0.5 }, postR: { x: 0.2, y: 0.5 }, barL: { x: 0.1, y: 0.4 }, barR: { x: 0.2, y: 0.4 } } }
+        const built = buildTransferPayload(payload({ goalMarks: marks }))
+        expect(built.goalMarks).toEqual(marks)
+        expect((await decodeProject(await encodeProject(built))).goalMarks).toEqual(marks)
     })
 })
