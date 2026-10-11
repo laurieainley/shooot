@@ -44,7 +44,7 @@ export function GoalAreasSetup() {
     return (
         <section ref={section} className="goal-areas" aria-label="Goal areas">
             <h3 className="export-section__title">Goal areas</h3>
-            <p className="goal-areas__hint">Each box is the goal that team defends at kick-off; replays zoom to the goal the scoring team attacks. Drag a box over its goal mouth, drag any corner to resize, or Mark goal to place its posts, bar and net.</p>
+            <p className="goal-areas__hint">Each box is the goal that team defends at kick-off; replays zoom to the goal the scoring team attacks. Drag a box over its goal mouth, drag any corner to resize, or use Mark … goal to place its posts, bar and net.</p>
             {editing ? (
                 <GoalMarksEditor
                     key={editing}

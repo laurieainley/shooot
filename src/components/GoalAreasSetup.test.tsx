@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import { defaultGoalAreas } from '../utils/crop'
 import { GoalAreasSetup } from './GoalAreasSetup'
+import { Sheet } from './Sheet'
 
 const useFrameAt = vi.hoisted(() => vi.fn())
 vi.mock('./frameGrab', () => ({ useFrameAt }))
@@ -153,6 +154,29 @@ describe('GoalAreasSetup', () => {
             await userEvent.click(screen.getByRole('button', { name: /^Edit Whites' goal marks/ }))
             for (const name of ['Swap which goal is whose', 'Reset boxes', 'Remove']) expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
             expect(screen.queryByRole('button', { name: /^Clear Whites/ })).not.toBeInTheDocument()
+        })
+
+        it('should return focus to the goal button after Done', async () => {
+            useAppState.setState({ goalAreas: defaultGoalAreas(), goalMarks: { team1: M } })
+            render(<GoalAreasSetup />)
+            await userEvent.click(screen.getByRole('button', { name: /^Edit Whites' goal marks/ }))
+            await userEvent.click(screen.getByRole('button', { name: 'Skip' }))
+            await userEvent.click(screen.getByRole('button', { name: 'Skip' }))
+            await userEvent.click(screen.getByRole('button', { name: 'Done' }))
+            expect(screen.getByRole('button', { name: /^Edit Whites' goal marks/ })).toHaveFocus()
+        })
+
+        it('should cancel only the editor on Escape inside a Sheet, then close the sheet on the next Escape', async () => {
+            useAppState.setState({ goalAreas: defaultGoalAreas(), goalMarks: { team1: M } })
+            const onClose = vi.fn()
+            render(<Sheet label="Setup" onClose={onClose}><GoalAreasSetup /></Sheet>)
+            await userEvent.click(screen.getByRole('button', { name: /^Edit Whites' goal marks/ }))
+            expect(screen.getByRole('application')).toHaveFocus()
+            await userEvent.keyboard('{Escape}')
+            expect(onClose).not.toHaveBeenCalled()
+            expect(screen.queryByRole('application')).not.toBeInTheDocument()
+            await userEvent.keyboard('{Escape}')
+            expect(onClose).toHaveBeenCalledTimes(1)
         })
 
         it('should return focus to the goal button after Cancel', async () => {

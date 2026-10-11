@@ -25,6 +25,7 @@ export function Sheet({ label, onClose, children, className = '', badge }: Sheet
         // Focus the sheet, not its first field: on a phone that would pop the keyboard up over the sheet.
         sheetRef.current?.focus({ preventScroll: true })
         const onKey = (e: KeyboardEvent): void => {
+            if (e.key === 'Escape' && (e.target as Element | null)?.closest?.('[data-owns-escape]')) return
             if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeRef.current() }
         }
         window.addEventListener('keydown', onKey, true)

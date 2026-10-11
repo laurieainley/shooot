@@ -142,6 +142,7 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
     const viewKeyUp = (e: KeyboardEvent<HTMLDivElement>): void => { if (e.key === ' ') space.current = false }
 
     const dotDown = (key: MarkKey) => (e: PointerEvent<HTMLButtonElement>): void => {
+        if (e.button > 0) return // right-drag on a dot pans the picture
         e.stopPropagation()
         if (space.current) return
         const p = partial[key]
@@ -185,10 +186,12 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
         place(key, { x: clamp01(p.x + delta[0]), y: clamp01(p.y + delta[1]) })
     }
 
-    const skip = (): void => { if (current) setSkipped((s) => new Set([...s, current])) }
+    const focusView = (): void => viewport.current?.focus({ preventScroll: true })
+    const skip = (): void => { if (current) setSkipped((s) => new Set([...s, current])); focusView() }
     const removeCorners = (): void => {
         setPartial((m) => { const rest = { ...m }; delete rest.backL; delete rest.backR; return rest })
         setSkipped(new Set<MarkKey>(['backL', 'backR']))
+        focusView()
     }
     const done = (): void => {
         if (!isComplete(partial)) return
@@ -268,7 +271,7 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
             <div className="goal-areas__row">
                 {step?.optional && <button type="button" className="btn-quiet" onClick={skip}>Skip</button>}
                 {partial.backL && partial.backR && <button type="button" className="btn-quiet" onClick={removeCorners}>Remove net corners</button>}
-                {zp.zoom > 1 && <button type="button" className="btn-quiet" onClick={zp.reset}>Reset zoom</button>}
+                {zp.zoom > 1 && <button type="button" className="btn-quiet" onClick={() => { zp.reset(); focusView() }}>Reset zoom</button>}
                 <button type="button" className="btn-quiet" onClick={onCancel}>Cancel</button>
                 <button type="button" className="btn-primary" disabled={!isComplete(partial)} onClick={done}>Done</button>
             </div>

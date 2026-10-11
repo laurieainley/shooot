@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { GoalMarks } from '../types'
 import { setCoarsePointer } from '../test/pointer'
@@ -167,13 +167,33 @@ describe('GoalMarksEditor', () => {
 
     it('should cancel only the editor on Escape, before the panel sees it', () => {
         const { onCancel } = mount({ initial: FULL })
+        // like the panels' capture listeners: close unless the target owns Escape
         const outer = vi.fn()
-        window.addEventListener('keydown', outer)
+        const guard = (e: KeyboardEvent): void => { if (!(e.target as Element).closest('[data-owns-escape]')) outer() }
+        window.addEventListener('keydown', guard, true)
         screen.getByLabelText(/^Goal picture/).focus()
         fireEvent.keyDown(screen.getByLabelText(/^Goal picture/), { key: 'Escape' })
-        window.removeEventListener('keydown', outer)
+        window.removeEventListener('keydown', guard, true)
         expect(onCancel).toHaveBeenCalledTimes(1)
         expect(outer).not.toHaveBeenCalled()
+    })
+
+    it('should return focus to the picture after Skip, Remove net corners and Reset zoom', async () => {
+        mount({ initial: FULL })
+        await userEvent.click(screen.getByRole('button', { name: 'Skip' }))
+        expect(screen.getByRole('application')).toHaveFocus()
+        cleanup()
+        mount({ initial: { ...FULL, backL: { x: 0.1, y: 0.8 }, backR: { x: 0.5, y: 0.8 } } })
+        await userEvent.click(screen.getByRole('button', { name: 'Remove net corners' }))
+        expect(screen.getByRole('application')).toHaveFocus()
+    })
+
+    it('should not start a drag with the right button', () => {
+        mount({ initial: FULL })
+        const dot = screen.getByRole('button', { name: 'Left post bottom' })
+        fireEvent.pointerDown(dot, { pointerId: 1, button: 2, clientX: 300, clientY: 387.5 })
+        fireEvent.pointerMove(dot, { pointerId: 1, clientX: 400, clientY: 387.5 })
+        expect(dot).toHaveStyle({ left: '20%', top: '60%' })
     })
 
     it('should focus the picture on open', () => {
