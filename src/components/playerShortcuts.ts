@@ -20,12 +20,12 @@ export type ShortcutPlayer = {
 
 const time = (p: ShortcutPlayer): number => (p.currentTime() as number) || 0
 
-function seekBy(p: ShortcutPlayer, step: number): void {
+export function seekBy(p: ShortcutPlayer, step: number): void {
     const end = p.duration() || Infinity
     p.currentTime(Math.min(Math.max(0, time(p) + step), end))
 }
 
-function stepFrame(p: ShortcutPlayer, direction: 1 | -1): void {
+export function stepFrame(p: ShortcutPlayer, direction: 1 | -1): void {
     p.pause()
     p.currentTime(frameStepTime(time(p), direction, DEFAULT_FPS, p.duration() || Infinity))
 }

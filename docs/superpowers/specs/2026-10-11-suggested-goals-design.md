@@ -45,8 +45,13 @@ the review UI from C is reused unchanged.
      **Esc** closes (progress kept). After **G** or **O**, **1 / 2** chooses the team (team names shown); Enter
      confirms with the first team (or a pre-selected one); the button also confirms. Scorer/assist are added later via normal editing.
    - Touch: the same actions as buttons ≥ 44 px. Only **Goal** is lime; others are quiet buttons.
-   - Keeping a suggestion creates a normal event (undoable) at the suggestion time **− 2 s** (the shout follows the goal),
-     linked to its file like any tagged event.
+   - Keeping a suggestion creates a normal event (undoable) linked to its file like any tagged event. The card shows a
+     **Goal time** line (mono, 0.1 s): by default the estimate (suggestion time **− 2 s**, the shout follows the goal),
+     labelled "estimate"; **whenever the player is paused** it is the playhead, labelled "at playhead", and that is what
+     G/O/S/H store (to 0.1 s; fractional event times are safe: all consumers use arithmetic and floor only for display).
+   - While paused the loop does not seek; pressing play resumes looping inside the window. Fine control: **Space**
+     play/pause, **↑/↓** one frame (pauses), **Shift+↑/↓** ±1 s; touch buttons "◀ 1 frame" / "1 frame ▶" (≥ 44 px,
+     shown when paused).
 4. **Summary** when all are reviewed (or on close): "You kept 6 of 22." If under 15% were kept: plain note "Detection
    struggled on this footage. Copy diagnostics and send it over." Kept moments are already in the events rail.
 5. **Match strip:** pending suggestions show as small hollow chalk rings (brand: open rings = not a goal (yet)); they

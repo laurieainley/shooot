@@ -43,3 +43,9 @@ export function formatReviewWindow(timeSec: number, w: LoopWindow): string {
     }
     return `${f(w.startAbs - timeSec)} … ${f(w.endAbs - timeSec)}`
 }
+
+/** Goal time as a match clock with tenths, e.g. "12:34.5" (`clock` is the already formatted whole-second clock). */
+export function withTenths(clock: (wholeSec: number) => string, relSec: number): string {
+    const tenths = Math.round(Math.max(0, relSec) * 10)
+    return `${clock(Math.floor(tenths / 10))}.${tenths % 10}`
+}

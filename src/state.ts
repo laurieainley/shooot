@@ -127,7 +127,7 @@ type AppState = {
     reviewIndex: number
     setSuggestions: (run: SuggestionRun, moments: ScoredMoment[]) => void
     /** Keep adds the event; changing a kept decision removes the old event first (each is its own undo step). */
-    decideSuggestion: (id: string, decision: { kind: 'reject' } | { kind: 'keep'; type: KeepType; team?: string }) => void
+    decideSuggestion: (id: string, decision: { kind: 'reject' } | { kind: 'keep'; type: KeepType; team?: string; atSec?: number }) => void
     clearSuggestions: () => void
     setReviewIndex: (i: number) => void
     openReviewAt: (id: string) => void
@@ -481,9 +481,9 @@ export const useAppState = create<AppState>()(
                     return
                 }
                 const durations = st.files.map((f) => f.durationSec ?? 0)
-                const at = globalToFileTime(st.cumulativeOffsets, durations, Math.max(0, s.globalTimeSec + AUDIO_DETECT.eventOffsetSec))
+                const at = globalToFileTime(st.cumulativeOffsets, durations, Math.max(0, decision.atSec ?? s.globalTimeSec + AUDIO_DETECT.eventOffsetSec))
                 const eventId = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-                get().addEvent({ id: eventId, matchTimeSec: Math.floor(at.timeSec), sourceFileIndex: at.fileIndex, type: decision.type, ...(decision.team ? { team: decision.team } : {}) })
+                get().addEvent({ id: eventId, matchTimeSec: decision.atSec !== undefined ? Math.round(at.timeSec * 10) / 10 : Math.floor(at.timeSec), sourceFileIndex: at.fileIndex, type: decision.type, ...(decision.team ? { team: decision.team } : {}) })
                 set({ suggestions: get().suggestions.map((x) => (x.id === id ? { ...x, status: 'kept', keptAs: decision.type, eventId } : x)) })
             },
             clearSuggestions: () => set({ suggestions: [], suggestionRun: null, reviewIndex: 0 }),

@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import type { KeepType, Suggestion } from '../types'
 import { formatClock } from '../utils/timeline'
-import { togglePlayerPlayback } from './playerControl'
-import { formatReviewWindow } from '../utils/reviewLoop'
+import { isPlayerPaused, stepPlayer, togglePlayerPlayback, usePlayerPaused } from './playerControl'
+import { AUDIO_DETECT } from '../detect/detectConfig'
+import { formatReviewWindow, withTenths } from '../utils/reviewLoop'
 import { useReviewLoop } from './useReviewLoop'
 
 interface SuggestionCardProps {
@@ -27,6 +28,10 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, prese
     const teams = useAppState((s) => s.teams)
     const kickOff = useAppState(selectMatchStartSec)
     const long = useAppState(selectClockLong)
+    const paused = usePlayerPaused()
+    const playheadSec = useAppState((s) => (s.cumulativeOffsets[s.currentFileIndex] ?? 0) + s.currentTimeInFileSec)
+    const estimateSec = Math.max(0, suggestion.globalTimeSec + AUDIO_DETECT.eventOffsetSec)
+    const goalSec = paused ? playheadSec : estimateSec
     const [needTeam, setNeedTeam] = useState<KeepType | null>(null)
     const loop = useReviewLoop(suggestion.globalTimeSec)
     useEffect(() => setNeedTeam(null), [suggestion.id])
@@ -34,7 +39,10 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, prese
     const decide = (type: KeepType | 'reject', team?: string): void => {
         const st = useAppState.getState()
         if (type === 'reject') st.decideSuggestion(suggestion.id, { kind: 'reject' })
-        else st.decideSuggestion(suggestion.id, { kind: 'keep', type, ...(team ? { team } : {}) })
+        else {
+            const atSec = isPlayerPaused() ? (st.cumulativeOffsets[st.currentFileIndex] ?? 0) + st.currentTimeInFileSec : estimateSec
+            st.decideSuggestion(suggestion.id, { kind: 'keep', type, atSec, ...(team ? { team } : {}) })
+        }
         setNeedTeam(null)
         onNext()
     }
@@ -45,8 +53,9 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, prese
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent): void => {
-            if (e.repeat) return
             if ((e.target as HTMLElement | null)?.closest?.('input, textarea, select') || e.metaKey || e.ctrlKey || e.altKey) return
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); stepPlayer(e.shiftKey ? 'second' : 'frame', e.key === 'ArrowUp' ? 1 : -1); return }
+            if (e.repeat) return
             const k = e.key.toLowerCase()
             const onButton = !!(e.target as HTMLElement | null)?.closest?.('button')
             if (e.key === ' ' && !onButton) { e.preventDefault(); togglePlayerPlayback(); return }
@@ -81,6 +90,13 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, prese
                             {a.label} <kbd>{a.key}</kbd>
                         </button>
                     ))}
+                </div>
+            )}
+            <p className="review__goaltime">Goal time <span className="tc">{withTenths((w) => formatClock(w, long), goalSec - kickOff)}</span> · {paused ? 'at playhead' : 'estimate'}</p>
+            {paused && (
+                <div className="review__window" role="group" aria-label="Fine tune goal time">
+                    <button type="button" className="btn-quiet review__btn" aria-label="Back one frame" onClick={() => stepPlayer('frame', -1)}>◀ 1 frame <kbd>↓</kbd></button>
+                    <button type="button" className="btn-quiet review__btn" aria-label="Forward one frame" onClick={() => stepPlayer('frame', 1)}>1 frame ▶ <kbd>↑</kbd></button>
                 </div>
             )}
             <div className="review__window" role="group" aria-label="Loop window">

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppState } from '../state'
 import { globalToFileTime } from '../utils/matchStrip'
 import { REVIEW_STEP_SEC, reviewWindow, stepLoop, type LoopState, type LoopWindow } from '../utils/reviewLoop'
+import { isPlayerPaused } from './playerControl'
 import { AUDIO_DETECT } from '../detect/detectConfig'
 
 export interface ReviewLoop {
@@ -54,6 +55,7 @@ export function useReviewLoop(timeSec: number | null): ReviewLoop {
         st.seekToGoal(start.fileIndex, start.timeSec)
         return useAppState.subscribe((s, prev) => {
             if (s.currentTimeInFileSec === prev.currentTimeInFileSec && s.currentFileIndex === prev.currentFileIndex) return
+            if (isPlayerPaused()) return // paused: the user is fine-tuning; looping resumes on play
             const w = winRef.current
             if (!w) return
             const now = (s.cumulativeOffsets[s.currentFileIndex] ?? 0) + s.currentTimeInFileSec
