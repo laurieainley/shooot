@@ -1086,6 +1086,9 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 @media (pointer: coarse) { .review { font-size: 15px; } .beta-tag { font-size: 14px; } }
 
 .strip-suggestion { position: absolute; bottom: 2px; width: 12px; height: 12px; margin-left: -6px; padding: 0; border-radius: 50%;
-  border: 2px solid var(--sh-text); background: transparent; opacity: .8; cursor: pointer; }
-.strip-suggestion::after { content: ''; position: absolute; inset: -34px -18px -4px; } /* 44 px touch target; extends upwards because .strip-track clips at its bottom edge */
+  border: 2px solid var(--sh-text); background: transparent; opacity: .8; pointer-events: none; }
+/* No pointer events: the track resolves taps near a ring (22 px on touch, 10 px with a mouse), so rings never block scrubbing. Still a focusable button for the keyboard. */
 .strip-suggestion:focus-visible { outline: 2px solid var(--sh-text); outline-offset: 2px; }
+
+.review__copy { width: 100%; font-family: var(--sh-font-mono); font-size: 12px; color: var(--sh-text); background: var(--sh-surface, transparent); border: 1px solid var(--sh-line); border-radius: 6px; padding: 8px; }
+@media (pointer: coarse) { .review__btn kbd { display: none; } .review__copy { font-size: 14px; } }

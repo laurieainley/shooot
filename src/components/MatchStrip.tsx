@@ -3,12 +3,18 @@ import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import { buildMatchStrip, globalToFileTime, stackLanes } from '../utils/matchStrip'
 import { formatClock, formatEventClock } from '../utils/timeline'
 import { suggestionMarks } from '../utils/suggestions'
+import { useSuggestionsCurrent } from './findGoals'
 import { EventIcon } from './icons/EventIcon'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 
 /** Icon size (px) on the strip: 16 with a mouse, 18 on touch. */
 const ICON_MOUSE = 16
 const ICON_TOUCH = 18
+/** A tap is under 6 px of movement and 300 ms; it opens a suggestion ring within reach (the rings themselves take no pointer events, so scrubbing over them still seeks). */
+const TAP_MOVE_PX = 6
+const TAP_MS = 300
+const RING_REACH_MOUSE_PX = 10
+const RING_REACH_TOUCH_PX = 22
 
 /** The track's width in px, kept up to date (icon stacking depends on it). */
 function useWidth(ref: React.RefObject<HTMLElement | null>): number {
@@ -38,6 +44,7 @@ export function MatchStrip() {
     const teams = useAppState((s) => s.teams)
     const matchStartSec = useAppState(selectMatchStartSec)
     const suggestions = useAppState((s) => s.suggestions)
+    const suggestionsCurrent = useSuggestionsCurrent()
     const clockLong = useAppState(selectClockLong)
     const currentFileIndex = useAppState((s) => s.currentFileIndex)
     const currentTimeSec = useAppState((s) => s.currentTimeInFileSec)
@@ -48,6 +55,7 @@ export function MatchStrip() {
     const previewIndex = useAppState((s) => s.previewSteps[s.currentPreviewSegment]?.clipIndex ?? 0)
     const coarse = useMediaQuery(COARSE_QUERY)
     const dragging = useRef(false)
+    const down = useRef<{ x: number; y: number; at: number } | null>(null)
     const trackRef = useRef<HTMLDivElement | null>(null)
     const trackPx = useWidth(trackRef)
     // Pointer position as a fraction of the track: the hover / drag bubble, and (touch) the previewed playhead.
@@ -62,8 +70,8 @@ export function MatchStrip() {
     const absNow = (cumulativeOffsets[currentFileIndex] ?? 0) + currentTimeSec
     const iconPx = coarse ? ICON_TOUCH : ICON_MOUSE
     const marks = useMemo(
-        () => suggestionMarks(suggestions, new Set(events.map((e) => e.id)), strip.totalSec),
-        [suggestions, events, strip.totalSec],
+        () => (suggestionsCurrent ? suggestionMarks(suggestions, new Set(events.map((e) => e.id)), strip.totalSec) : []),
+        [suggestions, events, strip.totalSec, suggestionsCurrent],
     )
     const lanes = useMemo(() => stackLanes(strip.events.map((e) => e.leftPct), trackPx, iconPx + 2), [strip.events, trackPx, iconPx])
 
@@ -71,6 +79,21 @@ export function MatchStrip() {
         const rect = ev.currentTarget.getBoundingClientRect()
         if (rect.width <= 0) return null
         return Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width))
+    }
+    /** A tap (little movement, short) within reach of a suggestion ring opens the review there; anything else is scrubbing. */
+    const tappedRing = (ev: ReactPointerEvent<HTMLDivElement>): string | null => {
+        const d = down.current
+        down.current = null
+        if (!d || marks.length === 0) return null
+        if (Math.hypot(ev.clientX - d.x, ev.clientY - d.y) >= TAP_MOVE_PX || performance.now() - d.at >= TAP_MS) return null
+        const rect = ev.currentTarget.getBoundingClientRect()
+        const reach = ev.pointerType === 'touch' || ev.pointerType === 'pen' ? RING_REACH_TOUCH_PX : RING_REACH_MOUSE_PX
+        let best: { id: string; dist: number } | null = null
+        for (const m of marks) {
+            const dist = Math.abs(ev.clientX - (rect.left + (m.leftPct / 100) * rect.width))
+            if (dist <= reach && (!best || dist < best.dist)) best = { id: m.id, dist }
+        }
+        return best?.id ?? null
     }
     const seekFrac = (frac: number): void => {
         const { fileIndex, timeSec } = globalToFileTime(cumulativeOffsets, durations, frac * strip.totalSec)
@@ -115,6 +138,7 @@ export function MatchStrip() {
                         onPointerDown={(ev) => {
                             if ((ev.target as HTMLElement).closest('button')) return
                             dragging.current = true
+                            down.current = { x: ev.clientX, y: ev.clientY, at: performance.now() }
                             ev.currentTarget.setPointerCapture?.(ev.pointerId)
                             const frac = fracAt(ev)
                             if (frac === null) return
@@ -130,12 +154,14 @@ export function MatchStrip() {
                             if (dragging.current && ev.pointerType !== 'touch') seekFrac(frac)
                         }}
                         onPointerUp={(ev) => {
-                            if (dragging.current && ev.pointerType === 'touch') { const frac = fracAt(ev); if (frac !== null) seekFrac(frac) }
+                            const ring = dragging.current ? tappedRing(ev) : null
+                            if (ring) useAppState.getState().openReviewAt(ring)
+                            else if (dragging.current && ev.pointerType === 'touch') { const frac = fracAt(ev); if (frac !== null) seekFrac(frac) }
                             dragging.current = false
                             setTouchDrag(false)
                             if (ev.pointerType === 'touch') setPointerFrac(null)
                         }}
-                        onPointerCancel={() => { dragging.current = false; setTouchDrag(false); setPointerFrac(null) }}
+                        onPointerCancel={() => { dragging.current = false; down.current = null; setTouchDrag(false); setPointerFrac(null) }}
                         onPointerLeave={(ev) => { if (!dragging.current && ev.pointerType !== 'touch') setPointerFrac(null) }}
                     >
                         {strip.files.map((f, i) => (

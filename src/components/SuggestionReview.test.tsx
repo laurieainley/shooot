@@ -1,18 +1,20 @@
 // @vitest-environment happy-dom
 import { act, fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppState } from '../state'
 
-const job = vi.hoisted(() => ({ phase: 'done' }))
+const job = vi.hoisted(() => ({ phase: 'done', fraction: 1, error: null as string | null }))
 vi.mock('../detectJobs', () => ({
-    useDetectJob: (sel: (s: { phase: string; fraction: number; error: string | null; scores: null }) => unknown) => sel({ phase: job.phase, fraction: 1, error: null, scores: null }),
+    useDetectJob: (sel: (s: { phase: string; fraction: number; error: string | null; scores: null }) => unknown) => sel({ phase: job.phase, fraction: job.fraction, error: job.error, scores: null }),
     startDetection: vi.fn(), cancelDetection: vi.fn(), getDetectJob: () => ({ phase: 'done' }),
 }))
 import { SuggestionReview } from './SuggestionReview'
+import { openFindGoals } from './findGoals'
+import { registerPlayerToggle } from './playerControl'
 
 const run = { createdAt: 1, source: 'audio' as const, configVersion: 1, analysedSec: 600, total: 2 }
 beforeEach(() => {
-    job.phase = 'done'
+    job.phase = 'done'; job.fraction = 1; job.error = null
     useAppState.setState({
         files: [{ id: 'f', name: 'A.MP4', url: '', kind: 'full', durationSec: 600, file: new File([], 'A.MP4') }] as never,
         cumulativeOffsets: [0], events: [], suggestions: [], suggestionRun: null, reviewIndex: 0, panel: 'review',
@@ -91,5 +93,91 @@ describe('SuggestionReview', () => {
         render(<SuggestionReview onClose={() => {}} />)
         expect(screen.getByRole('button', { name: 'Find goals' })).toBeTruthy()
         expect(screen.queryByText(/cancelled/)).toBeNull()
+    })
+
+    it('should confirm the first team with Enter after G', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        act(() => { fireEvent.keyDown(window, { key: 'g' }) })
+        act(() => { fireEvent.keyDown(window, { key: 'Enter' }) })
+        expect(useAppState.getState().events[0]).toMatchObject({ type: 'goal', team: 'Whites' })
+    })
+    it('should confirm the pre-selected team with Enter', async () => {
+        const { SuggestionCard } = await import('./SuggestionCard')
+        render(<SuggestionCard suggestion={useAppState.getState().suggestions[0]} index={0} total={2} onNext={() => {}} onPrev={() => {}} preselectTeam="Colours" />)
+        act(() => { fireEvent.keyDown(window, { key: 'o' }) })
+        act(() => { fireEvent.keyDown(window, { key: 'Enter' }) })
+        expect(useAppState.getState().events[0]).toMatchObject({ type: 'own_goal', team: 'Colours' })
+    })
+    it('should play or pause the player with Space', () => {
+        const toggle = vi.fn()
+        registerPlayerToggle(toggle)
+        render(<SuggestionReview onClose={() => {}} />)
+        act(() => { fireEvent.keyDown(window, { key: ' ' }) })
+        expect(toggle).toHaveBeenCalledTimes(1)
+        registerPlayerToggle(null)
+    })
+    it('should open at the first pending suggestion, or the summary when none is pending', () => {
+        act(() => { useAppState.getState().decideSuggestion(useAppState.getState().suggestions[0].id, { kind: 'reject' }) })
+        useAppState.setState({ reviewIndex: 0 })
+        openFindGoals()
+        expect(useAppState.getState().reviewIndex).toBe(1)
+        act(() => { useAppState.getState().decideSuggestion(useAppState.getState().suggestions[1].id, { kind: 'reject' }) })
+        openFindGoals()
+        expect(useAppState.getState().reviewIndex).toBe(2)
+    })
+    it('should base the health check on decided suggestions and mention those not reviewed', () => {
+        useAppState.getState().setSuggestions(run, Array.from({ length: 10 }, (_, i) => ({ timeSec: 30 + i * 40, score: 1 })))
+        useAppState.setState({ reviewIndex: 10 })
+        for (const s of useAppState.getState().suggestions.slice(0, 4)) useAppState.getState().decideSuggestion(s.id, { kind: 'reject' })
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(screen.getByText('6 not reviewed.')).toBeTruthy()
+        expect(screen.queryByText(/Detection struggled/)).toBeNull() // only 4 decided
+    })
+    it('should keep showing the suggestions, with the failure above, when a re-run fails', () => {
+        job.phase = 'failed'; job.error = 'no decoder'
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(screen.getByRole('alert')).toHaveTextContent("Couldn't read the audio: no decoder")
+        expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
+        expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy()
+    })
+    it('should offer to find goals again when the videos changed', () => {
+        useAppState.setState({ suggestionRun: { ...run, fileKeys: ['somethingelse'] } })
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(screen.getByText('The videos changed since the last Find goals.')).toBeTruthy()
+        expect(screen.getByRole('button', { name: 'Find goals' })).toBeTruthy()
+        expect(screen.queryByText(/Suggestion 1 of 2/)).toBeNull()
+    })
+    it('should show progress as a progressbar and announce only phase changes', () => {
+        job.phase = 'running'; job.fraction = 0.4
+        const { rerender } = render(<SuggestionReview onClose={() => {}} />)
+        const bar = screen.getByRole('progressbar')
+        expect(bar).toHaveAttribute('aria-valuenow', '40')
+        expect(bar).toHaveAttribute('aria-valuemin', '0'); expect(bar).toHaveAttribute('aria-valuemax', '100')
+        const live = document.querySelector('[aria-live="polite"]') as HTMLElement
+        expect(live.textContent).toBe('Listening for goals.')
+        job.fraction = 0.7
+        rerender(<SuggestionReview onClose={() => {}} />)
+        expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '70')
+        expect(live.textContent).toBe('Listening for goals.')
+        expect(live.contains(screen.getByRole('progressbar'))).toBe(false)
+    })
+    describe('copy feedback', () => {
+        const toSummary = (): void => { useAppState.setState({ suggestions: [], suggestionRun: { ...run, total: 0 } }) }
+        afterEach(() => { Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true }) })
+        it('should say Copied. when the clipboard accepts the text', async () => {
+            Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn(async () => {}) }, configurable: true })
+            toSummary()
+            render(<SuggestionReview onClose={() => {}} />)
+            await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' })) })
+            expect(screen.getByText('Copied.')).toBeTruthy()
+        })
+        it('should show the text to select by hand when copying fails', async () => {
+            Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn(async () => { throw new Error('denied') }) }, configurable: true })
+            toSummary()
+            render(<SuggestionReview onClose={() => {}} />)
+            await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' })) })
+            expect(screen.getByText("Couldn't copy — select and copy the text below.")).toBeTruthy()
+            expect((screen.getByLabelText('Text to copy') as HTMLTextAreaElement).value).toContain('Find goals (Beta)')
+        })
     })
 })

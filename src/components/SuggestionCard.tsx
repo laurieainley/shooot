@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import type { KeepType, Suggestion } from '../types'
 import { formatClock } from '../utils/timeline'
+import { togglePlayerPlayback } from './playerControl'
 import { useReviewLoop } from './useReviewLoop'
 
 interface SuggestionCardProps {
@@ -10,6 +11,8 @@ interface SuggestionCardProps {
     total: number
     onNext: () => void
     onPrev: () => void
+    /** Team that Enter confirms after Goal / Own goal (defaults to the first team). */
+    preselectTeam?: string
 }
 
 const ACTIONS: { type: KeepType | 'reject'; label: string; key: string }[] = [
@@ -19,7 +22,7 @@ const ACTIONS: { type: KeepType | 'reject'; label: string; key: string }[] = [
 ]
 
 /** One suggested moment: the player loops around it; a key or button decides it (goals and own goals then ask for the team). */
-export function SuggestionCard({ suggestion, index, total, onNext, onPrev }: SuggestionCardProps) {
+export function SuggestionCard({ suggestion, index, total, onNext, onPrev, preselectTeam }: SuggestionCardProps) {
     const teams = useAppState((s) => s.teams)
     const kickOff = useAppState(selectMatchStartSec)
     const long = useAppState(selectClockLong)
@@ -44,6 +47,9 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev }: Sug
             if (e.repeat) return
             if ((e.target as HTMLElement | null)?.closest?.('input, textarea, select') || e.metaKey || e.ctrlKey || e.altKey) return
             const k = e.key.toLowerCase()
+            const onButton = !!(e.target as HTMLElement | null)?.closest?.('button')
+            if (e.key === ' ' && !onButton) { e.preventDefault(); togglePlayerPlayback(); return }
+            if (e.key === 'Enter' && needTeam && !onButton) { e.preventDefault(); decide(needTeam, preselectTeam ?? teams[0]?.name); return }
             if (needTeam && (k === '1' || k === '2')) { e.preventDefault(); decide(needTeam, teams[Number(k) - 1]?.name); return }
             const a = ACTIONS.find((x) => x.key.toLowerCase() === k)
             if (a) { e.preventDefault(); choose(a.type); return }

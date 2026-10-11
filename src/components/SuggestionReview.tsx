@@ -3,7 +3,8 @@ import { useDetectJob } from '../detectJobs'
 import { effectiveStatus } from '../utils/suggestions'
 import { BetaTag } from './BetaTag'
 import { ColumnPanel } from './ColumnPanel'
-import { DetectIdle, DetectProgress } from './DetectProgress'
+import { DetectFailed, DetectIdle, DetectProgress } from './DetectProgress'
+import { useSuggestionsCurrent } from './findGoals'
 import { SuggestionCard } from './SuggestionCard'
 import { SuggestionSummary } from './SuggestionSummary'
 
@@ -22,15 +23,21 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
     }
     const current = index < suggestions.length ? suggestions[index] : null
     const go = (i: number): void => useAppState.getState().setReviewIndex(i)
-    const busy = phase === 'running' || phase === 'failed'
+    const runCurrent = useSuggestionsCurrent()
+    const stale = suggestions.length > 0 && !runCurrent
+    const failed = phase === 'failed'
+    const announce = phase === 'running' ? 'Listening for goals.' : phase === 'done' ? 'Find goals finished.' : phase === 'cancelled' ? 'Find goals stopped.' : ''
     return (
         <ColumnPanel label="Suggested goals" onClose={onClose} className="review" badge={<BetaTag />}>
-            {busy ? <DetectProgress /> : current
-                ? <SuggestionCard suggestion={current} index={index} total={suggestions.length}
-                    onNext={() => go(nextPending(index + 1))} onPrev={() => go(Math.max(0, index - 1))} />
-                : suggestions.length === 0 && (phase === 'cancelled' || phase === 'idle')
-                    ? <DetectIdle cancelled={phase === 'cancelled'} />
-                    : <SuggestionSummary onClose={onClose} />}
+            <p className="sr-only" role="status" aria-live="polite">{announce}</p>
+            {failed && <DetectFailed />}
+            {phase === 'running' ? <DetectProgress /> : stale ? <DetectIdle stale />
+                : current
+                    ? <SuggestionCard suggestion={current} index={index} total={suggestions.length}
+                        onNext={() => go(nextPending(index + 1))} onPrev={() => go(Math.max(0, index - 1))} />
+                    : suggestions.length === 0 && (phase === 'cancelled' || phase === 'idle')
+                        ? <DetectIdle cancelled={phase === 'cancelled'} />
+                        : failed && suggestions.length === 0 ? null : <SuggestionSummary onClose={onClose} />}
         </ColumnPanel>
     )
 }
