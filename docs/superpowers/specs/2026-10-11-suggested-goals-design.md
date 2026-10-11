@@ -40,7 +40,7 @@ the review UI from C is reused unchanged.
    for progress only), cancellable, keeps running if the sheet is closed. Audio only, so well under a minute for an hour of
    GoPro footage on a laptop (to be measured).
 3. **Quick review** (sheet over the player; full screen on phones): "Suggestion 3 of 30". The main player seeks to and loops
-   **−8 s → +4 s** around the moment.
+   **−3 s → +2 s** around the moment (user decision).
    - Keys: **G** goal · **O** own goal · **S** save · **H** highlight · **X** not a goal · **←/→** previous / skip ·
      **Esc** closes (progress kept). After **G** or **O**, **1 / 2** chooses the team (team names shown); Enter or the
      button confirms. Scorer/assist are added later via normal editing.
@@ -63,7 +63,7 @@ the review UI from C is reused unchanged.
   `spikes/goal-detect/transfer/audio_rank.py`.
 - `src/detect/detectConfig.ts` — all tunables in one object, with a `version` recorded on each run:
   `{ hopSec: 0.2, smoothSec: 1, voiceHz: [300, 3000], peakWindowSec: [-3, 3], hushWindowSec: [5, 15], minGapSec: 20,
-  maxSuggestions: 30, eventOffsetSec: -2, reviewWindowSec: [-8, 4] }`.
+  maxSuggestions: 30, eventOffsetSec: -2, reviewWindowSec: [-3, 2] }`.
 - `src/detect/audioWorker.ts` — the spectrum and scoring run in a Web Worker (PCM chunks are transferred, not copied);
   decoding stays on the main thread via Mediabunny, yielding with `render/yield.ts` (`waitForQueue`), never timers.
 - `src/detectJobs.ts` — one detection job at a time, outside the UI (pattern of `renderJobs.ts`): phase, fraction,

@@ -336,7 +336,7 @@ export const AUDIO_DETECT = {
     minGapSec: 20,
     maxSuggestions: 30,
     eventOffsetSec: -2,
-    reviewWindowSec: [-8, 4] as readonly [number, number],
+    reviewWindowSec: [-3, 2] as readonly [number, number],
     lowKeepRatio: 0.15,
 } as const
 
@@ -1199,7 +1199,7 @@ import { useAppState } from '../state'
 import { globalToFileTime } from '../utils/matchStrip'
 import { AUDIO_DETECT } from '../detect/detectConfig'
 
-/** Plays [t − 8 s, t + 4 s] around the suggestion at `timeSec` (whole timeline) and jumps back to its start at the end. */
+/** Plays [t − 3 s, t + 2 s] around the suggestion at `timeSec` (whole timeline) and jumps back to its start at the end. */
 export function useReviewLoop(timeSec: number | null): void {
     useEffect(() => {
         if (timeSec === null) return
