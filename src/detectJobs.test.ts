@@ -88,6 +88,20 @@ describe('detection job and changing files', () => {
         await jobs.start()
         expect(useAppState.getState().suggestionRun?.fileKeys).toHaveLength(1)
     })
+    it('should analyse kick off to final whistle, or the whole video when told to', async () => {
+        const ev = (id: string, type: 'kick_off' | 'final_whistle', t: number) => ({ id, type, matchTimeSec: t, sourceFileIndex: 0 })
+        useAppState.setState({ files: [file('A.MP4')] as never, cumulativeOffsets: [0], events: [ev('k', 'kick_off', 20), ev('w', 'final_whistle', 80)], suggestions: [], suggestionRun: null })
+        const run = vi.fn(async () => ({ moments: [], scores: new Float32Array(1), analysedSec: 100 }))
+        const jobs = createDetectJobs({ run: run as never, wakeLock: wl, now: () => 0 })
+        await jobs.start()
+        const rangeOf = (n: number): number[] => (run.mock.calls[n] as unknown as [unknown, number[]])[1]
+        expect(rangeOf(0)).toEqual([20, 80])
+        expect(useAppState.getState().suggestionRun?.bounded).toBe(true)
+        await jobs.start({ wholeVideo: true })
+        expect(rangeOf(1)[0]).toBe(0)
+        expect(rangeOf(1)[1]).toBe(100)
+        expect(useAppState.getState().suggestionRun?.bounded).toBe(false)
+    })
 })
 
 describe('detection job phase 2 (ball check)', () => {

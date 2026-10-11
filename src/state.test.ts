@@ -800,3 +800,19 @@ describe('labs and ball tags', () => {
         useAppState.setState({ suggestions: [] })
     })
 })
+
+describe('setMarkerAt', () => {
+    beforeEach(() => {
+        useAppState.setState({ files: [], events: [], cumulativeOffsets: [], undoStack: [], redoStack: [], currentFileIndex: 0 })
+        s().setFiles([vf('a.mp4'), vf('b.mp4')])
+    })
+    it('should place a single marker, move it, and undo in one step', () => {
+        s().setMarkerAt('kick_off', 0, 20.7)
+        s().setMarkerAt('kick_off', 1, 5)
+        const ko = s().events.filter((e) => e.type === 'kick_off')
+        expect(ko).toHaveLength(1)
+        expect(ko[0]).toMatchObject({ sourceFileIndex: 1, matchTimeSec: 5 })
+        s().undo()
+        expect(s().events.filter((e) => e.type === 'kick_off')[0]).toMatchObject({ sourceFileIndex: 0, matchTimeSec: 20 })
+    })
+})

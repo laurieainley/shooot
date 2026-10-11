@@ -1241,3 +1241,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .sheet-backdrop:has(.sheet--import) { place-items: center; padding: 16px; }
   .sheet.sheet--import { width: min(880px, 100%); max-height: calc(100dvh - 32px); border-radius: var(--sh-radius-md); border-width: 1px; }
 }
+.range__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.range__label { font-size: 16px; }
+.range .btn-primary:disabled { opacity: .45; }
+.range__row .review__btn { flex: 0 0 10.5rem; }

@@ -36,11 +36,11 @@ export function ballErrorLine(e: unknown): string {
 
 const sameFiles = (a: (File | undefined)[], b: (File | undefined)[]): boolean => a.length === b.length && a.every((f, i) => f === b[i])
 
-export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi<DetectJobState>; start: () => Promise<void>; cancel: () => void } {
+export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi<DetectJobState>; start: (opts?: { wholeVideo?: boolean }) => Promise<void>; cancel: () => void } {
     const deps: JobDeps = { run: runAudioDetection, wakeLock: createRenderWakeLock, now: () => Date.now(), ball: runBallCheck, ballDeps: defaultBallDeps, ...over }
     const store = createStore<DetectJobState>(() => ({ phase: 'idle', fraction: 0, error: null, scores: null, ...IDLE_BALL }))
     let ac: AbortController | null = null
-    const start = async (): Promise<void> => {
+    const start = async (opts?: { wholeVideo?: boolean }): Promise<void> => {
         if (store.getState().phase === 'running') return
         ac?.abort() // a ball check still running from the last run: the new run replaces it
         const app = useAppState.getState()
@@ -54,7 +54,7 @@ export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi
             return f.file && file && durationSec > 0 ? [{ file, durationSec, offsetSec: app.cumulativeOffsets[i] ?? 0 }] : []
         })
         const totalSec = Math.max(0, ...files.map((f) => f.offsetSec + f.durationSec))
-        const range = detectionRange(app.events, app.cumulativeOffsets, totalSec)
+        const range: [number, number] = opts?.wholeVideo ? [0, totalSec] : detectionRange(app.events, app.cumulativeOffsets, totalSec)
         const mine = new AbortController()
         ac = mine
         // The result belongs to these exact files: if they are replaced or removed meanwhile (new match, clear), drop it.
@@ -73,7 +73,7 @@ export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi
             const r = await deps.run(files, range, defaultDetectDeps, mine.signal, (fraction) => store.setState({ fraction }))
             if (mine.signal.aborted || !sameFiles(snapshot, useAppState.getState().files.map((f) => f.file))) throw new Error('Cancelled')
             const now = deps.now()
-            useAppState.getState().setSuggestions({ createdAt: now, source: 'audio', configVersion: AUDIO_DETECT.version, analysedSec: r.analysedSec, total: r.moments.length, durationMs: Math.max(0, now - startedAt), fileKeys: keys }, r.moments)
+            useAppState.getState().setSuggestions({ createdAt: now, source: 'audio', configVersion: AUDIO_DETECT.version, analysedSec: r.analysedSec, total: r.moments.length, durationMs: Math.max(0, now - startedAt), fileKeys: keys, bounded: range[0] > 0 || range[1] < totalSec }, r.moments)
             store.setState({ phase: 'done', fraction: 1, scores: r.scores })
             const after = useAppState.getState()
             if (after.labs && after.goalMarks && (after.goalMarks.team1 || after.goalMarks.team2) && ballFiles.length > 0 && after.suggestions.length > 0) {
@@ -106,7 +106,8 @@ export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi
 }
 
 const jobs = createDetectJobs()
-export const startDetection = (): void => { void jobs.start() }
+/** `wholeVideo` ignores any Kick off / Final whistle (the "Skip" choice). */
+export const startDetection = (opts?: { wholeVideo?: boolean }): void => { void jobs.start(opts) }
 export const cancelDetection = (): void => jobs.cancel()
 export function useDetectJob<T>(selector: (s: DetectJobState) => T): T { return useStore(jobs.store, selector) }
 export const getDetectJob = (): DetectJobState => jobs.store.getState()

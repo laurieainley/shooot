@@ -63,6 +63,7 @@ export function detectionReport(run: SuggestionRun | null, counts: ReviewCounts,
     return [
         `Find goals (Beta), ${run?.source ?? 'audio'}, config v${run?.configVersion ?? '?'}`,
         `Analysed: ${run ? mmss(run.analysedSec) : '—'}`,
+        `Range: ${run?.bounded === undefined ? '—' : run.bounded ? 'kick off → final whistle' : 'whole video'}`,
         `Run time: ${run?.durationMs !== undefined ? `${Math.round(run.durationMs / 1000)}s` : '—'}`,
         `Kept ${counts.kept} of ${counts.total}${types ? ` (${types})` : ''}, rejected ${counts.rejected}, not reviewed ${counts.pending}`,
         ...(ball ? [`Ball check: ${'error' in ball ? ball.error : `${ball.ep ?? '?'}, ${ball.ms !== null ? Math.round(ball.ms / 1000) : '—'} s, ${ball.tagged} tagged`}`] : []),
