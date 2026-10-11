@@ -1,7 +1,7 @@
 import type { MarkerType, MatchEvent, Team } from '../types'
 import { PICKER_OPTIONS, optionForKey, type PickerOption } from './eventTypes'
 import { assistEdit, optionPatch, personEdit } from './eventEdit'
-import { filterRoster, rosterTeamFor, teamShortcuts } from './roster'
+import { filterRoster, rosterTeamFor, sortNames, teamShortcuts } from './roster'
 
 export type PickerStep = 'type' | 'team' | 'scorer' | 'assist' | 'text'
 
@@ -50,11 +50,30 @@ function rosterTeam(state: PickerState, ctx: PickerContext): Team | undefined {
     return rosterTeamFor(ctx.teams, state.team, state.option.type)
 }
 
-/** Roster names matching the query at the person step; at the assist step the scorer is left out. */
+/** Roster names matching the query at the person step, alphabetical. At the assist step the scorer stays in their slot (see `isDisabledName`), so the others never shift. */
 export function scorerCandidates(state: PickerState, ctx: PickerContext): string[] {
-    const names = filterRoster(rosterTeam(state, ctx)?.roster ?? [], state.query)
-    const scorer = state.step === 'assist' ? state.scorer?.trim().toLowerCase() : undefined
-    return scorer ? names.filter((n) => n.toLowerCase() !== scorer) : names
+    return sortNames(filterRoster(rosterTeam(state, ctx)?.roster ?? [], state.query))
+}
+
+/** The scorer is listed but not selectable as their own assist. */
+export function isDisabledName(state: PickerState, name: string): boolean {
+    return state.step === 'assist' && !!state.scorer && name.trim().toLowerCase() === state.scorer.trim().toLowerCase()
+}
+
+/** The next selectable candidate from `from` in `dir` (wrapping), or -1 when none can be picked. */
+function nextEnabled(state: PickerState, candidates: string[], from: number, dir: 1 | -1): number {
+    const n = candidates.length
+    for (let step = 1; step <= n; step++) {
+        const i = (((from + dir * step) % n) + n) % n
+        if (!isDisabledName(state, candidates[i])) return i
+    }
+    return -1
+}
+
+/** The first selectable row (0 when there is none). */
+export function firstEnabled(state: PickerState, ctx: PickerContext): number {
+    const c = scorerCandidates(state, ctx)
+    return Math.max(0, nextEnabled(state, c, -1, 1))
 }
 
 function wrap(i: number, n: number): number {
@@ -92,7 +111,10 @@ function chooseScorer(state: PickerState, name: string, ctx: PickerContext): Res
     const effects: PickerEffect[] = []
     if (addToRoster) effects.push({ kind: 'addToRoster', ...addToRoster })
     effects.push({ kind: 'update', patch })
-    if (state.option.askAssist) return { state: { ...state, step: 'assist', highlighted: 0, query: '', scorer: name.trim() }, effects }
+    if (state.option.askAssist) {
+        const next: PickerState = { ...state, step: 'assist', highlighted: 0, query: '', scorer: name.trim() }
+        return { state: { ...next, highlighted: firstEnabled(next, ctx) }, effects }
+    }
     return afterPerson(state, effects)
 }
 
@@ -123,7 +145,11 @@ export function pickerReducer(state: PickerState, input: PickerInput, ctx: Picke
     const none: Result = { state, effects: [] }
 
     if (input.kind === 'text') {
-        return state.step === 'scorer' || state.step === 'assist' || state.step === 'text' ? { state: { ...state, query: input.value, highlighted: 0 }, effects: [] } : none
+        if (state.step === 'scorer' || state.step === 'assist') {
+            const next = { ...state, query: input.value }
+            return { state: { ...next, highlighted: firstEnabled(next, ctx) }, effects: [] }
+        }
+        return state.step === 'text' ? { state: { ...state, query: input.value, highlighted: 0 }, effects: [] } : none
     }
 
     if (input.kind === 'choose') {
@@ -163,10 +189,15 @@ export function pickerReducer(state: PickerState, input: PickerInput, ctx: Picke
 
     // scorer / assist step — letters go to the text field
     const candidates = scorerCandidates(state, ctx)
-    if (k === 'ArrowDown') return { state: { ...state, highlighted: wrap(state.highlighted + 1, candidates.length) }, effects: [] }
-    if (k === 'ArrowUp') return { state: { ...state, highlighted: wrap(state.highlighted - 1, candidates.length) }, effects: [] }
+    const move = (dir: 1 | -1): Result => {
+        const i = nextEnabled(state, candidates, state.highlighted, dir)
+        return i < 0 ? none : { state: { ...state, highlighted: i }, effects: [] }
+    }
+    if (k === 'ArrowDown') return move(1)
+    if (k === 'ArrowUp') return move(-1)
     if (k === 'Enter') {
-        const pick = state.query.trim() && candidates.length === 0 ? state.query.trim() : candidates[state.highlighted]
+        const row = candidates[state.highlighted]
+        const pick = state.query.trim() && candidates.length === 0 ? state.query.trim() : row !== undefined && !isDisabledName(state, row) ? row : undefined
         if (state.step === 'assist') return pick ? chooseAssist(state, pick, ctx) : skip(state)
         if (pick) return chooseScorer(state, pick, ctx)
         return state.option.personOptional ? skip(state) : { state, effects: [CLOSE] }

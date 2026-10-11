@@ -1,6 +1,6 @@
 import type { KeepType, Team } from '../types'
 import { PICKER_OPTIONS } from './eventTypes'
-import { initialPickerState, pickerReducer, scorerCandidates, type PickerInput, type PickerState } from './eventPicker'
+import { initialPickerState, isDisabledName, pickerReducer, scorerCandidates, type PickerInput, type PickerState } from './eventPicker'
 
 /** The optional scorer / assist steps on the review card: the event picker's own reducer, run for the person steps only. */
 export type PeopleState = {
@@ -14,9 +14,9 @@ export type PeopleState = {
 
 export const NO_PEOPLE: PeopleState = { pk: null, adds: [] }
 
-/** Goal (scorer + assist) and own goal (the player) with two teams and the team chosen. Save and highlight ask nobody on the card. */
+/** Goal (scorer + assist), own goal (the player) and save (goalkeeper) with two teams and the team chosen, as in the picker. Highlight asks nobody on the card. */
 export function startPeople(type: KeepType | null, team: string | null, teamCount: number): PeopleState {
-    if ((type !== 'goal' && type !== 'own_goal') || !team || teamCount < 2) return NO_PEOPLE
+    if ((type !== 'goal' && type !== 'own_goal' && type !== 'save') || !team || teamCount < 2) return NO_PEOPLE
     const option = PICKER_OPTIONS.find((o) => o.id === type)
     if (!option) return NO_PEOPLE
     return { pk: { ...initialPickerState, step: 'scorer', option, team }, adds: [] }
@@ -29,6 +29,11 @@ export function peopleOpen(p: PeopleState): boolean {
 
 export function peopleCandidates(p: PeopleState, teams: Team[]): string[] {
     return p.pk ? scorerCandidates(p.pk, { teams }) : []
+}
+
+/** The scorer in the assist list: shown, dimmed, not selectable. */
+export function peopleDisabled(p: PeopleState, name: string): boolean {
+    return !!p.pk && isDisabledName(p.pk, name)
 }
 
 export function peopleLabel(p: PeopleState): string {

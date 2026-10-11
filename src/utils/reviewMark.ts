@@ -69,20 +69,23 @@ export type DecisionAction =
     | { kind: 'team'; team: string }
     | { kind: 'clear' }
 
+/** Goal, own goal and save ask which team (as the event picker does); a highlight does not. */
+const isTeamType = (type: ReviewType | null): boolean => type === 'goal' || type === 'own_goal' || type === 'save'
+
 export function needsTeam(type: ReviewType | null, teamCount: number): boolean {
-    return (type === 'goal' || type === 'own_goal') && teamCount >= 2
+    return isTeamType(type) && teamCount >= 2
 }
 
 /** Selecting a type never saves; goals pre-select `defaultTeam`. A team only counts once a goal / own goal is selected. */
 export function decisionReducer(state: DecisionState, a: DecisionAction): DecisionState {
     switch (a.kind) {
         case 'type': {
-            const wantsTeam = a.type === 'goal' || a.type === 'own_goal'
-            const keepTeam = wantsTeam && (state.type === 'goal' || state.type === 'own_goal') ? state.team : null
+            const wantsTeam = isTeamType(a.type)
+            const keepTeam = wantsTeam && isTeamType(state.type) ? state.team : null
             return { type: a.type, team: wantsTeam ? keepTeam ?? a.defaultTeam ?? null : null }
         }
         case 'team':
-            return state.type === 'goal' || state.type === 'own_goal' ? { ...state, team: a.team } : state
+            return isTeamType(state.type) ? { ...state, team: a.team } : state
         case 'clear':
             return EMPTY_DECISION
     }

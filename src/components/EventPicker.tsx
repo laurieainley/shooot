@@ -9,7 +9,7 @@ import { nearbyMark } from '../utils/duplicates'
 import { EventTag } from './EventTag'
 import { PersonStep } from './PersonStep'
 import { PICKER_GROUPS, PICKER_OPTIONS, assistOf, isMarker, controlLabel, type PickerOption } from '../utils/eventTypes'
-import { SKIP, initialPickerState, pickerReducer, touchPickerState, scorerCandidates, type PickerInput, type PickerState } from '../utils/eventPicker'
+import { SKIP, initialPickerState, pickerReducer, touchPickerState, scorerCandidates, isDisabledName, type PickerInput, type PickerState } from '../utils/eventPicker'
 import { teamShortcuts } from '../utils/roster'
 import { formatClock } from '../utils/timeline'
 import type { MatchEvent } from '../types'
@@ -213,6 +213,7 @@ export function EventPicker() {
                     showHighlight={!coarse}
                     onQuery={(value) => dispatch({ kind: 'text', value })}
                     onChoose={(value) => dispatch({ kind: 'choose', value })}
+                    isDisabled={(name) => isDisabledName(state, name)}
                 />
             )}
 

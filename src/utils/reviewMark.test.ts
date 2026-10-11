@@ -51,10 +51,11 @@ describe('decisionReducer', () => {
         expect(decisionReducer(EMPTY_DECISION, { kind: 'type', type: 'highlight' })).toEqual({ type: 'highlight', team: null })
         expect(decisionReducer(EMPTY_DECISION, { kind: 'type', type: 'goal', defaultTeam: 'Whites' })).toEqual({ type: 'goal', team: 'Whites' })
     })
-    it('should keep the chosen team when switching between goal and own goal, and drop it for other types', () => {
+    it('should keep the chosen team when switching between goal, own goal and save, and drop it for a highlight', () => {
         const s = decisionReducer({ type: 'goal', team: 'Whites' }, { kind: 'team', team: 'Colours' })
         expect(decisionReducer(s, { kind: 'type', type: 'own_goal', defaultTeam: 'Whites' }).team).toBe('Colours')
-        expect(decisionReducer(s, { kind: 'type', type: 'save' }).team).toBeNull()
+        expect(decisionReducer(s, { kind: 'type', type: 'save' }).team).toBe('Colours')
+        expect(decisionReducer(s, { kind: 'type', type: 'highlight' }).team).toBeNull()
     })
     it('should ignore a team when no goal is selected, and clear', () => {
         expect(decisionReducer(EMPTY_DECISION, { kind: 'team', team: 'Whites' })).toEqual(EMPTY_DECISION)
@@ -67,7 +68,9 @@ describe('canConfirm', () => {
         expect(canConfirm(EMPTY_DECISION, 2)).toBe(false)
         expect(canConfirm({ type: 'goal', team: null }, 2)).toBe(false)
         expect(canConfirm({ type: 'goal', team: null }, 0)).toBe(true)
-        expect(canConfirm({ type: 'save', team: null }, 2)).toBe(true)
+        expect(canConfirm({ type: 'save', team: null }, 2)).toBe(false) // a save asks the team too, like the picker
+        expect(canConfirm({ type: 'save', team: 'Whites' }, 2)).toBe(true)
+        expect(canConfirm({ type: 'highlight', team: null }, 2)).toBe(true)
     })
 })
 
@@ -82,7 +85,7 @@ describe('instructionText', () => {
     it('should say what will be saved, and warn when unmarked', () => {
         const i = instructionText({ ...base, marked: true, decision: { type: 'goal', team: 'Whites' } })
         expect(i).toEqual({ text: 'Goal · Whites at 23:41.6 — press Enter to confirm', warning: null })
-        expect(instructionText({ ...base, marked: false, decision: { type: 'save', team: null } }).warning).toBe('Using the estimate — mark the exact moment for accurate clips')
+        expect(instructionText({ ...base, marked: false, decision: { type: 'highlight', team: null } }).warning).toBe('Using the estimate — mark the exact moment for accurate clips')
     })
     it('should ask for the team when a goal has none, ', () => {
         expect(instructionText({ ...base, marked: true, decision: { type: 'goal', team: null } }).text).toContain('choose the team')

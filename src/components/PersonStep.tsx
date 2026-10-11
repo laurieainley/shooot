@@ -14,12 +14,14 @@ interface PersonStepProps {
     onQuery: (value: string) => void
     /** A roster name, or a new typed name ("+ add …"). */
     onChoose: (name: string) => void
+    /** Rows shown but not selectable (the scorer in the assist list: dimmed, in place, so the other names do not shift). */
+    isDisabled?: (name: string) => boolean
     /** Only for hosts that handle keys on the field itself (the event picker listens on the window instead). */
     onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void
 }
 
 /** The optional person step shared by the event picker and the review card: a field that filters the team roster, plus the matching names. */
-export function PersonStep({ label, placeholder, query, candidates, highlighted, showHighlight, autoFocus, onQuery, onChoose, onKeyDown }: PersonStepProps) {
+export function PersonStep({ label, placeholder, query, candidates, highlighted, showHighlight, autoFocus, onQuery, onChoose, isDisabled, onKeyDown }: PersonStepProps) {
     return (
         <div className="event-picker__person">
             <input
@@ -34,12 +36,15 @@ export function PersonStep({ label, placeholder, query, candidates, highlighted,
                 onKeyDown={onKeyDown}
             />
             <ul role="listbox" className="event-picker__list">
-                {candidates.map((n, i) => (
-                    <li key={n} role="option" aria-selected={showHighlight && i === highlighted}
-                        className="event-picker__item" onClick={() => onChoose(n)}>
-                        <span className="voice-shirt event-picker__person-name">{n}</span>
-                    </li>
-                ))}
+                {candidates.map((n, i) => {
+                    const off = isDisabled?.(n) ?? false
+                    return (
+                        <li key={n} role="option" aria-selected={!off && showHighlight && i === highlighted} aria-disabled={off || undefined}
+                            className={`event-picker__item${off ? ' event-picker__item--disabled' : ''}`} onClick={off ? undefined : () => onChoose(n)}>
+                            <span className="voice-shirt event-picker__person-name">{n}</span>
+                        </li>
+                    )
+                })}
                 {query.trim() && candidates.length === 0 && (
                     <li role="option" aria-selected={showHighlight} className="event-picker__item"
                         onClick={() => onChoose(query.trim())}>

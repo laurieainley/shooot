@@ -1318,3 +1318,4 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 @media (pointer: coarse) { .rtl__handle kbd { display: none; } }
 .rv__steps .event-picker__person .event-picker__input { order: 0; }
 .rv__steps .event-picker__person .event-picker__list { order: 1; max-height: 144px; overflow-y: auto; }
+.event-picker__item--disabled { opacity: .4; cursor: default; pointer-events: none; }

@@ -48,7 +48,7 @@ describe('SuggestionReview', () => {
     it('should reject with X and show the summary at the end', () => {
         render(<SuggestionReview onClose={() => {}} />)
         press('x'); press('Enter')
-        press('s'); press('Enter')
+        press('s'); press('1'); press('Enter')
         expect(screen.getByText('You kept 1 of 2.')).toBeTruthy()
     })
     it('should warn when very few were kept', () => {
@@ -106,16 +106,24 @@ describe('SuggestionReview', () => {
         expect(screen.queryByText(/cancelled/)).toBeNull()
     })
 
-    it('should confirm the first team with Enter after G', () => {
+    it('should never pre-select a team: Confirm stays disabled until the reviewer picks one', () => {
         render(<SuggestionReview onClose={() => {}} />)
-        press('g'); press('Enter')
-        expect(useAppState.getState().events[0]).toMatchObject({ type: 'goal', team: 'Whites' })
+        press('g')
+        expect(screen.getByRole('button', { name: /Whites/ })).toHaveAttribute('aria-pressed', 'false')
+        expect(screen.getByRole('button', { name: /Colours/ })).toHaveAttribute('aria-pressed', 'false')
+        expect(screen.getByRole('button', { name: /^Confirm/ })).toBeDisabled()
+        expect(screen.getByText(/choose the team \(1 \/ 2\)/)).toBeTruthy()
+        press('Enter')
+        expect(useAppState.getState().events).toHaveLength(0)
+        press('2'); press('Enter')
+        expect(useAppState.getState().events[0]).toMatchObject({ type: 'goal', team: 'Colours' })
     })
-    it('should confirm the pre-selected team with Enter', async () => {
-        const { SuggestionCard } = await import('./SuggestionCard')
-        render(<SuggestionCard suggestion={useAppState.getState().suggestions[0]} index={0} total={2} onNext={() => {}} onSaved={() => {}} onPrev={() => {}} preselectTeam="Colours" />)
+    it('should need a team for an own goal too, with 1 / 2', () => {
+        render(<SuggestionReview onClose={() => {}} />)
         press('o'); press('Enter')
-        expect(useAppState.getState().events[0]).toMatchObject({ type: 'own_goal', team: 'Colours' })
+        expect(useAppState.getState().events).toHaveLength(0)
+        press('1'); press('Enter')
+        expect(useAppState.getState().events[0]).toMatchObject({ type: 'own_goal', team: 'Whites' })
     })
     it('should play or pause the player with Space', () => {
         const toggle = vi.fn()
@@ -297,6 +305,8 @@ describe('SuggestionReview', () => {
             at(97.34)
             render(<SuggestionReview onClose={() => {}} />)
             press('m'); press('g')
+            expect(screen.getByText('Goal at 01:37.3 — choose the team (1 / 2)')).toBeTruthy()
+            press('1')
             expect(screen.getByText('Goal · Whites at 01:37.3 — press Enter to confirm')).toBeTruthy()
             press('2')
             expect(screen.getByText('Goal · Colours at 01:37.3 — press Enter to confirm')).toBeTruthy()
@@ -364,7 +374,7 @@ describe('SuggestionReview', () => {
             const un = registerPlayerStep(vi.fn())
             press('ArrowUp')
             un()
-            press('s'); press('Enter')
+            press('s'); press('1'); press('Enter')
             expect(useAppState.getState().events[0]).toMatchObject({ type: 'save', sourceFileIndex: 1, matchTimeSec: 12.3 })
         })
         it('should keep the mark once playback resumes', () => {
@@ -386,29 +396,27 @@ describe('SuggestionReview', () => {
             expect(screen.queryByRole('button', { name: /^Confirm/ })).toBeNull()
             expect(useAppState.getState().events).toHaveLength(0)
         })
-        it('should pre-select the given team and show the hint slot', async () => {
+        it('should show the hint slot', async () => {
             const { SuggestionCard } = await import('./SuggestionCard')
-            render(<SuggestionCard suggestion={useAppState.getState().suggestions[0]} index={0} total={2} onNext={() => {}} onSaved={() => {}} onPrev={() => {}} preselectTeam="Colours" hint="Ball in Colours' goal" />)
+            render(<SuggestionCard suggestion={useAppState.getState().suggestions[0]} index={0} total={2} onNext={() => {}} onSaved={() => {}} onPrev={() => {}} hint="Ball in Colours' goal" />)
             expect(screen.getByText("Ball in Colours' goal")).toBeTruthy()
-            press('g')
-            expect(screen.getByRole('button', { name: /Colours/ })).toHaveAttribute('aria-pressed', 'true')
         })
         describe('late ball tag', () => {
-            const card = (extra: { preselectType?: 'goal'; preselectTeam?: string }) => {
+            const card = (extra: { preselectType?: 'goal' }) => {
                 return import('./SuggestionCard').then(({ SuggestionCard }) => <SuggestionCard suggestion={useAppState.getState().suggestions[0]} index={0} total={2} onNext={() => {}} onSaved={() => {}} onPrev={() => {}} {...extra} />)
             }
             it('should not re-select Goal after the user cleared the choice on the open card', async () => {
                 const { rerender } = render(await card({}))
                 press('m'); press('s'); press('Escape')
                 expect(screen.queryByRole('button', { name: 'Change what it was' })).toBeNull() // cleared
-                rerender(await card({ preselectType: 'goal', preselectTeam: 'Colours' }))
+                rerender(await card({ preselectType: 'goal' }))
                 expect(screen.getByRole('button', { name: /^Goal/ })).toHaveAttribute('aria-pressed', 'false')
                 expect(screen.queryByRole('button', { name: 'Change what it was' })).toBeNull()
             })
             it('should still apply a late tag when the user has not touched the selection', async () => {
                 const { rerender } = render(await card({}))
                 press('m')
-                rerender(await card({ preselectType: 'goal', preselectTeam: 'Colours' }))
+                rerender(await card({ preselectType: 'goal' }))
                 expect(screen.getByRole('button', { name: 'Change what it was' })).toHaveTextContent('Goal')
             })
         })
@@ -419,11 +427,11 @@ describe('SuggestionReview', () => {
                 expect(screen.queryByText(/Ball seen in a goal mouth/)).toBeNull()
                 press('m')
                 expect(screen.getByRole('button', { name: 'Change what it was' })).toHaveTextContent('Goal')
-                // Default team behaviour (the first team), not the team the ball tag would have implied (Colours).
-                expect(screen.getByRole('button', { name: /Whites/ })).toHaveAttribute('aria-pressed', 'true')
+                // No team is pre-selected: not the first, and not the one the ball tag would have implied.
+                expect(screen.getByRole('button', { name: /Whites/ })).toHaveAttribute('aria-pressed', 'false')
                 expect(screen.getByRole('button', { name: /Colours/ })).toHaveAttribute('aria-pressed', 'false')
             })
-            it('should give the same preselection and the default team after half time', () => {
+            it('should give the same preselection and still no team after half time', () => {
                 useAppState.setState({
                     events: [{ id: 'ht', type: 'half_time', matchTimeSec: 50, sourceFileIndex: 0 }] as never,
                     suggestions: useAppState.getState().suggestions.map((s, i) => (i === 0 ? { ...s, ball: { goal: 'team1' as const, frames: 2 } } : s)),
@@ -431,7 +439,7 @@ describe('SuggestionReview', () => {
                 render(<SuggestionReview onClose={() => {}} />)
                 expect(screen.queryByText(/Ball seen in a goal mouth/)).toBeNull()
                 press('m')
-                expect(screen.getByRole('button', { name: /Whites/ })).toHaveAttribute('aria-pressed', 'true') // no half-time swap any more
+                expect(screen.getByRole('button', { name: /Whites/ })).toHaveAttribute('aria-pressed', 'false') // nothing pre-selected, half time or not
                 expect(screen.getByRole('button', { name: /Colours/ })).toHaveAttribute('aria-pressed', 'false')
             })
             it('should show no hint and no preselection without a ball tag', () => {
@@ -445,7 +453,7 @@ describe('SuggestionReview', () => {
             it('should still let the user choose something else', () => {
                 useAppState.setState({ suggestions: useAppState.getState().suggestions.map((s, i) => (i === 0 ? { ...s, ball: { goal: 'team1' as const, frames: 3 } } : s)) })
                 render(<SuggestionReview onClose={() => {}} />)
-                press('m'); press('s'); press('Enter')
+                press('m'); press('s'); press('1'); press('Enter')
                 expect(useAppState.getState().events[0]).toMatchObject({ type: 'save' })
             })
             it('should say the model is loading until the detector is ready, and flag the slow wasm fallback', () => {
@@ -996,7 +1004,7 @@ describe('Review actions: move, discard, confirm', () => {
     })
     it('should confirm with Enter and the Confirm button', () => {
         render(<SuggestionReview onClose={() => {}} />)
-        press('s'); press('Enter')
+        press('s'); press('1'); press('Enter')
         expect(useAppState.getState().events[0]).toMatchObject({ type: 'save' })
         expect(screen.getByText(/Suggestion 2 of 2/)).toBeTruthy()
     })
@@ -1054,7 +1062,8 @@ describe('Review scorer and assist', () => {
     const field = (name: string): HTMLElement => screen.getByRole('textbox', { name })
     it('should ask for the scorer after type and team, filter the roster, and save scorer and assist with the event', () => {
         render(<SuggestionReview onClose={() => {}} />)
-        press('g')
+        press('g'); expect(screen.queryByRole('textbox')).toBeNull() // after the team
+        press('1')
         fireEvent.change(field('Scorer'), { target: { value: 'sa' } })
         expect(screen.getByRole('option', { name: 'Sandy' })).toBeTruthy()
         fireEvent.keyDown(field('Scorer'), { key: 'Enter' })
@@ -1066,24 +1075,49 @@ describe('Review scorer and assist', () => {
         expect(useAppState.getState().teams[0].roster).toContain('Newbie')
         expect(toastStore.getState().toast?.text).toMatch(/^Goal · Whites · Sandy confirmed at/)
     })
+    it('should keep the scorer in the assist list, disabled and in place, names alphabetical', () => {
+        useAppState.setState({ teams: [{ name: 'Whites', color: '#fff', roster: ['Sandy', 'zoe', 'Sam', 'Bob'] }, { name: 'Colours', color: '#000', roster: [] }] })
+        render(<SuggestionReview onClose={() => {}} />)
+        press('g'); press('1')
+        const names = (): (string | null)[] => screen.getAllByRole('option').map((o) => o.textContent)
+        expect(names()).toEqual(['Bob', 'Sam', 'Sandy', 'zoe'])
+        fireEvent.click(screen.getByRole('option', { name: 'Sam' }))
+        expect(names()).toEqual(['Bob', 'Sam', 'Sandy', 'zoe'])
+        const scorer = screen.getByRole('option', { name: 'Sam' })
+        expect(scorer).toHaveAttribute('aria-disabled', 'true')
+        fireEvent.click(scorer)
+        expect(screen.getByRole('textbox', { name: 'Assist' })).toBeTruthy()
+        fireEvent.keyDown(field('Assist'), { key: 'ArrowDown' }) // Bob (first) -> Sandy, skipping Sam
+        expect(screen.getByRole('option', { name: 'Sandy' })).toHaveAttribute('aria-selected', 'true')
+    })
+    it('should ask a save for its team and the goalkeeper, like the picker', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        press('s')
+        expect(screen.getByRole('group', { name: 'Which team made the save?' })).toBeTruthy()
+        expect(screen.getByRole('button', { name: /^Confirm/ })).toBeDisabled()
+        press('2')
+        expect(field('Goalkeeper')).toBeTruthy()
+        fireEvent.change(field('Goalkeeper'), { target: { value: 'Keeper K' } })
+        fireEvent.keyDown(field('Goalkeeper'), { key: 'Enter' })
+        press('Enter')
+        expect(useAppState.getState().events[0]).toMatchObject({ type: 'save', team: 'Colours', scorer: 'Keeper K' })
+    })
     it('should skip both with Tab, and still confirm with Enter', () => {
         render(<SuggestionReview onClose={() => {}} />)
-        press('g')
+        press('g'); press('1')
         fireEvent.keyDown(field('Scorer'), { key: 'Tab' })
         expect(screen.queryByRole('textbox')).toBeNull()
         press('Enter')
         expect(useAppState.getState().events[0].scorer).toBeUndefined()
     })
-    it('should ask nobody for a save or a highlight', () => {
+    it('should ask nobody for a highlight', () => {
         render(<SuggestionReview onClose={() => {}} />)
-        press('s')
-        expect(screen.queryByRole('textbox')).toBeNull()
         press('h')
         expect(screen.queryByRole('textbox')).toBeNull()
     })
     it('should name the own goal player field like the picker', () => {
         render(<SuggestionReview onClose={() => {}} />)
-        press('o')
+        press('o'); press('1')
         expect(field('Own goal by')).toBeTruthy()
     })
 })

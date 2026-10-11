@@ -15,6 +15,11 @@ export function parseRoster(text: string): string[] {
     return out
 }
 
+/** Names in alphabetical order, ignoring case and accents (how every person list is shown). */
+export function sortNames(names: readonly string[]): string[] {
+    return [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+}
+
 export function filterRoster(roster: string[], query: string): string[] {
     const q = query.trim().toLowerCase()
     if (!q) return roster

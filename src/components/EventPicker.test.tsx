@@ -40,7 +40,7 @@ describe('EventPicker', () => {
         expect(s().picker).toBeNull()
     })
 
- it('should ask for an optional assist after the scorer, listing the team without the scorer', () => {
+ it('should ask for an optional assist after the scorer, listing the team with the scorer disabled', () => {
         render(<EventPicker />)
         press('Enter')
         press('w')
@@ -48,7 +48,7 @@ describe('EventPicker', () => {
         expect(s().picker).not.toBeNull()
         expect(screen.getByRole('textbox', { name: 'Assist' })).toBeInTheDocument()
         expect(screen.getByRole('option', { name: /sandy wu/i })).toBeInTheDocument()
-        expect(screen.queryByRole('option', { name: /sam taylor/i })).not.toBeInTheDocument()
+        expect(screen.getByRole('option', { name: /sam taylor/i })).toHaveAttribute('aria-disabled', 'true')
         press('Enter')
         expect(s().events[0]).toMatchObject({ type: 'goal', team: 'Whites', scorer: 'Sam Taylor', assist: 'Sandy Wu' })
         press('Enter') // empty note
@@ -423,3 +423,42 @@ describe('EventPicker toasts', () => {
         })
     })
 })
+
+describe('EventPicker person lists', () => {
+    beforeEach(() => {
+        useAppState.setState({
+            files: [vf('a.mp4')], events: [], cumulativeOffsets: [0], currentFileIndex: 0, undoStack: [], redoStack: [], picker: null,
+            teams: [{ name: 'Whites', color: '#fff', roster: ['Sandy Wu', 'zoe', 'Sam Taylor', 'Bob'] }, { name: 'Colours', color: '#f00', roster: [] }],
+        })
+        act(() => s().markEvent(100))
+    })
+    it('should list names alphabetically, and keep the scorer in the assist list, disabled and in place', () => {
+        render(<EventPicker />)
+        press('Enter'); press('w')
+        expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Bob', 'Sam Taylor', 'Sandy Wu', 'zoe'])
+        fireEvent.click(screen.getByRole('option', { name: /sam taylor/i }))
+        const opts = screen.getAllByRole('option')
+        expect(opts.map((o) => o.textContent)).toEqual(['Bob', 'Sam Taylor', 'Sandy Wu', 'zoe'])
+        const scorer = screen.getByRole('option', { name: /sam taylor/i })
+        expect(scorer).toHaveAttribute('aria-disabled', 'true')
+        expect(scorer.className).toContain('event-picker__item--disabled')
+        fireEvent.click(scorer)
+        expect(s().events[0].assist).toBeUndefined() // not selectable
+        expect(screen.getByRole('textbox', { name: 'Assist' })).toBeInTheDocument() // still on the assist step
+    })
+    it('should skip the disabled scorer with the arrow keys', () => {
+        render(<EventPicker />)
+        press('Enter'); press('w')
+        fireEvent.click(screen.getByRole('option', { name: /bob/i })) // scorer: first row
+        expect(screen.getByRole('option', { name: /sam taylor/i })).toHaveAttribute('aria-selected', 'true') // Bob is skipped
+        press('ArrowDown')
+        expect(screen.getByRole('option', { name: /sandy wu/i })).toHaveAttribute('aria-selected', 'true')
+        press('ArrowUp'); press('ArrowUp') // back past the disabled Bob, wrapping to the last row
+        expect(screen.getByRole('option', { name: /zoe/i })).toHaveAttribute('aria-selected', 'true')
+        press('ArrowDown')
+        expect(screen.getByRole('option', { name: /sam taylor/i })).toHaveAttribute('aria-selected', 'true')
+        press('Enter')
+        expect(s().events[0]).toMatchObject({ scorer: 'Bob', assist: 'Sam Taylor' })
+    })
+})
+

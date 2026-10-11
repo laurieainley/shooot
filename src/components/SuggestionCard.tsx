@@ -12,7 +12,7 @@ import {
 import { showToast } from '../toasts'
 import { confirmedCopy, discardedCopy, matchClock } from '../utils/toastCopy'
 import { shortcutFor } from '../utils/shortcuts'
-import { NO_PEOPLE, peopleCandidates, peopleLabel, peopleOpen, reopenPeople, startPeople, stepPeople, type PeopleState } from '../utils/reviewPeople'
+import { NO_PEOPLE, peopleCandidates, peopleDisabled, peopleLabel, peopleOpen, reopenPeople, startPeople, stepPeople, type PeopleState } from '../utils/reviewPeople'
 import { PersonStep } from './PersonStep'
 import { useReviewLoop } from './useReviewLoop'
 import { useMarkedMoment } from './useMarkedMoment'
@@ -28,8 +28,6 @@ interface SuggestionCardProps {
     onPrev: () => void
     /** After Confirm or Discard: the next suggestion still to review. */
     onSaved: () => void
-    /** Team pre-selected after Goal / Own goal, so Enter saves with it (defaults to the first team). */
-    preselectTeam?: string
     /** Type pre-selected once the moment is settled (marked or estimate accepted), so Enter saves it. */
     preselectType?: KeepType
     /** One optional line above the actions, e.g. "Ball in Colours' goal". */
@@ -56,7 +54,7 @@ function Chevron({ dir }: { dir: 'left' | 'right' }) {
  * confirm. Keys and buttons only select; Confirm (Enter) saves and moves on, Discard (X) drops it and moves on.
  * Previous / Next only move. Finished steps fold into a chip that reopens them.
  */
-export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSaved, preselectTeam, preselectType, hint }: SuggestionCardProps) {
+export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSaved, preselectType, hint }: SuggestionCardProps) {
     const teams = useAppState((s) => s.teams)
     const kickOff = useAppState(selectMatchStartSec)
     const long = useAppState(selectClockLong)
@@ -97,7 +95,6 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
     const preselectedFor = useRef<string | null>(null)
     const [armedFor, setArmedFor] = useState<string | null>(null)
     const teamCount = teams.length
-    const defaultTeam = teamCount >= 2 ? preselectTeam ?? teams[0]?.name ?? null : null
     const marked = moment.markedSec !== null
     const clock = (sec: number): string => withTenths((w) => formatClock(w, long), sec - kickOff)
     const savedSec = moment.markedSec ?? estimateSec
@@ -105,7 +102,7 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
 
     const mark = (): void => { moment.mark() }
     const step = (kind: 'frame' | 'second', dir: 1 | -1): void => { moment.followPlayhead(); stepPlayer(kind, dir) }
-    const select = (type: ReviewType): void => touch({ kind: 'type', type, defaultTeam })
+    const select = (type: ReviewType): void => touch({ kind: 'type', type })
     const confirm = (): void => {
         if (!canConfirm(decision, teamCount) || decision.type === null) return
         const st = useAppState.getState()
@@ -258,7 +255,7 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
                 )}
 
                 {teamStep && (
-                    <div className="rv__seg rv__seg--team" role="group" aria-label="Which team scored?">
+                    <div className="rv__seg rv__seg--team" role="group" aria-label={decision.type === 'save' ? 'Which team made the save?' : 'Which team scored?'}>
                         {teams.slice(0, 2).map((t, i) => (
                             <button key={i} type="button" className="rv__choice" aria-pressed={decision.team === t.name} onClick={() => touch({ kind: 'team', team: t.name })}>
                                 {t.name} <kbd>{i + 1}</kbd>
@@ -270,7 +267,7 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
                 {peopleOpen(people) && (
                     <PersonStep key={people.pk?.step} label={peopleLabel(people)} autoFocus={people.pk?.step === 'assist'}
                         placeholder={`${peopleLabel(people)} (optional) — type to filter, Enter to pick, Tab to skip`}
-                        query={people.pk?.query ?? ''} candidates={peopleCandidates(people, teams)} highlighted={people.pk?.highlighted ?? 0} showHighlight
+                        query={people.pk?.query ?? ''} candidates={peopleCandidates(people, teams)} highlighted={people.pk?.highlighted ?? 0} showHighlight isDisabled={(n) => peopleDisabled(people, n)}
                         onQuery={(value) => setPeople((p) => stepPeople(p, { kind: 'text', value }, teams))}
                         onChoose={(value) => setPeople((p) => stepPeople(p, { kind: 'choose', value }, teams))}
                         onKeyDown={(e) => {
