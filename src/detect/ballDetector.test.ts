@@ -7,21 +7,21 @@ function fake() {
         emit(data: unknown) { this.onmessage?.({ data }) } }
     return w
 }
-const tile = {} as ImageData
+const tile = { data: { buffer: new ArrayBuffer(1) } } as unknown as ImageData
 const box = { x1: 1, y1: 2, x2: 3, y2: 4, score: 0.9 }
 
 describe('createBallDetector', () => {
     it('should init the worker with the model url and resolve ready with the provider', async () => {
         const w = fake(); const d = createBallDetector('/m.onnx', () => w as never)
-        expect(w.posted[0]).toEqual({ type: 'init', modelUrl: '/m.onnx' })
+        expect(w.posted[0]).toMatchObject({ type: 'init', modelUrl: '/m.onnx' })
         w.emit({ type: 'ready', ep: 'webgpu' })
         await expect(d.ready).resolves.toEqual({ ep: 'webgpu' })
     })
     it('should resolve detect with the boxes of the result', async () => {
         const w = fake(); const d = createBallDetector('/m', () => w as never)
         const p = d.detect([tile])
-        expect(w.posted[1]).toEqual({ type: 'detect', tiles: [tile] })
-        w.emit({ type: 'result', boxes: [[box]] })
+        expect(w.posted[1]).toEqual({ type: 'detect', id: 0, tiles: [tile] })
+        w.emit({ type: 'result', id: 0, boxes: [[box]] })
         await expect(p).resolves.toEqual([[box]])
     })
     it('should reject ready and detect on a worker error message', async () => {
@@ -31,6 +31,28 @@ describe('createBallDetector', () => {
         await expect(p).rejects.toThrow('model not found')
         await expect(d.ready).rejects.toThrow('model not found')
         await expect(d.detect([tile])).rejects.toThrow('model not found')
+    })
+    it('should match concurrent calls to their replies by id', async () => {
+        const w = fake(); const d = createBallDetector('/m', () => w as never)
+        const a = d.detect([tile]), b = d.detect([tile])
+        w.emit({ type: 'result', id: 1, boxes: [[box]] }); w.emit({ type: 'result', id: 0, boxes: [] })
+        await expect(b).resolves.toEqual([[box]]); await expect(a).resolves.toEqual([])
+    })
+    it('should ignore a stale result after abort and give a new call its own', async () => {
+        const w = fake(); const d = createBallDetector('/m', () => w as never)
+        const ac = new AbortController(); const a = d.detect([tile], ac.signal); ac.abort()
+        await expect(a).rejects.toThrow('Cancelled')
+        const b = d.detect([tile])
+        w.emit({ type: 'result', id: 0, boxes: [[box]] }) // stale
+        w.emit({ type: 'result', id: 1, boxes: [] })
+        await expect(b).resolves.toEqual([])
+    })
+    it('should reject only the failing call on an id-tagged error and stay usable', async () => {
+        const w = fake(); const d = createBallDetector('/m', () => w as never)
+        const a = d.detect([tile]); w.emit({ type: 'error', id: 0, message: 'bad tile' })
+        await expect(a).rejects.toThrow('bad tile')
+        const b = d.detect([tile]); w.emit({ type: 'result', id: 1, boxes: [] })
+        await expect(b).resolves.toEqual([])
     })
     it('should reject on onerror and onmessageerror', async () => {
         const w = fake(); const d = createBallDetector('/m', () => w as never)
