@@ -18,8 +18,11 @@ interface SuggestionCardProps {
     suggestion: Suggestion
     index: number
     total: number
+    /** Next suggestion (Skip / Next, →). */
     onNext: () => void
     onPrev: () => void
+    /** After Save: the next suggestion still to review. */
+    onSaved: () => void
     /** Team pre-selected after Goal / Own goal, so Enter saves with it (defaults to the first team). */
     preselectTeam?: string
     /** Type pre-selected once the moment is settled (marked or estimate accepted), so Enter saves it. */
@@ -47,7 +50,7 @@ function Chevron({ dir }: { dir: 'left' | 'right' }) {
  * One suggested moment, one step at a time: watch and mark the exact moment, say what it was (and which team), then
  * save. Keys and buttons only select; Save (Enter) confirms and moves on. Finished steps fold into a chip that reopens them.
  */
-export function SuggestionCard({ suggestion, index, total, onNext, onPrev, preselectTeam, preselectType, hint }: SuggestionCardProps) {
+export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSaved, preselectTeam, preselectType, hint }: SuggestionCardProps) {
     const teams = useAppState((s) => s.teams)
     const kickOff = useAppState(selectMatchStartSec)
     const long = useAppState(selectClockLong)
@@ -55,14 +58,28 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, prese
     const playheadSec = useAppState((s) => (s.cumulativeOffsets[s.currentFileIndex] ?? 0) + s.currentTimeInFileSec)
     const estimateSec = Math.max(0, suggestion.globalTimeSec + AUDIO_DETECT.eventOffsetSec)
     const loop = useReviewLoop(suggestion.globalTimeSec)
-    const moment = useMarkedMoment(suggestion.id)
+    // Coming back to a decided suggestion: its saved event (moment, type, team), or the rejection.
+    const savedEvent = useAppState((s) => (suggestion.eventId ? s.events.find((e) => e.id === suggestion.eventId) : undefined))
+    const savedEventSec = useAppState((s) => (savedEvent ? (s.cumulativeOffsets[savedEvent.sourceFileIndex ?? 0] ?? 0) + savedEvent.matchTimeSec : null))
+    const rejected = !savedEvent && suggestion.status === 'rejected'
+    const moment = useMarkedMoment(suggestion.id, savedEventSec)
     const [decision, dispatch] = useReducer(decisionReducer, EMPTY_DECISION)
     // Once the user has touched the selection on this card (chose, changed or cleared), a late ball tag must not choose for them.
     const touchedFor = useRef<string | null>(null)
     const touch = (a: Parameters<typeof dispatch>[0]): void => { touchedFor.current = suggestion.id; dispatch(a) }
     const [acceptedEstimate, setAcceptedEstimate] = useState(false)
     const [remarking, setRemarking] = useState(false)
-    useEffect(() => { dispatch({ kind: 'clear' }); setAcceptedEstimate(false); setRemarking(false) }, [suggestion.id])
+    useEffect(() => {
+        dispatch({ kind: 'clear' })
+        setAcceptedEstimate(false)
+        setRemarking(false)
+        const keptAs = savedEvent && (TYPE_LABEL as Record<string, string>)[savedEvent.type] ? savedEvent.type as KeepType : null
+        if (keptAs || rejected) {
+            touchedFor.current = suggestion.id // the saved choice stands: no pre-selection over it
+            dispatch({ kind: 'type', type: keptAs ?? 'reject', defaultTeam: savedEvent?.team ?? null })
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the suggestion changes
+    }, [suggestion.id])
 
     const preselectedFor = useRef<string | null>(null)
     const [armedFor, setArmedFor] = useState<string | null>(null)
@@ -82,7 +99,7 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, prese
         if (decision.type === 'reject') st.decideSuggestion(suggestion.id, { kind: 'reject' })
         else st.decideSuggestion(suggestion.id, { kind: 'keep', type: decision.type, atSec: moment.current() ?? estimateSec, ...(decision.team ? { team: decision.team } : {}) })
         touch({ kind: 'clear' })
-        onNext()
+        onSaved()
     }
     const scrub = (sec: number): void => {
         const st = useAppState.getState()
@@ -102,7 +119,8 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, prese
             const k = e.key.toLowerCase()
             const button = target?.closest?.('button') ?? null
             const onButton = !!button
-            if (e.key === ' ' && !onButton) { e.preventDefault(); togglePlayerPlayback(); return }
+            // Space only plays / pauses the clip, even on a focused button (which would otherwise repeat its last click).
+            if (e.key === ' ') { e.preventDefault(); togglePlayerPlayback(); return }
             if (e.key === 'Enter') {
                 if (onButton && !button.classList.contains('rv__choice')) return // other buttons act on Enter themselves
                 if (canConfirm(decision, teamCount)) { e.preventDefault(); confirm() }
@@ -123,8 +141,13 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, prese
             if (e.key === 'ArrowRight') { e.preventDefault(); onNext() }
             if (e.key === 'ArrowLeft') { e.preventDefault(); onPrev() }
         }
+        // A button activates on Space's key-up: stop that too.
+        const onKeyUp = (e: KeyboardEvent): void => {
+            if (e.key === ' ' && !(e.target as HTMLElement | null)?.closest?.('input, textarea, select')) e.preventDefault()
+        }
         window.addEventListener('keydown', onKey)
-        return () => window.removeEventListener('keydown', onKey)
+        window.addEventListener('keyup', onKeyUp)
+        return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKeyUp) }
     })
 
     const sure = marked || acceptedEstimate // the moment step is done
@@ -146,7 +169,7 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, prese
                 <p className="review__count">Suggestion {index + 1} of {total} · <span className="tc">{formatClock(Math.max(0, suggestion.globalTimeSec - kickOff), long)}</span></p>
                 <div className="rv__nav">
                     <button type="button" className="rv__icon" aria-label="Previous suggestion" onClick={onPrev} disabled={index === 0}><Chevron dir="left" /></button>
-                    <button type="button" className="rv__skip" onClick={onNext}>Skip <Chevron dir="right" /></button>
+                    <button type="button" className="rv__skip" onClick={onNext}>{savedEvent || rejected ? 'Next' : 'Skip'} <Chevron dir="right" /></button>
                 </div>
             </header>
 
