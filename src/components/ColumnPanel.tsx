@@ -9,6 +9,8 @@ interface ColumnPanelProps {
     onClose: () => void
     children: ReactNode
     className?: string
+    /** Small tag next to the title (e.g. Beta). */
+    badge?: ReactNode
 }
 
 /**
@@ -16,13 +18,13 @@ interface ColumnPanelProps {
  * floating over the picture: own header with ×, scrolling body, Esc closes. Without a slot (tests, or before the
  * shell has mounted) it falls back to a modal Sheet.
  */
-export function ColumnPanel({ label, onClose, children, className = '' }: ColumnPanelProps) {
+export function ColumnPanel({ label, onClose, children, className = '', badge }: ColumnPanelProps) {
     const slot = usePanelSlot((s) => s.el)
-    if (!slot) return <Sheet label={label} onClose={onClose} className={className}>{children}</Sheet>
-    return createPortal(<ColumnPanelBody label={label} onClose={onClose} className={className}>{children}</ColumnPanelBody>, slot)
+    if (!slot) return <Sheet label={label} onClose={onClose} className={className} badge={badge}>{children}</Sheet>
+    return createPortal(<ColumnPanelBody label={label} onClose={onClose} className={className} badge={badge}>{children}</ColumnPanelBody>, slot)
 }
 
-function ColumnPanelBody({ label, onClose, children, className }: ColumnPanelProps) {
+function ColumnPanelBody({ label, onClose, children, className, badge }: ColumnPanelProps) {
     const ref = useRef<HTMLDivElement | null>(null)
     const closeRef = useRef(onClose)
     closeRef.current = onClose
@@ -42,7 +44,7 @@ function ColumnPanelBody({ label, onClose, children, className }: ColumnPanelPro
     return (
         <div ref={ref} role="dialog" aria-label={label} tabIndex={-1} className={`column-panel ${className}`}>
             <div className="column-panel__head floating__head">
-                <h2 className="floating__title">{label}</h2>
+                <h2 className="floating__title">{label}{badge}</h2>
                 <CloseButton onClick={onClose} />
             </div>
             <div className="column-panel__body sheet__body">{children}</div>

@@ -7,13 +7,15 @@ interface SheetProps {
     onClose: () => void
     children: ReactNode
     className?: string
+    /** Small tag next to the title (e.g. Beta). */
+    badge?: ReactNode
 }
 
 /**
  * Modal sheet: centred and at most ~560px wide on desktop and landscape phones, a bottom sheet with its own
  * scroll on portrait phones (see .sheet in App.css). Esc, the × button or a tap on the backdrop closes it.
  */
-export function Sheet({ label, onClose, children, className = '' }: SheetProps) {
+export function Sheet({ label, onClose, children, className = '', badge }: SheetProps) {
     const sheetRef = useRef<HTMLDivElement | null>(null)
     const closeRef = useRef(onClose)
     closeRef.current = onClose
@@ -37,7 +39,7 @@ export function Sheet({ label, onClose, children, className = '' }: SheetProps) 
             <div ref={sheetRef} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}
                 className={`sheet ${className}`} onClick={(e) => e.stopPropagation()}>
                 <div className="floating__head">
-                    <h2 className="floating__title">{label}</h2>
+                    <h2 className="floating__title">{label}{badge}</h2>
                     <CloseButton onClick={onClose} />
                 </div>
                 <div className="sheet__body">{children}</div>

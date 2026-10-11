@@ -41,6 +41,7 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev }: Sug
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent): void => {
+            if (e.repeat) return
             if ((e.target as HTMLElement | null)?.closest?.('input, textarea, select') || e.metaKey || e.ctrlKey || e.altKey) return
             const k = e.key.toLowerCase()
             if (needTeam && (k === '1' || k === '2')) { e.preventDefault(); decide(needTeam, teams[Number(k) - 1]?.name); return }
@@ -59,7 +60,7 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev }: Sug
             {needTeam ? (
                 <div className="review__actions" role="group" aria-label="Which team scored?">
                     {teams.slice(0, 2).map((t, i) => (
-                        <button key={t.name} type="button" className="btn-quiet review__btn" onClick={() => decide(needTeam, t.name)}>
+                        <button key={i} type="button" className="btn-quiet review__btn" onClick={() => decide(needTeam, t.name)}>
                             {t.name} <kbd>{i + 1}</kbd>
                         </button>
                     ))}

@@ -3,7 +3,7 @@ import { useDetectJob } from '../detectJobs'
 import { effectiveStatus } from '../utils/suggestions'
 import { BetaTag } from './BetaTag'
 import { ColumnPanel } from './ColumnPanel'
-import { DetectProgress } from './DetectProgress'
+import { DetectIdle, DetectProgress } from './DetectProgress'
 import { SuggestionCard } from './SuggestionCard'
 import { SuggestionSummary } from './SuggestionSummary'
 
@@ -24,12 +24,13 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
     const go = (i: number): void => useAppState.getState().setReviewIndex(i)
     const busy = phase === 'running' || phase === 'failed'
     return (
-        <ColumnPanel label="Suggested goals" onClose={onClose} className="review">
-            <h3 className="review__title">Suggested goals <BetaTag /></h3>
+        <ColumnPanel label="Suggested goals" onClose={onClose} className="review" badge={<BetaTag />}>
             {busy ? <DetectProgress /> : current
                 ? <SuggestionCard suggestion={current} index={index} total={suggestions.length}
                     onNext={() => go(nextPending(index + 1))} onPrev={() => go(Math.max(0, index - 1))} />
-                : <SuggestionSummary onClose={onClose} />}
+                : suggestions.length === 0 && (phase === 'cancelled' || phase === 'idle')
+                    ? <DetectIdle cancelled={phase === 'cancelled'} />
+                    : <SuggestionSummary onClose={onClose} />}
         </ColumnPanel>
     )
 }
