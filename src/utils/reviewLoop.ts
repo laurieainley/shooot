@@ -31,7 +31,8 @@ export function reviewWindow(
     timeSec: number, defaults: readonly [number, number], extraBefore: number, extraAfter: number, totalSec: number,
 ): LoopWindow {
     const startAbs = Math.max(0, timeSec + defaults[0] - extraBefore)
-    const endAbs = Math.min(Math.max(timeSec, totalSec), timeSec + defaults[1] + extraAfter)
+    const wanted = timeSec + defaults[1] + extraAfter
+    const endAbs = totalSec > 0 ? Math.min(Math.max(timeSec, totalSec), wanted) : wanted // unknown total: no cap
     return { startAbs, endAbs }
 }
 

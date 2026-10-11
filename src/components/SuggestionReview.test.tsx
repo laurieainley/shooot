@@ -218,7 +218,7 @@ describe('SuggestionReview', () => {
             expect(screen.getByText(/estimate/)).toBeTruthy()
             expect(screen.getByText('01:38.0')).toBeTruthy() // 100 s − 2 s
             act(() => { useAppState.setState({ currentTimeInFileSec: 97.34 }) })
-            act(() => { setPlayerPaused(true) })
+            act(() => { setPlayerPaused(true) }) // the user paused after it was playing
             expect(screen.getByText(/at playhead/)).toBeTruthy()
             expect(screen.getByText('01:37.3')).toBeTruthy()
         })
@@ -235,8 +235,41 @@ describe('SuggestionReview', () => {
             })
             useAppState.getState().setSuggestions(run, [{ timeSec: 610, score: 5 }])
             render(<SuggestionReview onClose={() => {}} />)
+            const un = registerPlayerStep(vi.fn())
+            act(() => { fireEvent.keyDown(window, { key: 'ArrowUp' }) }) // user steps a frame
+            un()
             act(() => { fireEvent.keyDown(window, { key: 's' }) })
             expect(useAppState.getState().events[0]).toMatchObject({ type: 'save', sourceFileIndex: 1, matchTimeSec: 12.3 })
+        })
+        it('should keep the estimate when merely paused after a seek (user has not adjusted)', () => {
+            render(<SuggestionReview onClose={() => {}} />)
+            expect(screen.getByText(/estimate/)).toBeTruthy()
+            useAppState.setState({ currentTimeInFileSec: 50 })
+            act(() => { fireEvent.keyDown(window, { key: 'h' }) })
+            expect(useAppState.getState().events[0]).toMatchObject({ matchTimeSec: 98 })
+        })
+        it('should use the playhead after Space-pausing', () => {
+            setPlayerPaused(false)
+            const un = registerPlayerToggle(() => setPlayerPaused(true))
+            render(<SuggestionReview onClose={() => {}} />)
+            act(() => { fireEvent.keyDown(window, { key: ' ' }) })
+            useAppState.setState({ currentTimeInFileSec: 50.4 })
+            act(() => { fireEvent.keyDown(window, { key: 'h' }) })
+            un()
+            expect(useAppState.getState().events[0]).toMatchObject({ matchTimeSec: 50.4 })
+        })
+        it('should ignore Shift with decision and window keys', () => {
+            render(<SuggestionReview onClose={() => {}} />)
+            for (const key of ['g', 'o', 's', 'h', 'x', '[', ']']) act(() => { fireEvent.keyDown(window, { key, shiftKey: true }) })
+            expect(useAppState.getState().events).toHaveLength(0)
+            expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy()
+            expect(screen.getByText('−5 s … +2 s')).toBeTruthy()
+        })
+        it('should still extend the end when the total duration is unknown', () => {
+            useAppState.setState({ files: [{ id: 'f', name: 'A.MP4', url: '', kind: 'full', file: new File([], 'A.MP4') }] as never })
+            render(<SuggestionReview onClose={() => {}} />)
+            act(() => { fireEvent.keyDown(window, { key: ']' }) })
+            expect(screen.getByText('−5 s … +4 s')).toBeTruthy()
         })
         it('should not loop while paused, and loop again when playing', () => {
             const seek = vi.fn()

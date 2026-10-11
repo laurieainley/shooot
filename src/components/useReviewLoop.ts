@@ -42,7 +42,7 @@ export function useReviewLoop(timeSec: number | null): ReviewLoop {
         setExt((p) => {
             const c = p.key === timeSec ? p : { key: timeSec, before: 0, after: 0 }
             const w = reviewWindow(timeSec, AUDIO_DETECT.reviewWindowSec, c.before, c.after, totalSec)
-            return w.endAbs >= totalSec ? c : { ...c, after: c.after + REVIEW_STEP_SEC }
+            return totalSec > 0 && w.endAbs >= totalSec ? c : { ...c, after: c.after + REVIEW_STEP_SEC }
         })
     }, [timeSec, totalSec])
 
