@@ -203,9 +203,9 @@ describe('SuggestionReview', () => {
     })
     describe('review window', () => {
         const seekSpy = (): ReturnType<typeof vi.fn> => { const f = vi.fn(); useAppState.setState({ seekToGoal: f }); return f }
-        it('should default to 5 s before and 2 s after', () => {
+        it('should default to 5 s before and 4 s after', () => {
             render(<SuggestionReview onClose={() => {}} />)
-            expect(screen.getByText('−5 s … +2 s')).toBeTruthy()
+            expect(screen.getByText('−5 s … +4 s')).toBeTruthy()
         })
         it('should extend the start with [ (seeking to the new start) and the end with ]', () => {
             const seek = seekSpy()
@@ -213,11 +213,11 @@ describe('SuggestionReview', () => {
             seek.mockClear()
             act(() => { fireEvent.keyDown(window, { key: '[' }) })
             act(() => { fireEvent.keyDown(window, { key: '[' }) })
-            expect(screen.getByText('−9 s … +2 s')).toBeTruthy()
+            expect(screen.getByText('−9 s … +4 s')).toBeTruthy()
             expect(seek).toHaveBeenLastCalledWith(0, 91)
             seek.mockClear()
             act(() => { fireEvent.keyDown(window, { key: ']' }) })
-            expect(screen.getByText('−9 s … +4 s')).toBeTruthy()
+            expect(screen.getByText('−9 s … +6 s')).toBeTruthy()
             expect(seek).not.toHaveBeenCalled()
         })
         it('should reset to the default for the next suggestion', () => {
@@ -226,16 +226,16 @@ describe('SuggestionReview', () => {
             act(() => { fireEvent.keyDown(window, { key: ']' }) })
             act(() => { fireEvent.keyDown(window, { key: 'ArrowRight' }) })
             expect(screen.getByText(/Suggestion 2 of 2/)).toBeTruthy()
-            expect(screen.getByText('−5 s … +2 s')).toBeTruthy()
+            expect(screen.getByText('−5 s … +4 s')).toBeTruthy()
         })
         it('should not start before 0 or end after the last file', () => {
             useAppState.getState().setSuggestions(run, [{ timeSec: 7, score: 5 }, { timeSec: 598, score: 4 }])
             render(<SuggestionReview onClose={() => {}} />)
             for (let i = 0; i < 3; i++) act(() => { fireEvent.keyDown(window, { key: '[' }) })
-            expect(screen.getByText('−7 s … +2 s')).toBeTruthy()
+            expect(screen.getByText('−7 s … +4 s')).toBeTruthy()
             act(() => { fireEvent.keyDown(window, { key: 'ArrowRight' }) })
             for (let i = 0; i < 3; i++) act(() => { fireEvent.keyDown(window, { key: ']' }) })
-            expect(screen.getByText('−5 s … +2 s')).toBeTruthy() // 598 + 2 = 600 is already the end
+            expect(screen.getByText('−5 s … +2 s')).toBeTruthy() // 598 + 4 clamps at 600, so = 600 is already the end
         })
         it('should have 44 px buttons with labels, and ignore the keys with modifiers or repeat', () => {
             render(<SuggestionReview onClose={() => {}} />)
@@ -244,9 +244,9 @@ describe('SuggestionReview', () => {
             act(() => { fireEvent.keyDown(window, { key: '[', metaKey: true }) })
             act(() => { fireEvent.keyDown(window, { key: ']', ctrlKey: true }) })
             act(() => { fireEvent.keyDown(window, { key: '[', repeat: true }) })
-            expect(screen.getByText('−5 s … +2 s')).toBeTruthy()
+            expect(screen.getByText('−5 s … +4 s')).toBeTruthy()
             fireEvent.click(screen.getByRole('button', { name: 'Start 2 seconds earlier' }))
-            expect(screen.getByText('−7 s … +2 s')).toBeTruthy()
+            expect(screen.getByText('−7 s … +4 s')).toBeTruthy()
         })
     })
     describe('marking the moment', () => {
@@ -487,7 +487,7 @@ describe('SuggestionReview', () => {
             bar.getBoundingClientRect = () => ({ left: 0, width: 700, top: 0, height: 44, right: 700, bottom: 44, x: 0, y: 0, toJSON: () => ({}) })
             fireEvent.pointerDown(bar, { clientX: 350, pointerId: 1 })
             un()
-            expect(seek).toHaveBeenCalledWith(0, 98.5) // window 95…102, halfway
+            expect(seek).toHaveBeenCalledWith(0, 99.5) // window 95…104, halfway
             expect(screen.queryByTestId('rtl-marked')).toBeNull()
         })
         it('should ignore Shift with decision and window keys', () => {
@@ -495,13 +495,13 @@ describe('SuggestionReview', () => {
             for (const key of ['g', 'o', 's', 'h', 'x', '[', ']', 'm']) press(key, { shiftKey: true })
             expect(useAppState.getState().events).toHaveLength(0)
             expect(screen.queryByRole('button', { name: /^Save/ })).toBeNull()
-            expect(screen.getByText('−5 s … +2 s')).toBeTruthy()
+            expect(screen.getByText('−5 s … +4 s')).toBeTruthy()
         })
         it('should still extend the end when the total duration is unknown', () => {
             useAppState.setState({ files: [{ id: 'f', name: 'A.MP4', url: '', kind: 'full', file: new File([], 'A.MP4') }] as never })
             render(<SuggestionReview onClose={() => {}} />)
             press(']')
-            expect(screen.getByText('−5 s … +4 s')).toBeTruthy()
+            expect(screen.getByText('−5 s … +6 s')).toBeTruthy()
         })
         it('should not loop while paused, and loop again when playing', () => {
             const seek = vi.fn()
@@ -511,10 +511,10 @@ describe('SuggestionReview', () => {
             act(() => { useAppState.setState({ currentTimeInFileSec: 96 }) }) // landed after the start seek
             seek.mockClear()
             act(() => { setPlayerPaused(true) })
-            act(() => { useAppState.setState({ currentTimeInFileSec: 102.5 }) })
+            act(() => { useAppState.setState({ currentTimeInFileSec: 104.5 }) })
             expect(seek).not.toHaveBeenCalled()
             act(() => { setPlayerPaused(false) })
-            act(() => { useAppState.setState({ currentTimeInFileSec: 102.6 }) })
+            act(() => { useAppState.setState({ currentTimeInFileSec: 104.6 }) })
             expect(seek).toHaveBeenCalledTimes(1)
         })
         it('should step frames with the arrows and seconds with Shift, and from the nudge buttons while paused', () => {
