@@ -22,6 +22,15 @@ export type BallCheckDeps = {
 
 const cancelled = (): Error => new Error('Cancelled')
 
+/** The video could not be decoded for the ball check; `message` is the raw reason (for diagnostics only). */
+export class BallDecodeError extends Error {
+    constructor(message: string) { super(message); this.name = 'BallDecodeError' }
+}
+const asDecodeError = (e: unknown): Error => {
+    if (e instanceof Error && e.message === 'Cancelled') return e
+    return new BallDecodeError(e instanceof Error ? e.message : String(e))
+}
+
 /** Rejects as soon as `signal` aborts, whatever `p` is doing. */
 function raceAbort<T>(p: Promise<T>, signal: AbortSignal): Promise<T> {
     if (signal.aborted) { p.catch(() => undefined); return Promise.reject(cancelled()) }
@@ -45,10 +54,11 @@ export async function runBallCheck(
     signal: AbortSignal,
     onProgress: (fraction: number) => void,
     onVerdict: (id: string, ball: BallVerdict | null) => void,
-): Promise<void> {
+    onReady?: (ep: string) => void,
+): Promise<{ ep: string | null }> {
     const pending = args.suggestions.filter((s) => s.status === 'pending')
     // No usable goal marked: nothing to look at, so no detector or decoder is opened.
-    if (pending.length === 0 || goalTiles(args.marks, { w: 1, h: 1 }).length === 0) { onProgress(1); return }
+    if (pending.length === 0 || goalTiles(args.marks, { w: 1, h: 1 }).length === 0) { onProgress(1); return { ep: null } }
     const sources = new Map<number, Promise<FrameSourceLike>>()
     const detector = deps.detector()
     detector.ready.catch(() => undefined)
@@ -60,7 +70,8 @@ export async function runBallCheck(
         return p
     }
     try {
-        await raceAbort(detector.ready, signal)
+        const { ep } = await raceAbort(detector.ready, signal)
+        onReady?.(ep)
         for (let n = 0; n < pending.length; n++) {
             if (signal.aborted) throw cancelled()
             const s = pending[n]
@@ -68,6 +79,8 @@ export async function runBallCheck(
             const times = sampleTimes(s.globalTimeSec, { total: args.totalSec })
             const byFile = new Map<number, { global: number; local: number }[]>()
             for (const t of times) {
+                // A time outside every available file (an unlinked file in between) has nothing to look at.
+                if (!offsets.some((o, i) => t >= o && t < o + durations[i])) continue
                 const at = globalToFileTime(offsets, durations, t)
                 byFile.set(at.fileIndex, [...(byFile.get(at.fileIndex) ?? []), { global: t, local: at.timeSec }])
             }
@@ -75,7 +88,7 @@ export async function runBallCheck(
             let primary: { w: number; h: number } | null = null
             const home = globalToFileTime(offsets, durations, s.globalTimeSec).fileIndex
             for (const [fileIndex, pts] of [...byFile.entries()].sort((a, b) => (a[0] === home ? -1 : b[0] === home ? 1 : a[0] - b[0]))) {
-                const fs = await raceAbort(source(fileIndex), signal)
+                const fs = await raceAbort(source(fileIndex), signal).catch((e) => { throw asDecodeError(e) })
                 primary ??= fs.frameSize
                 const tiles = goalTiles(args.marks, fs.frameSize)
                 if (tiles.length === 0) continue
@@ -83,7 +96,7 @@ export async function runBallCheck(
                 const gen = fs.tilesAt(pts.map((p) => p.local), tiles, signal)
                 try {
                     for (;;) {
-                        const next = await raceAbort(gen.next(), signal)
+                        const next = await raceAbort(gen.next(), signal).catch((e) => { throw asDecodeError(e) })
                         if (next.done) break
                         const global = (pts.find((p) => p.local === next.value.timeSec) ?? pts[0]).global
                         const found = await raceAbort(detector.detect(next.value.images, signal), signal)
@@ -99,6 +112,7 @@ export async function runBallCheck(
             onVerdict(s.id, primary ? ballVerdict(samples, args.marks, primary, s.globalTimeSec) : null)
             onProgress((n + 1) / pending.length)
         }
+        return { ep }
     } finally {
         detector.dispose()
         for (const p of sources.values()) void p.then((f) => f.dispose(), () => undefined)

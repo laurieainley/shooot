@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { runBallCheck, type BallDetectorLike, type FrameSourceLike } from './runBallCheck'
+import { BallDecodeError, runBallCheck, type BallDetectorLike, type FrameSourceLike } from './runBallCheck'
 import type { GoalMarks, Suggestion } from '../types'
 
 // A far-style goal: posts at x 0.4/0.6, y 0.5 (bottom), bars at 0.4 (top). 1000x1000 frame.
@@ -130,5 +130,39 @@ describe('runBallCheck fixes', () => {
         const frames = vi.fn(), detector = vi.fn()
         await runBallCheck({ suggestions: [sug('a', 50)], marks: {}, files, totalSec: 200 }, { frames, detector }, new AbortController().signal, () => {}, () => {})
         expect(frames).not.toHaveBeenCalled(); expect(detector).not.toHaveBeenCalled()
+    })
+    it('should skip sample times that fall outside every available file (an unlinked file between)', async () => {
+        const log: { file: string; times: number[] }[] = []
+        // File A covers 0–100; the unlinked file (100–200) is missing; file C covers 200–300.
+        const gap = [{ file: new File([], 'A'), durationSec: 100, offsetSec: 0 }, { file: new File([], 'C'), durationSec: 100, offsetSec: 200 }]
+        await runBallCheck({ suggestions: [sug('a', 101)], marks: { team1: marks }, files: gap, totalSec: 300 },
+            { frames: fakeFrames(log), detector: noBall }, new AbortController().signal, () => {}, () => {})
+        expect(log.map((l) => l.file)).toEqual(['A']) // 98–99.5 s only: the unlinked file's window is skipped, nothing from C
+        expect(log[0].times.every((t) => t >= 0 && t < 100)).toBe(true)
+        const log2: { file: string; times: number[] }[] = []
+        await runBallCheck({ suggestions: [sug('b', 99)], marks: { team1: marks }, files: gap, totalSec: 300 },
+            { frames: fakeFrames(log2), detector: noBall }, new AbortController().signal, () => {}, () => {})
+        expect(log2.map((l) => l.file)).toEqual(['A'])
+        expect(Math.min(...log2[0].times)).toBeGreaterThanOrEqual(0)
+        expect(Math.max(...log2[0].times)).toBeLessThan(100)
+    })
+    it('should report the execution provider and wrap decode failures as a BallDecodeError', async () => {
+        const ready: string[] = []
+        const r = await runBallCheck({ suggestions: [sug('a', 50)], marks: { team1: marks }, files, totalSec: 200 },
+            { frames: fakeFrames([]), detector: noBall }, new AbortController().signal, () => {}, () => {}, (ep) => ready.push(ep))
+        expect(r).toEqual({ ep: 'wasm' }); expect(ready).toEqual(['wasm'])
+        const failing = async (): Promise<FrameSourceLike> => ({
+            frameSize: { w: 1000, h: 1000 },
+            // eslint-disable-next-line require-yield
+            async *tilesAt() { throw new Error('VideoDecoder: unsupported codec hvc1') },
+            dispose: () => {},
+        })
+        const err = await runBallCheck({ suggestions: [sug('a', 50)], marks: { team1: marks }, files, totalSec: 200 },
+            { frames: failing, detector: noBall }, new AbortController().signal, () => {}, () => {}).catch((e) => e)
+        expect(err).toBeInstanceOf(BallDecodeError)
+        expect(err.message).toBe('VideoDecoder: unsupported codec hvc1')
+        const err2 = await runBallCheck({ suggestions: [sug('a', 50)], marks: { team1: marks }, files, totalSec: 200 },
+            { frames: async () => { throw new Error('No video track') }, detector: noBall }, new AbortController().signal, () => {}, () => {}).catch((e) => e)
+        expect(err2).toBeInstanceOf(BallDecodeError)
     })
 })
