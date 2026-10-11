@@ -337,7 +337,6 @@ describe('SuggestionReview', () => {
         })
         describe('late ball tag', () => {
             const card = (extra: { preselectType?: 'goal'; preselectTeam?: string }) => {
-                // eslint-disable-next-line @typescript-eslint/no-require-imports
                 return import('./SuggestionCard').then(({ SuggestionCard }) => <SuggestionCard suggestion={useAppState.getState().suggestions[0]} index={0} total={2} onNext={() => {}} onPrev={() => {}} {...extra} />)
             }
             it('should not re-select Goal after the user cleared the choice on the open card', async () => {
