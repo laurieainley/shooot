@@ -592,6 +592,12 @@ describe('suggestions', () => {
         expect(st.suggestions[0]).toMatchObject({ status: 'kept', keptAs: 'goal', eventId: st.events[0].id })
         expect(st.undoStack).toHaveLength(1)
     })
+    it('should use atSec (to 0.1 s) instead of the estimate when given', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        const id = useAppState.getState().suggestions[0].id
+        useAppState.getState().decideSuggestion(id, { kind: 'keep', type: 'goal', team: 'Whites', atSec: 97.26 })
+        expect(useAppState.getState().events[0]).toMatchObject({ matchTimeSec: 97.3, sourceFileIndex: 0 })
+    })
     it('should make an undone keep pending again and not duplicate on re-keep', () => {
         useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
         const id = useAppState.getState().suggestions[0].id

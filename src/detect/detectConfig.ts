@@ -12,7 +12,7 @@ export const AUDIO_DETECT = {
     minSuggestions: 10,
     maxSuggestionsCap: 60,
     eventOffsetSec: -2,
-    reviewWindowSec: [-3, 2] as readonly [number, number],
+    reviewWindowSec: [-5, 2] as readonly [number, number],
     lowKeepRatio: 0.15,
 } as const
 

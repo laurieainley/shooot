@@ -1074,7 +1074,9 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .review__title { margin: 0; font-size: 16px; }
 .review__card, .review__summary { display: flex; flex-direction: column; gap: 12px; }
 .review__count { margin: 0; color: var(--sh-muted); }
-.review__actions, .review__nav { display: flex; flex-wrap: wrap; gap: 8px; }
+.review__actions, .review__nav, .review__window { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.review__goaltime { margin: 0; font-size: 14px; }
+.review__range { font-size: 14px; color: var(--sh-muted); }
 .review__btn { min-height: 44px; }
 .review__btn kbd { margin-left: 6px; font-family: var(--sh-font-mono); font-size: 12px; color: var(--sh-muted); }
 .review__status { display: flex; flex-direction: column; gap: 8px; }

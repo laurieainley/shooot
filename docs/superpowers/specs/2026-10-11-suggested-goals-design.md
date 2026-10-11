@@ -40,13 +40,18 @@ the review UI from C is reused unchanged.
    for progress only), cancellable, keeps running if the sheet is closed. Audio only, so well under a minute for an hour of
    GoPro footage on a laptop (to be measured).
 3. **Quick review** (sheet over the player; full screen on phones): "Suggestion 3 of 30". The main player seeks to and loops
-   **−3 s → +2 s** around the moment (user decision).
+   **−5 s → +2 s** around the moment (user decision); "−2 s" / "+2 s" buttons (keys `[` `]`) extend it, resetting per suggestion.
    - Keys: **G** goal · **O** own goal · **S** save · **H** highlight · **X** not a goal · **←/→** previous / skip ·
      **Esc** closes (progress kept). After **G** or **O**, **1 / 2** chooses the team (team names shown); Enter
      confirms with the first team (or a pre-selected one); the button also confirms. Scorer/assist are added later via normal editing.
    - Touch: the same actions as buttons ≥ 44 px. Only **Goal** is lime; others are quiet buttons.
-   - Keeping a suggestion creates a normal event (undoable) at the suggestion time **− 2 s** (the shout follows the goal),
-     linked to its file like any tagged event.
+   - Keeping a suggestion creates a normal event (undoable) linked to its file like any tagged event. The card shows a
+     **Goal time** line (mono, 0.1 s): by default the estimate (suggestion time **− 2 s**, the shout follows the goal),
+     labelled "estimate"; **whenever the player is paused** it is the playhead, labelled "at playhead", and that is what
+     G/O/S/H store (to 0.1 s; fractional event times are safe: all consumers use arithmetic and floor only for display).
+   - While paused the loop does not seek; pressing play resumes looping inside the window. Fine control: **Space**
+     play/pause, **↑/↓** one frame (pauses), **Shift+↑/↓** ±1 s; touch buttons "◀ 1 frame" / "1 frame ▶" (≥ 44 px,
+     shown when paused).
 4. **Summary** when all are reviewed (or on close): "You kept 6 of 22." If under 15% were kept: plain note "Detection
    struggled on this footage. Copy diagnostics and send it over." Kept moments are already in the events rail.
 5. **Match strip:** pending suggestions show as small hollow chalk rings (brand: open rings = not a goal (yet)); they
@@ -63,7 +68,7 @@ the review UI from C is reused unchanged.
   `spikes/goal-detect/transfer/audio_rank.py`.
 - `src/detect/detectConfig.ts` — all tunables in one object, with a `version` recorded on each run:
   `{ hopSec: 0.2, smoothSec: 1, voiceHz: [300, 3000], peakWindowSec: [-3, 3], hushWindowSec: [5, 15], minGapSec: 20,
-  maxPerHour: 45 (count = clamp(round(45 × analysed hours), 10, 60)), eventOffsetSec: -2, reviewWindowSec: [-3, 2] }`.
+  maxPerHour: 45 (count = clamp(round(45 × analysed hours), 10, 60)), eventOffsetSec: -2, reviewWindowSec: [-5, 2] }`.
 - `src/detect/audioWorker.ts` — the spectrum and scoring run in a Web Worker (PCM chunks are transferred, not copied);
   decoding stays on the main thread via Mediabunny, yielding with `render/yield.ts` (`waitForQueue`), never timers.
 - `src/detectJobs.ts` — one detection job at a time, outside the UI (pattern of `renderJobs.ts`): phase, fraction,

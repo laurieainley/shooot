@@ -23,3 +23,30 @@ export function stepLoop(state: LoopState, nowAbs: number, w: LoopWindow, wallMs
     if (nowAbs >= w.endAbs) return { state: { released: false, seekingSince: wallMs }, loop: true }
     return { state, loop: false }
 }
+
+export const REVIEW_STEP_SEC = 2
+
+/** Review window around `timeSec`: default offsets plus how far the user has extended each side; clamped to [0, totalSec]. */
+export function reviewWindow(
+    timeSec: number, defaults: readonly [number, number], extraBefore: number, extraAfter: number, totalSec: number,
+): LoopWindow {
+    const startAbs = Math.max(0, timeSec + defaults[0] - extraBefore)
+    const wanted = timeSec + defaults[1] + extraAfter
+    const endAbs = totalSec > 0 ? Math.min(Math.max(timeSec, totalSec), wanted) : wanted // unknown total: no cap
+    return { startAbs, endAbs }
+}
+
+/** Compact label for the window relative to the suggestion, e.g. "−7 s … +4 s". */
+export function formatReviewWindow(timeSec: number, w: LoopWindow): string {
+    const f = (v: number): string => {
+        const r = Math.round(v)
+        return `${r < 0 ? '−' : '+'}${Math.abs(r)} s`
+    }
+    return `${f(w.startAbs - timeSec)} … ${f(w.endAbs - timeSec)}`
+}
+
+/** Goal time as a match clock with tenths, e.g. "12:34.5" (`clock` is the already formatted whole-second clock). */
+export function withTenths(clock: (wholeSec: number) => string, relSec: number): string {
+    const tenths = Math.round(Math.max(0, relSec) * 10)
+    return `${clock(Math.floor(tenths / 10))}.${tenths % 10}`
+}
