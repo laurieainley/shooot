@@ -1,4 +1,4 @@
-// "TNF": the league's badge look: sky-blue rounded panels with a white rim, shirt yellow, orange/white stripes, Baloo 2.
+// "TNF": the league's badge look: sky-blue rounded panels with a white rim, shirt yellow, orange/white stripes, Barlow Condensed Italic.
 import { CARD_SEC } from '../../layout'
 import { captionWord } from '../shooot'
 import type { GraphicsTheme } from '../types'
