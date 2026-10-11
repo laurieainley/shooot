@@ -11,6 +11,12 @@ const tile = { data: { buffer: new ArrayBuffer(1) } } as unknown as ImageData
 const box = { x1: 1, y1: 2, x2: 3, y2: 4, score: 0.9 }
 
 describe('createBallDetector', () => {
+    it('should report the model download as a fraction, ignoring unknown totals', () => {
+        const w = fake(); const seen: number[] = []
+        createBallDetector('/m', () => w as never, (f) => seen.push(f))
+        w.emit({ type: 'progress', loaded: 10, total: 40 }); w.emit({ type: 'progress', loaded: 40, total: 40 }); w.emit({ type: 'progress', loaded: 5, total: 0 })
+        expect(seen).toEqual([0.25, 1])
+    })
     it('should init the worker with the model url and resolve ready with the provider', async () => {
         const w = fake(); const d = createBallDetector('/m.onnx', () => w as never)
         expect(w.posted[0]).toMatchObject({ type: 'init', modelUrl: '/m.onnx' })

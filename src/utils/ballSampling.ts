@@ -10,12 +10,18 @@ export type GoalTile = { goal: GoalTeam; sx: number; sy: number; sw: number; sh:
 export type BallSample = { timeSec: number; goal: GoalTeam; boxes: Box[] }
 export type BallVerdict = { goal: GoalTeam; frames: number }
 
-/** Sample times around a suggestion: `fps` over [t − before, t + after] (13 values by default), clamped to [0, total] (clamped duplicates dropped). */
-export function sampleTimes(t: number, opts: { total: number; fps?: number; before?: number; after?: number }): number[] {
-    const { total, fps = 2, before = 3, after = 3 } = opts
+/**
+ * Sample times around a suggestion: `fps` over [t − before, t + after] (13 values by default), clamped to [0, total]
+ * (clamped duplicates dropped), preceded by the look-back times `t − v` (default 20 s and 12 s before, ascending; dropped,
+ * not clamped, when before the start). Look-back frames only show what was already resting in a goal.
+ */
+export function sampleTimes(t: number, opts: { total: number; fps?: number; before?: number; after?: number; lookBack?: number[] }): number[] {
+    const { total, fps = 2, before = 3, after = 3, lookBack = [20, 12] } = opts
     const n = Math.round((before + after) * fps)
     const all = Array.from({ length: n + 1 }, (_, i) => Math.min(total, Math.max(0, t - before + i / fps)))
-    return all.filter((v, i) => i === 0 || v !== all[i - 1])
+    const inWindow = all.filter((v, i) => i === 0 || v !== all[i - 1])
+    const back = [...lookBack].sort((a, b) => b - a).map((v) => t - v).filter((v) => v >= 0)
+    return [...back, ...inWindow]
 }
 
 const GOALS: GoalTeam[] = ['team1', 'team2']
@@ -50,24 +56,33 @@ export function tileToSource(box: Box, tile: GoalTile): Box {
 
 const STATIC_PX = 8
 const STATIC_SHARE = 0.8
+const RESTING_PX = 12
+/** Samples at or before t − 10 s are look-back samples: they never count as frames, only show what already rested in the goal. */
+const LOOK_BACK_SEC = 10
 const centre = (b: Box): { x: number; y: number } => ({ x: (b.x1 + b.x2) / 2, y: (b.y1 + b.y2) / 2 })
 
 /**
  * Was the ball in a goal around the suggestion at `t`? Needs a ball inside the goal (`ballInGoal`) in at least 2 sampled
  * frames within [t − 3, t + 3] s. A detection that sits at the same place (±8 px) in at least 80% of the sampled frames of that goal
  * and in the first one (t − 3), is a fixture (a ball-shaped patch of the scene) and is ignored. The goal with most frames wins.
+ * Look-back samples (at or before t − 10 s) never count as frames and are left out of that static filter; a detection in
+ * the window whose centre is within ±12 px of a detection in any look-back sample of the same goal is a ball already
+ * resting there (players walking in front of it defeat the 80% rule) and is ignored too.
  */
 export function ballVerdict(samples: BallSample[], marks: GoalMarksByTeam, frame: Frame, t: number): BallVerdict | null {
     let best: BallVerdict | null = null
     for (const goal of GOALS) {
         const m = marks[goal]
-        const own = samples.filter((s) => s.goal === goal)
+        const all = samples.filter((s) => s.goal === goal)
+        const own = all.filter((s) => s.timeSec > t - LOOK_BACK_SEC)
+        const back = all.filter((s) => s.timeSec <= t - LOOK_BACK_SEC)
         if (!m || own.length === 0) continue
         const first = own.reduce((a, s) => (s.timeSec < a.timeSec ? s : a))
-        const near = (c: { x: number; y: number }, s: BallSample): boolean =>
-            s.boxes.some((o) => { const q = centre(o); return Math.abs(q.x - c.x) <= STATIC_PX && Math.abs(q.y - c.y) <= STATIC_PX })
+        const near = (c: { x: number; y: number }, s: BallSample, px: number = STATIC_PX): boolean =>
+            s.boxes.some((o) => { const q = centre(o); return Math.abs(q.x - c.x) <= px && Math.abs(q.y - c.y) <= px })
         const isStatic = (b: Box): boolean => {
             const c = centre(b)
+            if (back.some((s) => near(c, s, RESTING_PX))) return true
             return near(c, first) && own.filter((s) => near(c, s)).length >= STATIC_SHARE * own.length
         }
         let frames = 0

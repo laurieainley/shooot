@@ -387,24 +387,26 @@ describe('SuggestionReview', () => {
             })
         })
         describe('Labs ball check', () => {
-            it('should show the hint, and Enter after marking saves a Goal for the scoring team', () => {
+            it('should show a neutral hint and preselect Goal, but not the team', () => {
                 useAppState.setState({ suggestions: useAppState.getState().suggestions.map((s, i) => (i === 0 ? { ...s, ball: { goal: 'team1' as const, frames: 3 } } : s)) })
                 render(<SuggestionReview onClose={() => {}} />)
-                expect(screen.getByText("Ball in Whites' goal")).toBeTruthy()
+                expect(screen.getByText('Ball seen in a goal mouth')).toBeTruthy()
                 press('m')
-                expect(screen.getByRole('button', { name: /Colours/ })).toHaveAttribute('aria-pressed', 'true')
-                press('Enter')
-                expect(useAppState.getState().events[0]).toMatchObject({ type: 'goal', team: 'Colours' })
+                expect(screen.getByRole('button', { name: 'Change what it was' })).toHaveTextContent('Goal')
+                // Default team behaviour (the first team), not the team the ball tag would have implied (Colours).
+                expect(screen.getByRole('button', { name: /Whites/ })).toHaveAttribute('aria-pressed', 'true')
+                expect(screen.getByRole('button', { name: /Colours/ })).toHaveAttribute('aria-pressed', 'false')
             })
-            it('should swap the scoring team after half time', () => {
+            it('should give the same hint and the default team after half time', () => {
                 useAppState.setState({
                     events: [{ id: 'ht', type: 'half_time', matchTimeSec: 50, sourceFileIndex: 0 }] as never,
                     suggestions: useAppState.getState().suggestions.map((s, i) => (i === 0 ? { ...s, ball: { goal: 'team1' as const, frames: 2 } } : s)),
                 })
                 render(<SuggestionReview onClose={() => {}} />)
-                expect(screen.getByText("Ball in Colours' goal")).toBeTruthy() // ends swapped: team1's goal is now Colours'
+                expect(screen.getByText('Ball seen in a goal mouth')).toBeTruthy()
                 press('m')
-                expect(screen.getByRole('button', { name: /Whites/ })).toHaveAttribute('aria-pressed', 'true')
+                expect(screen.getByRole('button', { name: /Whites/ })).toHaveAttribute('aria-pressed', 'true') // no half-time swap any more
+                expect(screen.getByRole('button', { name: /Colours/ })).toHaveAttribute('aria-pressed', 'false')
             })
             it('should show no hint and no preselection without a ball tag', () => {
                 render(<SuggestionReview onClose={() => {}} />)

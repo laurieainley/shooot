@@ -36,7 +36,7 @@ describe('runBallCheck', () => {
         expect(verdicts.map((v) => v[0])).toEqual(['a', 'b'])
         expect(verdicts[0][1]).toMatchObject({ goal: 'team1' })
         expect(progress).toEqual([0.5, 1])
-        expect(log[0].times).toHaveLength(13)
+        expect(log[0].times).toHaveLength(15)
     })
     it('should return null when no ball is seen', async () => {
         const verdicts: unknown[] = []
@@ -51,7 +51,7 @@ describe('runBallCheck', () => {
         const a = log.find((l) => l.file === 'A')!, b = log.find((l) => l.file === 'B')!
         expect(a.times.every((t) => t < 100)).toBe(true)
         expect(b.times[0]).toBeCloseTo(0.0, 5) // 98 + 2 s => file B starts at 100 -> 0
-        expect(a.times.length + b.times.length).toBe(13)
+        expect(a.times.length + b.times.length).toBe(15)
         expect(b.times.every((t) => t >= 0 && t <= 5)).toBe(true)
     })
     it('should only make tiles for the goal that is marked', async () => {
@@ -103,7 +103,7 @@ describe('runBallCheck fixes', () => {
         })
         const det: BallDetectorLike = { ready: Promise.resolve({ ep: 'wasm' }), detect: async (tiles) => { seen.push(1); return tiles.map(() => []) }, dispose: vi.fn() }
         await runBallCheck({ suggestions: [sug('a', 50)], marks: { team1: marks }, files, totalSec: 200 }, { frames, detector: () => det }, new AbortController().signal, () => {}, () => {})
-        expect(seen).toHaveLength(12) // 13 - the skipped one
+        expect(seen).toHaveLength(14) // 15 - the skipped one
     })
     it('should attribute samples by their own time (moving ball after a skipped early frame still counts)', async () => {
         const frames = async (): Promise<FrameSourceLike> => ({

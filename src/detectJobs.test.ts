@@ -237,4 +237,94 @@ describe('detection job phase 2 (ball check)', () => {
         expect(jobs.store.getState()).toMatchObject({ phase: 'done', ballPhase: 'idle', ballError: null })
         expect(useAppState.getState().suggestions).toHaveLength(2)
     })
+
+    describe('early loading', () => {
+        const mk = () => {
+            const d = { ready: Promise.resolve({ ep: 'webgpu' }), detect: vi.fn(async () => []), dispose: vi.fn() }
+            const detector = vi.fn(() => d)
+            return { d, disposed: d.dispose, detector, ballDeps: { frames: vi.fn(), detector } as never }
+        }
+        it('should create the detector at the start when Labs and goal marks are on, and phase 2 uses that same instance', async () => {
+            setup(true)
+            const { d, detector, ballDeps } = mk()
+            let seenAtAudio = 0
+            const run = vi.fn(async () => { seenAtAudio = detector.mock.calls.length; return { moments: [{ timeSec: 100, score: 3 }], scores: new Float32Array(3), analysedSec: 600 } })
+            let used: unknown = null
+            const ball = vi.fn(async (_a, deps: { detector: () => unknown }) => { used = deps.detector() })
+            await createDetectJobs({ run: run as never, wakeLock: wake, now: () => 0, ball: ball as never, ballDeps }).start()
+            expect(seenAtAudio).toBe(1)
+            expect(detector).toHaveBeenCalledTimes(1)
+            expect(used).toBe(d)
+        })
+        it('should dispose it exactly once after phase 2, even when phase 2 disposes it too', async () => {
+            setup(true)
+            const { disposed, ballDeps } = mk()
+            const ball = vi.fn(async (_a, deps: { detector: () => { dispose: () => void } }) => { deps.detector().dispose() })
+            await createDetectJobs({ run: audio as never, wakeLock: wake, now: () => 0, ball: ball as never, ballDeps }).start()
+            expect(disposed).toHaveBeenCalledTimes(1)
+        })
+        it('should not create one without Labs or without goal marks', async () => {
+            const { detector, ballDeps } = mk()
+            setup(false)
+            await createDetectJobs({ run: audio as never, wakeLock: wake, now: () => 0, ball: vi.fn() as never, ballDeps }).start()
+            setup(true, false)
+            await createDetectJobs({ run: audio as never, wakeLock: wake, now: () => 0, ball: vi.fn() as never, ballDeps }).start()
+            expect(detector).not.toHaveBeenCalled()
+        })
+        it('should dispose it once when cancelled during the audio pass', async () => {
+            setup(true)
+            const { disposed, ballDeps } = mk()
+            const run = vi.fn((_f, _r, _d, signal: AbortSignal) => new Promise<never>((_, rej) => signal.addEventListener('abort', () => rej(new Error('Cancelled')))))
+            const jobs = createDetectJobs({ run: run as never, wakeLock: wake, now: () => 0, ball: vi.fn() as never, ballDeps })
+            const p = jobs.start()
+            await vi.waitFor(() => expect(run).toHaveBeenCalled())
+            jobs.cancel()
+            await p
+            expect(disposed).toHaveBeenCalledTimes(1)
+        })
+        it('should dispose it once when the audio pass fails', async () => {
+            setup(true)
+            const { disposed, ballDeps } = mk()
+            const run = vi.fn(async () => { throw new Error('boom') })
+            const jobs = createDetectJobs({ run: run as never, wakeLock: wake, now: () => 0, ball: vi.fn() as never, ballDeps })
+            await jobs.start()
+            expect(jobs.store.getState().phase).toBe('failed')
+            expect(disposed).toHaveBeenCalledTimes(1)
+        })
+        it('should dispose it once when there is nothing to check after the audio pass', async () => {
+            setup(true)
+            const { disposed, ballDeps } = mk()
+            const run = vi.fn(async () => ({ moments: [], scores: new Float32Array(1), analysedSec: 600 }))
+            await createDetectJobs({ run: run as never, wakeLock: wake, now: () => 0, ball: vi.fn() as never, ballDeps }).start()
+            expect(disposed).toHaveBeenCalledTimes(1)
+        })
+        it('should leave the audio pass alone when the early detector fails to load, then fail phase 2 plainly', async () => {
+            setup(true)
+            const ready = Promise.reject(new Error('model not found'))
+            const disposed = vi.fn()
+            const d = { ready, detect: vi.fn(), dispose: disposed }
+            const ballDeps = { frames: vi.fn(), detector: vi.fn(() => d) } as never
+            const ball = vi.fn(async (_a, deps: { detector: () => { ready: Promise<unknown> } }) => { await deps.detector().ready })
+            const jobs = createDetectJobs({ run: audio as never, wakeLock: wake, now: () => 0, ball: ball as never, ballDeps })
+            await jobs.start()
+            expect(jobs.store.getState()).toMatchObject({ phase: 'done', ballPhase: 'failed', ballError: 'Ball check unavailable: model not found.' })
+            expect(disposed).toHaveBeenCalledTimes(1)
+        })
+        it('should track the model download and clear it when the detector is ready', async () => {
+            setup(true)
+            let report: ((f: number) => void) | undefined
+            let resolveReady!: (v: { ep: string }) => void
+            const d = { ready: new Promise<{ ep: string }>((r) => { resolveReady = r }), detect: vi.fn(), dispose: vi.fn() }
+            const ballDeps = { frames: vi.fn(), detector: vi.fn((cb?: (f: number) => void) => { report = cb; return d }) } as never
+            const ball = vi.fn(async () => {})
+            const jobs = createDetectJobs({ run: audio as never, wakeLock: wake, now: () => 0, ball: ball as never, ballDeps })
+            const p = jobs.start()
+            await vi.waitFor(() => expect(report).toBeTypeOf('function'))
+            report!(0.4)
+            expect(jobs.store.getState().ballDownload).toBe(0.4)
+            resolveReady({ ep: 'wasm' })
+            await p
+            expect(jobs.store.getState().ballDownload).toBeNull()
+        })
+    })
 })

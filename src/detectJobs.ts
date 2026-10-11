@@ -5,7 +5,7 @@ import { useAppState } from './state'
 import { AUDIO_DETECT } from './detect/detectConfig'
 import { defaultDetectDeps, detectionRange, runAudioDetection } from './detect/runAudioDetection'
 import { fileKeys } from './utils/fileKey'
-import { BallDecodeError, runBallCheck, type BallCheckDeps } from './detect/runBallCheck'
+import { BallDecodeError, runBallCheck, type BallCheckDeps, type BallDetectorLike } from './detect/runBallCheck'
 import { createBallDetector } from './detect/ballDetector'
 import { effectiveStatus } from './utils/suggestions'
 import { createRenderWakeLock, type RenderWakeLock } from './renderWakeLock'
@@ -18,14 +18,16 @@ export type DetectJobState = {
     ballPhase: BallPhase; ballFraction: number; ballError: string | null; ballMs: number | null
     /** The ball model's execution provider once it is ready (null while loading); the raw reason behind a decode failure. */
     ballEp: string | null; ballDetail: string | null
+    /** Ball model download progress 0..1 while it is being fetched; null = not downloading (or done). */
+    ballDownload: number | null
 }
-type JobDeps = { run: typeof runAudioDetection; wakeLock: () => RenderWakeLock; now: () => number; ball: typeof runBallCheck; ballDeps: BallCheckDeps }
+type JobDeps = { run: typeof runAudioDetection; wakeLock: () => RenderWakeLock; now: () => number; ball: typeof runBallCheck; ballDeps: BallCheckDeps; preload: () => Promise<unknown> }
 
 const defaultBallDeps: BallCheckDeps = {
     frames: async (file) => (await import('./detect/frameSource')).createFrameSource(file),
-    detector: () => createBallDetector(), // the worker (and onnxruntime) only load when phase 2 creates it
+    detector: (onDownload) => createBallDetector(undefined, undefined, onDownload), // the job creates it when Find goals starts
 }
-const IDLE_BALL = { ballPhase: 'idle', ballFraction: 0, ballError: null, ballMs: null, ballEp: null, ballDetail: null } as const
+const IDLE_BALL = { ballPhase: 'idle', ballFraction: 0, ballError: null, ballMs: null, ballEp: null, ballDetail: null, ballDownload: null } as const
 
 /** The user-facing line for a failed ball check. */
 export function ballErrorLine(e: unknown): string {
@@ -37,7 +39,7 @@ export function ballErrorLine(e: unknown): string {
 const sameFiles = (a: (File | undefined)[], b: (File | undefined)[]): boolean => a.length === b.length && a.every((f, i) => f === b[i])
 
 export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi<DetectJobState>; start: (opts?: { wholeVideo?: boolean }) => Promise<void>; cancel: () => void } {
-    const deps: JobDeps = { run: runAudioDetection, wakeLock: createRenderWakeLock, now: () => Date.now(), ball: runBallCheck, ballDeps: defaultBallDeps, ...over }
+    const deps: JobDeps = { run: runAudioDetection, wakeLock: createRenderWakeLock, now: () => Date.now(), ball: runBallCheck, ballDeps: defaultBallDeps, preload: () => import('./detect/frameSource'), ...over }
     const store = createStore<DetectJobState>(() => ({ phase: 'idle', fraction: 0, error: null, scores: null, ...IDLE_BALL }))
     let ac: AbortController | null = null
     const start = async (opts?: { wholeVideo?: boolean }): Promise<void> => {
@@ -67,6 +69,23 @@ export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi
             if (!sameFiles(snapshot, s.files.map((f) => f.file))) mine.abort()
             else if (!s.labs && store.getState().ballPhase === 'running') mine.abort() // Labs switched off: stop phase 2, the audio results stay
         })
+        // Load the ball check now (worker chunk, onnxruntime, model, frame source): a deploy during a long audio pass
+        // would otherwise remove the old build's lazy chunks, and the model download overlaps the audio pass.
+        const app0 = useAppState.getState()
+        let early: BallDetectorLike | undefined
+        let disposeEarly = (): void => {}
+        if (app0.labs && app0.goalMarks && (app0.goalMarks.team1 || app0.goalMarks.team2) && ballFiles.length > 0) {
+            const detector = deps.ballDeps.detector((f) => { if (ac === mine && !mine.signal.aborted) store.setState({ ballDownload: f }) })
+            early = detector
+            // Phase 2 disposes the detector it is given, the job's cleanup does too: only the first call counts.
+            let disposed = false
+            const dispose = detector?.dispose?.bind(detector)
+            if (detector) detector.dispose = (): void => { if (!disposed) { disposed = true; dispose?.() } }
+            disposeEarly = (): void => detector?.dispose()
+            detector?.ready?.then(() => { if (ac === mine) store.setState({ ballDownload: null }) }, () => { if (ac === mine) store.setState({ ballDownload: null }) })
+            deps.preload().catch(() => undefined)
+        }
+        const phase2Deps: BallCheckDeps = early ? { ...deps.ballDeps, detector: () => early! } : deps.ballDeps
         const lock = deps.wakeLock()
         store.setState({ phase: 'running', fraction: 0, error: null, scores: null, ...IDLE_BALL })
         await lock.acquire().catch(() => {})
@@ -84,7 +103,7 @@ export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi
                 store.setState({ ballPhase: 'running', ballFraction: 0, ballError: null, ballMs: null, ballEp: null, ballDetail: null })
                 try {
                     const ball = await deps.ball({ suggestions: after.suggestions, marks, files: ballFiles, totalSec,
-                        stillPending: (s) => { const st = useAppState.getState(); const cur = st.suggestions.find((x) => x.id === s.id); return !!cur && effectiveStatus(cur, new Set(st.events.map((e) => e.id))) === 'pending' } }, deps.ballDeps, mine.signal,
+                        stillPending: (s) => { const st = useAppState.getState(); const cur = st.suggestions.find((x) => x.id === s.id); return !!cur && effectiveStatus(cur, new Set(st.events.map((e) => e.id))) === 'pending' } }, phase2Deps, mine.signal,
                         (ballFraction) => { if (ac === mine) store.setState({ ballFraction }) },
                         (id, ball) => { if (!mine.signal.aborted && sameFiles(snapshot, useAppState.getState().files.map((f) => f.file))) useAppState.getState().setSuggestionBall(id, ball) },
                         (ballEp) => { if (ac === mine) store.setState({ ballEp }) })
@@ -99,6 +118,7 @@ export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi
             const cancelled = mine.signal.aborted || (e instanceof Error && e.message === 'Cancelled')
             store.setState({ phase: cancelled ? 'cancelled' : 'failed', error: cancelled ? null : e instanceof Error ? e.message : String(e) })
         } finally {
+            disposeEarly()
             unwatch()
             await lock.release().catch(() => {})
             if (ac === mine) ac = null
