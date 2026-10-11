@@ -22,15 +22,27 @@ export function detectionRange(events: MatchEvent[], offsets: number[], totalSec
 export async function runAudioDetection(files: DetectFile[], rangeSec: [number, number], deps: DetectDeps, signal: AbortSignal,
     onProgress: (fraction: number) => void): Promise<{ moments: ScoredMoment[]; scores: Float32Array; analysedSec: number }> {
     const totalSec = files.reduce((s, f) => s + f.durationSec, 0)
+    const inRange = (f: DetectFile): boolean => f.offsetSec + f.durationSec > rangeSec[0] && f.offsetSec < rangeSec[1]
+    const workSec = Math.max(1, files.filter(inRange).reduce((s, f) => s + f.durationSec, 0))
+    let last = 0
+    const report = (v: number): void => {
+        const x = Math.max(last, Math.min(1, v))
+        if (x === 1 ? last < 1 : x - last >= 0.005) { last = x; onProgress(x) }
+    }
+    const aborted = new Promise<never>((_, reject) => {
+        if (signal.aborted) reject(new Error('Cancelled'))
+        else signal.addEventListener('abort', () => reject(new Error('Cancelled')), { once: true })
+    })
+    aborted.catch(() => {})
     const parts: { features: AudioFeatures; offsetSec: number }[] = []
     let done = 0
     for (const f of files) {
         if (signal.aborted) throw new Error('Cancelled')
-        if (f.offsetSec + f.durationSec <= rangeSec[0] || f.offsetSec >= rangeSec[1]) { done += f.durationSec; continue }
+        if (!inRange(f)) continue
         const ex = deps.extractor()
         try {
-            const hasAudio = await deps.decode(f.file, (mono, sr, t) => { ex.push(mono, sr); onProgress(Math.min(0.99, (done + t) / Math.max(1, totalSec))) }, signal)
-            const feats = hasAudio ? await ex.finish() : null
+            const hasAudio = await deps.decode(f.file, (mono, sr, t) => { ex.push(mono, sr); report(Math.min(0.99, (done + t) / workSec)) }, signal)
+            const feats = hasAudio ? await Promise.race([ex.finish(), aborted]) : null
             if (feats) parts.push({ features: feats, offsetSec: f.offsetSec })
         } finally {
             ex.dispose()
@@ -42,6 +54,6 @@ export async function runAudioDetection(files: DetectFile[], rangeSec: [number, 
     const scores = goalScores(timeline, AUDIO_DETECT)
     const moments = parts.length === 0 ? [] : pickMoments(scores, AUDIO_DETECT.hopSec,
         { minGapSec: AUDIO_DETECT.minGapSec, max: AUDIO_DETECT.maxSuggestions, startSec: rangeSec[0], endSec: rangeSec[1] })
-    onProgress(1)
+    report(1)
     return { moments, scores, analysedSec: Math.round(rangeSec[1] - rangeSec[0]) }
 }

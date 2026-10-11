@@ -17,13 +17,16 @@ export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi
     const start = async (): Promise<void> => {
         if (store.getState().phase === 'running') return
         const app = useAppState.getState()
-        const files = app.files.map((f, i) => ({ file: f.file, durationSec: f.durationSec ?? 0, offsetSec: app.cumulativeOffsets[i] ?? 0 }))
+        const files = app.files
+            .map((f, i) => ({ file: f.file, durationSec: f.durationSec ?? 0, offsetSec: app.cumulativeOffsets[i] ?? 0 }))
+            .filter((f): f is { file: File; durationSec: number; offsetSec: number } => !!f.file && f.durationSec > 0)
+        if (files.length === 0) { store.setState({ phase: 'failed', fraction: 0, error: 'Load the match videos first.', scores: null }); return }
         const totalSec = files.reduce((s, f) => s + f.durationSec, 0)
         const range = detectionRange(app.events, app.cumulativeOffsets, totalSec)
         const mine = new AbortController()
         ac = mine
         const lock = deps.wakeLock()
-        store.setState({ phase: 'running', fraction: 0, error: null })
+        store.setState({ phase: 'running', fraction: 0, error: null, scores: null })
         await lock.acquire().catch(() => {})
         try {
             if (mine.signal.aborted) throw new Error('Cancelled')

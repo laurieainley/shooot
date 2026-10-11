@@ -27,4 +27,12 @@ describe('detection job', () => {
         await jobs.start()
         expect(jobs.store.getState()).toMatchObject({ phase: 'failed', error: 'no decoder for this audio' })
     })
+    it('should fail plainly when there is nothing to analyse', async () => {
+        useAppState.setState({ files: [{ id: 'f', name: 'A', url: '', kind: 'full', durationSec: 0 }] as never, cumulativeOffsets: [0], events: [] })
+        const run = vi.fn()
+        const jobs = createDetectJobs({ run: run as never, wakeLock: () => ({ acquire: async () => {}, release: async () => {}, status: () => '' }), now: () => 0 })
+        await jobs.start()
+        expect(jobs.store.getState()).toMatchObject({ phase: 'failed', error: 'Load the match videos first.' })
+        expect(run).not.toHaveBeenCalled()
+    })
 })

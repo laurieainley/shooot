@@ -48,6 +48,28 @@ describe('runAudioDetection', () => {
     })
 })
 
+describe('runAudioDetection robustness', () => {
+    it('should reject promptly when cancelled while a finish never resolves', async () => {
+        const a = new File([], 'a'); const ac = new AbortController()
+        const d: DetectDeps = {
+            decode: async (_f, sink) => { sink(new Float32Array(8000), SR, 0); return true },
+            extractor: () => ({ push: () => {}, finish: () => new Promise(() => {}), dispose: () => {} }),
+        }
+        const p = runAudioDetection([{ file: a, durationSec: 60, offsetSec: 0 }], [0, 60], d, ac.signal, () => {})
+        setTimeout(() => ac.abort(), 10)
+        await expect(p).rejects.toThrow(/cancel/i)
+    })
+    it('should report non-decreasing progress ending at 1 when the first file is outside the range', async () => {
+        const a = new File([], 'a'), b = new File([], 'b')
+        const plan = new Map([[a, { sec: 120, shoutAt: null }], [b, { sec: 120, shoutAt: 40 }]])
+        const progress: number[] = []
+        await runAudioDetection([{ file: a, durationSec: 120, offsetSec: 0 }, { file: b, durationSec: 120, offsetSec: 120 }], [130, 240], deps(plan), new AbortController().signal, (f) => progress.push(f))
+        expect(progress.length).toBeGreaterThan(1)
+        for (let i = 1; i < progress.length; i++) expect(progress[i]).toBeGreaterThanOrEqual(progress[i - 1])
+        expect(progress.at(-1)).toBe(1)
+    })
+})
+
 describe('detectionRange', () => {
     const ev = (type: MatchEvent['type'], t: number): MatchEvent => ({ id: type, type, matchTimeSec: t, sourceFileIndex: 0 })
     it('should use kick off and final whistle when both are set in order', () => {
