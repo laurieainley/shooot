@@ -1,12 +1,13 @@
 import { classicTheme } from './classic'
 import { shoootTheme } from './shooot'
+import { tnfTheme } from './tnf'
 import type { GraphicsTheme, ThemeId } from './types'
 
 export type { GraphicsTheme, ThemeId } from './types'
 
 export const DEFAULT_THEME_ID: ThemeId = 'shooot'
 /** In picker order. */
-export const THEMES: readonly GraphicsTheme[] = [shoootTheme, classicTheme]
+export const THEMES: readonly GraphicsTheme[] = [shoootTheme, classicTheme, tnfTheme]
 
 export const isThemeId = (v: unknown): v is ThemeId => THEMES.some((t) => t.id === v)
 
