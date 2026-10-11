@@ -62,3 +62,16 @@ export type Team = {
 
 // Keep backward-compat alias for migration
 export type Goal = MatchEvent
+
+export type KeepType = Extract<EventType, 'goal' | 'own_goal' | 'save' | 'highlight'>
+export type SuggestionStatus = 'pending' | 'kept' | 'rejected'
+export type Suggestion = {
+    id: string
+    globalTimeSec: number
+    score: number
+    source: 'audio'
+    status: SuggestionStatus
+    keptAs?: KeepType
+    eventId?: string
+}
+export type SuggestionRun = { createdAt: number; source: 'audio'; configVersion: number; analysedSec: number; total: number }
