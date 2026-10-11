@@ -4,7 +4,7 @@ import { ClipSettings } from './ClipSettings'
 import { EventSheet } from './EventSheet'
 import { FilesSheet } from './FilesSheet'
 import { MatchSetup } from './MatchSetup'
-import { PasteList } from './PasteList'
+import { ImportModal } from './ImportModal'
 import { SuggestionReview } from './SuggestionReview'
 import { Sheet } from './Sheet'
 import { ShortcutsSheet } from './ShortcutsSheet'
@@ -22,7 +22,7 @@ export function Panels() {
         case 'shortcuts': return <ShortcutsSheet onClose={close} />
         case 'review': return <SuggestionReview onClose={close} />
         case 'event': return <EventSheet />
-        case 'paste': return <Sheet label="Paste list" onClose={close} className="sheet--narrow"><PasteList /></Sheet>
+        case 'import': return <ImportModal />
         case 'send': return <Suspense fallback={null}><SendProjectSheet onClose={close} /></Suspense>
         default: return null
     }

@@ -58,7 +58,6 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
         { label: 'Files', panel: 'files' },
         ...(setupInMenu ? [{ label: 'Setup', panel: 'match' as const, aria: 'Match setup' }] : []),
         { label: 'Advanced settings', panel: 'settings' },
-        { label: 'Paste list', panel: 'paste' },
     ]
 
     if (confirmNew) {
@@ -87,7 +86,8 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
                 <button key={panel} type="button" role="menuitem" aria-label={aria} onClick={() => useAppState.getState().openPanel(panel)}>{label}</button>
             ))}
             <button type="button" role="menuitem" onClick={() => useAppState.getState().openPanel('send')}>Send project to another device</button>
-            <ProjectIO menu />
+            <button type="button" role="menuitem" onClick={() => useAppState.getState().openPanel('import')}>Import…</button>
+            <ProjectIO />
             <button type="button" role="menuitem" onClick={() => useAppState.getState().openPanel('shortcuts')}>Shortcuts</button>
         </div>
     )
