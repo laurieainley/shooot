@@ -59,3 +59,20 @@ describe('decodeBalls', () => {
         expect(decodeBalls(dets, labels, 0.9)).toEqual([])
     })
 })
+
+import { looksLikeOnnx } from './ballModel'
+describe('looksLikeOnnx', () => {
+    const enc = (s: string): Uint8Array => new TextEncoder().encode(s.padEnd(32, ' '))
+    it('should accept protobuf bytes starting with ir_version', () => {
+        expect(looksLikeOnnx(new Uint8Array([0x08, 0x08, 0x12, ...new Array(20).fill(1)]), 'application/octet-stream')).toBe(true)
+    })
+    it('should reject an HTML page by content type or by its first bytes', () => {
+        expect(looksLikeOnnx(new Uint8Array([0x08, ...new Array(20).fill(1)]), 'text/html; charset=utf-8')).toBe(false)
+        expect(looksLikeOnnx(enc('<!doctype html><html>'), null)).toBe(false)
+        expect(looksLikeOnnx(enc('  \n<html>'), 'application/octet-stream')).toBe(false)
+    })
+    it('should reject tiny or non-protobuf bodies', () => {
+        expect(looksLikeOnnx(new Uint8Array([0x08]), null)).toBe(false)
+        expect(looksLikeOnnx(enc('not a model'), null)).toBe(false)
+    })
+})

@@ -92,3 +92,43 @@ describe('runBallCheck', () => {
         expect(verdicts).toEqual([])
     })
 })
+
+describe('runBallCheck fixes', () => {
+    it('should keep the right global times when the frame source skips a frame', async () => {
+        const seen: number[] = []
+        const frames = async (): Promise<FrameSourceLike> => ({
+            frameSize: { w: 1000, h: 1000 },
+            async *tilesAt(times, tiles) { for (const t of times) if (t !== 47) yield { timeSec: t, images: tiles.map(img) } },
+            dispose: () => {},
+        })
+        const det: BallDetectorLike = { ready: Promise.resolve({ ep: 'wasm' }), detect: async (tiles) => { seen.push(1); return tiles.map(() => []) }, dispose: vi.fn() }
+        await runBallCheck({ suggestions: [sug('a', 50)], marks: { team1: marks }, files, totalSec: 200 }, { frames, detector: () => det }, new AbortController().signal, () => {}, () => {})
+        expect(seen).toHaveLength(12) // 13 - the skipped one
+    })
+    it('should attribute samples by their own time (moving ball after a skipped early frame still counts)', async () => {
+        const frames = async (): Promise<FrameSourceLike> => ({
+            frameSize: { w: 1000, h: 1000 },
+            async *tilesAt(times, tiles) { for (const t of times) if (t === 47) continue; else yield { timeSec: t, images: tiles.map(() => ({ data: new Uint8ClampedArray([t]), width: 1, height: 1 }) as unknown as ImageData) } },
+            dispose: () => {},
+        })
+        // Ball only inside the goal at t = 50 and 51 (within [t-1, t+3]); tile centre moves per frame.
+        const det: BallDetectorLike = { ready: Promise.resolve({ ep: 'wasm' }), dispose: vi.fn(), detect: async (tiles) => tiles.map((im) => {
+            const t = im.data[0]
+            return t === 50 || t === 51 ? [{ x1: 100 + (t - 50) * 20, y1: 190, x2: 120 + (t - 50) * 20, y2: 210, score: 0.9 }] : []
+        }) }
+        const out: unknown[] = []
+        await runBallCheck({ suggestions: [sug('a', 50)], marks: { team1: marks }, files, totalSec: 200 }, { frames, detector: () => det }, new AbortController().signal, () => {}, (_i, b) => out.push(b))
+        expect(out[0]).toMatchObject({ goal: 'team1' })
+    })
+    it('should skip suggestions decided during the run', async () => {
+        const out: string[] = []
+        await runBallCheck({ suggestions: [sug('a', 50), sug('b', 80)], marks: { team1: marks }, files, totalSec: 200, stillPending: (s) => s.id !== 'a' },
+            { frames: fakeFrames([]), detector: noBall }, new AbortController().signal, () => {}, (id) => out.push(id))
+        expect(out).toEqual(['b'])
+    })
+    it('should open nothing when no goal is marked', async () => {
+        const frames = vi.fn(), detector = vi.fn()
+        await runBallCheck({ suggestions: [sug('a', 50)], marks: {}, files, totalSec: 200 }, { frames, detector }, new AbortController().signal, () => {}, () => {})
+        expect(frames).not.toHaveBeenCalled(); expect(detector).not.toHaveBeenCalled()
+    })
+})

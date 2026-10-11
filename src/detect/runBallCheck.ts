@@ -12,6 +12,8 @@ export type BallCheckArgs = {
     marks: GoalMarksByTeam
     files: BallCheckFile[]
     totalSec: number
+    /** Asked right before each suggestion: false = decided meanwhile, skip it. */
+    stillPending?: (s: Suggestion) => boolean
 }
 export type BallCheckDeps = {
     frames: (file: File) => Promise<FrameSourceLike>
@@ -45,6 +47,8 @@ export async function runBallCheck(
     onVerdict: (id: string, ball: BallVerdict | null) => void,
 ): Promise<void> {
     const pending = args.suggestions.filter((s) => s.status === 'pending')
+    // No usable goal marked: nothing to look at, so no detector or decoder is opened.
+    if (pending.length === 0 || goalTiles(args.marks, { w: 1, h: 1 }).length === 0) { onProgress(1); return }
     const sources = new Map<number, Promise<FrameSourceLike>>()
     const detector = deps.detector()
     detector.ready.catch(() => undefined)
@@ -56,11 +60,11 @@ export async function runBallCheck(
         return p
     }
     try {
-        if (pending.length === 0) { onProgress(1); return }
         await raceAbort(detector.ready, signal)
         for (let n = 0; n < pending.length; n++) {
             if (signal.aborted) throw cancelled()
             const s = pending[n]
+            if (args.stillPending && !args.stillPending(s)) { onProgress((n + 1) / pending.length); continue }
             const times = sampleTimes(s.globalTimeSec, { total: args.totalSec })
             const byFile = new Map<number, { global: number; local: number }[]>()
             for (const t of times) {
@@ -76,13 +80,12 @@ export async function runBallCheck(
                 const tiles = goalTiles(args.marks, fs.frameSize)
                 if (tiles.length === 0) continue
                 const kx = primary.w / fs.frameSize.w, ky = primary.h / fs.frameSize.h
-                let k = 0
                 const gen = fs.tilesAt(pts.map((p) => p.local), tiles, signal)
                 try {
                     for (;;) {
                         const next = await raceAbort(gen.next(), signal)
                         if (next.done) break
-                        const global = pts[Math.min(k++, pts.length - 1)].global
+                        const global = (pts.find((p) => p.local === next.value.timeSec) ?? pts[0]).global
                         const found = await raceAbort(detector.detect(next.value.images, signal), signal)
                         tiles.forEach((tile, j) => {
                             const boxes = (found[j] ?? []).map((b) => tileToSource(b, tile)).map((b) => ({ ...b, x1: b.x1 * kx, x2: b.x2 * kx, y1: b.y1 * ky, y2: b.y2 * ky }))

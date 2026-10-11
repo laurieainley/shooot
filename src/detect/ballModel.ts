@@ -32,3 +32,13 @@ export function decodeBalls(dets: Float32Array, labels: Float32Array, threshold 
     }
     return out.sort((a, b) => b.score - a.score)
 }
+
+/** Is this response a model file? An SPA fallback answers 200 with an HTML page instead. */
+export function looksLikeOnnx(bytes: Uint8Array, contentType: string | null): boolean {
+    if (contentType && /text\/html/i.test(contentType)) return false
+    if (bytes.length < 16) return false
+    let i = 0
+    while (i < bytes.length && (bytes[i] === 0x20 || bytes[i] === 0x0a || bytes[i] === 0x0d || bytes[i] === 0x09 || bytes[i] === 0xef || bytes[i] === 0xbb || bytes[i] === 0xbf)) i++
+    if (bytes[i] === 0x3c) return false // "<"
+    return bytes[0] === 0x08 // ONNX ModelProto starts with field 1 (ir_version), varint tag 0x08
+}

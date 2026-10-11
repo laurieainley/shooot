@@ -7,6 +7,7 @@ import { defaultDetectDeps, detectionRange, runAudioDetection } from './detect/r
 import { fileKeys } from './utils/fileKey'
 import { runBallCheck, type BallCheckDeps } from './detect/runBallCheck'
 import { createBallDetector } from './detect/ballDetector'
+import { effectiveStatus } from './utils/suggestions'
 import { createRenderWakeLock, type RenderWakeLock } from './renderWakeLock'
 
 export type DetectPhase = 'idle' | 'running' | 'done' | 'failed' | 'cancelled'
@@ -64,12 +65,13 @@ export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi
             useAppState.getState().setSuggestions({ createdAt: now, source: 'audio', configVersion: AUDIO_DETECT.version, analysedSec: r.analysedSec, total: r.moments.length, durationMs: Math.max(0, now - startedAt), fileKeys: keys }, r.moments)
             store.setState({ phase: 'done', fraction: 1, scores: r.scores })
             const after = useAppState.getState()
-            if (after.labs && after.goalMarks && files.length > 0 && after.suggestions.length > 0) {
+            if (after.labs && after.goalMarks && (after.goalMarks.team1 || after.goalMarks.team2) && files.length > 0 && after.suggestions.length > 0) {
                 const marks = after.goalMarks
                 const ballStart = deps.now()
                 store.setState({ ballPhase: 'running', ballFraction: 0, ballError: null, ballMs: null })
                 try {
-                    await deps.ball({ suggestions: after.suggestions, marks, files, totalSec }, deps.ballDeps, mine.signal,
+                    await deps.ball({ suggestions: after.suggestions, marks, files, totalSec,
+                        stillPending: (s) => { const st = useAppState.getState(); return effectiveStatus(s, new Set(st.events.map((e) => e.id))) === 'pending' && st.suggestions.some((x) => x.id === s.id) } }, deps.ballDeps, mine.signal,
                         (ballFraction) => { if (ac === mine) store.setState({ ballFraction }) },
                         (id, ball) => { if (!mine.signal.aborted && sameFiles(snapshot, useAppState.getState().files.map((f) => f.file))) useAppState.getState().setSuggestionBall(id, ball) })
                     if (ac === mine) store.setState({ ballPhase: 'done', ballFraction: 1, ballMs: Math.max(0, deps.now() - ballStart) })

@@ -1,6 +1,6 @@
 import * as ort from 'onnxruntime-web/webgpu'
 import wasmUrl from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url'
-import { decodeBalls, toTensorData, TILE_SIZE } from './ballModel'
+import { decodeBalls, looksLikeOnnx, toTensorData, TILE_SIZE } from './ballModel'
 import type { Box } from '../utils/ballSampling'
 
 export type BallWorkerIn = { type: 'init'; modelUrl: string; wasmOnly?: boolean } | { type: 'detect'; id: number; tiles: ImageData[] }
@@ -16,6 +16,7 @@ async function init(modelUrl: string, wasmOnly: boolean): Promise<void> {
     const res = await fetch(modelUrl)
     if (!res.ok) throw new Error('model not found')
     const buf = new Uint8Array(await res.arrayBuffer())
+    if (!looksLikeOnnx(buf, res.headers.get('content-type'))) throw new Error('model not found') // e.g. an SPA fallback page
     const options = { graphOptimizationLevel: 'all' as const }
     let ep = wasmOnly ? 'wasm' : 'webgpu'
     try {
