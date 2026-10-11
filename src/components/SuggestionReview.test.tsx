@@ -4,10 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppState } from '../state'
 
 const startDetectionMock = vi.hoisted(() => vi.fn())
-const job = vi.hoisted(() => ({ phase: 'done', fraction: 1, error: null as string | null, ballPhase: 'idle', ballFraction: 0, ballError: null as string | null, ballEp: null as string | null }))
+const job = vi.hoisted(() => ({ phase: 'done', fraction: 1, error: null as string | null, ballPhase: 'idle', ballFraction: 0, ballError: null as string | null, ballEp: null as string | null, ballMs: null as number | null, ballDetail: null as string | null }))
 vi.mock('../detectJobs', () => ({
     useDetectJob: (sel: (s: Record<string, unknown>) => unknown) => sel({ ...job, scores: null }),
-    startDetection: (...a: unknown[]) => startDetectionMock(...a), cancelDetection: vi.fn(), getDetectJob: () => ({ phase: 'done' }),
+    startDetection: (...a: unknown[]) => startDetectionMock(...a), cancelDetection: vi.fn(), getDetectJob: () => ({ ...job, phase: 'done' }),
 }))
 import { SuggestionReview } from './SuggestionReview'
 import { openFindGoals } from './findGoals'
@@ -17,7 +17,7 @@ const press = (key: string, opts: KeyboardEventInit = {}): void => { act(() => {
 const run = { createdAt: 1, source: 'audio' as const, configVersion: 1, analysedSec: 600, total: 2 }
 beforeEach(() => {
     setPlayerPaused(true)
-    job.phase = 'done'; job.fraction = 1; job.error = null; job.ballPhase = 'idle'; job.ballFraction = 0; job.ballError = null; job.ballEp = null
+    job.phase = 'done'; job.fraction = 1; job.error = null; job.ballPhase = 'idle'; job.ballFraction = 0; job.ballError = null; job.ballEp = null; job.ballMs = null; job.ballDetail = null
     useAppState.setState({
         files: [{ id: 'f', name: 'A.MP4', url: '', kind: 'full', durationSec: 600, file: new File([], 'A.MP4') }] as never,
         cumulativeOffsets: [0], events: [], suggestions: [], suggestionRun: null, reviewIndex: 0, panel: 'review',
@@ -465,6 +465,20 @@ describe('SuggestionReview', () => {
             render(<SuggestionReview onClose={() => {}} />)
             await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' })) })
             expect(screen.getByText('Copied.')).toBeTruthy()
+        })
+        it('should add the Ball check line to the diagnostics, or its error', async () => {
+            const writeText = vi.fn(async () => {})
+            Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+            toSummary()
+            job.ballPhase = 'done'; job.ballEp = 'webgpu'; job.ballMs = 41200
+            const { unmount } = render(<SuggestionReview onClose={() => {}} />)
+            await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' })) })
+            expect(String((writeText.mock.calls[0] as unknown[])[0])).toContain('Ball check: webgpu, 41 s, 0 tagged')
+            unmount()
+            job.ballPhase = 'failed'; job.ballError = "Ball check failed: this browser can't decode the video."; job.ballDetail = 'unsupported codec'
+            render(<SuggestionReview onClose={() => {}} />)
+            await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' })) })
+            expect(String((writeText.mock.calls[1] as unknown[])[0])).toContain("Ball check: Ball check failed: this browser can't decode the video. (unsupported codec)")
         })
         it('should show the text to select by hand when copying fails', async () => {
             Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn(async () => { throw new Error('denied') }) }, configurable: true })

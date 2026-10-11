@@ -56,12 +56,15 @@ export function firstPendingIndex(suggestions: Suggestion[], eventIds: ReadonlyS
 const mmss = (sec: number): string => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`
 
 /** Plain text for Copy diagnostics: settings and counts only (no times, no audio). */
-export function detectionReport(run: SuggestionRun | null, counts: ReviewCounts): string {
+export type BallReport = { ep: string | null; ms: number | null; tagged: number } | { error: string }
+
+export function detectionReport(run: SuggestionRun | null, counts: ReviewCounts, ball?: BallReport | null): string {
     const types = Object.entries(counts.byType).map(([k, v]) => `${k.replace('_', ' ')} ${v}`).join(', ')
     return [
         `Find goals (Beta), ${run?.source ?? 'audio'}, config v${run?.configVersion ?? '?'}`,
         `Analysed: ${run ? mmss(run.analysedSec) : '—'}`,
         `Run time: ${run?.durationMs !== undefined ? `${Math.round(run.durationMs / 1000)}s` : '—'}`,
         `Kept ${counts.kept} of ${counts.total}${types ? ` (${types})` : ''}, rejected ${counts.rejected}, not reviewed ${counts.pending}`,
+        ...(ball ? [`Ball check: ${'error' in ball ? ball.error : `${ball.ep ?? '?'}, ${ball.ms !== null ? Math.round(ball.ms / 1000) : '—'} s, ${ball.tagged} tagged`}`] : []),
     ].join('\n')
 }
