@@ -23,3 +23,23 @@ export function stepLoop(state: LoopState, nowAbs: number, w: LoopWindow, wallMs
     if (nowAbs >= w.endAbs) return { state: { released: false, seekingSince: wallMs }, loop: true }
     return { state, loop: false }
 }
+
+export const REVIEW_STEP_SEC = 2
+
+/** Review window around `timeSec`: default offsets plus how far the user has extended each side; clamped to [0, totalSec]. */
+export function reviewWindow(
+    timeSec: number, defaults: readonly [number, number], extraBefore: number, extraAfter: number, totalSec: number,
+): LoopWindow {
+    const startAbs = Math.max(0, timeSec + defaults[0] - extraBefore)
+    const endAbs = Math.min(Math.max(timeSec, totalSec), timeSec + defaults[1] + extraAfter)
+    return { startAbs, endAbs }
+}
+
+/** Compact label for the window relative to the suggestion, e.g. "−7 s … +4 s". */
+export function formatReviewWindow(timeSec: number, w: LoopWindow): string {
+    const f = (v: number): string => {
+        const r = Math.round(v)
+        return `${r < 0 ? '−' : '+'}${Math.abs(r)} s`
+    }
+    return `${f(w.startAbs - timeSec)} … ${f(w.endAbs - timeSec)}`
+}

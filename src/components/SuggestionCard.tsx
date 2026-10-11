@@ -3,6 +3,7 @@ import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import type { KeepType, Suggestion } from '../types'
 import { formatClock } from '../utils/timeline'
 import { togglePlayerPlayback } from './playerControl'
+import { formatReviewWindow } from '../utils/reviewLoop'
 import { useReviewLoop } from './useReviewLoop'
 
 interface SuggestionCardProps {
@@ -27,7 +28,7 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, prese
     const kickOff = useAppState(selectMatchStartSec)
     const long = useAppState(selectClockLong)
     const [needTeam, setNeedTeam] = useState<KeepType | null>(null)
-    useReviewLoop(suggestion.globalTimeSec)
+    const loop = useReviewLoop(suggestion.globalTimeSec)
     useEffect(() => setNeedTeam(null), [suggestion.id])
 
     const decide = (type: KeepType | 'reject', team?: string): void => {
@@ -53,6 +54,8 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, prese
             if (needTeam && (k === '1' || k === '2')) { e.preventDefault(); decide(needTeam, teams[Number(k) - 1]?.name); return }
             const a = ACTIONS.find((x) => x.key.toLowerCase() === k)
             if (a) { e.preventDefault(); choose(a.type); return }
+            if (e.key === '[') { e.preventDefault(); loop.earlier(); return }
+            if (e.key === ']') { e.preventDefault(); loop.later(); return }
             if (e.key === 'ArrowRight') { e.preventDefault(); onNext() }
             if (e.key === 'ArrowLeft') { e.preventDefault(); onPrev() }
         }
@@ -80,6 +83,11 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, prese
                     ))}
                 </div>
             )}
+            <div className="review__window" role="group" aria-label="Loop window">
+                <button type="button" className="btn-quiet review__btn" aria-label="Start 2 seconds earlier" onClick={loop.earlier}>−2 s <kbd>[</kbd></button>
+                <span className="tc review__range">{loop.window ? formatReviewWindow(suggestion.globalTimeSec, loop.window) : ''}</span>
+                <button type="button" className="btn-quiet review__btn" aria-label="End 2 seconds later" onClick={loop.later}>+2 s <kbd>]</kbd></button>
+            </div>
             <div className="review__nav">
                 <button type="button" className="btn-quiet review__btn" onClick={onPrev} disabled={index === 0}>← Previous</button>
                 <button type="button" className="btn-quiet review__btn" onClick={onNext}>Skip →</button>

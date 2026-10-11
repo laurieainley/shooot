@@ -162,6 +162,54 @@ describe('SuggestionReview', () => {
         expect(live.textContent).toBe('Listening for goals.')
         expect(live.contains(screen.getByRole('progressbar'))).toBe(false)
     })
+    describe('review window', () => {
+        const seekSpy = (): ReturnType<typeof vi.fn> => { const f = vi.fn(); useAppState.setState({ seekToGoal: f }); return f }
+        it('should default to 5 s before and 2 s after', () => {
+            render(<SuggestionReview onClose={() => {}} />)
+            expect(screen.getByText('−5 s … +2 s')).toBeTruthy()
+        })
+        it('should extend the start with [ (seeking to the new start) and the end with ]', () => {
+            const seek = seekSpy()
+            render(<SuggestionReview onClose={() => {}} />)
+            seek.mockClear()
+            act(() => { fireEvent.keyDown(window, { key: '[' }) })
+            act(() => { fireEvent.keyDown(window, { key: '[' }) })
+            expect(screen.getByText('−9 s … +2 s')).toBeTruthy()
+            expect(seek).toHaveBeenLastCalledWith(0, 91)
+            seek.mockClear()
+            act(() => { fireEvent.keyDown(window, { key: ']' }) })
+            expect(screen.getByText('−9 s … +4 s')).toBeTruthy()
+            expect(seek).not.toHaveBeenCalled()
+        })
+        it('should reset to the default for the next suggestion', () => {
+            render(<SuggestionReview onClose={() => {}} />)
+            act(() => { fireEvent.keyDown(window, { key: '[' }) })
+            act(() => { fireEvent.keyDown(window, { key: ']' }) })
+            act(() => { fireEvent.keyDown(window, { key: 'ArrowRight' }) })
+            expect(screen.getByText(/Suggestion 2 of 2/)).toBeTruthy()
+            expect(screen.getByText('−5 s … +2 s')).toBeTruthy()
+        })
+        it('should not start before 0 or end after the last file', () => {
+            useAppState.getState().setSuggestions(run, [{ timeSec: 7, score: 5 }, { timeSec: 598, score: 4 }])
+            render(<SuggestionReview onClose={() => {}} />)
+            for (let i = 0; i < 3; i++) act(() => { fireEvent.keyDown(window, { key: '[' }) })
+            expect(screen.getByText('−7 s … +2 s')).toBeTruthy()
+            act(() => { fireEvent.keyDown(window, { key: 'ArrowRight' }) })
+            for (let i = 0; i < 3; i++) act(() => { fireEvent.keyDown(window, { key: ']' }) })
+            expect(screen.getByText('−5 s … +2 s')).toBeTruthy() // 598 + 2 = 600 is already the end
+        })
+        it('should have 44 px buttons with labels, and ignore the keys with modifiers or repeat', () => {
+            render(<SuggestionReview onClose={() => {}} />)
+            expect(screen.getByRole('button', { name: 'Start 2 seconds earlier' }).className).toContain('review__btn')
+            expect(screen.getByRole('button', { name: 'End 2 seconds later' }).className).toContain('review__btn')
+            act(() => { fireEvent.keyDown(window, { key: '[', metaKey: true }) })
+            act(() => { fireEvent.keyDown(window, { key: ']', ctrlKey: true }) })
+            act(() => { fireEvent.keyDown(window, { key: '[', repeat: true }) })
+            expect(screen.getByText('−5 s … +2 s')).toBeTruthy()
+            fireEvent.click(screen.getByRole('button', { name: 'Start 2 seconds earlier' }))
+            expect(screen.getByText('−7 s … +2 s')).toBeTruthy()
+        })
+    })
     describe('copy feedback', () => {
         const toSummary = (): void => { useAppState.setState({ suggestions: [], suggestionRun: { ...run, total: 0 } }) }
         afterEach(() => { Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true }) })
