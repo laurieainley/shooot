@@ -1,6 +1,10 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { GoalAreas, MarkerType, MatchEvent, Team, VideoSourceFile } from './types'
+import type { GoalAreas, KeepType, MarkerType, MatchEvent, Suggestion, SuggestionRun, Team, VideoSourceFile } from './types'
+import type { ScoredMoment } from './utils/goalAudioScore'
+import { mergeSuggestions } from './utils/suggestions'
+import { globalToFileTime } from './utils/matchStrip'
+import { AUDIO_DETECT } from './detect/detectConfig'
 import { replayOptionsFor } from './utils/attack'
 import { normaliseAreas } from './utils/crop'
 import { migrateEvent } from './utils/eventTypes'
@@ -21,7 +25,7 @@ function relinkEvents(events: MatchEvent[], files: VideoSourceFile[]): MatchEven
 }
 
 /** Menus and sheets; at most one is open, and never together with the event picker. */
-export type Panel = 'menu' | 'files' | 'match' | 'settings' | 'paste' | 'export' | 'event' | 'send' | 'shortcuts'
+export type Panel = 'menu' | 'files' | 'match' | 'settings' | 'paste' | 'export' | 'event' | 'send' | 'shortcuts' | 'review'
 
 type AppState = {
     files: VideoSourceFile[]
@@ -116,6 +120,17 @@ type AppState = {
     /** Open the edit sheet for an event (touch: tapping a row in the event log). */
     editEvent: (id: string) => void
     openPanel: (panel: Panel) => void
+    /** Suggested moments from Find goals (Beta), with the user's decisions. */
+    suggestions: Suggestion[]
+    suggestionRun: SuggestionRun | null
+    /** Which suggestion the review panel shows (not persisted). */
+    reviewIndex: number
+    setSuggestions: (run: SuggestionRun, moments: ScoredMoment[]) => void
+    /** Keep adds the event; changing a kept decision removes the old event first (each is its own undo step). */
+    decideSuggestion: (id: string, decision: { kind: 'reject' } | { kind: 'keep'; type: KeepType; team?: string }) => void
+    clearSuggestions: () => void
+    setReviewIndex: (i: number) => void
+    openReviewAt: (id: string) => void
     closePanel: () => void
     // Match graphics (title/full-time cards, lower thirds)
     graphics: GraphicsSettings
@@ -193,6 +208,9 @@ export const useAppState = create<AppState>()(
             // Undo/redo stacks
             undoStack: [],
             redoStack: [],
+            suggestions: [],
+            suggestionRun: null,
+            reviewIndex: 0,
             // Preview mode state
             isPreviewMode: false,
             previewSegments: [],
@@ -368,7 +386,7 @@ export const useAppState = create<AppState>()(
                     undoStack: [...state.undoStack, state.events],
                 })
             },
-            clear: () => set({ files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, undoStack: [], redoStack: [], picker: null }),
+            clear: () => set({ files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0, adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, undoStack: [], redoStack: [], picker: null, suggestions: [], suggestionRun: null, reviewIndex: 0 }),
             // Start a new game: drop events, videos and kick-off; keep teams, rosters and clip/replay settings.
             // Events go on the undo stack so an accidental clear can be undone.
             newMatch: () => {
@@ -379,6 +397,7 @@ export const useAppState = create<AppState>()(
                     isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, picker: null, panel: null,
                     undoStack: [...state.undoStack.slice(-49), state.events], redoStack: [],
                     matchdayLabel: null, goalAreas: null,
+                    suggestions: [], suggestionRun: null, reviewIndex: 0,
                 })
             },
             setTeams: (teams) => set({ teams }),
@@ -440,6 +459,32 @@ export const useAppState = create<AppState>()(
                 if (get().events.some((e) => e.id === id)) set({ panel: 'event', editingEventId: id, picker: null })
             },
             openPanel: (panel) => set({ panel, picker: null }),
+            setSuggestions: (run, moments) => {
+                const id = (): string => `sug-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+                set({ suggestions: mergeSuggestions(get().suggestions, moments, AUDIO_DETECT.minGapSec, id), suggestionRun: run, reviewIndex: 0 })
+            },
+            decideSuggestion: (id, decision) => {
+                const st = get()
+                const s = st.suggestions.find((x) => x.id === id)
+                if (!s) return
+                const live = s.eventId && st.events.some((e) => e.id === s.eventId) ? s.eventId : undefined
+                if (live) get().removeEvent(live)
+                if (decision.kind === 'reject') {
+                    set({ suggestions: get().suggestions.map((x) => (x.id === id ? { ...x, status: 'rejected', keptAs: undefined, eventId: undefined } : x)) })
+                    return
+                }
+                const durations = st.files.map((f) => f.durationSec ?? 0)
+                const at = globalToFileTime(st.cumulativeOffsets, durations, Math.max(0, s.globalTimeSec + AUDIO_DETECT.eventOffsetSec))
+                const eventId = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+                get().addEvent({ id: eventId, matchTimeSec: Math.floor(at.timeSec), sourceFileIndex: at.fileIndex, type: decision.type, ...(decision.team ? { team: decision.team } : {}) })
+                set({ suggestions: get().suggestions.map((x) => (x.id === id ? { ...x, status: 'kept', keptAs: decision.type, eventId } : x)) })
+            },
+            clearSuggestions: () => set({ suggestions: [], suggestionRun: null, reviewIndex: 0 }),
+            setReviewIndex: (i) => set({ reviewIndex: Math.max(0, i) }),
+            openReviewAt: (id) => {
+                const i = get().suggestions.findIndex((x) => x.id === id)
+                set({ reviewIndex: Math.max(0, i), panel: 'review', picker: null })
+            },
             closePanel: () => set({ panel: null }),
             // Preview mode actions
             startPreview: () => {
@@ -496,8 +541,10 @@ export const useAppState = create<AppState>()(
                 matchdayLabel: state.matchdayLabel,
                 goalAreas: state.goalAreas,
                 barCollapsed: state.barCollapsed,
+                suggestions: state.suggestions,
+                suggestionRun: state.suggestionRun,
             }),
-            version: 16,
+            version: 17,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -567,6 +614,12 @@ export const useAppState = create<AppState>()(
 
                 // Graphics themes (v16): saved projects get the Shooot look.
                 if (version < 16 && state.graphics) state.graphics = { ...state.graphics, theme: 'shooot' }
+
+                // Find goals (Beta) suggestions (v17).
+                if (version < 17) {
+                    state.suggestions = Array.isArray(state.suggestions) ? state.suggestions : []
+                    state.suggestionRun = state.suggestionRun ?? null
+                }
 
                 return state
             },

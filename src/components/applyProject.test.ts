@@ -27,4 +27,12 @@ describe('applyTransferPayload', () => {
         expect(useAppState.getState().graphics.theme).toBe('classic')
         useAppState.getState().setGraphics({ theme: 'shooot' })
     })
+
+    it('should clear suggestions when a project is applied', () => {
+        useAppState.getState().setSuggestions({ createdAt: 1, source: 'audio', configVersion: 1, analysedSec: 60, total: 1 }, [{ timeSec: 10, score: 1 }])
+        const base = buildTransferPayload({ ...useAppState.getState(), events: [], teams: [] })
+        applyTransferPayload(base)
+        expect(useAppState.getState().suggestions).toEqual([])
+        expect(useAppState.getState().suggestionRun).toBeNull()
+    })
 })
