@@ -12,11 +12,11 @@ const AFTER = 10
 
 describe('mergeOverlappingGoalSegments', () => {
   it('should return empty array for no goals', () => {
-    expect(mergeOverlappingGoalSegments([], NO_OFFSETS, 0, false, BEFORE, AFTER)).toEqual([])
+    expect(mergeOverlappingGoalSegments([], NO_OFFSETS, BEFORE, AFTER)).toEqual([])
   })
 
   it('should produce one segment for a single goal', () => {
-    const result = mergeOverlappingGoalSegments([goal('a', 60)], NO_OFFSETS, 0, false, BEFORE, AFTER)
+    const result = mergeOverlappingGoalSegments([goal('a', 60)], NO_OFFSETS, BEFORE, AFTER)
     expect(result).toHaveLength(1)
     expect(result[0].startTime).toBe(55)
     expect(result[0].endTime).toBe(70)
@@ -29,8 +29,6 @@ describe('mergeOverlappingGoalSegments', () => {
     const result = mergeOverlappingGoalSegments(
       [goal('a', 60), goal('b', 62)],
       NO_OFFSETS,
-      0,
-      false,
       BEFORE,
       AFTER,
     )
@@ -45,8 +43,6 @@ describe('mergeOverlappingGoalSegments', () => {
     const result = mergeOverlappingGoalSegments(
       [goal('a', 30), goal('b', 100)],
       NO_OFFSETS,
-      0,
-      false,
       BEFORE,
       AFTER,
     )
@@ -75,8 +71,6 @@ describe('mergeOverlappingGoalSegments', () => {
     const result = mergeOverlappingGoalSegments(
       [goal('b', 100), goal('a', 30)],
       NO_OFFSETS,
-      0,
-      false,
       BEFORE,
       AFTER,
     )
@@ -86,7 +80,7 @@ describe('mergeOverlappingGoalSegments', () => {
   })
 
   it('should compute correct duration for each merged segment', () => {
-    const result = mergeOverlappingGoalSegments([goal('a', 60)], NO_OFFSETS, 0, false, BEFORE, AFTER)
+    const result = mergeOverlappingGoalSegments([goal('a', 60)], NO_OFFSETS, BEFORE, AFTER)
     expect(result[0].duration).toBe(result[0].endTime - result[0].startTime)
   })
 })
@@ -98,8 +92,15 @@ describe('mergeOverlappingGoalSegments — match markers', () => {
       goal('g', 100),
       { id: 'w', matchTimeSec: 900, sourceFileIndex: 0, type: 'final_whistle' },
     ]
-    const segs = mergeOverlappingGoalSegments(events, NO_OFFSETS, 0, false, BEFORE, AFTER)
+    const segs = mergeOverlappingGoalSegments(events, NO_OFFSETS, BEFORE, AFTER)
     expect(segs.map((s) => s.goals.map((g) => g.id))).toEqual([['g']])
-    expect(mergeOverlappingGoalSegments(events.filter((e) => e.type !== 'goal'), NO_OFFSETS, 0, false, BEFORE, AFTER)).toEqual([])
+    expect(mergeOverlappingGoalSegments(events.filter((e) => e.type !== 'goal'), NO_OFFSETS, BEFORE, AFTER)).toEqual([])
+  })
+})
+
+describe('mergeOverlappingGoalSegments — ordering', () => {
+  it('should order segments along the whole timeline, whatever order events arrive in', () => {
+    const segs = mergeOverlappingGoalSegments([goal('late', 30, 1), goal('early', 500, 0)], [0, 600], BEFORE, AFTER)
+    expect(segs.map((s) => s.goals[0].id)).toEqual(['early', 'late'])
   })
 })

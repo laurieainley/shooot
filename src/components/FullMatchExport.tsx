@@ -25,7 +25,7 @@ const INTERVALS = Array.from({ length: MAX_INTERVAL_MIN - MIN_INTERVAL_MIN + 1 }
 export function FullMatchExport() {
     // Only what the plan reads (not the playhead), so the panel does not recompute while the video plays.
     const st = useAppState(useShallow((s): ExportState => ({
-        files: s.files, events: s.events, cumulativeOffsets: s.cumulativeOffsets, adjustTimestampsByOffset: s.adjustTimestampsByOffset,
+        files: s.files, events: s.events, cumulativeOffsets: s.cumulativeOffsets,
         lengthBeforeGoalSec: s.lengthBeforeGoalSec, lengthAfterGoalSec: s.lengthAfterGoalSec, replayBeforeSec: s.replayBeforeSec,
         replayAfterSec: s.replayAfterSec, replaySpeed: s.replaySpeed, graphics: s.graphics, teams: s.teams, matchdayLabel: s.matchdayLabel,
         fullMatch: s.fullMatch,

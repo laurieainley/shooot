@@ -47,7 +47,7 @@ export function buildMatchStrip(args: {
 
     const stripFiles = files.map((f, i) => ({ name: f.name, leftPct: pct(cumulativeOffsets[i] ?? 0), widthPct: pct(durations[i]) }))
     const linked = linkedEvents(events)
-    const segments = mergeOverlappingGoalSegments(linked, cumulativeOffsets, 0, false, before, after)
+    const segments = mergeOverlappingGoalSegments(linked, cumulativeOffsets, before, after)
     const clips = segments.map((s) => {
         const start = (cumulativeOffsets[s.sourceFileIndex] ?? 0) + s.startTime
         const end = (cumulativeOffsets[s.sourceFileIndex] ?? 0) + s.endTime

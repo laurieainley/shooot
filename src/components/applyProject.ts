@@ -22,5 +22,4 @@ export function applyTransferPayload(p: TransferPayload): void {
     if (p.fullMatch) st.setFullMatch(p.fullMatch)
     st.setMatchdayLabel(typeof p.matchdayLabel === 'string' ? p.matchdayLabel : null)
     st.setGoalAreas(normaliseAreas(p.goalAreas, left))
-    if (typeof p.adjustTimestampsByOffset === 'boolean') st.setAdjustTimestampsByOffset(p.adjustTimestampsByOffset)
 }

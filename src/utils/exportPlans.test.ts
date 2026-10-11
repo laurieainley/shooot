@@ -10,7 +10,7 @@ const events: MatchEvent[] = [
     { id: 'w', type: 'final_whistle', matchTimeSec: 50, sourceFileIndex: 1 },
 ]
 const state = (extra: Partial<ExportState> = {}): ExportState => ({
-    files: [file('GX010001.MP4'), file('GX020001.MP4')], events, cumulativeOffsets: [0, 100], adjustTimestampsByOffset: false,
+    files: [file('GX010001.MP4'), file('GX020001.MP4')], events, cumulativeOffsets: [0, 100],
     lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5,
     graphics: { cards: true, lowerThirds: true, replayTag: false, theme: 'shooot' },
     teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }],

@@ -11,7 +11,7 @@ const vf: VideoSourceFile = { id: 'a', name: 'a.mp4', url: '', file: new File(['
 describe('ReelSummary', () => {
     beforeEach(() => {
         useAppState.setState({
-            files: [vf], cumulativeOffsets: [0], adjustTimestampsByOffset: false,
+            files: [vf], cumulativeOffsets: [0],
             lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, replayBeforeSec: 3, replayAfterSec: 1, replaySpeed: 0.5,
             events: [
                 { id: 'a', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal' },

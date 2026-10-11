@@ -3,7 +3,7 @@ import { reelSummary, formatReelLength, clipSettingsLine } from './reel'
 import type { MatchEvent } from '../types'
 
 const ev = (id: string, t: number, extra: Partial<MatchEvent> = {}): MatchEvent => ({ id, matchTimeSec: t, sourceFileIndex: 0, type: 'goal', ...extra })
-const base = { cumulativeOffsets: [0], durationsSec: [600], matchStartSec: 0, adjustTimestampsByOffset: false, before: 10, after: 4, replay: { beforeSec: 3, afterSec: 1, speed: 0.5 } }
+const base = { cumulativeOffsets: [0], durationsSec: [600], before: 10, after: 4, replay: { beforeSec: 3, afterSec: 1, speed: 0.5 } }
 
 describe('reelSummary', () => {
     it('should be empty without events', () => {

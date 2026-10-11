@@ -146,6 +146,13 @@ describe('teams and picker', () => {
         expect(s().teams[0]).toMatchObject({ name: 'A', roster: ['x'] })
     })
 
+    it('should drop the removed adjustTimestampsByOffset setting (v18)', () => {
+        const migrate = useAppState.persist.getOptions().migrate!
+        const out = migrate({ adjustTimestampsByOffset: true, lengthBeforeGoalSec: 8 }, 17) as Record<string, unknown>
+        expect('adjustTimestampsByOffset' in out).toBe(false)
+        expect(out.lengthBeforeGoalSec).toBe(8)
+    })
+
     it('should migrate v8 legacy event types and persist teams (v9+)', () => {
         const opts = useAppState.persist.getOptions()
         expect(opts.version).toBe(17)
@@ -366,7 +373,7 @@ describe('preview', () => {
     beforeEach(() => {
         useAppState.setState({
             files: [], events: [], cumulativeOffsets: [], undoStack: [], redoStack: [], currentFileIndex: 0, isPreviewMode: false,
-            adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
+            lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
             replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5,
         })
         s().setFiles([vf('a.mp4')])
@@ -502,7 +509,7 @@ describe('goal areas and replay framing', () => {
     beforeEach(() => {
         useAppState.setState({
             files: [], events: [], cumulativeOffsets: [], undoStack: [], redoStack: [], currentFileIndex: 0, isPreviewMode: false,
-            adjustTimestampsByOffset: false, lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
+            lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4,
             replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5, goalAreas: null,
         })
         s().setFiles([vf('a.mp4')])
