@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createDetectJobs } from './detectJobs'
+import { BallDecodeError } from './detect/runBallCheck'
 import { useAppState } from './state'
 
 describe('detection job', () => {
@@ -172,5 +173,39 @@ describe('detection job phase 2 (ball check)', () => {
         expect(calls).toHaveLength(1)
         expect(Math.min(...calls[0])).toBeLessThan(110)
         expect(jobs.store.getState().ballPhase).toBe('done')
+    })
+    it('should read full-quality files for the ball check and the proxy for the audio pass', async () => {
+        const proxy = new File([], 'GL010226.LRV'), full = new File([], 'GX010226.MP4')
+        useAppState.setState({ files: [{ id: 'f', name: 'GX010226.MP4', url: '', kind: 'proxy', durationSec: 600, file: proxy, fullFile: full }] as never, cumulativeOffsets: [0], events: [], suggestions: [], suggestionRun: null, labs: true, goalMarks: { team1: marks } })
+        const run = vi.fn(async () => ({ moments: [{ timeSec: 300, score: 2 }], scores: new Float32Array(3), analysedSec: 600 }))
+        const opened: File[] = []
+        const frames = async (f: File) => ({ frameSize: { w: 1000, h: 1000 }, async *tilesAt() { /* no frames */ }, dispose: () => {}, _f: opened.push(f) })
+        const detector = () => ({ ready: Promise.resolve({ ep: 'wasm' }), detect: async () => [], dispose: () => {} })
+        const jobs = createDetectJobs({ run: run as never, wakeLock: wake, now: () => 0, ballDeps: { frames, detector } as never })
+        await jobs.start()
+        expect((run.mock.calls[0] as unknown as [{ file: File }[]])[0].map((f) => f.file)).toEqual([proxy])
+        expect(opened).toEqual([full])
+    })
+    it('should record the execution provider and a plain decode failure with the raw reason kept aside', async () => {
+        setup(true)
+        const ball = vi.fn(async (_a, _d, _s, _p, _v, onReady: (ep: string) => void) => { onReady('webgpu'); return { ep: 'webgpu' } })
+        const jobs = createDetectJobs({ run: audio as never, wakeLock: wake, now: () => 0, ball: ball as never, ballDeps })
+        await jobs.start()
+        expect(jobs.store.getState()).toMatchObject({ ballPhase: 'done', ballEp: 'webgpu', ballDetail: null })
+        const bad = vi.fn(async () => { throw new BallDecodeError('VideoDecoder: unsupported codec hvc1') })
+        const jobs2 = createDetectJobs({ run: audio as never, wakeLock: wake, now: () => 0, ball: bad as never, ballDeps })
+        await jobs2.start()
+        expect(jobs2.store.getState()).toMatchObject({ ballPhase: 'failed', ballError: "Ball check failed: this browser can't decode the video.", ballDetail: 'VideoDecoder: unsupported codec hvc1' })
+    })
+    it('should stop phase 2 when Labs is switched off meanwhile, keeping the audio results', async () => {
+        setup(true)
+        const ball = vi.fn((_a, _d, signal: AbortSignal) => new Promise<never>((_, rej) => signal.addEventListener('abort', () => rej(new Error('Cancelled')))))
+        const jobs = createDetectJobs({ run: audio as never, wakeLock: wake, now: () => 0, ball: ball as never, ballDeps })
+        const p = jobs.start()
+        await vi.waitFor(() => expect(jobs.store.getState().ballPhase).toBe('running'))
+        useAppState.getState().setLabs(false)
+        await p
+        expect(jobs.store.getState()).toMatchObject({ phase: 'done', ballPhase: 'idle', ballError: null })
+        expect(useAppState.getState().suggestions).toHaveLength(2)
     })
 })

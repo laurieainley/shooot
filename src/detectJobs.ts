@@ -5,7 +5,7 @@ import { useAppState } from './state'
 import { AUDIO_DETECT } from './detect/detectConfig'
 import { defaultDetectDeps, detectionRange, runAudioDetection } from './detect/runAudioDetection'
 import { fileKeys } from './utils/fileKey'
-import { runBallCheck, type BallCheckDeps } from './detect/runBallCheck'
+import { BallDecodeError, runBallCheck, type BallCheckDeps } from './detect/runBallCheck'
 import { createBallDetector } from './detect/ballDetector'
 import { effectiveStatus } from './utils/suggestions'
 import { createRenderWakeLock, type RenderWakeLock } from './renderWakeLock'
@@ -16,6 +16,8 @@ export type DetectJobState = {
     phase: DetectPhase; fraction: number; error: string | null; scores: Float32Array | null
     /** Labs ball check (phase 2): runs after the audio suggestions are saved, so the review can start meanwhile. */
     ballPhase: BallPhase; ballFraction: number; ballError: string | null; ballMs: number | null
+    /** The ball model's execution provider once it is ready (null while loading); the raw reason behind a decode failure. */
+    ballEp: string | null; ballDetail: string | null
 }
 type JobDeps = { run: typeof runAudioDetection; wakeLock: () => RenderWakeLock; now: () => number; ball: typeof runBallCheck; ballDeps: BallCheckDeps }
 
@@ -23,10 +25,11 @@ const defaultBallDeps: BallCheckDeps = {
     frames: async (file) => (await import('./detect/frameSource')).createFrameSource(file),
     detector: () => createBallDetector(), // the worker (and onnxruntime) only load when phase 2 creates it
 }
-const IDLE_BALL = { ballPhase: 'idle', ballFraction: 0, ballError: null, ballMs: null } as const
+const IDLE_BALL = { ballPhase: 'idle', ballFraction: 0, ballError: null, ballMs: null, ballEp: null, ballDetail: null } as const
 
 /** The user-facing line for a failed ball check. */
 export function ballErrorLine(e: unknown): string {
+    if (e instanceof BallDecodeError) return "Ball check failed: this browser can't decode the video."
     const msg = e instanceof Error ? e.message : String(e)
     return /model not found/i.test(msg) ? 'Ball check unavailable: model not found.' : `Ball check failed: ${msg}`
 }
@@ -45,6 +48,11 @@ export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi
             .map((f, i) => ({ file: f.file, durationSec: f.durationSec ?? 0, offsetSec: app.cumulativeOffsets[i] ?? 0 }))
             .filter((f): f is { file: File; durationSec: number; offsetSec: number } => !!f.file && f.durationSec > 0)
         if (files.length === 0) { store.setState({ phase: 'failed', fraction: 0, error: 'Load the match videos first.', scores: null, ...IDLE_BALL }); return }
+        // Phase 2 reads the full-quality files (the audio pass uses the proxy), same offsets and durations.
+        const ballFiles = app.files.flatMap((f, i) => {
+            const file = f.fullFile ?? f.file, durationSec = f.durationSec ?? 0
+            return f.file && file && durationSec > 0 ? [{ file, durationSec, offsetSec: app.cumulativeOffsets[i] ?? 0 }] : []
+        })
         const totalSec = Math.max(0, ...files.map((f) => f.offsetSec + f.durationSec))
         const range = detectionRange(app.events, app.cumulativeOffsets, totalSec)
         const mine = new AbortController()
@@ -53,7 +61,10 @@ export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi
         const snapshot = app.files.map((f) => f.file)
         const keys = fileKeys(app.files)
         const startedAt = deps.now()
-        const unwatch = useAppState.subscribe((s) => { if (!sameFiles(snapshot, s.files.map((f) => f.file))) mine.abort() })
+        const unwatch = useAppState.subscribe((s) => {
+            if (!sameFiles(snapshot, s.files.map((f) => f.file))) mine.abort()
+            else if (!s.labs && store.getState().ballPhase === 'running') mine.abort() // Labs switched off: stop phase 2, the audio results stay
+        })
         const lock = deps.wakeLock()
         store.setState({ phase: 'running', fraction: 0, error: null, scores: null, ...IDLE_BALL })
         await lock.acquire().catch(() => {})
@@ -65,20 +76,21 @@ export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi
             useAppState.getState().setSuggestions({ createdAt: now, source: 'audio', configVersion: AUDIO_DETECT.version, analysedSec: r.analysedSec, total: r.moments.length, durationMs: Math.max(0, now - startedAt), fileKeys: keys }, r.moments)
             store.setState({ phase: 'done', fraction: 1, scores: r.scores })
             const after = useAppState.getState()
-            if (after.labs && after.goalMarks && (after.goalMarks.team1 || after.goalMarks.team2) && files.length > 0 && after.suggestions.length > 0) {
+            if (after.labs && after.goalMarks && (after.goalMarks.team1 || after.goalMarks.team2) && ballFiles.length > 0 && after.suggestions.length > 0) {
                 const marks = after.goalMarks
                 const ballStart = deps.now()
-                store.setState({ ballPhase: 'running', ballFraction: 0, ballError: null, ballMs: null })
+                store.setState({ ballPhase: 'running', ballFraction: 0, ballError: null, ballMs: null, ballEp: null, ballDetail: null })
                 try {
-                    await deps.ball({ suggestions: after.suggestions, marks, files, totalSec,
+                    const ball = await deps.ball({ suggestions: after.suggestions, marks, files: ballFiles, totalSec,
                         stillPending: (s) => { const st = useAppState.getState(); const cur = st.suggestions.find((x) => x.id === s.id); return !!cur && effectiveStatus(cur, new Set(st.events.map((e) => e.id))) === 'pending' } }, deps.ballDeps, mine.signal,
                         (ballFraction) => { if (ac === mine) store.setState({ ballFraction }) },
-                        (id, ball) => { if (!mine.signal.aborted && sameFiles(snapshot, useAppState.getState().files.map((f) => f.file))) useAppState.getState().setSuggestionBall(id, ball) })
-                    if (ac === mine) store.setState({ ballPhase: 'done', ballFraction: 1, ballMs: Math.max(0, deps.now() - ballStart) })
+                        (id, ball) => { if (!mine.signal.aborted && sameFiles(snapshot, useAppState.getState().files.map((f) => f.file))) useAppState.getState().setSuggestionBall(id, ball) },
+                        (ballEp) => { if (ac === mine) store.setState({ ballEp }) })
+                    if (ac === mine) store.setState({ ballPhase: 'done', ballFraction: 1, ballMs: Math.max(0, deps.now() - ballStart), ballEp: ball?.ep ?? store.getState().ballEp })
                 } catch (e) {
                     // Audio suggestions and any ball tags already written stay; cancelling is not an error.
                     const stop = mine.signal.aborted || (e instanceof Error && e.message === 'Cancelled')
-                    if (ac === mine) store.setState(stop ? { ballPhase: 'idle', ballFraction: 0, ballMs: Math.max(0, deps.now() - ballStart) } : { ballPhase: 'failed', ballError: ballErrorLine(e), ballMs: Math.max(0, deps.now() - ballStart) })
+                    if (ac === mine) store.setState(stop ? { ballPhase: 'idle', ballFraction: 0, ballMs: Math.max(0, deps.now() - ballStart) } : { ballPhase: 'failed', ballError: ballErrorLine(e), ballDetail: e instanceof BallDecodeError ? e.message : null, ballMs: Math.max(0, deps.now() - ballStart) })
                 }
             }
         } catch (e) {
