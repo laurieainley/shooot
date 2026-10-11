@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState, type ReactNode } from 'react'
+import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
 import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import type { KeepType, Suggestion } from '../types'
 import { formatClock } from '../utils/timeline'
@@ -22,6 +22,8 @@ interface SuggestionCardProps {
     onPrev: () => void
     /** Team pre-selected after Goal / Own goal, so Enter saves with it (defaults to the first team). */
     preselectTeam?: string
+    /** Type pre-selected once the moment is settled (marked or estimate accepted), so Enter saves it. */
+    preselectType?: KeepType
     /** One optional line above the actions, e.g. "Ball in Colours' goal". */
     hint?: ReactNode
 }
@@ -45,7 +47,7 @@ function Chevron({ dir }: { dir: 'left' | 'right' }) {
  * One suggested moment, one step at a time: watch and mark the exact moment, say what it was (and which team), then
  * save. Keys and buttons only select; Save (Enter) confirms and moves on. Finished steps fold into a chip that reopens them.
  */
-export function SuggestionCard({ suggestion, index, total, onNext, onPrev, preselectTeam, hint }: SuggestionCardProps) {
+export function SuggestionCard({ suggestion, index, total, onNext, onPrev, preselectTeam, preselectType, hint }: SuggestionCardProps) {
     const teams = useAppState((s) => s.teams)
     const kickOff = useAppState(selectMatchStartSec)
     const long = useAppState(selectClockLong)
@@ -55,10 +57,15 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, prese
     const loop = useReviewLoop(suggestion.globalTimeSec)
     const moment = useMarkedMoment(suggestion.id)
     const [decision, dispatch] = useReducer(decisionReducer, EMPTY_DECISION)
+    // Once the user has touched the selection on this card (chose, changed or cleared), a late ball tag must not choose for them.
+    const touchedFor = useRef<string | null>(null)
+    const touch = (a: Parameters<typeof dispatch>[0]): void => { touchedFor.current = suggestion.id; dispatch(a) }
     const [acceptedEstimate, setAcceptedEstimate] = useState(false)
     const [remarking, setRemarking] = useState(false)
     useEffect(() => { dispatch({ kind: 'clear' }); setAcceptedEstimate(false); setRemarking(false) }, [suggestion.id])
 
+    const preselectedFor = useRef<string | null>(null)
+    const [armedFor, setArmedFor] = useState<string | null>(null)
     const teamCount = teams.length
     const defaultTeam = teamCount >= 2 ? preselectTeam ?? teams[0]?.name ?? null : null
     const marked = moment.markedSec !== null
@@ -68,13 +75,13 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, prese
 
     const mark = (): void => { moment.mark(); setRemarking(false) }
     const step = (kind: 'frame' | 'second', dir: 1 | -1): void => { moment.followPlayhead(); stepPlayer(kind, dir) }
-    const select = (type: ReviewType): void => dispatch({ kind: 'type', type, defaultTeam })
+    const select = (type: ReviewType): void => touch({ kind: 'type', type, defaultTeam })
     const confirm = (): void => {
         if (!canConfirm(decision, teamCount) || decision.type === null) return
         const st = useAppState.getState()
         if (decision.type === 'reject') st.decideSuggestion(suggestion.id, { kind: 'reject' })
         else st.decideSuggestion(suggestion.id, { kind: 'keep', type: decision.type, atSec: moment.current() ?? estimateSec, ...(decision.team ? { team: decision.team } : {}) })
-        dispatch({ kind: 'clear' })
+        touch({ kind: 'clear' })
         onNext()
     }
     const scrub = (sec: number): void => {
@@ -102,12 +109,12 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, prese
                 return
             }
             if (e.key === 'Escape' || e.key === 'Backspace') {
-                if (decision.type !== null) { e.preventDefault(); dispatch({ kind: 'clear' }) }
+                if (decision.type !== null) { e.preventDefault(); touch({ kind: 'clear' }) }
                 return
             }
             if (k === 'm') { e.preventDefault(); mark(); return }
             if (needsTeam(decision.type, teamCount) && (k === '1' || k === '2') && teams[Number(k) - 1]) {
-                e.preventDefault(); dispatch({ kind: 'team', team: teams[Number(k) - 1].name }); return
+                e.preventDefault(); touch({ kind: 'team', team: teams[Number(k) - 1].name }); return
             }
             const type = KEY_TO_TYPE[k]
             if (type) { e.preventDefault(); select(type); return }
@@ -121,6 +128,13 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, prese
     })
 
     const sure = marked || acceptedEstimate // the moment step is done
+    // Once per suggestion, when the moment is settled; clearing the choice afterwards stays cleared.
+    useEffect(() => {
+        // Right after the suggestion changed, `sure` still belongs to the previous one: wait for the reset render.
+        if (armedFor !== suggestion.id) { setArmedFor(suggestion.id); return }
+        if (preselectType && sure && preselectedFor.current !== suggestion.id && touchedFor.current !== suggestion.id && decision.type === null) { preselectedFor.current = suggestion.id; select(preselectType) }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- `select` only dispatches
+    }, [armedFor, suggestion.id, preselectType, sure, decision.type])
     const showMarkStep = !sure && decision.type === null || remarking
     const showTypeStep = !showMarkStep && decision.type === null
     const hasChoice = decision.type !== null
@@ -169,7 +183,7 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, prese
                             <span className="sr-only">Mark again</span>
                         </button>
                         {hasChoice && (
-                            <button type="button" className="rv__chip" onClick={() => dispatch({ kind: 'clear' })} aria-label="Change what it was">
+                            <button type="button" className="rv__chip" onClick={() => touch({ kind: 'clear' })} aria-label="Change what it was">
                                 {decision.type === 'reject' ? 'Not a goal' : TYPE_LABEL[decision.type as KeepType]}{decision.team && decision.type !== 'reject' ? ` · ${decision.team}` : ''} <span aria-hidden="true">✎</span>
                             </button>
                         )}
@@ -192,7 +206,7 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, prese
                 {teamStep && (
                     <div className="rv__seg rv__seg--team" role="group" aria-label="Which team scored?">
                         {teams.slice(0, 2).map((t, i) => (
-                            <button key={i} type="button" className="rv__choice" aria-pressed={decision.team === t.name} onClick={() => dispatch({ kind: 'team', team: t.name })}>
+                            <button key={i} type="button" className="rv__choice" aria-pressed={decision.team === t.name} onClick={() => touch({ kind: 'team', team: t.name })}>
                                 {t.name} <kbd>{i + 1}</kbd>
                             </button>
                         ))}

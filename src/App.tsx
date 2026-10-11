@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { AppShell } from './components/AppShell'
 import { ReceiveProject } from './components/ReceiveProject'
 import { useAppState } from './state'
+import { labsFromSearch } from './utils/labs'
 import { shouldHandleShortcut } from './utils/shortcuts'
 
 const DEFAULT_VIDEO_URL = '/default-video.mp4'
@@ -11,6 +12,12 @@ const DEFAULT_VIDEO_NAME = 'TNF full match 19-03-26.mp4'
 function App() {
     const files = useAppState((s) => s.files)
     const setFiles = useAppState((s) => s.setFiles)
+
+    // Labs switch from the URL: ?labs=1 on, ?labs=0 off
+    useEffect(() => {
+        const on = labsFromSearch(window.location.search)
+        if (on !== null) useAppState.getState().setLabs(on)
+    }, [])
 
     // Global undo/redo keyboard shortcuts
     useEffect(() => {

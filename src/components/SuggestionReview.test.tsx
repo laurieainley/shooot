@@ -4,10 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppState } from '../state'
 
 const startDetectionMock = vi.hoisted(() => vi.fn())
-const job = vi.hoisted(() => ({ phase: 'done', fraction: 1, error: null as string | null }))
+const job = vi.hoisted(() => ({ phase: 'done', fraction: 1, error: null as string | null, ballPhase: 'idle', ballFraction: 0, ballError: null as string | null, ballEp: null as string | null, ballMs: null as number | null, ballDetail: null as string | null }))
 vi.mock('../detectJobs', () => ({
-    useDetectJob: (sel: (s: { phase: string; fraction: number; error: string | null; scores: null }) => unknown) => sel({ phase: job.phase, fraction: job.fraction, error: job.error, scores: null }),
-    startDetection: (...a: unknown[]) => startDetectionMock(...a), cancelDetection: vi.fn(), getDetectJob: () => ({ phase: 'done' }),
+    useDetectJob: (sel: (s: Record<string, unknown>) => unknown) => sel({ ...job, scores: null }),
+    startDetection: (...a: unknown[]) => startDetectionMock(...a), cancelDetection: vi.fn(), getDetectJob: () => ({ ...job, phase: 'done' }),
 }))
 import { SuggestionReview } from './SuggestionReview'
 import { openFindGoals } from './findGoals'
@@ -17,7 +17,7 @@ const press = (key: string, opts: KeyboardEventInit = {}): void => { act(() => {
 const run = { createdAt: 1, source: 'audio' as const, configVersion: 1, analysedSec: 600, total: 2 }
 beforeEach(() => {
     setPlayerPaused(true)
-    job.phase = 'done'; job.fraction = 1; job.error = null
+    job.phase = 'done'; job.fraction = 1; job.error = null; job.ballPhase = 'idle'; job.ballFraction = 0; job.ballError = null; job.ballEp = null; job.ballMs = null; job.ballDetail = null
     useAppState.setState({
         files: [{ id: 'f', name: 'A.MP4', url: '', kind: 'full', durationSec: 600, file: new File([], 'A.MP4') }] as never,
         cumulativeOffsets: [0], events: [], suggestions: [], suggestionRun: null, reviewIndex: 0, panel: 'review',
@@ -335,6 +335,85 @@ describe('SuggestionReview', () => {
             press('g')
             expect(screen.getByRole('button', { name: /Colours/ })).toHaveAttribute('aria-pressed', 'true')
         })
+        describe('late ball tag', () => {
+            const card = (extra: { preselectType?: 'goal'; preselectTeam?: string }) => {
+                return import('./SuggestionCard').then(({ SuggestionCard }) => <SuggestionCard suggestion={useAppState.getState().suggestions[0]} index={0} total={2} onNext={() => {}} onPrev={() => {}} {...extra} />)
+            }
+            it('should not re-select Goal after the user cleared the choice on the open card', async () => {
+                const { rerender } = render(await card({}))
+                press('m'); press('s'); press('Escape')
+                expect(screen.queryByRole('button', { name: 'Change what it was' })).toBeNull() // cleared
+                rerender(await card({ preselectType: 'goal', preselectTeam: 'Colours' }))
+                expect(screen.getByRole('button', { name: /^Goal/ })).toHaveAttribute('aria-pressed', 'false')
+                expect(screen.queryByRole('button', { name: 'Change what it was' })).toBeNull()
+            })
+            it('should still apply a late tag when the user has not touched the selection', async () => {
+                const { rerender } = render(await card({}))
+                press('m')
+                rerender(await card({ preselectType: 'goal', preselectTeam: 'Colours' }))
+                expect(screen.getByRole('button', { name: 'Change what it was' })).toHaveTextContent('Goal')
+            })
+        })
+        describe('Labs ball check', () => {
+            it('should show the hint, and Enter after marking saves a Goal for the scoring team', () => {
+                useAppState.setState({ suggestions: useAppState.getState().suggestions.map((s, i) => (i === 0 ? { ...s, ball: { goal: 'team1' as const, frames: 3 } } : s)) })
+                render(<SuggestionReview onClose={() => {}} />)
+                expect(screen.getByText("Ball in Whites' goal")).toBeTruthy()
+                press('m')
+                expect(screen.getByRole('button', { name: /Colours/ })).toHaveAttribute('aria-pressed', 'true')
+                press('Enter')
+                expect(useAppState.getState().events[0]).toMatchObject({ type: 'goal', team: 'Colours' })
+            })
+            it('should swap the scoring team after half time', () => {
+                useAppState.setState({
+                    events: [{ id: 'ht', type: 'half_time', matchTimeSec: 50, sourceFileIndex: 0 }] as never,
+                    suggestions: useAppState.getState().suggestions.map((s, i) => (i === 0 ? { ...s, ball: { goal: 'team1' as const, frames: 2 } } : s)),
+                })
+                render(<SuggestionReview onClose={() => {}} />)
+                expect(screen.getByText("Ball in Colours' goal")).toBeTruthy() // ends swapped: team1's goal is now Colours'
+                press('m')
+                expect(screen.getByRole('button', { name: /Whites/ })).toHaveAttribute('aria-pressed', 'true')
+            })
+            it('should show no hint and no preselection without a ball tag', () => {
+                render(<SuggestionReview onClose={() => {}} />)
+                expect(screen.queryByText(/Ball in/)).toBeNull()
+                press('m')
+                expect(screen.getByRole('button', { name: /^Goal/ })).toHaveAttribute('aria-pressed', 'false')
+                press('Enter')
+                expect(useAppState.getState().events).toHaveLength(0)
+            })
+            it('should still let the user choose something else', () => {
+                useAppState.setState({ suggestions: useAppState.getState().suggestions.map((s, i) => (i === 0 ? { ...s, ball: { goal: 'team1' as const, frames: 3 } } : s)) })
+                render(<SuggestionReview onClose={() => {}} />)
+                press('m'); press('s'); press('Enter')
+                expect(useAppState.getState().events[0]).toMatchObject({ type: 'save' })
+            })
+            it('should say the model is loading until the detector is ready, and flag the slow wasm fallback', () => {
+                job.ballPhase = 'running'; job.ballFraction = 0; job.ballEp = null
+                const { rerender } = render(<SuggestionReview onClose={() => {}} />)
+                expect(screen.getByText('Loading the ball model…')).toBeTruthy()
+                job.ballEp = 'wasm'; job.ballFraction = 0.4
+                rerender(<SuggestionReview onClose={() => {}} />)
+                expect(screen.getByText('Checking the goal mouths… 40% (slow on this device)')).toBeTruthy()
+            })
+            it('should show the phase 2 progress line while the review stays usable', () => {
+                job.ballPhase = 'running'; job.ballFraction = 0.4; job.ballEp = 'webgpu'
+                render(<SuggestionReview onClose={() => {}} />)
+                expect(screen.getByText('Checking the goal mouths… 40%')).toBeTruthy()
+                expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy()
+            })
+            it('should show a plain error line without blocking the review', () => {
+                job.ballPhase = 'failed'; job.ballError = 'Ball check unavailable: model not found.'
+                render(<SuggestionReview onClose={() => {}} />)
+                expect(screen.getByText('Ball check unavailable: model not found.')).toBeTruthy()
+                expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy()
+            })
+            it('should add "Ball seen in N." to the summary', () => {
+                useAppState.setState({ reviewIndex: 2, suggestions: useAppState.getState().suggestions.map((s) => ({ ...s, ball: { goal: 'team2' as const, frames: 2 } })) })
+                render(<SuggestionReview onClose={() => {}} />)
+                expect(screen.getByText('Ball seen in 2.')).toBeTruthy()
+            })
+        })
         it('should scrub from the timeline without marking, pausing at that time', () => {
             const seek = vi.fn()
             const un = registerPlayerSeekPaused(seek)
@@ -405,6 +484,20 @@ describe('SuggestionReview', () => {
             render(<SuggestionReview onClose={() => {}} />)
             await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' })) })
             expect(screen.getByText('Copied.')).toBeTruthy()
+        })
+        it('should add the Ball check line to the diagnostics, or its error', async () => {
+            const writeText = vi.fn(async () => {})
+            Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+            toSummary()
+            job.ballPhase = 'done'; job.ballEp = 'webgpu'; job.ballMs = 41200
+            const { unmount } = render(<SuggestionReview onClose={() => {}} />)
+            await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' })) })
+            expect(String((writeText.mock.calls[0] as unknown[])[0])).toContain('Ball check: webgpu, 41 s, 0 tagged')
+            unmount()
+            job.ballPhase = 'failed'; job.ballError = "Ball check failed: this browser can't decode the video."; job.ballDetail = 'unsupported codec'
+            render(<SuggestionReview onClose={() => {}} />)
+            await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' })) })
+            expect(String((writeText.mock.calls[1] as unknown[])[0])).toContain("Ball check: Ball check failed: this browser can't decode the video. (unsupported codec)")
         })
         it('should show the text to select by hand when copying fails', async () => {
             Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn(async () => { throw new Error('denied') }) }, configurable: true })

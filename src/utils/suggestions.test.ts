@@ -80,3 +80,17 @@ describe('firstPendingIndex', () => {
         expect(firstPendingIndex([], new Set())).toBe(0)
     })
 })
+
+describe('detectionReport ball check', () => {
+    const run = { createdAt: 0, source: 'audio' as const, configVersion: 2, analysedSec: 600, total: 3 }
+    const counts = { kept: 1, rejected: 0, pending: 2, total: 3, byType: {} } as never
+    it('should add the execution provider, seconds and tag count', () => {
+        expect(detectionReport(run, counts, { ep: 'webgpu', ms: 41200, tagged: 2 }).split('\n').pop()).toBe('Ball check: webgpu, 41 s, 2 tagged')
+    })
+    it('should add the error instead when the ball check failed', () => {
+        expect(detectionReport(run, counts, { error: 'Ball check unavailable: model not found.' }).split('\n').pop()).toBe('Ball check: Ball check unavailable: model not found.')
+    })
+    it('should leave the line out without a ball check', () => {
+        expect(detectionReport(run, counts)).not.toContain('Ball check')
+    })
+})

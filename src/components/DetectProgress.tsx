@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useAppState } from '../state'
 import { cancelDetection, startDetection, useDetectJob } from '../detectJobs'
 import { openFindGoals } from './findGoals'
-import { listeningLine } from '../utils/voice'
+import { checkingGoalsLine, listeningLine } from '../utils/voice'
 
 const NO_VIDEO = 'Load the match videos first.'
 
@@ -30,6 +30,28 @@ export function DetectProgress() {
             <button type="button" className="btn-quiet review__btn" onClick={() => cancelDetection()}>Cancel</button>
         </div>
     )
+}
+
+/** Labs ball check while it runs behind the review: same style as the audio line; the review stays usable. */
+export function BallProgress() {
+    const fraction = useDetectJob((s) => s.ballFraction)
+    const ep = useDetectJob((s) => s.ballEp)
+    const percent = Math.round(fraction * 100)
+    return (
+        <div className="review__status">
+            <p className="m-0">{checkingGoalsLine(fraction, ep)}</p>
+            <div className="review__bar" role="progressbar" aria-label="Ball check progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
+                <div style={{ width: `${percent}%` }} />
+            </div>
+            <button type="button" className="btn-quiet review__btn" onClick={() => cancelDetection()}>Cancel</button>
+        </div>
+    )
+}
+
+/** Why the ball check did not finish: a plain line; the audio suggestions are untouched. */
+export function BallFailed() {
+    const error = useDetectJob((s) => s.ballError)
+    return <p className="review__note m-0" role="status">{error}</p>
 }
 
 /** Nothing (current) to review: the run was cancelled, never started, or the videos changed since it. Offer to start. */

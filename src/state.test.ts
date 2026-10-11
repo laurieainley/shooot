@@ -156,7 +156,7 @@ describe('teams and picker', () => {
 
     it('should migrate v8 legacy event types and persist teams (v9+)', () => {
         const opts = useAppState.persist.getOptions()
-        expect(opts.version).toBe(19)
+        expect(opts.version).toBe(20)
         const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
         expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
         expect(opts.partialize!(s())).toHaveProperty('teams')
@@ -755,5 +755,48 @@ describe('goal marks', () => {
         expect(out.goalMarks).toEqual({ team1: MARKS }) // v19
         s().setGoalMarks('team1', MARKS)
         expect(opts.partialize!(s())).toHaveProperty('goalMarks')
+    })
+})
+
+describe('labsSeen', () => {
+    it('should remember that Labs was on, default false and persist it', () => {
+        const opts = (useAppState as unknown as { persist: { getOptions: () => { partialize?: (s: unknown) => unknown } } }).persist.getOptions()
+        useAppState.setState({ labs: false, labsSeen: false })
+        useAppState.getState().setLabs(false)
+        expect(useAppState.getState().labsSeen).toBe(false)
+        useAppState.getState().setLabs(true)
+        useAppState.getState().setLabs(false)
+        expect(useAppState.getState()).toMatchObject({ labs: false, labsSeen: true })
+        expect(opts.partialize!(useAppState.getState())).toHaveProperty('labsSeen', true)
+    })
+    it('should count an already-on Labs as seen when it is switched off', () => {
+        useAppState.setState({ labs: true, labsSeen: false })
+        useAppState.getState().setLabs(false)
+        expect(useAppState.getState().labsSeen).toBe(true)
+    })
+})
+
+describe('labs and ball tags', () => {
+    it('should default labs off, set it, persist it and migrate older state to a boolean (v20)', () => {
+        const opts = useAppState.persist.getOptions()
+        expect(s().labs).toBe(false)
+        s().setLabs(true)
+        expect(s().labs).toBe(true)
+        expect(opts.partialize!(s())).toHaveProperty('labs', true)
+        s().setLabs(false)
+        expect((opts.migrate!({}, 19) as { labs: boolean }).labs).toBe(false)
+        expect((opts.migrate!({ labs: true }, 19) as { labs: boolean }).labs).toBe(true)
+        expect((opts.migrate!({ labs: 'x' }, 19) as { labs: boolean }).labs).toBe(false)
+    })
+
+    it('should set and clear a ball tag on one suggestion', () => {
+        const base = { globalTimeSec: 1, score: 1, source: 'audio' as const, status: 'pending' as const }
+        useAppState.setState({ suggestions: [{ id: 'a', ...base }, { id: 'b', ...base }] })
+        s().setSuggestionBall('a', { goal: 'team2', frames: 3 })
+        expect(s().suggestions[0].ball).toEqual({ goal: 'team2', frames: 3 })
+        expect(s().suggestions[1].ball).toBeUndefined()
+        s().setSuggestionBall('a', null)
+        expect(s().suggestions[0].ball).toBeUndefined()
+        useAppState.setState({ suggestions: [] })
     })
 })

@@ -151,6 +151,12 @@ type AppState = {
     goalMarks: GoalMarksByTeam | null
     setGoalMarks: (team: GoalTeam, marks: GoalMarks | null) => void
     setAllGoalMarks: (marks: GoalMarksByTeam | null) => void
+    /** Labs: experimental features (Ball check). Off by default; ?labs=1 / ?labs=0 in the URL. */
+    labs: boolean
+    /** Labs has been switched on in this browser: the menu keeps a Labs toggle so it can be switched back on. */
+    labsSeen: boolean
+    setLabs: (on: boolean) => void
+    setSuggestionBall: (id: string, ball: Suggestion['ball'] | null) => void
 }
 
 /** Kick-off on the whole timeline (0 when not marked): match clocks, Home, chapters and the full match start there. */
@@ -198,6 +204,8 @@ export const useAppState = create<AppState>()(
             matchdayLabel: null,
             goalAreas: null,
             goalMarks: null,
+            labs: false,
+            labsSeen: false,
             cumulativeOffsets: [],
             currentTimeInFileSec: 0,
             currentFileIndex: 0,
@@ -457,6 +465,13 @@ export const useAppState = create<AppState>()(
                 })
             },
             setAllGoalMarks: (marks) => set({ goalMarks: normaliseGoalMarks(marks) }),
+            setLabs: (on) => set((s) => ({ labs: on, labsSeen: s.labsSeen || on || s.labs })),
+            setSuggestionBall: (id, ball) => set({ suggestions: get().suggestions.map((x) => {
+                if (x.id !== id) return x
+                const next = { ...x, ball: ball ?? undefined }
+                if (!ball) delete next.ball
+                return next
+            }) }),
             setMatchdayLabel: (label) => set({ matchdayLabel: label?.trim() ? label : null }),
             setTeamInitials: (index, initials) => set({
                 teams: get().teams.map((t, i) => {
@@ -561,11 +576,13 @@ export const useAppState = create<AppState>()(
                 matchdayLabel: state.matchdayLabel,
                 goalAreas: state.goalAreas,
                 goalMarks: state.goalMarks,
+                labs: state.labs,
+                labsSeen: state.labsSeen,
                 barCollapsed: state.barCollapsed,
                 suggestions: state.suggestions,
                 suggestionRun: state.suggestionRun,
             }),
-            version: 19,
+            version: 20,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -643,6 +660,9 @@ export const useAppState = create<AppState>()(
 
                 // Goal marks (v19).
                 if (version < 19) state.goalMarks = normaliseGoalMarks(state.goalMarks)
+
+                // Labs (v20).
+                if (version < 20) state.labs = state.labs === true
 
                 return state
             },
