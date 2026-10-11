@@ -41,6 +41,18 @@ export function suggestionMarks(suggestions: Suggestion[], eventIds: ReadonlySet
         .map((s) => ({ id: s.id, leftPct: Math.min(100, Math.max(0, (s.globalTimeSec / totalSec) * 100)), timeSec: s.globalTimeSec }))
 }
 
+/** False when the videos changed since the run (a run saved before file keys were recorded counts as current). */
+export function runMatchesFiles(run: SuggestionRun | null, currentKeys: readonly string[]): boolean {
+    if (!run?.fileKeys) return true
+    return run.fileKeys.length === currentKeys.length && run.fileKeys.every((k, i) => k === currentKeys[i])
+}
+
+/** Where the review should start: the first pending suggestion, or the end (summary) when none is pending. */
+export function firstPendingIndex(suggestions: Suggestion[], eventIds: ReadonlySet<string>): number {
+    const i = suggestions.findIndex((s) => effectiveStatus(s, eventIds) === 'pending')
+    return i < 0 ? suggestions.length : i
+}
+
 const mmss = (sec: number): string => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`
 
 /** Plain text for Copy diagnostics: settings and counts only (no times, no audio). */
@@ -49,6 +61,7 @@ export function detectionReport(run: SuggestionRun | null, counts: ReviewCounts)
     return [
         `Find goals (Beta), ${run?.source ?? 'audio'}, config v${run?.configVersion ?? '?'}`,
         `Analysed: ${run ? mmss(run.analysedSec) : '—'}`,
+        `Run time: ${run?.durationMs !== undefined ? `${Math.round(run.durationMs / 1000)}s` : '—'}`,
         `Kept ${counts.kept} of ${counts.total}${types ? ` (${types})` : ''}, rejected ${counts.rejected}, not reviewed ${counts.pending}`,
     ].join('\n')
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { detectionRange, runAudioDetection, type DetectDeps } from './runAudioDetection'
+import { detectionRange, runAudioDetection, suggestionCount, type DetectDeps } from './runAudioDetection'
 import { createFeatureExtractor } from './featureExtractor'
 import type { MatchEvent } from '../types'
 
@@ -78,5 +78,31 @@ describe('detectionRange', () => {
     it('should use the whole timeline without markers or when they are out of order', () => {
         expect(detectionRange([], [0], 3600)).toEqual([0, 3600])
         expect(detectionRange([ev('kick_off', 900), ev('final_whistle', 100)], [0], 3600)).toEqual([0, 3600])
+    })
+})
+
+describe('suggestionCount', () => {
+    it('should scale with match length between 10 and 60', () => {
+        expect(suggestionCount(30 * 60)).toBe(23)
+        expect(suggestionCount(3600)).toBe(45)
+        expect(suggestionCount(5 * 60)).toBe(10)
+        expect(suggestionCount(5 * 3600)).toBe(60)
+    })
+})
+
+describe('runAudioDetection worker fallback', () => {
+    it('should redo a file in-thread when the worker extractor fails', async () => {
+        const a = new File([], 'a')
+        const plan = new Map([[a, { sec: 120, shoutAt: 40 }]])
+        const broken = { push: () => {}, finish: async () => { throw new Error('worker failed') }, dispose: () => {} }
+        const d: DetectDeps = { ...deps(plan), extractor: () => broken, fallbackExtractor: () => createFeatureExtractor({ hopSec: 0.2, voiceHz: [300, 3000] }, false) }
+        const r = await runAudioDetection([{ file: a, durationSec: 120, offsetSec: 0 }], [0, 120], d, new AbortController().signal, () => {})
+        expect(r.moments.length).toBeGreaterThan(0)
+    })
+    it('should still fail when there is no fallback', async () => {
+        const a = new File([], 'a')
+        const broken = { push: () => {}, finish: async () => { throw new Error('worker failed') }, dispose: () => {} }
+        const d: DetectDeps = { ...deps(new Map([[a, { sec: 60, shoutAt: 10 }]])), extractor: () => broken }
+        await expect(runAudioDetection([{ file: a, durationSec: 60, offsetSec: 0 }], [0, 60], d, new AbortController().signal, () => {})).rejects.toThrow(/worker failed/)
     })
 })

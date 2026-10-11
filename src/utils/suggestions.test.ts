@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { detectionReport, effectiveStatus, mergeSuggestions, reviewCounts, suggestionMarks } from './suggestions'
+import { detectionReport, effectiveStatus, firstPendingIndex, runMatchesFiles, mergeSuggestions, reviewCounts, suggestionMarks } from './suggestions'
 import type { Suggestion } from '../types'
 
 const s = (id: string, t: number, status: Suggestion['status'] = 'pending', extra: Partial<Suggestion> = {}): Suggestion =>
@@ -50,6 +50,33 @@ describe('detectionReport', () => {
             { total: 30, kept: 6, rejected: 20, pending: 4, byType: { goal: 5, save: 1 } })
         expect(text).toContain('Find goals (Beta), audio, config v1')
         expect(text).toContain('Analysed: 49:00')
+        expect(text).toContain('Run time: —')
         expect(text).toContain('Kept 6 of 30 (goal 5, save 1), rejected 20, not reviewed 4')
+    })
+})
+
+describe('detectionReport run time', () => {
+    it('should include the run time in seconds', () => {
+        const text = detectionReport({ createdAt: 0, source: 'audio', configVersion: 2, analysedSec: 600, total: 3, durationMs: 12400 },
+            { total: 3, kept: 1, rejected: 1, pending: 1, byType: {} })
+        expect(text).toContain('Run time: 12s')
+    })
+})
+
+describe('runMatchesFiles', () => {
+    const run = { createdAt: 0, source: 'audio' as const, configVersion: 2, analysedSec: 1, total: 0 }
+    it('should accept a run without file keys', () => { expect(runMatchesFiles(run, ['a'])).toBe(true) })
+    it('should compare keys in order', () => {
+        expect(runMatchesFiles({ ...run, fileKeys: ['a', 'b'] }, ['a', 'b'])).toBe(true)
+        expect(runMatchesFiles({ ...run, fileKeys: ['a', 'b'] }, ['b', 'a'])).toBe(false)
+        expect(runMatchesFiles({ ...run, fileKeys: ['a'] }, ['a', 'b'])).toBe(false)
+    })
+})
+
+describe('firstPendingIndex', () => {
+    it('should pick the first pending one, or the end when none is pending', () => {
+        expect(firstPendingIndex([s('a', 1, 'rejected'), s('b', 2), s('c', 3)], new Set())).toBe(1)
+        expect(firstPendingIndex([s('a', 1, 'rejected'), s('b', 2, 'rejected')], new Set())).toBe(2)
+        expect(firstPendingIndex([], new Set())).toBe(0)
     })
 })

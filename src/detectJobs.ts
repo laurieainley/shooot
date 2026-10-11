@@ -4,11 +4,14 @@ import { useStore } from 'zustand'
 import { useAppState } from './state'
 import { AUDIO_DETECT } from './detect/detectConfig'
 import { defaultDetectDeps, detectionRange, runAudioDetection } from './detect/runAudioDetection'
+import { fileKeys } from './utils/fileKey'
 import { createRenderWakeLock, type RenderWakeLock } from './renderWakeLock'
 
 export type DetectPhase = 'idle' | 'running' | 'done' | 'failed' | 'cancelled'
 export type DetectJobState = { phase: DetectPhase; fraction: number; error: string | null; scores: Float32Array | null }
 type JobDeps = { run: typeof runAudioDetection; wakeLock: () => RenderWakeLock; now: () => number }
+
+const sameFiles = (a: (File | undefined)[], b: (File | undefined)[]): boolean => a.length === b.length && a.every((f, i) => f === b[i])
 
 export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi<DetectJobState>; start: () => Promise<void>; cancel: () => void } {
     const deps: JobDeps = { run: runAudioDetection, wakeLock: createRenderWakeLock, now: () => Date.now(), ...over }
@@ -25,18 +28,26 @@ export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi
         const range = detectionRange(app.events, app.cumulativeOffsets, totalSec)
         const mine = new AbortController()
         ac = mine
+        // The result belongs to these exact files: if they are replaced or removed meanwhile (new match, clear), drop it.
+        const snapshot = app.files.map((f) => f.file)
+        const keys = fileKeys(app.files)
+        const startedAt = deps.now()
+        const unwatch = useAppState.subscribe((s) => { if (!sameFiles(snapshot, s.files.map((f) => f.file))) mine.abort() })
         const lock = deps.wakeLock()
         store.setState({ phase: 'running', fraction: 0, error: null, scores: null })
         await lock.acquire().catch(() => {})
         try {
             if (mine.signal.aborted) throw new Error('Cancelled')
             const r = await deps.run(files, range, defaultDetectDeps, mine.signal, (fraction) => store.setState({ fraction }))
-            useAppState.getState().setSuggestions({ createdAt: deps.now(), source: 'audio', configVersion: AUDIO_DETECT.version, analysedSec: r.analysedSec, total: r.moments.length }, r.moments)
+            if (mine.signal.aborted || !sameFiles(snapshot, useAppState.getState().files.map((f) => f.file))) throw new Error('Cancelled')
+            const now = deps.now()
+            useAppState.getState().setSuggestions({ createdAt: now, source: 'audio', configVersion: AUDIO_DETECT.version, analysedSec: r.analysedSec, total: r.moments.length, durationMs: Math.max(0, now - startedAt), fileKeys: keys }, r.moments)
             store.setState({ phase: 'done', fraction: 1, scores: r.scores })
         } catch (e) {
-            const cancelled = mine.signal.aborted
+            const cancelled = mine.signal.aborted || (e instanceof Error && e.message === 'Cancelled')
             store.setState({ phase: cancelled ? 'cancelled' : 'failed', error: cancelled ? null : e instanceof Error ? e.message : String(e) })
         } finally {
+            unwatch()
             await lock.release().catch(() => {})
             ac = null
         }

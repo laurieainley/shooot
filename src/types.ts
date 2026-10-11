@@ -74,4 +74,4 @@ export type Suggestion = {
     keptAs?: KeepType
     eventId?: string
 }
-export type SuggestionRun = { createdAt: number; source: 'audio'; configVersion: number; analysedSec: number; total: number }
+export type SuggestionRun = { createdAt: number; source: 'audio'; configVersion: number; analysedSec: number; total: number; durationMs?: number; fileKeys?: string[] }

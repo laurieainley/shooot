@@ -7,11 +7,11 @@ describe('detection job', () => {
         const wake = { acquire: vi.fn(async () => {}), release: vi.fn(async () => {}), status: () => 'held' }
         const run = vi.fn(async () => ({ moments: [{ timeSec: 100, score: 3 }], scores: new Float32Array(3), analysedSec: 600 }))
         useAppState.setState({ files: [{ id: 'f', name: 'A', url: '', kind: 'full', durationSec: 600, file: new File([], 'A') }] as never, cumulativeOffsets: [0], events: [], suggestions: [] })
-        const jobs = createDetectJobs({ run, wakeLock: () => wake, now: () => 5 })
+        const jobs = createDetectJobs({ run, wakeLock: () => wake, now: (() => { let t = 2; return () => (t += 1) })() })
         await jobs.start()
         expect(jobs.store.getState().phase).toBe('done')
         expect(useAppState.getState().suggestions.map((s) => s.globalTimeSec)).toEqual([100])
-        expect(useAppState.getState().suggestionRun).toMatchObject({ analysedSec: 600, total: 1, configVersion: 1 })
+        expect(useAppState.getState().suggestionRun).toMatchObject({ analysedSec: 600, total: 1, configVersion: 2, durationMs: 3, fileKeys: ['A'] })
         expect(wake.acquire).toHaveBeenCalled(); expect(wake.release).toHaveBeenCalled()
     })
     it('should keep previous suggestions when cancelled', async () => {
@@ -44,5 +44,38 @@ describe('detection job', () => {
         const [files, range] = run.mock.calls[0] as unknown as [{ offsetSec: number }[], [number, number]]
         expect(files.map((x) => x.offsetSec)).toEqual([0, 300])
         expect(range[1]).toBeGreaterThanOrEqual(400)
+    })
+})
+
+describe('detection job and changing files', () => {
+    const wl = () => ({ acquire: async () => {}, release: async () => {}, status: () => '' })
+    const file = (n: string) => ({ id: n, name: n, url: '', kind: 'full', durationSec: 100, file: new File([], n) })
+    it('should drop the result when the files were replaced during the run', async () => {
+        useAppState.setState({ files: [file('A')] as never, cumulativeOffsets: [0], events: [], suggestions: [], suggestionRun: null })
+        let release: () => void = () => {}
+        const run = vi.fn(() => new Promise((resolve) => { release = () => resolve({ moments: [{ timeSec: 10, score: 2 }], scores: new Float32Array(1), analysedSec: 100 }) }))
+        const jobs = createDetectJobs({ run: run as never, wakeLock: wl, now: () => 0 })
+        const p = jobs.start()
+        await Promise.resolve(); await Promise.resolve()
+        useAppState.setState({ files: [file('B')] as never })
+        release(); await p
+        expect(jobs.store.getState().phase).toBe('cancelled')
+        expect(useAppState.getState().suggestions).toEqual([])
+    })
+    it('should be cancelled by a new match', async () => {
+        useAppState.setState({ files: [file('A')] as never, cumulativeOffsets: [0], events: [], suggestions: [], suggestionRun: null })
+        let signal: AbortSignal | undefined
+        const run = vi.fn((_f, _r, _d, s: AbortSignal) => { signal = s; return new Promise<never>(() => {}) })
+        const jobs = createDetectJobs({ run: run as never, wakeLock: wl, now: () => 0 })
+        void jobs.start()
+        await Promise.resolve(); await Promise.resolve()
+        useAppState.getState().newMatch()
+        expect(signal?.aborted).toBe(true)
+    })
+    it('should record the file keys on the run', async () => {
+        useAppState.setState({ files: [file('A.MP4')] as never, cumulativeOffsets: [0], events: [], suggestions: [], suggestionRun: null })
+        const jobs = createDetectJobs({ run: vi.fn(async () => ({ moments: [], scores: new Float32Array(1), analysedSec: 100 })) as never, wakeLock: wl, now: () => 0 })
+        await jobs.start()
+        expect(useAppState.getState().suggestionRun?.fileKeys).toHaveLength(1)
     })
 })

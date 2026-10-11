@@ -42,8 +42,8 @@ the review UI from C is reused unchanged.
 3. **Quick review** (sheet over the player; full screen on phones): "Suggestion 3 of 30". The main player seeks to and loops
    **−3 s → +2 s** around the moment (user decision).
    - Keys: **G** goal · **O** own goal · **S** save · **H** highlight · **X** not a goal · **←/→** previous / skip ·
-     **Esc** closes (progress kept). After **G** or **O**, **1 / 2** chooses the team (team names shown); Enter or the
-     button confirms. Scorer/assist are added later via normal editing.
+     **Esc** closes (progress kept). After **G** or **O**, **1 / 2** chooses the team (team names shown); Enter
+     confirms with the first team (or a pre-selected one); the button also confirms. Scorer/assist are added later via normal editing.
    - Touch: the same actions as buttons ≥ 44 px. Only **Goal** is lime; others are quiet buttons.
    - Keeping a suggestion creates a normal event (undoable) at the suggestion time **− 2 s** (the shout follows the goal),
      linked to its file like any tagged event.
@@ -63,7 +63,7 @@ the review UI from C is reused unchanged.
   `spikes/goal-detect/transfer/audio_rank.py`.
 - `src/detect/detectConfig.ts` — all tunables in one object, with a `version` recorded on each run:
   `{ hopSec: 0.2, smoothSec: 1, voiceHz: [300, 3000], peakWindowSec: [-3, 3], hushWindowSec: [5, 15], minGapSec: 20,
-  maxSuggestions: 30, eventOffsetSec: -2, reviewWindowSec: [-3, 2] }`.
+  maxPerHour: 45 (count = clamp(round(45 × analysed hours), 10, 60)), eventOffsetSec: -2, reviewWindowSec: [-3, 2] }`.
 - `src/detect/audioWorker.ts` — the spectrum and scoring run in a Web Worker (PCM chunks are transferred, not copied);
   decoding stays on the main thread via Mediabunny, yielding with `render/yield.ts` (`waitForQueue`), never timers.
 - `src/detectJobs.ts` — one detection job at a time, outside the UI (pattern of `renderJobs.ts`): phase, fraction,
@@ -92,7 +92,8 @@ type SuggestionRun = { createdAt: number; source: 'audio'; configVersion: number
 - Persisted in `vhm-state`: **version 16 → 17**, migration defaults both to empty/null; test included.
 - Not included in project export/import or transfer links in this version (keeps links short).
 - Clearing all files or loading another project clears suggestions.
-- Diagnostics (Copy diagnostics): run time, config version, analysed seconds, suggestions total / kept by type / rejected.
+- Each run records its file keys; if the videos change afterwards the old suggestions are hidden and Find goals is offered again.
+- Diagnostics (Copy diagnostics): run time (`durationMs` on the run), config version, analysed seconds, suggestions total / kept by type / rejected.
   No audio or timestamps beyond those counts.
 
 ## Testing

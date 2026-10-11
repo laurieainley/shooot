@@ -7,8 +7,23 @@ import type { AudioFeatures } from '../utils/audioFeatures'
 import type { MatchEvent } from '../types'
 
 export type DetectFile = { file: File; durationSec: number; offsetSec: number }
-export type DetectDeps = { decode: typeof decodeMono; extractor: () => FeatureExtractor }
-export const defaultDetectDeps: DetectDeps = { decode: decodeMono, extractor: () => createFeatureExtractor(AUDIO_DETECT) }
+export type DetectDeps = {
+    decode: typeof decodeMono
+    extractor: () => FeatureExtractor
+    /** In-thread extractor used for a file again when the worker one fails (e.g. a worker chunk that 404s after a deploy). */
+    fallbackExtractor?: () => FeatureExtractor
+}
+export const defaultDetectDeps: DetectDeps = {
+    decode: decodeMono,
+    extractor: () => createFeatureExtractor(AUDIO_DETECT),
+    fallbackExtractor: () => createFeatureExtractor(AUDIO_DETECT, false),
+}
+
+/** How many moments to shortlist for `analysedSec` of footage. */
+export function suggestionCount(analysedSec: number): number {
+    const n = Math.round((AUDIO_DETECT.maxPerHour * analysedSec) / 3600)
+    return Math.min(AUDIO_DETECT.maxSuggestionsCap, Math.max(AUDIO_DETECT.minSuggestions, n))
+}
 
 /** Kick off → Final whistle when both are set and in order, else the whole timeline. */
 export function detectionRange(events: MatchEvent[], offsets: number[], totalSec: number): [number, number] {
@@ -39,21 +54,31 @@ export async function runAudioDetection(files: DetectFile[], rangeSec: [number, 
     for (const f of files) {
         if (signal.aborted) throw new Error('Cancelled')
         if (!inRange(f)) continue
-        const ex = deps.extractor()
-        try {
-            const hasAudio = await deps.decode(f.file, (mono, sr, t) => { ex.push(mono, sr); report(Math.min(0.99, (done + t) / workSec)) }, signal)
-            const feats = hasAudio ? await Promise.race([ex.finish(), aborted]) : null
-            if (feats) parts.push({ features: feats, offsetSec: f.offsetSec })
-        } finally {
-            ex.dispose()
+        const extract = async (make: () => FeatureExtractor): Promise<AudioFeatures | null> => {
+            const ex = make()
+            try {
+                const hasAudio = await deps.decode(f.file, (mono, sr, t) => { ex.push(mono, sr); report(Math.min(0.99, (done + t) / workSec)) }, signal)
+                return hasAudio ? await Promise.race([ex.finish(), aborted]) : null
+            } finally {
+                ex.dispose()
+            }
         }
+        let feats: AudioFeatures | null
+        try {
+            feats = await extract(deps.extractor)
+        } catch (e) {
+            // A worker that cannot start (stale chunk after a deploy) must not cost the run: do this file on this thread.
+            if (signal.aborted || !deps.fallbackExtractor) throw e
+            feats = await extract(deps.fallbackExtractor)
+        }
+        if (feats) parts.push({ features: feats, offsetSec: f.offsetSec })
         if (signal.aborted) throw new Error('Cancelled')
         done += f.durationSec
     }
     const timeline = placeOnTimeline(parts, totalSec, AUDIO_DETECT.hopSec)
     const scores = goalScores(timeline, AUDIO_DETECT)
     const moments = parts.length === 0 ? [] : pickMoments(scores, AUDIO_DETECT.hopSec,
-        { minGapSec: AUDIO_DETECT.minGapSec, max: AUDIO_DETECT.maxSuggestions, startSec: rangeSec[0], endSec: rangeSec[1] })
+        { minGapSec: AUDIO_DETECT.minGapSec, max: suggestionCount(rangeSec[1] - rangeSec[0]), startSec: rangeSec[0], endSec: rangeSec[1] })
     report(1)
     return { moments, scores, analysedSec: Math.round(rangeSec[1] - rangeSec[0]) }
 }
