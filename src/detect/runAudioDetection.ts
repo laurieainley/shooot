@@ -21,7 +21,7 @@ export function detectionRange(events: MatchEvent[], offsets: number[], totalSec
 /** Decode each file's audio, extract features, score the whole timeline and pick moments inside `rangeSec`. */
 export async function runAudioDetection(files: DetectFile[], rangeSec: [number, number], deps: DetectDeps, signal: AbortSignal,
     onProgress: (fraction: number) => void): Promise<{ moments: ScoredMoment[]; scores: Float32Array; analysedSec: number }> {
-    const totalSec = files.reduce((s, f) => s + f.durationSec, 0)
+    const totalSec = Math.max(0, ...files.map((f) => f.offsetSec + f.durationSec))
     const inRange = (f: DetectFile): boolean => f.offsetSec + f.durationSec > rangeSec[0] && f.offsetSec < rangeSec[1]
     const workSec = Math.max(1, files.filter(inRange).reduce((s, f) => s + f.durationSec, 0))
     let last = 0

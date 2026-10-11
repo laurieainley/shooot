@@ -21,7 +21,7 @@ export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi
             .map((f, i) => ({ file: f.file, durationSec: f.durationSec ?? 0, offsetSec: app.cumulativeOffsets[i] ?? 0 }))
             .filter((f): f is { file: File; durationSec: number; offsetSec: number } => !!f.file && f.durationSec > 0)
         if (files.length === 0) { store.setState({ phase: 'failed', fraction: 0, error: 'Load the match videos first.', scores: null }); return }
-        const totalSec = files.reduce((s, f) => s + f.durationSec, 0)
+        const totalSec = Math.max(0, ...files.map((f) => f.offsetSec + f.durationSec))
         const range = detectionRange(app.events, app.cumulativeOffsets, totalSec)
         const mine = new AbortController()
         ac = mine

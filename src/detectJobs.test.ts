@@ -35,4 +35,14 @@ describe('detection job', () => {
         expect(jobs.store.getState()).toMatchObject({ phase: 'failed', error: 'Load the match videos first.' })
         expect(run).not.toHaveBeenCalled()
     })
+    it('should keep a later file on the timeline when a file in the middle cannot be analysed', async () => {
+        const f = (n: string, d?: number) => ({ id: n, name: n, url: '', kind: 'full', durationSec: d, file: new File([], n) })
+        useAppState.setState({ files: [f('A', 100), f('B'), f('C', 100)] as never, cumulativeOffsets: [0, 100, 300], events: [], suggestions: [] })
+        const run = vi.fn(async () => ({ moments: [], scores: new Float32Array(1), analysedSec: 200 }))
+        const jobs = createDetectJobs({ run: run as never, wakeLock: () => ({ acquire: async () => {}, release: async () => {}, status: () => '' }), now: () => 0 })
+        await jobs.start()
+        const [files, range] = run.mock.calls[0] as unknown as [{ offsetSec: number }[], [number, number]]
+        expect(files.map((x) => x.offsetSec)).toEqual([0, 300])
+        expect(range[1]).toBeGreaterThanOrEqual(400)
+    })
 })
