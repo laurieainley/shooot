@@ -70,9 +70,13 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
     const step = MARK_STEPS.find((s) => s.key === current)
 
     const toFraction = (clientX: number, clientY: number): Pt => {
+        // The picture box (with zoom / pan applied) holds the image letterboxed (object-fit: contain): measure inside it.
         const r = picture.current?.getBoundingClientRect()
-        const w = r?.width || 1, h = r?.height || 1
-        return { x: clamp01((clientX - (r?.left ?? 0)) / w), y: clamp01((clientY - (r?.top ?? 0)) / h) }
+        const bw = r?.width || 1, bh = r?.height || 1
+        const aspect = frame.frame?.aspect ?? bw / bh
+        const w = Math.min(bw, bh * aspect), h = Math.min(bh, bw / aspect)
+        const left = (r?.left ?? 0) + (bw - w) / 2, top = (r?.top ?? 0) + (bh - h) / 2
+        return { x: clamp01((clientX - left) / w), y: clamp01((clientY - top) / h) }
     }
     const place = (key: MarkKey, p: Pt): void => setPartial((m) => ({ ...m, [key]: p }))
 
@@ -107,6 +111,8 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
     const viewUp = (e: PointerEvent<HTMLDivElement>): void => {
         if (!pointers.current.delete(e.pointerId)) return
         if (gesture.current && pointers.current.size < 2) { gesture.current = null; zp.pinchEnd() }
+        // A pan / pinch swallows the click it ends with, but not the next genuine tap.
+        if (pointers.current.size === 0 && panned.current) setTimeout(() => { panned.current = false }, 0)
     }
     const viewKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
         if (e.key === ' ' && e.target === e.currentTarget) { space.current = true; e.preventDefault(); e.stopPropagation() }
@@ -167,6 +173,7 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
                 onPointerCancel={viewUp}
                 onKeyDown={viewKeyDown}
                 onKeyUp={viewKeyUp}
+                onBlur={() => { space.current = false }}
             >
                 {frame.frame ? (
                     <div
@@ -176,6 +183,7 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
                         style={{ transform: `translate(${zp.pan.x}px, ${zp.pan.y}px) scale(${zp.zoom})` }}
                         onClick={onPictureClick}
                     >
+                        <div className="goal-marks__content" style={{ aspectRatio: String(aspect), ['--aspect' as string]: String(aspect) }}>
                         <img className="goal-marks__img" src={frame.frame.src} alt="" draggable={false} />
                         <svg className="goal-marks__svg" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
                             {poly && <polygon className="goal-marks__foot" points={poly.map((p) => `${p.x},${p.y}`).join(' ')} />}
@@ -193,7 +201,7 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
                                     type="button"
                                     className="goal-marks__dot"
                                     aria-label={LABELS[key]}
-                                    style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%` }}
+                                    style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%`, transform: `translate(-50%, -50%) scale(${1 / zp.zoom})` }}
                                     onClick={(e) => e.stopPropagation()}
                                     onPointerDown={dotDown(key)}
                                     onPointerMove={dotMove(key)}
@@ -203,6 +211,7 @@ export function GoalMarksEditor({ team, frame, initial, onDone, onCancel }: Goal
                                 />
                             )
                         })}
+                        </div>
                     </div>
                 ) : <p className="frame-boxes__empty" role="status">{frame.status === 'loading' ? 'Loading a frame…' : 'No picture available for this video here.'}</p>}
             </div>

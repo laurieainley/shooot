@@ -13,11 +13,11 @@ function mount(props: Partial<React.ComponentProps<typeof GoalMarksEditor>> = {}
     const onDone = vi.fn(), onCancel = vi.fn()
     render(<GoalMarksEditor team="team1" frame={FRAME} initial={null} onDone={onDone} onCancel={onCancel} {...props} />)
     const pic = screen.getByTestId('goal-marks-picture')
-    // 1000 x 500 picture at (100, 50)
-    pic.getBoundingClientRect = () => ({ left: 100, top: 50, width: 1000, height: 500, right: 1100, bottom: 550, x: 100, y: 50, toJSON: () => ({}) })
+    // 1000 x 562.5 (16:9) picture at (100, 50)
+    pic.getBoundingClientRect = () => ({ left: 100, top: 50, width: 1000, height: 562.5, right: 1100, bottom: 612.5, x: 100, y: 50, toJSON: () => ({}) })
     return { pic, onDone, onCancel }
 }
-const clickAt = (el: Element, fx: number, fy: number): void => { fireEvent.click(el, { clientX: 100 + fx * 1000, clientY: 50 + fy * 500 }) }
+const clickAt = (el: Element, fx: number, fy: number): void => { fireEvent.click(el, { clientX: 100 + fx * 1000, clientY: 50 + fy * 562.5 }) }
 function placeRequired(pic: Element): void {
     clickAt(pic, 0.2, 0.6); clickAt(pic, 0.4, 0.6); clickAt(pic, 0.2, 0.4); clickAt(pic, 0.4, 0.4)
 }
@@ -96,8 +96,8 @@ describe('GoalMarksEditor', () => {
         const { pic } = mount({ initial: FULL })
         const dot = screen.getByRole('button', { name: 'Left post bottom' })
         fireEvent.pointerDown(dot, { pointerId: 1, clientX: 300, clientY: 350 })
-        fireEvent.pointerMove(dot, { pointerId: 1, clientX: 600, clientY: 300 })
-        fireEvent.pointerUp(dot, { pointerId: 1, clientX: 600, clientY: 300 })
+        fireEvent.pointerMove(dot, { pointerId: 1, clientX: 600, clientY: 331.25 })
+        fireEvent.pointerUp(dot, { pointerId: 1, clientX: 600, clientY: 331.25 })
         expect(dot).toHaveStyle({ left: '50%', top: '50%' })
         expect(pic).toBeInTheDocument()
     })
@@ -135,5 +135,38 @@ describe('GoalMarksEditor', () => {
         expect(pic.style.transform).not.toContain('scale(1)')
         await userEvent.click(screen.getByRole('button', { name: 'Reset zoom' }))
         expect(pic.style.transform).toContain('scale(1)')
+    })
+
+    it('should not swallow the next tap after a two-finger pinch', async () => {
+        const { pic } = mount()
+        const view = screen.getByLabelText('Goal picture')
+        fireEvent.pointerDown(view, { pointerId: 1, clientX: 300, clientY: 300 })
+        fireEvent.pointerDown(view, { pointerId: 2, clientX: 500, clientY: 300 })
+        fireEvent.pointerMove(view, { pointerId: 2, clientX: 600, clientY: 300 })
+        fireEvent.pointerUp(view, { pointerId: 2 })
+        fireEvent.pointerUp(view, { pointerId: 1 })
+        await new Promise((r) => setTimeout(r, 5))
+        clickAt(pic, 0.25, 0.5)
+        expect(screen.getByRole('button', { name: 'Left post bottom' })).toBeInTheDocument()
+    })
+
+    it('should keep dots at constant screen size when zoomed', () => {
+        mount({ initial: FULL })
+        fireEvent.wheel(screen.getByLabelText('Goal picture'), { deltaY: -200, clientX: 600, clientY: 300 })
+        const zoom = Number(/scale\(([\d.]+)\)/.exec(screen.getByTestId('goal-marks-picture').style.transform)![1])
+        expect(zoom).toBeGreaterThan(1)
+        const s = Number(/scale\(([\d.]+)\)/.exec(screen.getByRole('button', { name: 'Left post bottom' }).style.transform)![1])
+        expect(s).toBeCloseTo(1 / zoom, 3)
+    })
+
+    it('should measure fractions inside the letterboxed image (4:3 frame in a 16:9 box)', () => {
+        const { pic } = mount({ frame: { status: 'ready', frame: { src: 'data:image/jpeg;base64,AA==', aspect: 4 / 3 } } })
+        pic.getBoundingClientRect = () => ({ left: 100, top: 50, width: 1000, height: 500, right: 1100, bottom: 550, x: 100, y: 50, toJSON: () => ({}) })
+        // Box 1000x500 at (100,50): image is 666.67 wide, centred (left edge at 100 + 166.67).
+        fireEvent.click(pic, { clientX: 100 + 500, clientY: 50 + 250 })
+        const dot = screen.getByRole('button', { name: 'Left post bottom' })
+        expect(parseFloat(dot.style.left)).toBeCloseTo(50, 1)
+        fireEvent.click(pic, { clientX: 100 + 166.6667 + 666.6667 * 0.25, clientY: 50 + 125 })
+        expect(parseFloat(screen.getByRole('button', { name: 'Right post bottom' }).style.left)).toBeCloseTo(25, 1)
     })
 })
