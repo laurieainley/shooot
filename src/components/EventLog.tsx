@@ -174,7 +174,7 @@ export function EventLog() {
                     </p>
                 </>
             ) : (
-                <ol ref={listRef} role="listbox" aria-label="Event list" className="m-0 min-h-0 flex-1 list-none overflow-y-auto overscroll-contain p-0"
+                <ol ref={listRef} role="listbox" aria-label="Event list" className="event-list m-0 min-h-0 flex-1 list-none overflow-y-auto overscroll-contain p-0"
                     style={{ '--clock-ch': clockWidthCh(clockLong, true) } as CSSProperties}>
                     {events.map((e) => (
                         <EventRow

@@ -294,7 +294,7 @@
 .event-row__type { font-size: 13px; font-weight: 600; color: var(--sh-muted); }
 .row-score { font-family: var(--sh-font-mono); font-size: 12px; color: var(--sh-muted); font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: no-preference) { .event-row { transition: background-color 0.12s; } }
-.shell--phone .event-log ol { overflow: visible; padding-bottom: 16px; }
+.shell--phone .event-log ol { overflow: visible; padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)); } /* the last row can scroll clear of the ＋ */
 .shell--phone .event-row { min-height: 44px; }
 /* Phone rows are narrow: let a note wrap onto a second line instead of vanishing into an ellipsis. */
 
@@ -1170,6 +1170,12 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .act-switch__glyph { display: inline; }
   .act-btn { min-width: 36px; padding: 0 6px; }
   .act-btn--touch { min-width: 44px; }
+}
+
+/* Touch: the floating + overlays the list; every layout keeps room below the last row (FAB + margin + safe area) and
+   scrolls an expanded row's action row clear of it (the page scrolls on a portrait phone, the list elsewhere). */
+@media (pointer: coarse) {
+  html, .event-list { scroll-padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* Event rows: [clock] [dot] [content] [score] [file] [buttons]. Fixed-width slots keep every row aligned; the content column takes the rest.
