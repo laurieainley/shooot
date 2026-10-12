@@ -2,7 +2,7 @@
 import { DESIGN_H, DESIGN_W } from './layout'
 import { stripeBands, teamFill } from './teamFill'
 
-export type PaintAssets = { logo: ImageBitmap | null }
+export type PaintAssets = { logo: ImageBitmap | null; wordmark?: ImageBitmap | null }
 export type Ctx = OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D
 
 /** Scale and offset that fit the design space into a `width`×`height` frame. */

@@ -113,11 +113,11 @@ export function buildGraphicsSpec(args: {
     captionScore?: boolean
     /** false skips the title and full-time cards even when the setting is on (default true). */
     cards?: boolean
-}): GraphicsSpec {
+}): GraphicsSpec & { outro?: CardSpec } {
     const { teams, cuts, cumulativeOffsets, settings, captionEvents, captionScore = true, cards: wantCards = true } = args
     const events = linkedEvents(args.events)
     const theme = getTheme(settings.theme)
-    const spec: GraphicsSpec = { theme: theme.id, overlays: [] }
+    const spec: GraphicsSpec & { outro?: CardSpec } = { theme: theme.id, overlays: [] }
     const both = teams.length >= 2
     const globalOf = (src: number, t: number): number => (cumulativeOffsets[src] ?? 0) + t
 

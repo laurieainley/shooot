@@ -1,6 +1,6 @@
 import type { RenderGraphics } from '../render/types'
-import type { GraphicsSpec } from './types'
-import { ensureGraphicsFonts, loadLogo } from './assets'
+import { isSting, type GraphicsSpec } from './types'
+import { ensureGraphicsFonts, loadLogo, loadWordmark } from './assets'
 import { loadCustomLogo } from './logoStore'
 import { buildGraphicsSpec } from './plan'
 import { toRenderGraphics } from './painters'
@@ -16,5 +16,6 @@ export async function prepareSpec(spec: GraphicsSpec | undefined): Promise<Rende
     if (!spec || (!spec.intro && !spec.outro && spec.overlays.length === 0)) return undefined
     await ensureGraphicsFonts(getTheme(spec.theme))
     const logo = await loadLogo(await loadCustomLogo())
-    return toRenderGraphics(spec, { logo })
+    const wordmark = isSting(spec.outro) ? await loadWordmark() : null
+    return toRenderGraphics(spec, { logo, wordmark })
 }
