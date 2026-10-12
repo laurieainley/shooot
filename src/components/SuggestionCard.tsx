@@ -29,7 +29,7 @@ interface SuggestionCardProps {
     onPrev: () => void
     /** After Confirm or Discard: the next suggestion still to review. */
     onSaved: () => void
-    /** Type pre-selected once the moment is settled (marked or estimate accepted), so Enter saves it. */
+    /** Type pre-selected once the moment is settled (marked), so Enter saves it. */
     preselectType?: KeepType
     /** One optional line above the actions, e.g. "Ball in Colours' goal". */
     hint?: ReactNode
@@ -73,12 +73,10 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
     // Once the user has touched the selection on this card (chose, changed or cleared), a late ball tag must not choose for them.
     const touchedFor = useRef<string | null>(null)
     const touch = (a: Parameters<typeof dispatch>[0]): void => { touchedFor.current = suggestion.id; dispatch(a) }
-    const [acceptedEstimate, setAcceptedEstimate] = useState(false)
     // Optional scorer / assist after type and team (the event picker's own steps).
     const [people, setPeople] = useState<PeopleState>(NO_PEOPLE)
     useEffect(() => {
         dispatch({ kind: 'clear' })
-        setAcceptedEstimate(false)
         const keptAs = savedEvent && (TYPE_LABEL as Record<string, string>)[savedEvent.type] ? savedEvent.type as KeepType : null
         if (keptAs || rejected) {
             touchedFor.current = suggestion.id // the saved choice stands: no pre-selection over it
@@ -99,7 +97,8 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
     const teamCount = teams.length
     const marked = moment.markedSec !== null
     const clock = (sec: number): string => withTenths((w) => formatClock(w, long), sec - kickOff)
-    const savedSec = moment.markedSec ?? estimateSec
+    // Nobody marked it yet: the time shown (and saved, if you go ahead anyway) is wherever the playhead is.
+    const savedSec = moment.markedSec ?? playheadSec
     const instruction = instructionText({ marked, decision, teamCount, clock: clock(savedSec) })
 
     const mark = (): void => { moment.mark() }
@@ -108,7 +107,7 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
     const confirm = (): void => {
         if (!canConfirm(decision, teamCount) || decision.type === null) return
         const st = useAppState.getState()
-        const atSec = moment.current() ?? estimateSec
+        const atSec = moment.current() ?? savedSec
         for (const a of people.adds) st.addToRoster(a.team, a.name)
         st.decideSuggestion(suggestion.id, { kind: 'keep', type: decision.type, atSec, ...(decision.team ? { team: decision.team } : {}), ...(people.scorer ? { scorer: people.scorer } : {}), ...(people.assist ? { assist: people.assist } : {}) })
         showToast(confirmedCopy(decision.type, decision.team ?? undefined, matchClock(atSec, kickOff, long), people.scorer))
@@ -179,7 +178,7 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
         return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKeyUp) }
     })
 
-    const sure = marked || acceptedEstimate // the moment step is done
+    const sure = marked // the moment step is done
     // Once per suggestion, when the moment is settled; clearing the choice afterwards stays cleared.
     useEffect(() => {
         // Right after the suggestion changed, `sure` still belongs to the previous one: wait for the reset render.
@@ -196,8 +195,8 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
             <header className="rv__head">
                 <p className="review__count">Suggestion {index + 1} of {total} · <span className="tc">{formatClock(Math.max(0, suggestion.globalTimeSec - kickOff), long)}</span></p>
                 <div className="rv__nav">
-                    <button type="button" className="rv__skip" aria-label="Previous suggestion" onClick={onPrev} disabled={index === 0}><Chevron dir="left" /> Previous <kbd>[</kbd></button>
-                    <button type="button" className="rv__skip" onClick={onNext}>Next <kbd>]</kbd> <Chevron dir="right" /></button>
+                    <button type="button" className="rv__step" aria-label="Previous suggestion" title="Previous suggestion ([)" onClick={onPrev} disabled={index === 0}><Chevron dir="left" /></button>
+                    <button type="button" className="rv__step" aria-label="Next suggestion" title="Next suggestion (])" onClick={onNext}><Chevron dir="right" /></button>
                 </div>
             </header>
 
@@ -219,18 +218,15 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
             {hint && <div className="rv__hint">{hint}</div>}
 
             <section className="rv__steps" aria-label="Decide">
-                <div className="rv__moment">
-                    {sure && (
+                {sure && (
+                    <div className="rv__moment">
                         <p className="rv__momentline m-0">
                             <EventIcon event={{ type: 'goal' }} size={18} decorative />
-                            <span className="tc rv__momentat">{clock(savedSec)}</span> <span className="rv__chipnote">{marked ? 'marked' : 'estimate'}</span>
+                            <span className="tc rv__momentat">{clock(savedSec)}</span> <span className="rv__chipnote">marked</span>
+                            <button type="button" className="rv__link" title="Mark again at the playhead (M)" onClick={mark}>Mark again</button>
                         </p>
-                    )}
-                    <button type="button" className="rv__mark" onClick={mark}>
-                        <span className="rv__dot" aria-hidden="true" />{marked ? 'Mark again' : 'Mark moment'} <kbd>M</kbd>
-                    </button>
-                    {!sure && decision.type === null && <button type="button" className="rv__link" onClick={() => setAcceptedEstimate(true)}>Use the estimate instead</button>}
-                </div>
+                    </div>
+                )}
                 {rejected && (
                     <div className="rv__discarded">
                         <span className="rv__discardednote">Discarded</span>
@@ -288,14 +284,20 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
                     </div>
                 )}
 
-                {hasChoice && (
-                    <button type="button" className="btn-primary rv__save" disabled={!canConfirm(decision, teamCount)} onClick={confirm}>
-                        {confirmLabel(marked)} <kbd>⏎</kbd>
-                    </button>
-                )}
-                {!rejected && (
-                    <button type="button" className="rv__quiet rv__discard" onClick={discard}>Discard <kbd>X</kbd></button>
-                )}
+                <div className="rv__decide">
+                    {marked || hasChoice ? (
+                        <button type="button" className="btn-primary rv__save" disabled={!canConfirm(decision, teamCount)} onClick={confirm}>
+                            {confirmLabel()} <kbd>⏎</kbd>
+                        </button>
+                    ) : (
+                        <button type="button" className="btn-primary rv__save" onClick={mark}>
+                            <span className="rv__dot" aria-hidden="true" />Mark moment <kbd>M</kbd>
+                        </button>
+                    )}
+                    {!rejected && (
+                        <button type="button" className="rv__quiet rv__discard" onClick={discard}>Discard <kbd>X</kbd></button>
+                    )}
+                </div>
             </section>
         </div>
     )

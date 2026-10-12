@@ -56,11 +56,11 @@ export function ReviewTimeline({ window: w, estimateSec, playheadSec, markedSec,
                 {l.marked && <span className="rtl__label rtl__label--marked" style={{ left: pct(l.marked.frac), transform: `translateX(${ALIGN[l.marked.align]})` }}>marked</span>}
             </div>
             <div className="rtl__ends tc">
-                <button type="button" className="rtl__handle" aria-label="Start 2 seconds earlier" onClick={onEarlier}>+2 s<kbd>{'{'}</kbd></button>
+                <button type="button" className="rtl__handle" aria-label="Start 2 seconds earlier" title="Shortcut: {" onClick={onEarlier}>+2 s</button>
                 <span>{format(w.startAbs)}</span>
                 <span className="rtl__gap" />
                 <span>{format(w.endAbs)}</span>
-                <button type="button" className="rtl__handle" aria-label="End 2 seconds later" onClick={onLater}>+2 s<kbd>{'}'}</kbd></button>
+                <button type="button" className="rtl__handle" aria-label="End 2 seconds later" title="Shortcut: }" onClick={onLater}>+2 s</button>
             </div>
         </div>
     )
