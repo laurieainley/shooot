@@ -44,6 +44,12 @@ describe('PersonStep with name chips (touch)', () => {
         fireEvent.click(screen.getByRole('button', { name: 'No assist' }))
         expect(onSkip).toHaveBeenCalled()
     })
+    it('should name the step above the chips only when asked', () => {
+        const { rerender, container } = render(<PersonStep {...base} label="Assist" chips candidates={['Sam']} onQuery={() => {}} onChoose={() => {}} />)
+        expect(container.querySelector('.person-chips__label')).toBeNull()
+        rerender(<PersonStep {...base} label="Assist" chips showLabel candidates={['Sam']} onQuery={() => {}} onChoose={() => {}} />)
+        expect(container.querySelector('.person-chips__label')?.textContent).toBe('Assist')
+    })
     it('should keep the typed field and name list without chips (fine pointer)', () => {
         render(<PersonStep {...base} candidates={['Sam']} onQuery={() => {}} onChoose={() => {}} />)
         expect(screen.getByRole('textbox', { name: 'Scorer' })).toBeTruthy()

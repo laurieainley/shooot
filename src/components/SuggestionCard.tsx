@@ -276,7 +276,7 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
 
                 {peopleOpen(people) && (
                     <div data-owns-escape="">
-                    <PersonStep key={people.pk?.step} label={peopleLabel(people)} autoFocus={!coarse} chips={coarse}
+                    <PersonStep key={people.pk?.step} label={peopleLabel(people)} autoFocus={!coarse} chips={coarse} showLabel
                         skipLabel={people.pk?.step === 'assist' ? 'No assist' : 'Skip'}
                         onSkip={() => setPeople((p) => stepPeople(p, { kind: 'key', key: 'Tab' }, teams))}
                         placeholder={coarse ? 'Type a new name' : `${peopleLabel(people)} (optional) — type to filter, Enter to pick, Tab to skip`}

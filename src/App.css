@@ -1524,3 +1524,9 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .lock-btn--hint { animation: lock-glow 1.6s ease-out 1; }
 }
 @keyframes lock-glow { 0%, 100% { box-shadow: 0 0 0 0 rgb(243 241 234 / 0); } 25%, 60% { box-shadow: 0 0 0 4px rgb(243 241 234 / 0.85); } }
+
+.person-chips__label { margin: 0; font-size: 14px; font-weight: 700; color: var(--sh-muted); }
+/* The top-right button group wraps (portrait phones) and leaves the scorebug at the top left visible. */
+.overlay-controls.top-right { flex-wrap: wrap; justify-content: flex-end; max-width: calc(100% - 150px); box-sizing: border-box; }
+@media (orientation: portrait) { .toast-host--fs { top: 118px; } } /* below the (wrapped) button rows */
+.event-picker--compact .event-picker__body { flex: 1 1 auto; } /* a bottom sheet has no fixed height: the body takes what the content needs, up to the sheet's maximum */

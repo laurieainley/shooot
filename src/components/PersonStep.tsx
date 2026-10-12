@@ -23,6 +23,8 @@ interface PersonStepProps {
     /** Chips only: the skip button ("Skip", "No assist"); without `onSkip` there is none. */
     skipLabel?: string
     onSkip?: () => void
+    /** Chips only: show the step's name ("Scorer", "Assist") above the chips, for hosts with no header of their own. */
+    showLabel?: boolean
 }
 
 /** The optional person step shared by the event picker and the review card: a field that filters the team roster, plus the matching names. */
@@ -31,12 +33,13 @@ export function PersonStep(props: PersonStepProps) {
 }
 
 /** Touch: the team's roster as chips (44 px targets), + New name for a typed one, and a skip button. */
-function PersonChips({ label, placeholder, query, candidates, onQuery, onChoose, isDisabled, onKeyDown, skipLabel = 'Skip', onSkip }: PersonStepProps) {
+function PersonChips({ label, placeholder, query, candidates, onQuery, onChoose, isDisabled, onKeyDown, skipLabel = 'Skip', onSkip, showLabel }: PersonStepProps) {
     const [typing, setTyping] = useState(false)
     const names = [...candidates].sort((a, b) => a.localeCompare(b))
     const typed = query.trim()
     return (
         <div className="person-chips">
+            {showLabel && <p className="person-chips__label" aria-hidden="true">{label}</p>}
             <div className="person-chips__list" role="group" aria-label={label}>
                 {names.map((n) => (
                     <button key={n} type="button" className="person-chip" disabled={isDisabled?.(n) ?? false} onClick={() => onChoose(n)}>{n}</button>
