@@ -152,6 +152,11 @@ npm run lint       # baseline: 12 known problems — add none
   to a `VideoEncoder` (hardware preferred) and close every `VideoFrame` (the engine counts made/closed in the
   diagnostics notes). Frames that need nothing drawn and are already the output size skip the canvas. H.264 SPS may differ
   in colour signalling between units; only profile/level are checked against the saved sample entry.
+- **4K -> 1080p scaling** (`render/downscale.ts`): drawing a 4K VideoFrame on a 2D canvas costs 100-240 ms/frame in WebKit
+  (iPad/Safari). Plain frames go to the 1080p encoder unscaled (the encoder scales; `probeDirectScale` verifies once per
+  render that the output is the whole picture at the right size); frames with graphics are scaled by a WebGL2 draw
+  (`GlScaler`) then copied into the 2D canvas. Both fall back to the 2D canvas; "Always draw through the canvas" in
+  /bench forces the old path. The scale path used is in the encoder notes.
 - **Mixed frame sizes:** output = first used file's size; others are scaled to cover + centre-cropped (re-encoded),
   with a pre-render notice and time estimate.
 - **Reading files:** always through `render/fileSource.ts` (8 MB aligned blocks), never `BlobSource` — Android USB

@@ -14,6 +14,7 @@ import { nominalFrameRate } from './frameGrid'
 import { muxUnits } from './muxUnits'
 import { coverRect } from './outputSize'
 import { canJournal, discardJob, loadJob, openUnit, saveJob, type JobState, type UnitWriter } from './renderJob'
+import { GlScaler, isDownscale, probeDirectScale } from './downscale'
 import { encodeReplayAudio } from './replayAudio'
 import { makeSilentAudio, type SilentAudio } from './silentAudio'
 import { makeTarget, openSource, type OpenSource } from './sourceInput'
@@ -54,6 +55,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         diag.graphicSkipped(label, reason, error)
     }
     const frames = new FrameCount()
+    let gl: GlScaler | null = null
     const used = new Set(cuts.map((c) => c.sourceIndex))
     const opened: OpenSource[] = []
     try {
@@ -82,6 +84,21 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         if (!encoder) throw new Error(`this browser cannot encode H.264 at ${W}×${H}`)
         diag.finalEncoder(encoder.config)
         diag.note(`Video encoder: ${encoder.config.codec}, hardwareAcceleration ${encoder.hardware}`)
+
+        // Scaling a 4K frame down: the 2D canvas is very slow in WebKit, so prefer the encoder (frames without graphics) and WebGL (with).
+        const srcW = first.video.displayWidth
+        const srcH = first.video.displayHeight
+        const shrinks = !out.forceCanvas && isDownscale(srcW, srcH, W, H)
+        let directScale = false
+        const scaled = { direct: 0, webgl: 0, canvas: 0 }
+        if (out.forceCanvas) diag.note('Scale path: 2D canvas only (forced)')
+        else if (!shrinks) diag.note(`Scale path: 2D canvas (source ${srcW}x${srcH} is not a larger copy of ${W}x${H})`)
+        else {
+            const p = await probeDirectScale(encoder.config, srcW, srcH)
+            directScale = p.ok
+            gl = GlScaler.create(W, H)
+            diag.note(`Scale path: ${p.ok ? 'encoder scales plain frames' : `${gl ? 'WebGL' : '2D canvas'} for plain frames (encoder scaling unusable: ${p.reason})`}; ${gl ? 'WebGL for frames with graphics' : '2D canvas for frames with graphics (no WebGL2)'}`)
+        }
 
         // Which cuts exist (a cut outside its file is dropped), and where graphics attach.
         const valid: { ci: number; cut: Cut }[] = []
@@ -361,15 +378,31 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                         const active = overlays.filter((o) => !failedOverlays.has(o) && tSrc >= o.startSec - 1e-6 && tSrc < o.startSec + o.durationSec)
                         const dw = s.displayWidth
                         const dh = s.displayHeight
-                        const plain = !cut.crop && active.length === 0 && dw === W && dh === H && s.rotation === 0 && !out.forceCanvas
+                        const sameSize = dw === W && dh === H
+                        const big = directScale && !cut.crop && s.rotation === 0 && isDownscale(dw, dh, W, H)
+                        const plain = !cut.crop && active.length === 0 && s.rotation === 0 && !out.forceCanvas && (sameSize || big)
                         let frame: VideoFrame
                         if (plain) {
                             const f = s.toVideoFrame()
+                            // A larger frame goes to the encoder as it is; the encoder scales it to the configured size.
                             try { frame = frames.make(new VideoFrame(f, { timestamp: tsUs(startFrame + j), duration: durUs })) } finally { f.close() }
+                            if (!sameSize) scaled.direct++
                         } else {
                             const r = coverRect(dw, dh, W, H, cut.crop)
-                            if (r.sx === 0 && r.sy === 0 && Math.abs(r.sw - dw) < 1e-6 && Math.abs(r.sh - dh) < 1e-6) s.draw(ctx, 0, 0, W, H)
-                            else s.draw(ctx, r.sx, r.sy, r.sw, r.sh, 0, 0, W, H)
+                            let viaGl = false
+                            if (gl && s.rotation === 0 && dw >= W * 1.4 && dh >= H * 1.4) {
+                                const f = s.toVideoFrame()
+                                try { gl.draw(f, r.sx, r.sy, r.sw, r.sh); ctx.drawImage(gl.canvas, 0, 0); viaGl = true } catch (e) {
+                                    diag.note(`WebGL scaling failed (${errorText(e)}); using the 2D canvas from here`)
+                                    gl.dispose(); gl = null
+                                } finally { f.close() }
+                            }
+                            if (viaGl) scaled.webgl++
+                            else {
+                                if (dw >= W * 1.4) scaled.canvas++
+                                if (r.sx === 0 && r.sy === 0 && Math.abs(r.sw - dw) < 1e-6 && Math.abs(r.sh - dh) < 1e-6) s.draw(ctx, 0, 0, W, H)
+                                else s.draw(ctx, r.sx, r.sy, r.sw, r.sh, 0, 0, W, H)
+                            }
                             paintOverlays(active, tSrc)
                             for (const o of active) if (!failedOverlays.has(o) && o.label && !report.applied.includes(o.label)) { report.applied.push(o.label); diag.graphicApplied(o.label) }
                             frame = frames.make(new VideoFrame(canvas, { timestamp: tsUs(startFrame + j), duration: durUs }))
@@ -463,6 +496,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 }
                 reportProgress()
             }
+            if (shrinks) diag.note(`Scale path frames: ${scaled.direct} by the encoder, ${scaled.webgl} by WebGL, ${scaled.canvas} by the 2D canvas`)
             diag.note(`Re-encode took ${((Date.now() - t0) / 1000).toFixed(1)} s for ${cursorFrames} frames; VideoFrames made ${frames.made}, closed ${frames.closed}`)
             if (!vConfig) throw new Error('the encoder produced no video')
             const finalVideo: VideoDecoderConfig = vConfig
@@ -495,6 +529,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         }
     } finally {
         for (const s of opened) s?.input.dispose()
+        gl?.dispose()
     }
 }
 
