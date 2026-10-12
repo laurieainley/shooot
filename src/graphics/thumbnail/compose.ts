@@ -35,6 +35,19 @@ export function fitSize(text: string, font: FontFn, size: number, min: number, m
     return Math.max(min, s)
 }
 
+/** Greedy word wrap into at most three lines (the last takes the rest, shrunk to fit by the caller). */
+function wrapWords(text: string, width: (t: string) => number, maxW: number): string[] {
+    const words = text.split(' ')
+    const lines: string[] = []
+    let cur = ''
+    for (const w of words) {
+        const next = cur ? `${cur} ${w}` : w
+        if (cur && width(next) > maxW && lines.length < 2) { lines.push(cur); cur = w } else cur = next
+    }
+    if (cur) lines.push(cur)
+    return lines
+}
+
 type Part = { text: string; accent: boolean }
 
 /** Builds the draw ops for one thumbnail in a theme's style. */
@@ -55,6 +68,7 @@ export function composeThumbnail(spec: ThumbSpec, measure: Measure, st: ThumbSty
     if (spec.hasLogo) ops.push({ kind: 'logo', x: MARGIN, y: 40, h: 104 })
 
     // Teams, bottom left, on a plate. One line when it fits at a big size, else stacked.
+    const custom = spec.headline?.trim().replace(/\s+/g, ' ').toUpperCase() ?? ''
     const a = spec.team1.trim().toUpperCase() || 'TEAM 1'
     const b = spec.team2.trim().toUpperCase() || 'TEAM 2'
     const textMax = NAME_MAX_W - 2 * PLATE_PAD
@@ -62,16 +76,27 @@ export function composeThumbnail(spec: ThumbSpec, measure: Measure, st: ThumbSty
         const gap = size * 0.3
         return parts.reduce((w, p) => w + measure(p.text, st.nameFont, size), 0) + gap * (parts.length - 1)
     }
-    const one: Part[] = [{ text: a, accent: false }, { text: 'V', accent: true }, { text: b, accent: false }]
     const MAX = 132 * k, MIN_ONE = 92 * k
     let size = MAX
-    while (size > MIN_ONE && lineSize(one, size) > textMax) size -= 2
     let lines: Part[][]
-    if (lineSize(one, size) <= textMax) lines = [one]
-    else {
-        lines = [[{ text: a, accent: false }], [{ text: 'V', accent: true }, { text: b, accent: false }]]
-        size = 112 * k
-        while (size > 60 * k && lines.some((l) => lineSize(l, size) > textMax)) size -= 2
+    if (custom) {
+        const one: Part[] = [{ text: custom, accent: false }]
+        while (size > MIN_ONE && lineSize(one, size) > textMax) size -= 2
+        if (lineSize(one, size) <= textMax) lines = [one]
+        else {
+            lines = wrapWords(custom, (t) => lineSize([{ text: t, accent: false }], 112 * k), textMax).map((t) => [{ text: t, accent: false }])
+            size = 112 * k
+            while (size > 48 * k && lines.some((l) => lineSize(l, size) > textMax)) size -= 2
+        }
+    } else {
+        const one: Part[] = [{ text: a, accent: false }, { text: 'V', accent: true }, { text: b, accent: false }]
+        while (size > MIN_ONE && lineSize(one, size) > textMax) size -= 2
+        if (lineSize(one, size) <= textMax) lines = [one]
+        else {
+            lines = [[{ text: a, accent: false }], [{ text: 'V', accent: true }, { text: b, accent: false }]]
+            size = 112 * k
+            while (size > 60 * k && lines.some((l) => lineSize(l, size) > textMax)) size -= 2
+        }
     }
     const lineH = size * 1.02
     const blockH = lineH * lines.length + PLATE_PAD * 1.4

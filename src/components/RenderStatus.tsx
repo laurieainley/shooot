@@ -31,7 +31,7 @@ export function RenderStatus({ kind }: RenderStatusProps) {
     return (
         <>
             <RenderStatusBody kind={kind} onStopped={() => setStopped(true)} />
-            {queued && <p className="render-stopping m-0 text-[12px] text-muted">Stopping the previous render… yours starts next.</p>}
+            {queued && <p className="render-stopping export-hint">Stopping the previous render… yours starts next.</p>}
             {note && <span role="status" className="sr-only">{note}</span>}
         </>
     )
@@ -115,7 +115,7 @@ function RenderStatusBody({ kind, onStopped }: RenderStatusProps & { onStopped: 
         <>
             {job.phase === 'running' && busyBox(`${keepOpenNotice(navigator)}${conflict ? ' One render at a time.' : ''}`, `${Math.round(job.fraction * 100)}%`)}
             {job.phase === 'running' && <p className="render-voice voice-heading">{POLISHING}</p>}
-            <div role="status" className="tc text-[12px] text-muted">{job.phase === 'failed' ? `Render failed: ${job.error}` : job.status}</div>
+            <div role="status" className="tc export-hint">{job.phase === 'failed' ? `Render failed: ${job.error}` : job.status}</div>
             <SkippedList skipped={skipped} />
             {job.result && (
                 <div className="render-done">

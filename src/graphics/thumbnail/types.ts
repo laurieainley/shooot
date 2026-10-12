@@ -7,6 +7,8 @@ export type ThumbSpec = {
     /** Team names exactly as set up. The score is never part of a thumbnail (it would give the result away). */
     team1: string
     team2: string
+    /** Custom headline replacing the team line ("A V B"); blank or absent means the team names. */
+    headline?: string | null
     /** The matchday title; shown only when short. */
     title: string | null
     hasLogo: boolean

@@ -18,7 +18,7 @@ export function CopyDiagnostics({ report }: CopyDiagnosticsProps) {
         <span className="flex flex-col gap-1">
             <span className="flex flex-wrap items-center gap-2">
                 <button type="button" className="btn-quiet" onClick={copy}>Copy diagnostics</button>
-                {state === 'copied' && <span role="status" className="text-[12px] text-muted">Copied</span>}
+                {state === 'copied' && <span role="status" className="export-hint">Copied</span>}
             </span>
             {state === 'manual' && (
                 <textarea aria-label="Diagnostics report" readOnly value={text} rows={6} className="w-full font-mono text-[11px]" onFocus={(e) => e.currentTarget.select()} />

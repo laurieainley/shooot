@@ -8,6 +8,7 @@ import { formatReelLength } from '../utils/reel'
 import { linkedEvents } from '../utils/relink'
 import type { RenderQuality } from '../utils/renderSources'
 import { MAX_INTERVAL_MIN, MIN_INTERVAL_MIN, type ScoreBugMode } from '../utils/scoreBug'
+import { ExportSection as Section } from './ExportSection'
 import { MissingFullFiles } from './MissingFullFiles'
 import { RenderStatus } from './RenderStatus'
 import { ResumeOffer } from './ResumeOffer'
@@ -52,68 +53,77 @@ export function FullMatchExport() {
     const job = saved.job
     const matchingQuality = job ? (['full', 'preview'] as const).find((q) => fullMatchExport(useAppState.getState(), q).signature === job.signature) : undefined
 
-    if (files.length === 0) return <p className="m-0 text-[13px] text-muted">Load the match videos first.</p>
+    if (files.length === 0) return <Section title="Full match" hint="kick-off to final whistle, one MP4"><p className="export-body text-muted m-0">Load the match videos first.</p></Section>
 
     return (
-        <div className="flex flex-col gap-2">
-            <div className="full-match-summary">
-                <p className="m-0"><b className="tc">{formatReelLength(plan.seconds)}</b> <span className="text-muted">· about {formatBytes(plan.bytes)}</span></p>
-                {(!hasKickOff || !hasWhistle) && <p className="m-0 text-muted">Tag Kick off (K) and Final whistle (W) to trim the warm-up and the end.</p>}
-            </div>
-            {phone && plan.bytes > PHONE_SIZE_WARNING && (
-                <p role="alert" className="export-note">This file will be over 2 GB ({formatBytes(plan.bytes)}): make sure the phone has room, or render the preview from the proxies.</p>
-            )}
-
-            <label className="toggle-row">
-                <input type="checkbox" checked={fullMatch.cards} onChange={(e) => setFullMatch({ cards: e.target.checked })} />
-                <span className="toggle-row__text">Title &amp; full-time cards<span className="toggle-row__hint">VS card before kick-off, final score after the whistle</span></span>
-            </label>
-            <label className="toggle-row">
-                <input type="checkbox" checked={fullMatch.captions} onChange={(e) => setFullMatch({ captions: e.target.checked })} />
-                <span className="toggle-row__text">Event captions<span className="toggle-row__hint">Who scored (and the assist) just after each goal, as in the highlights</span></span>
-            </label>
-            <label className="toggle-row">
-                <input type="checkbox" checked={fullMatch.replays} onChange={(e) => setFullMatch({ replays: e.target.checked })} />
-                <span className="toggle-row__text">Slow-mo replays<span className="toggle-row__hint">After each goal with a replay, as in the highlights</span></span>
-            </label>
-            <fieldset className="segmented-field">
-                <legend>Score bug</legend>
-                <div className="segmented" role="radiogroup" aria-label="Score bug">
-                    {BUG_MODES.map(([mode, label]) => (
-                        <label key={mode} className="segmented__option">
-                            <input type="radio" name="full-match-bug" value={mode} checked={fullMatch.scoreBug === mode} onChange={() => setFullMatch({ scoreBug: mode })} />
-                            <span>{label}</span>
-                        </label>
-                    ))}
+        <>
+            <Section title="Full match" hint="kick-off to final whistle, one MP4">
+                <div role="group" aria-label="Full match summary" className="reel-summary">
+                    <p className="reel-summary__length m-0">
+                        <b className="tc">{formatReelLength(plan.seconds)}</b>
+                        <span> · about {formatBytes(plan.bytes)}</span>
+                    </p>
+                    {(!hasKickOff || !hasWhistle) && <p className="reel-summary__settings m-0">Tag Kick off (K) and Final whistle (W) to trim the warm-up and the end.</p>}
                 </div>
-                {fullMatch.scoreBug === 'periodic' && (
-                    <label className="segmented-field__interval">
-                        <span>every</span>
-                        <select aria-label="Show the score every" className="field" value={fullMatch.intervalMin} onChange={(e) => setFullMatch({ intervalMin: Number(e.target.value) })}>
-                            {INTERVALS.map((m) => <option key={m} value={m}>{m} min</option>)}
-                        </select>
-                    </label>
+                {phone && plan.bytes > PHONE_SIZE_WARNING && (
+                    <p role="alert" className="export-note">This file will be over 2 GB ({formatBytes(plan.bytes)}): make sure the phone has room, or render the preview from the proxies.</p>
                 )}
-                <span className="toggle-row__hint">
-                    {fullMatch.scoreBug === 'off' ? 'No score on screen.'
-                        : fullMatch.scoreBug === 'goals' ? 'Shows the new score just after each goal, as in the highlights.'
-                        : 'After each goal, at kick-off and half time, and every few minutes.'}
-                </span>
-            </fieldset>
 
-            {job && (
-                <ResumeOffer job={job} matches={!!matchingQuality} filesLoaded={files.length > 0} busy={busy}
-                    onResume={() => run(matchingQuality!)} onDiscard={() => void saved.discard()} />
-            )}
-            {hasProxies && (
-                <button type="button" onClick={() => run('preview')} disabled={disabled} className="btn-quiet w-full justify-center">Preview full match (proxies)</button>
-            )}
-            <button type="button" onClick={() => run('full')} disabled={disabled} className="btn-primary w-full justify-center">
-                {hasProxies ? 'Render full match (full quality)' : 'Render full match'}
-            </button>
-            <MissingFullFiles missing={missing} onChange={(m, msg) => { setMissing(m); setNote(msg) }} onPreviewInstead={() => run('preview')} />
-            {note && <p role="note" className="m-0 text-[12px] text-muted">{note}</p>}
-            <RenderStatus kind="fullMatch" />
-        </div>
+                <label className="toggle-row">
+                    <input type="checkbox" checked={fullMatch.cards} onChange={(e) => setFullMatch({ cards: e.target.checked })} />
+                    <span className="toggle-row__text">Title &amp; full-time cards<span className="toggle-row__hint">VS card before kick-off, final score after the whistle</span></span>
+                </label>
+                <label className="toggle-row">
+                    <input type="checkbox" checked={fullMatch.captions} onChange={(e) => setFullMatch({ captions: e.target.checked })} />
+                    <span className="toggle-row__text">Event captions<span className="toggle-row__hint">Who scored (and the assist) just after each goal, as in the highlights</span></span>
+                </label>
+                <label className="toggle-row">
+                    <input type="checkbox" checked={fullMatch.replays} onChange={(e) => setFullMatch({ replays: e.target.checked })} />
+                    <span className="toggle-row__text">Slow-mo replays<span className="toggle-row__hint">After each goal with a replay, as in the highlights</span></span>
+                </label>
+                <fieldset className="segmented-field">
+                    <legend>Score bug</legend>
+                    <div className="segmented" role="radiogroup" aria-label="Score bug">
+                        {BUG_MODES.map(([mode, label]) => (
+                            <label key={mode} className="segmented__option">
+                                <input type="radio" name="full-match-bug" value={mode} checked={fullMatch.scoreBug === mode} onChange={() => setFullMatch({ scoreBug: mode })} />
+                                <span>{label}</span>
+                            </label>
+                        ))}
+                    </div>
+                    {fullMatch.scoreBug === 'periodic' && (
+                        <label className="segmented-field__interval">
+                            <span>every</span>
+                            <select aria-label="Show the score every" className="field" value={fullMatch.intervalMin} onChange={(e) => setFullMatch({ intervalMin: Number(e.target.value) })}>
+                                {INTERVALS.map((m) => <option key={m} value={m}>{m} min</option>)}
+                            </select>
+                        </label>
+                    )}
+                    <span className="toggle-row__hint">
+                        {fullMatch.scoreBug === 'off' ? 'No score on screen.'
+                            : fullMatch.scoreBug === 'goals' ? 'Shows the new score just after each goal, as in the highlights.'
+                            : 'After each goal, at kick-off and half time, and every few minutes.'}
+                    </span>
+                </fieldset>
+            </Section>
+
+            <Section title="Render" hint="one MP4, kick-off to final whistle">
+                <div className="flex flex-col gap-2">
+                    {job && (
+                        <ResumeOffer job={job} matches={!!matchingQuality} filesLoaded={files.length > 0} busy={busy}
+                            onResume={() => run(matchingQuality!)} onDiscard={() => void saved.discard()} />
+                    )}
+                    {hasProxies && (
+                        <button type="button" onClick={() => run('preview')} disabled={disabled} className="btn-quiet w-full justify-center">Preview full match (proxies)</button>
+                    )}
+                    <button type="button" onClick={() => run('full')} disabled={disabled} className="btn-primary w-full justify-center">
+                        {hasProxies ? 'Render full match (full quality)' : 'Render full match'}
+                    </button>
+                    <MissingFullFiles missing={missing} onChange={(m, msg) => { setMissing(m); setNote(msg) }} onPreviewInstead={() => run('preview')} />
+                    {note && <p role="note" className="export-hint">{note}</p>}
+                    <RenderStatus kind="fullMatch" />
+                </div>
+            </Section>
+        </>
     )
 }

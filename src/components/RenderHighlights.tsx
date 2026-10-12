@@ -48,7 +48,7 @@ export function RenderHighlights() {
                 {hasProxies ? 'Full quality render' : 'Render MP4'}
             </button>
             <MissingFullFiles missing={missing} onChange={(m, msg) => { setMissing(m); setNote(msg) }} onPreviewInstead={() => run('preview')} />
-            {note && <p role="note" className="m-0 text-[12px] text-muted">{note}</p>}
+            {note && <p role="note" className="export-hint">{note}</p>}
             <RenderStatus kind="highlights" />
         </div>
     )
