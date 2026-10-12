@@ -14,7 +14,7 @@ describe('DescriptionCopy', () => {
         Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
         useAppState.setState({
             cumulativeOffsets: [0], lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, graphics: { cards: false, lowerThirds: true, replayTag: false, theme: 'shooot' },
-            fullMatch: { cards: false, scoreBug: 'goals', intervalMin: 5, captions: false },
+            fullMatch: { cards: false, scoreBug: 'goals', intervalMin: 5, captions: false, replays: false },
             teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }],
             events: [
                 { id: 'k', matchTimeSec: 30, sourceFileIndex: 0, type: 'kick_off' },

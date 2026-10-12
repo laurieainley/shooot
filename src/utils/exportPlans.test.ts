@@ -14,7 +14,7 @@ const state = (extra: Partial<ExportState> = {}): ExportState => ({
     lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5,
     graphics: { cards: true, lowerThirds: true, replayTag: false, theme: 'shooot' },
     teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }],
-    matchdayLabel: null, fullMatch: { cards: true, scoreBug: 'periodic', intervalMin: 5, captions: false },
+    matchdayLabel: null, fullMatch: { cards: true, scoreBug: 'periodic', intervalMin: 5, captions: false, replays: false },
     ...extra,
 })
 
@@ -29,17 +29,28 @@ describe('fullMatchExport', () => {
         expect(p.missing).toEqual([])
     })
 
+    it('should insert replays only when asked: longer, signature changes, still resumable, tag over the replay', () => {
+        const off = fullMatchExport(state(), 'full')
+        const on = fullMatchExport(state({ fullMatch: { cards: true, scoreBug: 'periodic', intervalMin: 5, captions: false, replays: true }, graphics: { cards: true, lowerThirds: true, replayTag: true, theme: 'shooot' } }), 'full')
+        expect(on.cuts.map((c) => [c.sourceIndex, c.startSec, c.endSec, c.speed ?? 1])).toEqual([[0, 30, 61, 1], [0, 56, 61, 0.5], [0, 61, 100, 1], [1, 0, 50, 1]])
+        expect(on.seconds).toBe(off.seconds + 10) // the 5 s replay at 0.5x is added; the match itself is not shortened
+        expect(on.signature).not.toBe(off.signature)
+        expect(on.resumable).toBe(true)
+        expect(on.spec?.overlays.filter((o) => o.cutIndex === 1).map((o) => o.kind)).toEqual(['replayTag'])
+        expect(on.bytes).toBeGreaterThan(off.bytes)
+    })
+
     it('should plan VS / FT cards and periodic score bug windows on the cuts', () => {
         const p = fullMatchExport(state(), 'full')
         expect(p.spec?.intro?.heading).toBe('MATCH')
         expect(p.spec?.overlays.map((o) => [o.cutIndex, o.startSec, o.durationSec])).toEqual([[0, 30, 8], [0, 61, 5]])
-        expect(fullMatchExport(state({ fullMatch: { cards: false, scoreBug: 'off', intervalMin: 5, captions: false } }), 'full').spec).toBeUndefined()
+        expect(fullMatchExport(state({ fullMatch: { cards: false, scoreBug: 'off', intervalMin: 5, captions: false, replays: false } }), 'full').spec).toBeUndefined()
     })
 
     it('should plan event captions only when the full-match setting is on', () => {
-        const s = state({ events: [...state().events, { id: 'g9', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: state().teams[0].name }], fullMatch: { cards: false, scoreBug: 'off', intervalMin: 5, captions: true } })
+        const s = state({ events: [...state().events, { id: 'g9', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: state().teams[0].name }], fullMatch: { cards: false, scoreBug: 'off', intervalMin: 5, captions: true, replays: false } })
         expect(fullMatchExport(s, 'full').spec?.overlays.map((o) => o.kind)).toContain('caption')
-        expect(fullMatchExport({ ...s, fullMatch: { ...s.fullMatch, captions: false } }, 'full').spec).toBeUndefined()
+        expect(fullMatchExport({ ...s, fullMatch: { ...s.fullMatch, captions: false, replays: false } }, 'full').spec).toBeUndefined()
     })
 
     it('should need the full files of a proxy timeline, unless rendering a preview', () => {
@@ -51,7 +62,7 @@ describe('fullMatchExport', () => {
     it('should change signature when the plan changes', () => {
         const a = fullMatchExport(state(), 'full').signature
         expect(fullMatchExport(state(), 'full').signature).toBe(a)
-        expect(fullMatchExport(state({ fullMatch: { cards: true, scoreBug: 'goals', intervalMin: 5, captions: false } }), 'full').signature).not.toBe(a)
+        expect(fullMatchExport(state({ fullMatch: { cards: true, scoreBug: 'goals', intervalMin: 5, captions: false, replays: false } }), 'full').signature).not.toBe(a)
     })
 })
 
