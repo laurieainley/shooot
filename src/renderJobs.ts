@@ -121,6 +121,7 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                     const out = await deps.render(req.cuts, req.sources, {
                         onProgress: (p) => patch(id, { fraction: p.fraction, status: formatRenderProgress(p) }),
                         signal,
+                        kind,
                         ...(lock ? { wakeLockStatus: () => lock.status() } : {}),
                         confirmMixedSizes: (notice) => new Promise<boolean>((resolve) => {
                             pending = resolve

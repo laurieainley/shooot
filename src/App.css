@@ -1131,6 +1131,13 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 /* Selected row: a second line of actions under the icon column (labels hide when the rail is narrow). */
 .event-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0 2px calc(var(--clock-ch, 5) * 1ch + 8px); white-space: nowrap; cursor: default; }
 .event-actions__download { display: inline-flex; }
+@media (pointer: coarse) { .event-actions__download > .act-btn { min-height: 44px; min-width: 44px; font-size: 14px; } }
+.floating.clip-download { min-width: 240px; }
+.clip-download__body { display: flex; flex-direction: column; gap: 10px; }
+.clip-download__opt { display: flex; align-items: center; gap: 8px; min-height: 32px; font: 600 14px var(--sh-font); color: var(--sh-text); cursor: pointer; }
+.clip-download__opt input { width: 18px; height: 18px; accent-color: var(--sh-text); }
+.clip-download__note { margin: 0; font-size: 14px; color: var(--sh-muted); overflow-wrap: anywhere; }
+@media (pointer: coarse) { .clip-download__opt { min-height: 44px; } .clip-download__body .btn-primary { min-height: 44px; } }
 .act-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 30px; padding: 0 10px; border-radius: 6px;
   border: 1px solid var(--sh-line); background: transparent; color: var(--sh-text); font: 600 12px var(--sh-font); cursor: pointer;
@@ -1144,10 +1151,12 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 @media (pointer: coarse) {
   .event-actions { padding-left: 12px; }
   .event-actions .act-btn { flex: 1 1 auto; padding: 0 8px; }
+  .event-actions__download { flex: 1 1 auto; }
 }
 @container event-log (max-width: 420px) {
   .event-actions { padding-left: 12px; }
   .event-actions .act-btn { flex: 1 1 auto; padding: 0 8px; }
+  .event-actions__download { flex: 1 1 auto; }
 }
 @container event-log (max-width: 360px) {
   .event-actions__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

@@ -108,7 +108,7 @@ export type Outcome = 'running' | 'done' | 'failed' | 'cancelled'
 
 export type DiagnosticsReport = {
     version: 1
-    kind: 'highlights' | 'fullMatch'
+    kind: 'highlights' | 'fullMatch' | 'clip'
     outputName: string
     startedAt: number
     finishedAt: number | null
@@ -135,7 +135,7 @@ export class RenderDiagnostics {
     private readonly visibility: { stop: () => { hiddenCount: number; hiddenMs: number } }
     private readonly wakeLock: () => string
 
-    constructor(o: { kind: 'highlights' | 'fullMatch'; outputName: string; now?: () => number; environment?: Environment; visibilityDoc?: VisibilityDoc; wakeLock?: () => string }) {
+    constructor(o: { kind: 'highlights' | 'fullMatch' | 'clip'; outputName: string; now?: () => number; environment?: Environment; visibilityDoc?: VisibilityDoc; wakeLock?: () => string }) {
         this.now = o.now ?? Date.now
         this.visibility = trackVisibility('visibilityDoc' in o ? o.visibilityDoc : typeof document === 'undefined' ? undefined : document, this.now)
         this.wakeLock = o.wakeLock ?? (() => 'not requested')
@@ -304,6 +304,7 @@ export function publishReport(r: DiagnosticsReport, o: { storage?: KeyValueStora
         con.log(formatReport(r))
         con.groupEnd()
     } catch { /* logging must never fail a render */ }
-    saveLastReport(r, o.storage)
+    // A clip's report is not kept: the stored last report is the one shown under the Highlights tab.
+    if (r.kind !== 'clip') saveLastReport(r, o.storage)
     try { o.onReport?.(r) } catch { /* ignore */ }
 }
