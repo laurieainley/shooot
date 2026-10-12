@@ -32,7 +32,7 @@ describe('fullMatchExport', () => {
     it('should plan VS / FT cards and periodic score bug windows on the cuts', () => {
         const p = fullMatchExport(state(), 'full')
         expect(p.spec?.intro?.heading).toBe('MATCH')
-        expect(p.spec?.overlays.map((o) => [o.cutIndex, o.startSec, o.durationSec])).toEqual([[0, 30, 8], [0, 60, 10]])
+        expect(p.spec?.overlays.map((o) => [o.cutIndex, o.startSec, o.durationSec])).toEqual([[0, 30, 8], [0, 61, 5]])
         expect(fullMatchExport(state({ fullMatch: { cards: false, scoreBug: 'off', intervalMin: 5, captions: false } }), 'full').spec).toBeUndefined()
     })
 

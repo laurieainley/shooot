@@ -2,14 +2,12 @@ import { useMemo, useState } from 'react'
 import { useAppState } from '../state'
 import { useShallow } from 'zustand/react/shallow'
 import { fullMatchExport, type ExportState } from '../utils/exportPlans'
-import { formatBytes, fullMatchSpan, PHONE_SIZE_WARNING } from '../utils/fullMatch'
-import { globalToFileTime } from '../utils/matchStrip'
-import { finalWhistleSec, kickOffSec } from '../utils/matchClock'
+import { formatBytes, PHONE_SIZE_WARNING } from '../utils/fullMatch'
+import { finalWhistleSec } from '../utils/matchClock'
 import { formatReelLength } from '../utils/reel'
 import { linkedEvents } from '../utils/relink'
 import type { RenderQuality } from '../utils/renderSources'
 import { MAX_INTERVAL_MIN, MIN_INTERVAL_MIN, type ScoreBugMode } from '../utils/scoreBug'
-import { formatHMS } from '../utils/timeline'
 import { MissingFullFiles } from './MissingFullFiles'
 import { RenderStatus } from './RenderStatus'
 import { ResumeOffer } from './ResumeOffer'
@@ -40,13 +38,8 @@ export function FullMatchExport() {
 
     const plan = useMemo(() => fullMatchExport(st, 'full'), [st])
     const linked = linkedEvents(events)
-    const durations = files.map((f) => f.durationSec ?? 0)
-    const span = fullMatchSpan(linked, cumulativeOffsets, durations)
-    const where = (t: number): string => `V${globalToFileTime(cumulativeOffsets, durations, t).fileIndex + 1}`
     const hasKickOff = linked.some((e) => e.type === 'kick_off')
     const hasWhistle = finalWhistleSec(linked, cumulativeOffsets) !== null
-    const from = hasKickOff ? `Kick off ${formatHMS(kickOffSec(linked, cumulativeOffsets))} (${where(span.startSec)})` : 'Start of V1'
-    const to = hasWhistle ? `Final whistle ${formatHMS(span.endSec)} (${where(Math.max(0, span.endSec - 0.001))})` : `End of V${files.length}`
     const hasProxies = files.some((f) => f.kind === 'proxy')
     const disabled = plan.cuts.length === 0
 
@@ -64,8 +57,7 @@ export function FullMatchExport() {
     return (
         <div className="flex flex-col gap-2">
             <div className="full-match-summary">
-                <p className="m-0"><b>{from} → {to}</b></p>
-                <p className="m-0 tc text-muted">{formatReelLength(plan.seconds)} · about {formatBytes(plan.bytes)} · stream copied, not re-encoded</p>
+                <p className="m-0"><b className="tc">{formatReelLength(plan.seconds)}</b> <span className="text-muted">· about {formatBytes(plan.bytes)}</span></p>
                 {(!hasKickOff || !hasWhistle) && <p className="m-0 text-muted">Tag Kick off (K) and Final whistle (W) to trim the warm-up and the end.</p>}
             </div>
             {phone && plan.bytes > PHONE_SIZE_WARNING && (
@@ -78,7 +70,7 @@ export function FullMatchExport() {
             </label>
             <label className="toggle-row">
                 <input type="checkbox" checked={fullMatch.captions} onChange={(e) => setFullMatch({ captions: e.target.checked })} />
-                <span className="toggle-row__text">Event captions<span className="toggle-row__hint">Goals with assists, own goals, penalties conceded / missed, 5 s from 1 s after the moment (replace the score bug there)</span></span>
+                <span className="toggle-row__text">Event captions<span className="toggle-row__hint">Who scored (and the assist) just after each goal, as in the highlights</span></span>
             </label>
             <fieldset className="segmented-field">
                 <legend>Score bug</legend>
@@ -100,8 +92,8 @@ export function FullMatchExport() {
                 )}
                 <span className="toggle-row__hint">
                     {fullMatch.scoreBug === 'off' ? 'No score on screen.'
-                        : fullMatch.scoreBug === 'goals' ? '10 s after each goal.'
-                        : '8 s at kick-off and after half time, 10 s after goals, 5 s on the interval.'} Only those moments are re-encoded.
+                        : fullMatch.scoreBug === 'goals' ? 'Shows the new score just after each goal, as in the highlights.'
+                        : 'After each goal, at kick-off and half time, and every few minutes.'}
                 </span>
             </fieldset>
 

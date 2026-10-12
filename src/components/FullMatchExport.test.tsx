@@ -43,14 +43,14 @@ describe('FullMatchExport', () => {
 
     it('should summarise the span, length and estimated size', () => {
         render(<FullMatchExport />)
-        expect(screen.getByText(/Kick off 01:00 \(V1\) → Final whistle 19:00 \(V2\)/)).toBeInTheDocument()
-        expect(screen.getByText(/18:00 · about 2.3 GB/)).toBeInTheDocument()
+        expect(screen.queryByText(/→/)).not.toBeInTheDocument() // just the length and size
+        expect(screen.getByText('18:00')).toBeInTheDocument()
+        expect(screen.getByText(/about 2.3 GB/)).toBeInTheDocument()
     })
 
     it('should say where it starts and ends when the markers are missing', () => {
         useAppState.setState({ events: [] })
         render(<FullMatchExport />)
-        expect(screen.getByText(/Start of V1 → End of V2/)).toBeInTheDocument()
         expect(screen.getByText(/tag Kick off \(K\) and Final whistle \(W\)/i)).toBeInTheDocument()
     })
 

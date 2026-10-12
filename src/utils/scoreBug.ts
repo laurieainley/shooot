@@ -7,16 +7,18 @@ export type ScoreBugMode = 'off' | 'goals' | 'periodic'
 /** One appearance of the full match score bug, on the whole timeline. */
 export type ScoreBugWindow = { startSec: number; durationSec: number; score: Score }
 
-export const AFTER_GOAL_SEC = 10
+/** After a goal the score shows as in the highlights' caption: from 1 s after the goal, for 5 s. */
+export const AFTER_GOAL_DELAY_SEC = 1
+export const AFTER_GOAL_SEC = 5
 export const KICK_OFF_SEC = 8
 export const PERIODIC_SEC = 5
 export const MIN_INTERVAL_MIN = 2
 export const MAX_INTERVAL_MIN = 15
 
 /**
- * When the full match shows its score bug. After goals: 10 s from each goal. Periodic adds 8 s at kick-off and after
- * any half-time gap, and 5 s every `intervalMin` minutes (2–15). Overlapping windows merge; a goal inside one splits it
- * so each window has one score. Everything is clamped to kick-off … final whistle (the cards sit outside).
+ * When the full match shows its score bug. After goals: 5 s from 1 s after each goal (as the highlights caption). Periodic
+ * adds 8 s at kick-off and after any half-time gap, and 5 s every `intervalMin` minutes (2–15). Overlapping windows
+ * merge; a goal inside one splits it (1 s after the goal, when its new score appears) so each window has one score. Everything is clamped to kick-off … final whistle (the cards sit outside).
  */
 export function scoreBugWindows(args: {
     events: MatchEvent[]
@@ -36,6 +38,7 @@ export function scoreBugWindows(args: {
         .map((e) => (offsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec)
         .filter((t) => t >= k && t <= f)
         .sort((a, b) => a - b)
+        .map((t) => t + AFTER_GOAL_DELAY_SEC) // the moment the new score shows
 
     const raw: [number, number][] = goals.map((t) => [t, t + AFTER_GOAL_SEC])
     if (mode === 'periodic') {

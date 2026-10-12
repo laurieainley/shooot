@@ -12,9 +12,9 @@ describe('scoreBugWindows', () => {
         expect(scoreBugWindows({ ...base, events: [goal('a', 400)], mode: 'off' })).toEqual([])
     })
 
-    it('should show the new score for 10 s after each goal in "after goals" mode', () => {
+    it('should show the new score for 5 s from 1 s after each goal in "after goals" mode, as the highlights caption', () => {
         expect(spans(scoreBugWindows({ ...base, events: [goal('a', 400), goal('b', 900, 'Colours')], mode: 'goals' })))
-            .toEqual([[400, 10, '1-0'], [900, 10, '1-1']])
+            .toEqual([[401, 5, '1-0'], [901, 5, '1-1']])
     })
 
     it('should add 8 s at kick-off and every 5 minutes for 5 s in periodic mode', () => {
@@ -35,14 +35,14 @@ describe('scoreBugWindows', () => {
 
     it('should merge overlapping windows and split them where a goal changes the score', () => {
         const w = scoreBugWindows({ ...base, events: [goal('a', 398)], mode: 'periodic', intervalMin: 5 })
-        expect(spans(w).slice(0, 2)).toEqual([[100, 8, '0-0'], [398, 10, '1-0']])
+        expect(spans(w).slice(0, 2)).toEqual([[100, 8, '0-0'], [399, 6, '1-0']])
         const w2 = scoreBugWindows({ ...base, events: [goal('a', 402)], mode: 'periodic', intervalMin: 5 })
-        expect(spans(w2).slice(1, 3)).toEqual([[400, 2, '0-0'], [402, 10, '1-0']])
+        expect(spans(w2).slice(1, 3)).toEqual([[400, 3, '0-0'], [403, 5, '1-0']])
     })
 
     it('should clamp to the match: nothing before kick-off or after the final whistle (where the cards go)', () => {
         const w = scoreBugWindows({ ...base, events: [goal('early', 50), goal('late', base.finalWhistleSec - 4)], mode: 'goals' })
-        expect(spans(w)).toEqual([[base.finalWhistleSec - 4, 4, '2-0']])
+        expect(spans(w)).toEqual([[base.finalWhistleSec - 3, 3, '2-0']])
     })
 
     it('should use the end of the footage when there is no final whistle', () => {
