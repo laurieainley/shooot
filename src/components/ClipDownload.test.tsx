@@ -132,6 +132,27 @@ describe('ClipDownload', () => {
         expect(again).toHaveBeenCalled()
     })
 
+    it('should make Download again the primary button and Render again quiet once the clip is done', async () => {
+        await finishWith()
+        const again = await screen.findByRole('button', { name: 'Download again' })
+        expect(again).toHaveClass('btn-primary')
+        const render2 = screen.getByRole('button', { name: 'Render again' })
+        expect(render2).toHaveClass('btn-quiet')
+        expect(render2).not.toHaveClass('btn-primary')
+        expect(screen.queryByRole('button', { name: 'Download' })).toBeNull()
+        expect(again.compareDocumentPosition(render2) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('should keep the lime Download after an error and render again from Render again', async () => {
+        renderReel.mockRejectedValue(new Error('decoder fell over'))
+        render(<ClipDownload event={goal} />)
+        await open()
+        await userEvent.click(screen.getByRole('button', { name: 'Download' }))
+        await screen.findByText(/decoder fell over/)
+        expect(screen.getByRole('button', { name: 'Download' })).toHaveClass('btn-primary')
+        expect(screen.queryByRole('button', { name: 'Render again' })).toBeNull()
+    })
+
     it('should offer Share when the browser can share the file', async () => {
         Object.assign(navigator, { canShare: () => true, share: vi.fn(async () => undefined) })
         try {

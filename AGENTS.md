@@ -94,8 +94,9 @@ npm run lint       # baseline: 12 known problems — add none
 - **Clip download:** a selected row's Download clip popover (`ClipDownload`) renders one event through `clipExport()`:
   its padding, its replay (option), a caption for that event only (score option; `buildGraphicsSpec` `captionEvents` /
   `captionScore` / `cards`), no title/full-time card, and a 3.5 s Shooot sting (`graphics/sting.ts`, outro
-  `{ kind: 'sting' }`; a missing wordmark fails the sting visibly). Name: `outputFileName` clip form
-  (`… - 13' Goal DJ.mp4`). Job kind `'clip'`: never resumable, doesn't save a timeline or the last diagnostics report;
+  `{ kind: 'sting' }`; a missing wordmark fails the sting visibly). Name: `outputFileName` clip form,
+  teams but never the score (`Matchday 3 - Hawks v Lions - 13' Goal DJ.mp4`). After a finished clip the popover's
+  primary button is Download again; Render again is quiet. Job kind `'clip'`: never resumable, doesn't save a timeline or the last diagnostics report;
   quality falls back to preview only for files the clip reads. Options persist as `clipOptions` (state v22).
 - **Full match:** Kick off → Final whistle across files, stream-copied; score bug windows (Off / After goals /
   Periodic; after goals = 1 s after for 5 s, like the highlights caption) and event captions are the only re-encoded
@@ -248,10 +249,14 @@ npm run lint       # baseline: 12 known problems — add none
 - **Event icons:** `components/icons/EventIcon.tsx` + `utils/eventIcon.ts` (football, pen ball "P", own goal "OG",
   penalty spot / spot ✕, glove, whistle, star, flag, pause, chequered flag) — used in strip, rows, picker, edit sheet.
 - **Events rail:** rows = clock · team dot · icon · name (body font, weight 600, normal case — not the shirt face) ·
-  note (inline, muted) · score · ▶ (`utils/eventRow.ts`); no assist, no file number (only a "file missing" warning).
-  The selected row expands into an action row (`EventActions`): ↻ Replay · ⌖ Framing (when replay is on) · person-icon
-  Edit · [Download clip slot] · × Delete; markers get Edit + Delete. Labels hide (icon-only) when the rail is ≤ 360px;
-  the row wraps rather than clips. Touch: a tap expands (Edit opens the sheet). Esc collapses, then leaves the log.
+  note (inline, muted) · passive muted ↻ when the replay is on · score · ▶ (`utils/eventRow.ts`); no assist, no file
+  number (only a "file missing" warning). The selected row expands into an action row (`EventActions`): Slow-mo replay
+  switch (`role=switch`, R) · person-icon Edit · ⌖ Framing (when replay is on) · [Download clip slot] · × Delete;
+  markers get Edit + Delete. Edit opens the event sheet's details (no replay toggle there); Framing opens only its
+  "Replay framing" view (`editEvent(id, 'framing')`, `editingView`, not persisted; closes if the replay is switched
+  off). Labels hide (icon-only) when the rail is ≤ 360px; the row wraps rather than clips. An expanded row scrolls the
+  list (the page only when the list can't scroll, phone portrait); touch layouts keep room below the last row so the
+  + never covers it. Touch: a tap expands (Edit opens the sheet). Esc collapses, then leaves the log.
   Header: "+ Tag event" (quiet, red REC dot), undo/redo, "?" shortcuts. No rail footer and no key-hint bar.
 - **Export:** right-hand drawer over a scrim (`FloatingPanel variant="drawer"`; full screen on phones). Highlights tab:
   Reel (`ReelSummary`: length, clips, clip/replay recap with an Edit disclosure), Graphics, Render, Share.

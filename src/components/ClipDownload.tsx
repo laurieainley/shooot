@@ -98,14 +98,16 @@ export function ClipDownload({ event }: ClipDownloadProps) {
                         )}
                         {status && <p className="clip-download__note" role="status">{ownJob?.phase === 'failed' ? `Render failed: ${status}` : status}</p>}
                         {finished && <SkippedList skipped={skipped} />}
-                        {!(ownJob?.phase === 'running' && ownJob.notice) && (
-                            <button type="button" className="btn-primary" disabled={!!reason || ownJob?.phase === 'running'} onClick={download}>Download</button>
-                        )}
                         {result && (
-                            <span className="flex flex-wrap items-center gap-2">
-                                <button type="button" className="btn-quiet" onClick={() => renderJobs().getState().downloadAgain()}>Download again</button>
-                                {canShare && <button type="button" className="btn-quiet" onClick={() => navigator.share({ files: [result.file] }).catch(() => undefined)}>Share</button>}
-                            </span>
+                            <button type="button" className="btn-primary" onClick={() => renderJobs().getState().downloadAgain()}>Download again</button>
+                        )}
+                        {!(ownJob?.phase === 'running' && ownJob.notice) && (
+                            <button type="button" className={result ? 'btn-quiet' : 'btn-primary'} disabled={!!reason || ownJob?.phase === 'running'} onClick={download}>
+                                {result ? 'Render again' : 'Download'}
+                            </button>
+                        )}
+                        {result && canShare && (
+                            <button type="button" className="btn-quiet" onClick={() => navigator.share({ files: [result.file] }).catch(() => undefined)}>Share</button>
                         )}
                         {finished && ownJob?.diagnostics && <CopyDiagnostics report={ownJob.diagnostics} />}
                     </div>

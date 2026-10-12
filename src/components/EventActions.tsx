@@ -14,7 +14,7 @@ export interface EventActionsProps {
     download?: ReactNode
 }
 
-/** The selected row's second line: replay, framing, edit, download, delete. */
+/** The selected row's second line: slow-mo replay switch, edit, framing (replay on), download, delete. */
 export function EventActions({ event: e, touch, onToggleReplay, onFraming, onEdit, onRemove, download }: EventActionsProps) {
     const stop = (ev: React.SyntheticEvent): void => ev.stopPropagation()
     const marker = isMarker(e)
@@ -23,19 +23,21 @@ export function EventActions({ event: e, touch, onToggleReplay, onFraming, onEdi
     return (
         <div className="event-actions" role="group" aria-label="Event actions" onClick={stop}>
             {!marker && (
-                <button type="button" className={`${btn} act-btn--replay`} aria-label="Replay" aria-pressed={replay}
-                    title={replay ? 'Slow-mo replay on (R)' : 'Slow-mo replay off (R)'} onClick={onToggleReplay}>
-                    <span aria-hidden="true">↻</span><span className="event-actions__label">Replay</span>
-                </button>
-            )}
-            {replay && (
-                <button type="button" className={btn} aria-label="Replay framing" title="Replay framing (zoom to the goal)" onClick={onFraming}>
-                    <span aria-hidden="true">⌖</span><span className="event-actions__label">Framing</span>
+                <button type="button" role="switch" aria-checked={replay} aria-label="Slow-mo replay" title="Slow-mo replay (R)"
+                    className={`${btn} act-switch`} onClick={onToggleReplay}>
+                    <span className="act-switch__track" aria-hidden="true"><span className="act-switch__knob" /></span>
+                    <span className="event-actions__label">Slow-mo replay</span>
+                    <span className="act-switch__glyph" aria-hidden="true">↻</span>
                 </button>
             )}
             <button type="button" className={btn} aria-label="Edit details" title="Edit details (E person · T team · N note)" onClick={onEdit}>
                 <PersonIcon /><span className="event-actions__label">Edit</span>
             </button>
+            {replay && (
+                <button type="button" className={btn} aria-label="Replay framing" title="Replay framing (zoom to the goal)" onClick={onFraming}>
+                    <span aria-hidden="true">⌖</span><span className="event-actions__label">Framing</span>
+                </button>
+            )}
             {!marker && download ? <span className="event-actions__download">{download}</span> : null}
             <button type="button" className={`${btn} act-btn--delete`} aria-label="Delete event" title="Delete (⌫)" onClick={onRemove}>
                 <span aria-hidden="true">×</span><span className="event-actions__label">Delete</span>

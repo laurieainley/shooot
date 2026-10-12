@@ -198,9 +198,9 @@ describe('clipExport', () => {
         expect(on.every((o) => o.kind === 'caption' && !!o.spec.bug)).toBe(true)
         expect(off.every((o) => o.kind === 'caption' && !o.spec.bug)).toBe(true)
     })
-    it('should name the file from title and score, minute, type and person', () => {
-        expect(clipExport(cs(), 'G1', both, 'full')!.outputName).toBe("Whites 2-1 Colours - 2' Goal DJ.mp4")
-        expect(clipExport(cs(), 'G1', both, 'preview')!.outputName).toBe("Whites 2-1 Colours - 2' Goal DJ (preview).mp4")
+    it('should name the file from title and teams (no score), minute, type and person', () => {
+        expect(clipExport(cs(), 'G1', both, 'full')!.outputName).toBe("Whites v Colours - 2' Goal DJ.mp4")
+        expect(clipExport(cs(), 'G1', both, 'preview')!.outputName).toBe("Whites v Colours - 2' Goal DJ (preview).mp4")
     })
     it('should refuse markers, unknown and unlinked events', () => {
         expect(clipExport(cs(), 'ko', both, 'full')).toBeNull()
