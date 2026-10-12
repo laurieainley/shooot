@@ -1,11 +1,13 @@
 import { useMemo, useRef, useState } from 'react'
 import { useAppState } from '../state'
 import type { MatchEvent } from '../types'
-import { useRenderJobs } from '../renderJobs'
+import { renderJobs, useRenderJobs } from '../renderJobs'
 import { clipExport } from '../utils/exportPlans'
 import { wantsReplay } from '../utils/replays'
 import { FloatingPanel } from './FloatingPanel'
 import { startExport } from './renderRequest'
+import { CopyDiagnostics } from './CopyDiagnostics'
+import { SkippedList, dedupe } from './RenderStatus'
 
 export interface ClipDownloadProps {
     event: MatchEvent
@@ -53,10 +55,15 @@ export function ClipDownload({ event }: ClipDownloadProps) {
 
     let status: string | null = null
     if (ownJob) {
-        if (ownJob.phase === 'running') status = `Rendering clip · ${Math.round(ownJob.fraction * 100)}%`
-        else if (ownJob.phase === 'done' && ownJob.result) status = `Downloading ${ownJob.result.file.name}`
+        if (ownJob.phase === 'running') status = ownJob.notice ? null : `Rendering clip · ${Math.round(ownJob.fraction * 100)}%`
+        else if (ownJob.phase === 'done' && ownJob.result) status = `${ownJob.result.downloaded ? 'Downloading' : 'Ready to download:'} ${ownJob.result.file.name}`
         else if (ownJob.phase === 'failed') status = ownJob.error ?? 'The clip could not be rendered'
     }
+    const finished = ownJob != null && ownJob.phase !== 'running'
+    const skipped = dedupe(ownJob?.report?.skipped ?? ownJob?.diagnostics?.graphics.skipped ?? [])
+    const result = ownJob?.phase === 'done' ? ownJob.result : null
+    const canShare = result != null && typeof navigator.canShare === 'function' && navigator.canShare({ files: [result.file] })
+    const jobs = renderJobs().getState()
 
     return (
         <>
@@ -79,8 +86,27 @@ export function ClipDownload({ event }: ClipDownloadProps) {
                         )}
                         {previewOnly && <p className="clip-download__note">Full-quality files aren't loaded — this clip uses the preview files.</p>}
                         {reason && <p className="clip-download__note" role="status">{reason}</p>}
-                        {status && <p className="clip-download__note" role="status">{status}</p>}
-                        <button type="button" className="btn-primary" disabled={!!reason || ownJob?.phase === 'running'} onClick={download}>Download</button>
+                        {ownJob?.phase === 'running' && ownJob.notice && (
+                            <div role="alertdialog" aria-label="Different frame sizes" className="clip-download__note">
+                                <p className="m-0">{ownJob.notice}</p>
+                                <span className="flex flex-wrap items-center gap-2">
+                                    <button type="button" className="btn-primary" onClick={() => jobs.answerNotice(true)}>Render</button>
+                                    <button type="button" className="btn-quiet" onClick={() => jobs.answerNotice(false)}>Cancel</button>
+                                </span>
+                            </div>
+                        )}
+                        {status && <p className="clip-download__note" role="status">{ownJob?.phase === 'failed' ? `Render failed: ${status}` : status}</p>}
+                        {finished && <SkippedList skipped={skipped} />}
+                        {!(ownJob?.phase === 'running' && ownJob.notice) && (
+                            <button type="button" className="btn-primary" disabled={!!reason || ownJob?.phase === 'running'} onClick={download}>Download</button>
+                        )}
+                        {result && (
+                            <span className="flex flex-wrap items-center gap-2">
+                                <button type="button" className="btn-quiet" onClick={() => renderJobs().getState().downloadAgain()}>Download again</button>
+                                {canShare && <button type="button" className="btn-quiet" onClick={() => navigator.share({ files: [result.file] }).catch(() => undefined)}>Share</button>}
+                            </span>
+                        )}
+                        {finished && ownJob?.diagnostics && <CopyDiagnostics report={ownJob.diagnostics} />}
                     </div>
                 </FloatingPanel>
             )}

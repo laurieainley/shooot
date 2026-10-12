@@ -6,6 +6,7 @@ import { useAppState } from '../state'
 import { renderJobs, resetRenderJobs } from '../renderJobs'
 import type { MatchEvent, VideoSourceFile } from '../types'
 import { stubWebCodecs } from '../test/codecs'
+import { RenderDiagnostics } from '../render/diagnostics'
 
 const renderReel = vi.fn()
 vi.mock('../render', () => ({ renderReel: (...a: unknown[]) => renderReel(...a) }))
@@ -105,6 +106,69 @@ describe('ClipDownload', () => {
         await open()
         await userEvent.click(screen.getByRole('button', { name: 'Download' }))
         expect(await screen.findByText(/decoder fell over/)).toBeInTheDocument()
+    })
+
+    const finishWith = async (opts: { skipped?: { label: string; reason: string }[]; fail?: string } = {}): Promise<void> => {
+        renderReel.mockImplementation(async (...a: unknown[]) => {
+            const o = a[2] as { onGraphics: (r: unknown) => void; onDiagnostics: (d: unknown) => void }
+            o.onGraphics({ skipped: opts.skipped ?? [] })
+            const d = new RenderDiagnostics({ kind: 'clip', outputName: 'c.mp4' })
+            o.onDiagnostics(opts.fail ? d.report('failed', new Error(opts.fail)) : d.report('done'))
+            if (opts.fail) throw new Error(opts.fail)
+            return new Blob(['x'], { type: 'video/mp4' })
+        })
+        render(<ClipDownload event={goal} />)
+        await open()
+        await userEvent.click(screen.getByRole('button', { name: 'Download' }))
+    }
+
+    it('should list what the clip was rendered without, with Copy diagnostics and Download again', async () => {
+        await finishWith({ skipped: [{ label: 'Shooot sting', reason: 'wordmark missing' }] })
+        expect(await screen.findByText(/Rendered without/)).toBeInTheDocument()
+        expect(screen.getByText(/Shooot sting — wordmark missing/)).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Copy diagnostics' })).toBeInTheDocument()
+        const again = vi.spyOn(renderJobs().getState(), 'downloadAgain').mockImplementation(() => undefined)
+        await userEvent.click(screen.getByRole('button', { name: 'Download again' }))
+        expect(again).toHaveBeenCalled()
+    })
+
+    it('should offer Share when the browser can share the file', async () => {
+        Object.assign(navigator, { canShare: () => true, share: vi.fn(async () => undefined) })
+        try {
+            await finishWith()
+            await userEvent.click(await screen.findByRole('button', { name: 'Share' }))
+            expect(navigator.share).toHaveBeenCalled()
+        } finally {
+            Reflect.deleteProperty(navigator, 'canShare'); Reflect.deleteProperty(navigator, 'share')
+        }
+    })
+
+    it('should show the error with Copy diagnostics when the clip failed', async () => {
+        await finishWith({ fail: 'decoder fell over' })
+        expect(await screen.findByText(/decoder fell over/)).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Copy diagnostics' })).toBeInTheDocument()
+    })
+
+    it('should show the mixed-frame-size notice and answer it', async () => {
+        const answer = vi.fn()
+        renderReel.mockImplementation((...a: unknown[]) => (a[2] as { confirmMixedSizes: (n: string) => Promise<boolean> }).confirmMixedSizes('Files differ in size.').then((ok) => { answer(ok); return new Blob(['x']) }))
+        render(<ClipDownload event={goal} />)
+        await open()
+        await userEvent.click(screen.getByRole('button', { name: 'Download' }))
+        expect(await screen.findByText('Files differ in size.')).toBeInTheDocument()
+        await userEvent.click(screen.getByRole('button', { name: 'Render' }))
+        await waitFor(() => expect(answer).toHaveBeenCalledWith(true))
+    })
+
+    it('should cancel the render from the mixed-size notice', async () => {
+        const answer = vi.fn()
+        renderReel.mockImplementation((...a: unknown[]) => (a[2] as { confirmMixedSizes: (n: string) => Promise<boolean> }).confirmMixedSizes('Files differ in size.').then((ok) => { answer(ok); throw new Error('cancelled') }))
+        render(<ClipDownload event={goal} />)
+        await open()
+        await userEvent.click(screen.getByRole('button', { name: 'Download' }))
+        await screen.findByText('Files differ in size.')
+        await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+        await waitFor(() => expect(answer).toHaveBeenCalledWith(false))
     })
 
     it('should ignore Space and G window shortcuts on a focused popover checkbox', async () => {

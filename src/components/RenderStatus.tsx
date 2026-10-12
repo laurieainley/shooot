@@ -13,7 +13,7 @@ interface RenderStatusProps {
 }
 
 const STOPPED_NOTE_MS = 5000
-const dedupe = (skipped: { label: string; reason: string }[]): { label: string; reason: string }[] => [...new Map(skipped.map((g) => [`${g.label}|${g.reason}`, g])).values()]
+export const dedupe = (skipped: { label: string; reason: string }[]): { label: string; reason: string }[] => [...new Map(skipped.map((g) => [`${g.label}|${g.reason}`, g])).values()]
 const NAMES: Record<JobKind, string> = { highlights: 'highlights', fullMatch: 'full match', clip: 'clip' }
 
 /** The render's progress, Cancel (confirmed in place; once confirmed the box goes at once), skipped graphics, and the downloaded file. */
@@ -139,7 +139,7 @@ function RenderStatusBody({ kind, onStopped }: RenderStatusProps & { onStopped: 
     )
 }
 
-function SkippedList({ skipped, note }: { skipped: { label: string; reason: string }[]; note?: string }) {
+export function SkippedList({ skipped, note }: { skipped: { label: string; reason: string }[]; note?: string }) {
     if (skipped.length === 0) return null
     return (
         <div className="rounded border border-line p-2 text-[12px] text-muted">
