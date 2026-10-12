@@ -30,38 +30,14 @@ function setup(events: MatchEvent[], extra: Partial<ReturnType<typeof useAppStat
 }
 
 describe('EventLog rows', () => {
-    it('should put icon and person on line 1 and a labelled assist on line 2, with the full text in the title', () => {
-        setup([{ id: 'a', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites', scorer: 'James', assist: 'Joe' }, kickOff(0)])
+    it('should put icon and person in the row, with the full text in the title', () => {
+        setup([{ id: 'a', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites', scorer: 'James', notes: 'long range' }, kickOff(0)])
         render(<EventLog />)
         const [row] = rows()
         expect(within(row).getByRole('img', { name: 'Goal' })).toHaveAttribute('data-icon', 'goal')
         expect(row.querySelector('.event-row__main')).toHaveTextContent('James')
-        expect(row.querySelector('.event-row__sub')).toHaveTextContent('Assist: Joe')
-        expect(row.querySelector('.event-row__main')).not.toHaveTextContent(',')
-        expect(row.querySelector('.event-row__content')).toHaveAttribute('title', expect.stringContaining('Goal · James · Assist: Joe'))
-    })
-
-    it('should keep the assist and the note together on line 2', () => {
-        setup([{ id: 'a', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites', scorer: 'James', assist: 'Joe', notes: 'long range' }, kickOff(0)])
-        render(<EventLog />)
-        expect(rows()[0].querySelector('.event-row__sub')).toHaveTextContent('Assist: Joe— long range')
-    })
-
-    it('should give every row the same slots so buttons line up (placeholders for the absent ones)', () => {
-        setup([
-            { id: 'a', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites', scorer: 'James', replay: false },
-            { id: 'b', matchTimeSec: 200, sourceFileIndex: 0, type: 'save', team: 'Whites' },
-            { id: 'ko', matchTimeSec: 0, sourceFileIndex: 0, type: 'kick_off' },
-        ])
-        render(<EventLog />)
-        const kids = rows().map((r) => r.querySelector('.event-row__end')!.children.length)
-        expect(new Set(kids).size).toBe(1)
-    })
-
-    it('should not show an assist on a penalty goal', () => {
-        setup([{ id: 'a', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', pen: true, team: 'Whites', scorer: 'Sam', assist: 'Jo' }, kickOff(0)])
-        render(<EventLog />)
-        expect(rows()[0]).not.toHaveTextContent('assist')
+        expect(row.querySelector('.event-row__note')).toHaveTextContent('long range')
+        expect(row.querySelector('.event-row__content')).toHaveAttribute('title', expect.stringContaining('Goal · James · long range'))
     })
 
     it('should show the match clock, label with scorer and the team colour dot', () => {
@@ -71,6 +47,7 @@ describe('EventLog rows', () => {
         expect(within(row).getByText('23:41')).toBeInTheDocument()
         expect(within(row).getByRole('img', { name: 'Penalty goal' })).toHaveAttribute('data-icon', 'penalty_goal')
         expect(within(row).getByText('Jo')).toHaveClass('ev-person')
+        expect(within(row).getByText('Jo')).not.toHaveClass('voice-shirt')
         expect(row.querySelector('[data-team-dot]')).toHaveStyle({ background: '#c2364a' })
     })
 
@@ -84,16 +61,6 @@ describe('EventLog rows', () => {
         setup([{ id: 'a', matchTimeSec: 70, sourceFileIndex: 0, type: 'highlight' }, kickOff(100)])
         render(<EventLog />)
         expect(within(rows()[0]).getByText('−00:30')).toBeInTheDocument()
-    })
-
-    it('should tag the file only when more than one file is loaded', () => {
-        setup([{ id: 'a', matchTimeSec: 10, sourceFileIndex: 1, type: 'goal' }], { files: [vf('a.mp4'), vf('b.mp4')], cumulativeOffsets: [0, 600] })
-        const { unmount } = render(<EventLog />)
-        expect(within(rows()[0]).getByText('V2')).toBeInTheDocument()
-        unmount()
-        setup([{ id: 'a', matchTimeSec: 10, sourceFileIndex: 0, type: 'goal' }])
-        render(<EventLog />)
-        expect(within(rows()[0]).queryByText('V1')).not.toBeInTheDocument()
     })
 
     it('should tag unlinked events as file missing and not seek when they are clicked', async () => {
@@ -218,26 +185,29 @@ describe('EventLog replay toggle', () => {
         ])
     })
 
-    it('should show a pressed Replay button for goals and an unpressed one otherwise', () => {
+    it('should show a pressed Replay button for goals and an unpressed one otherwise', async () => {
         render(<EventLog />)
-        const [goal, highlight] = screen.getAllByRole('button', { name: 'Replay' })
-        expect(goal).toHaveAttribute('aria-pressed', 'true')
-        expect(highlight).toHaveAttribute('aria-pressed', 'false')
+        await userEvent.click(rows()[0])
+        expect(screen.getByRole('button', { name: 'Replay' })).toHaveAttribute('aria-pressed', 'true')
+        await userEvent.click(rows()[1])
+        expect(screen.getByRole('button', { name: 'Replay' })).toHaveAttribute('aria-pressed', 'false')
     })
 
     it('should flip the effective replay setting when clicked, without seeking', async () => {
         render(<EventLog />)
-        const [goal, highlight] = screen.getAllByRole('button', { name: 'Replay' })
-        await userEvent.click(goal)
-        await userEvent.click(highlight)
+        await userEvent.click(rows()[0])
+        await userEvent.click(screen.getByRole('button', { name: 'Replay' }))
+        await userEvent.click(rows()[1])
+        await userEvent.click(screen.getByRole('button', { name: 'Replay' }))
         expect(byId('g')?.replay).toBe(false)
         expect(byId('h')?.replay).toBe(true)
         expect(seekToGoal).not.toHaveBeenCalled()
     })
 
-    it('should delete an event from its × button', async () => {
+    it('should delete an event from its action row', async () => {
         render(<EventLog />)
-        await userEvent.click(screen.getAllByRole('button', { name: 'Delete event' })[0])
+        await userEvent.click(rows()[0])
+        await userEvent.click(screen.getByRole('button', { name: 'Delete event' }))
         expect(byId('g')).toBeUndefined()
         const toast = toastStore.getState().toast
         expect(toast?.text).toMatch(/^Goal at .* deleted$/)
@@ -250,7 +220,8 @@ describe('EventLog delete toast', () => {
     it('should not undo a later change when its Undo is used after something else happened', async () => {
         setup([{ id: 'g', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites' }, { id: 'h', matchTimeSec: 200, sourceFileIndex: 0, type: 'highlight' }, kickOff(0)])
         render(<EventLog />)
-        await userEvent.click(screen.getAllByRole('button', { name: 'Delete event' })[0])
+        await userEvent.click(rows()[0])
+        await userEvent.click(screen.getByRole('button', { name: 'Delete event' }))
         const toast = toastStore.getState().toast
         act(() => { useAppState.getState().updateEvent('h', { replay: true }) }) // a later, non-toasting change
         act(() => { toast?.action?.run() })
@@ -379,7 +350,7 @@ describe('EventLog details & running score', () => {
         render(<EventLog />)
         expect(within(rows()[0]).getByRole('img', { name: 'Highlight' })).toHaveAttribute('data-icon', 'highlight')
         expect(within(rows()[0]).getByText('Sam')).toBeInTheDocument()
-        expect(within(rows()[0]).getByText('— nutmeg on the wing')).toBeInTheDocument()
+        expect(within(rows()[0]).getByText('nutmeg on the wing')).toBeInTheDocument()
     })
 
     it('should edit the note with N and save on Enter', async () => {
@@ -397,10 +368,10 @@ describe('EventLog details & running score', () => {
     it('should edit the note on double-click, clear it when emptied and cancel on Escape', async () => {
         setup([{ id: 'a', matchTimeSec: 30, type: 'highlight', notes: 'header' }])
         render(<EventLog />)
-        await userEvent.dblClick(within(rows()[0]).getByText('— header'))
+        await userEvent.dblClick(within(rows()[0]).getByText('header'))
         await userEvent.type(screen.getByRole('textbox', { name: 'Note' }), 'xx{Escape}')
         expect(byId('a')?.notes).toBe('header')
-        await userEvent.dblClick(within(rows()[0]).getByText('— header'))
+        await userEvent.dblClick(within(rows()[0]).getByText('header'))
         await userEvent.clear(screen.getByRole('textbox', { name: 'Note' }))
         await userEvent.keyboard('{Enter}')
         expect(byId('a')?.notes).toBeUndefined()
@@ -483,11 +454,12 @@ describe('EventLog on touch screens', () => {
     })
     afterEach(() => setCoarsePointer(false))
 
-    it('should open the edit sheet for a tapped row without seeking or playing', async () => {
+    it('should expand a tapped row instead of opening the edit sheet, without seeking or playing', async () => {
         render(<EventLog />)
         await userEvent.click(rows()[1])
         expect(seekToGoal).not.toHaveBeenCalled()
-        expect(useAppState.getState()).toMatchObject({ panel: 'event', editingEventId: 'b' })
+        expect(useAppState.getState().panel).toBeNull()
+        expect(within(rows()[1]).getByRole('group', { name: 'Event actions' })).toBeInTheDocument()
     })
 
     it('should watch from the row button on touch without opening the editor', async () => {
@@ -497,16 +469,18 @@ describe('EventLog on touch screens', () => {
         expect(useAppState.getState().panel).toBeNull()
     })
 
-    it('should not open the edit sheet from the replay or delete buttons', async () => {
+    it('should open the edit sheet from the action row Edit button', async () => {
         render(<EventLog />)
-        await userEvent.click(within(rows()[0]).getByRole('button', { name: 'Replay' }))
-        expect(useAppState.getState().panel).toBeNull()
+        await userEvent.click(rows()[0])
+        await userEvent.click(screen.getByRole('button', { name: 'Edit details' }))
+        expect(useAppState.getState()).toMatchObject({ panel: 'event', editingEventId: 'a' })
     })
 
-    it('should leave deleting to the edit sheet: rows keep the replay toggle but no ×', () => {
+    it('should make action buttons touch-sized and keep the row free of replay and delete buttons', async () => {
         render(<EventLog />)
-        expect(within(rows()[0]).getByRole('button', { name: 'Replay' })).toBeInTheDocument()
-        expect(within(rows()[0]).queryByRole('button', { name: 'Delete event' })).not.toBeInTheDocument()
+        expect(within(rows()[0]).queryByRole('button', { name: 'Replay' })).not.toBeInTheDocument()
+        await userEvent.click(rows()[0])
+        expect(screen.getByRole('button', { name: 'Delete event' })).toHaveClass('act-btn--touch')
     })
 
     it('should leave marking to the ＋ button: no "+ Tag event" in the header', () => {
@@ -551,5 +525,116 @@ describe('EventLog — match markers', () => {
         expect(seekToGoal).not.toHaveBeenCalled()
         await userEvent.click(within(rows()[0]).getByRole('button', { name: 'Watch' }))
         expect(seekToGoal).toHaveBeenCalledWith(0, 60)
+    })
+})
+
+describe('EventLog action row', () => {
+    const goal = (id: string, t: number, extra: Partial<MatchEvent> = {}): MatchEvent => ({ id, matchTimeSec: t, sourceFileIndex: 0, type: 'goal', team: 'Whites', scorer: 'James', ...extra })
+
+    it('should show no assist and no file tag in the row', () => {
+        setup([goal('a', 100, { assist: 'Joe', notes: 'top corner' })], { files: [vf('a.mp4'), vf('b.mp4')], cumulativeOffsets: [0, 600] })
+        render(<EventLog />)
+        const [row] = rows()
+        expect(row).not.toHaveTextContent('Assist')
+        expect(row.querySelector('.row-file')).toBeNull()
+        expect(row.querySelector('.event-row__note')).toHaveTextContent('top corner')
+    })
+
+    it('should expand only the selected row', async () => {
+        setup([goal('a', 100), goal('b', 200)])
+        render(<EventLog />)
+        expect(screen.queryByRole('group', { name: 'Event actions' })).toBeNull()
+        await userEvent.click(rows()[0])
+        expect(within(rows()[0]).getByRole('group', { name: 'Event actions' })).toBeInTheDocument()
+        await userEvent.click(rows()[1])
+        expect(within(rows()[0]).queryByRole('group', { name: 'Event actions' })).toBeNull()
+        expect(within(rows()[1]).getByRole('group', { name: 'Event actions' })).toBeInTheDocument()
+    })
+
+    it('should toggle replay, open edit and delete from the action row', async () => {
+        setup([goal('a', 100), goal('b', 200)])
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        const actions = within(rows()[0]).getByRole('group', { name: 'Event actions' })
+        await userEvent.click(within(actions).getByRole('button', { name: 'Replay' }))
+        expect(byId('a')?.replay).toBe(false)
+        await userEvent.click(within(actions).getByRole('button', { name: /edit/i }))
+        expect(useAppState.getState()).toMatchObject({ panel: 'event', editingEventId: 'a' })
+        await userEvent.click(within(actions).getByRole('button', { name: /delete/i }))
+        expect(byId('a')).toBeUndefined()
+    })
+
+    it('should show Framing only while the replay is on', async () => {
+        setup([goal('a', 100, { replay: false })])
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        expect(within(rows()[0]).queryByRole('button', { name: /framing/i })).toBeNull()
+    })
+
+    it('should give marker rows only Edit and Delete', async () => {
+        setup([kickOff(0)])
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        const actions = within(rows()[0]).getByRole('group', { name: 'Event actions' })
+        expect(within(actions).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Edit details', 'Delete event'])
+    })
+
+    it('should collapse on Esc and keep focus in the log', async () => {
+        setup([goal('a', 100)])
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        log().focus()
+        await userEvent.keyboard('{Escape}')
+        expect(screen.queryByRole('group', { name: 'Event actions' })).toBeNull()
+        expect(log()).toHaveFocus()
+    })
+
+    it('should not delete the event when Backspace is typed in an open note field', async () => {
+        setup([goal('a', 100, { notes: 'abc' })])
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        log().focus()
+        await userEvent.keyboard('n')
+        const input = screen.getByRole('textbox', { name: 'Note' })
+        await userEvent.type(input, '{Backspace}')
+        expect(byId('a')).toBeDefined()
+        expect(within(rows()[0]).getByRole('group', { name: 'Event actions' })).toBeInTheDocument()
+    })
+
+    it('should still open the action row for an unlinked event', async () => {
+        setup([goal('a', 100, { unlinked: true, sourceFileKey: 'gone.mp4' })])
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        expect(within(rows()[0]).getByRole('group', { name: 'Event actions' })).toBeInTheDocument()
+        expect(within(rows()[0]).getByRole('button', { name: 'Watch' })).toBeDisabled()
+    })
+
+    it('should activate a focused action button with Enter without watching', async () => {
+        setup([goal('a', 100)])
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        within(rows()[0]).getByRole('button', { name: 'Edit details' }).focus()
+        await userEvent.keyboard('{Enter}')
+        expect(useAppState.getState()).toMatchObject({ panel: 'event', editingEventId: 'a' })
+        expect(seekToGoal).not.toHaveBeenCalled()
+    })
+
+    it('should collapse on Esc from an action button and keep focus in the log; a second Esc blurs it', async () => {
+        setup([goal('a', 100)])
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        within(rows()[0]).getByRole('button', { name: 'Delete event' }).focus()
+        await userEvent.keyboard('{Escape}')
+        expect(screen.queryByRole('group', { name: 'Event actions' })).toBeNull()
+        expect(log()).toHaveFocus()
+        await userEvent.keyboard('{Escape}')
+        expect(log()).not.toHaveFocus()
+    })
+
+    it('should render the download slot when given one (Part B)', async () => {
+        const { EventActions } = await import('./EventActions')
+        render(<EventActions event={goal('a', 1)} touch={false} onToggleReplay={() => undefined} onFraming={() => undefined}
+            onEdit={() => undefined} onRemove={() => undefined} download={<button type="button">Dl</button>} />)
+        expect(screen.getByRole('button', { name: 'Dl' }).parentElement).toHaveClass('event-actions__download')
     })
 })

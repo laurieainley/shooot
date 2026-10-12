@@ -297,8 +297,8 @@
 .ev-label__text { min-width: 0; }
 .event-row__icon { display: grid; place-items: center; width: 20px; }
 /* The person is the hero of a row: the shirt font (names only, never UI). */
-.ev-person { font-size: 16px; line-height: 1; letter-spacing: 0.06em; }
-@media (pointer: coarse) { .ev-person { font-size: 18px; } .event-row__icon { width: 24px; } }
+.ev-person { font-size: 14px; font-weight: 600; line-height: 1.15; }
+@media (pointer: coarse) { .ev-person { font-size: 16px; } .event-row__icon { width: 24px; } }
 /* Kick off / Half time / Final whistle rows: a faint band across the log. */
 .event-row--marker { background: color-mix(in srgb, var(--sh-text) 5%, transparent); }
 .event-row--final_whistle { background: color-mix(in srgb, var(--sh-text) 8%, transparent); }
@@ -1125,25 +1125,49 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .shell--phone .top-bar .btn-primary { padding: 0 14px; font-size: 13px; }
   }
 
-/* Narrow event labels (landscape phone, desktop rail): a tighter tag so "Pen goal" and a name both fit. */
-.shell--landscape .ev-person { font-size: 16px; }
-@media (pointer: fine) { .ev-person { font-size: 15px; } }
+/* Clock and score text: 12px with a mouse, 14px on touch. */
+.event-row .clock, .event-row .row-score { font-size: 12px; }
+@media (pointer: coarse) { .event-row .clock, .event-row .row-score, .event-row .event-row__note, .event-row__type, .event-row .tag { font-size: 14px; } }
+/* Selected row: a second line of actions under the icon column (labels hide when the rail is narrow). */
+.event-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0 2px calc(var(--clock-ch, 5) * 1ch + 8px); white-space: nowrap; cursor: default; }
+.event-actions__download { display: inline-flex; }
+.act-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 30px; padding: 0 10px; border-radius: 6px;
+  border: 1px solid var(--sh-line); background: transparent; color: var(--sh-text); font: 600 12px var(--sh-font); cursor: pointer;
+}
+.act-btn:hover { background: var(--sh-line); }
+.act-btn[aria-pressed="true"] { border-color: var(--sh-text); }
+.act-btn[aria-pressed="false"] { color: var(--sh-muted); }
+.act-btn--touch { min-height: 44px; min-width: 44px; font-size: 14px; }
+.act-btn--delete:hover { color: var(--sh-text); border-color: var(--sh-text); }
+/* Touch and narrow rails: no clock-column indent; buttons share the line and wrap (never clip) when the labels do not fit. Under 360px: icons only. */
+@media (pointer: coarse) {
+  .event-actions { padding-left: 12px; }
+  .event-actions .act-btn { flex: 1 1 auto; padding: 0 8px; }
+}
+@container event-log (max-width: 420px) {
+  .event-actions { padding-left: 12px; }
+  .event-actions .act-btn { flex: 1 1 auto; padding: 0 8px; }
+}
+@container event-log (max-width: 360px) {
+  .event-actions__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .act-btn { min-width: 36px; padding: 0 6px; }
+  .act-btn--touch { min-width: 44px; }
+}
+
 /* Event rows: [clock] [dot] [content] [score] [file] [buttons]. Fixed-width slots keep every row aligned; the content column takes the rest.
-   Line 1 = tag + person (the person wraps whole onto the next line when it does not fit), line 2 = "Assist: Jo" and / or the note. Nothing is clipped. */
+   Line 1 = tag + person (the person wraps whole onto the next line when it does not fit), the note follows inline (muted, one line, ellipsis). The selected row adds an action line. */
 .event-row { white-space: normal; font-size: 13px; min-height: 42px; column-gap: 8px; }
 .event-row > .tc, .event-row > .team-dot { white-space: nowrap; }
 .event-row .clock { min-width: calc(var(--clock-ch, 6) * 1ch); }
-.event-row__content { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; }
-.event-row__main { display: flex; flex-wrap: wrap; align-items: center; row-gap: 2px; min-width: 0; }
+.event-row__content { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.event-row__main { display: flex; flex: 0 1 auto; flex-wrap: wrap; align-items: center; row-gap: 2px; min-width: 0; }
 .event-row__main .ev-person { flex: 0 1 auto; min-width: 0; line-height: 1.15; overflow-wrap: break-word; }
 .event-row__label { white-space: nowrap; }
-.event-row__sub { display: flex; flex-wrap: wrap; column-gap: 8px; min-width: 0; font-size: 12px; line-height: 1.3; color: var(--sh-muted); overflow-wrap: break-word; }
-.event-row__assist, .event-row__note { min-width: 0; }
+.event-row__note { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--sh-muted); }
 .event-row__end { display: flex; align-items: center; justify-content: flex-end; gap: 2px; }
 .event-row__end .row-score { flex: none; min-width: 4.5ch; margin-right: 4px; text-align: right; }
-.event-row__end .row-file { flex: none; min-width: 2.4em; margin-right: 4px; text-align: center; }
 .event-row__end .row-btn { flex: none; }
-.row-btn--gap { visibility: hidden; pointer-events: none; }
 @media (pointer: fine) { .event-row__end .row-btn { width: 28px; height: 28px; } }
 .row-btn .ev-icon, .row-btn svg { flex: none; }
 .row-btn.watch-btn svg { width: 16px; height: 16px; }
@@ -1190,7 +1214,6 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 /* Narrow rails (landscape phone, small windows): give the name the room. The file number stays in the row's tooltip and the strip. */
 @container event-log (max-width: 400px) {
   .event-row { column-gap: 5px; }
-  .event-row__end .row-file { display: none; }
   .event-row__end .row-btn { width: 36px; }
   .event-row__end .row-score { min-width: 3.6ch; margin-right: 2px; }
 }
