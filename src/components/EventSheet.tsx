@@ -50,8 +50,10 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
 
     const deleteEvent = (): void => {
         const st = useAppState.getState()
-        showToast(deletedCopy(e.type, matchClock(eventGlobalSec(e, st.cumulativeOffsets), selectMatchStartSec(st), selectClockLong(st))), { label: 'Undo', run: () => { useAppState.getState().undo() } })
+        const copy = deletedCopy(e.type, matchClock(eventGlobalSec(e, st.cumulativeOffsets), selectMatchStartSec(st), selectClockLong(st)))
         st.removeEvent(e.id)
+        const top = useAppState.getState().undoStack.at(-1) // Undo only while the delete is still the latest step
+        showToast(copy, { label: 'Undo', run: () => { useAppState.getState().undoIfTop(top) } })
         st.closePanel()
     }
     const update = (patch: Partial<MatchEvent>): void => useAppState.getState().updateEvent(e.id, patch)

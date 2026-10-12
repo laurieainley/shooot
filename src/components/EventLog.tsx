@@ -41,7 +41,7 @@ export function EventLog() {
     const offsets = useAppState((s) => s.cumulativeOffsets)
     const matchStartTimeSec = useAppState(selectMatchStartSec)
     const clockLong = useAppState(selectClockLong)
-    const canUndo = useAppState((s) => s.undoStack.length > 0 || (!!s.discardUndo && s.discardUndo.depth === s.undoStack.length))
+    const canUndo = useAppState((s) => s.undoStack.length > 0 || (s.discardStack.length > 0 && s.discardStack[s.discardStack.length - 1].top === s.undoStack[s.undoStack.length - 1]))
     const canRedo = useAppState((s) => s.redoStack.length > 0)
     const coarse = useMediaQuery(COARSE_QUERY)
     const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -90,8 +90,10 @@ export function EventLog() {
         if (!e) return
         const next = events[index + 1] ?? events[index - 1]
         const st = useAppState.getState()
-        showToast(deletedCopy(e.type, matchClock(eventGlobalSec(e, st.cumulativeOffsets), selectMatchStartSec(st), selectClockLong(st))), { label: 'Undo', run: () => { useAppState.getState().undo() } })
+        const copy = deletedCopy(e.type, matchClock(eventGlobalSec(e, st.cumulativeOffsets), selectMatchStartSec(st), selectClockLong(st)))
         st.removeEvent(e.id)
+        const top = useAppState.getState().undoStack.at(-1) // Undo only while the delete is still the latest step
+        showToast(copy, { label: 'Undo', run: () => { useAppState.getState().undoIfTop(top) } })
         setSelectedId(next?.id ?? null)
     }
 

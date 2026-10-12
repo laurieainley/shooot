@@ -614,6 +614,61 @@ describe('suggestions', () => {
         expect(st.events).toHaveLength(0)
         expect(st.suggestions[0].status).toBe('rejected')
     })
+    it('should undo two discards in order with two undos, leaving earlier events alone', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }, { timeSec: 300, score: 4 }])
+        useAppState.getState().addEvent({ id: 'e0', matchTimeSec: 5, sourceFileIndex: 0, type: 'goal' })
+        const [a, b] = useAppState.getState().suggestions
+        useAppState.getState().decideSuggestion(a.id, { kind: 'reject' })
+        useAppState.getState().decideSuggestion(b.id, { kind: 'reject' })
+        useAppState.getState().undo()
+        expect(useAppState.getState().suggestions.map((x) => x.status)).toEqual(['rejected', 'pending'])
+        useAppState.getState().undo()
+        expect(useAppState.getState().suggestions.map((x) => x.status)).toEqual(['pending', 'pending'])
+        expect(useAppState.getState().events.map((e) => e.id)).toEqual(['e0'])
+    })
+    it('should undo a confirm made after a discard first, then the discard', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }, { timeSec: 300, score: 4 }])
+        const [a, b] = useAppState.getState().suggestions
+        useAppState.getState().decideSuggestion(a.id, { kind: 'reject' })
+        useAppState.getState().decideSuggestion(b.id, { kind: 'keep', type: 'goal', team: 'Whites' })
+        useAppState.getState().undo()
+        expect(useAppState.getState().events).toHaveLength(0)
+        expect(useAppState.getState().suggestions[0].status).toBe('rejected')
+        useAppState.getState().undo()
+        expect(useAppState.getState().suggestions[0].status).toBe('pending')
+    })
+    it('should keep the order right when the undo stack is full (50 entries)', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }, { timeSec: 300, score: 4 }])
+        const [a, b] = useAppState.getState().suggestions
+        for (let i = 0; i < 50; i++) useAppState.getState().addEvent({ id: `f${i}`, matchTimeSec: i, sourceFileIndex: 0, type: 'highlight' })
+        expect(useAppState.getState().undoStack).toHaveLength(50)
+        useAppState.getState().decideSuggestion(a.id, { kind: 'reject' })
+        useAppState.getState().decideSuggestion(b.id, { kind: 'keep', type: 'goal', team: 'Whites' })
+        expect(useAppState.getState().undoStack).toHaveLength(50)
+        useAppState.getState().undo()
+        expect(useAppState.getState().events.some((e) => e.type === 'goal')).toBe(false) // the confirm, not the stale discard
+        expect(useAppState.getState().suggestions[0].status).toBe('rejected')
+    })
+    it('should bring a discarded kept card\'s event back with undoDiscard, like undo()', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        const id = useAppState.getState().suggestions[0].id
+        useAppState.getState().decideSuggestion(id, { kind: 'keep', type: 'goal', team: 'Whites' })
+        useAppState.getState().decideSuggestion(id, { kind: 'reject' })
+        expect(useAppState.getState().events).toHaveLength(0)
+        expect(useAppState.getState().undoDiscard(id)).toBe(true)
+        expect(useAppState.getState().events).toHaveLength(1)
+        expect(useAppState.getState().suggestions[0].status).toBe('kept')
+    })
+    it('should not let a stale undoDiscard or undoIfTop undo something later', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }, { timeSec: 300, score: 4 }])
+        const [a, b] = useAppState.getState().suggestions
+        useAppState.getState().decideSuggestion(a.id, { kind: 'reject' })
+        const top = useAppState.getState().undoStack.at(-1)
+        useAppState.getState().decideSuggestion(b.id, { kind: 'keep', type: 'goal', team: 'Whites' })
+        expect(useAppState.getState().undoDiscard(a.id)).toBe(false)
+        expect(useAppState.getState().undoIfTop(top)).toBe(false)
+        expect(useAppState.getState().events).toHaveLength(1)
+    })
     it('should restore a discarded suggestion to pending', () => {
         useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
         const id = useAppState.getState().suggestions[0].id

@@ -28,6 +28,9 @@ function relinkEvents(events: MatchEvent[], files: VideoSourceFile[]): MatchEven
 }
 
 /** Menus and sheets; at most one is open, and never together with the event picker. */
+/** A Discard on the undo timeline: `top` is the undo stack's top snapshot (by identity) right after it, so it stays the next step to undo until any other step is pushed. */
+export interface DiscardEntry { prev: Suggestion; top: MatchEvent[] | undefined; hadEvent: boolean }
+
 export type Panel = 'menu' | 'files' | 'match' | 'settings' | 'import' | 'export' | 'event' | 'send' | 'shortcuts' | 'review'
 
 type AppState = {
@@ -132,9 +135,11 @@ type AppState = {
     /** Keep adds the event; changing a kept decision removes the old event first (each is its own undo step). */
     decideSuggestion: (id: string, decision: { kind: 'reject' } | { kind: 'keep'; type: KeepType; team?: string; atSec?: number; scorer?: string; assist?: string }) => void
     /** The last Discard, undoable with ⌘Z / the toast's Undo while no event change has happened since (not persisted). */
-    discardUndo: { prev: Suggestion; depth: number; hadEvent: boolean } | null
-    /** Undo the last Discard (back to its previous status, review returns to it); false when it can't be undone any more. */
+    discardStack: DiscardEntry[]
+    /** Undo the last Discard (same result as ⌘Z, including a discarded kept card's event) while it is still the latest step; false otherwise. */
     undoDiscard: (id?: string) => boolean
+    /** Undo once, only while `top` is still the latest undo step (a toast's Undo must not undo something later). */
+    undoIfTop: (top: MatchEvent[] | undefined) => boolean
     /** A discarded suggestion goes back to pending. */
     restoreSuggestion: (id: string) => void
     /** Where closing the open panel goes back to: the review, when another panel replaced it (not persisted). */
@@ -173,7 +178,6 @@ type AppState = {
     setSuggestionBall: (id: string, ball: Suggestion['ball'] | null) => void
 }
 
-/** Kick-off on the whole timeline (0 when not marked): match clocks, Home, chapters and the full match start there. */
 /** Opening a panel over the review remembers to come back; opening one from nothing forgets; the review itself clears it. */
 function nextReturnTo(current: Panel | null, returnTo: 'review' | null, next: Panel): 'review' | null {
     if (next === 'review') return null
@@ -181,6 +185,7 @@ function nextReturnTo(current: Panel | null, returnTo: 'review' | null, next: Pa
     return current === null ? null : returnTo
 }
 
+/** Kick-off on the whole timeline (0 when not marked): match clocks, Home, chapters and the full match start there. */
 export function selectMatchStartSec(s: Pick<AppState, 'events' | 'cumulativeOffsets'>): number {
     return kickOffSec(s.events, s.cumulativeOffsets)
 }
@@ -199,6 +204,14 @@ export const useAppState = create<AppState>()(
     persist(
         (set, get) => {
             const MAX_UNDO_DEPTH = 50
+            /** Put a discarded suggestion back as it was, and return the review to it. */
+            const restoreDiscarded = (d: DiscardEntry): void => {
+                const st = get()
+                const at = st.suggestions.findIndex((x) => x.id === d.prev.id)
+                const rest = st.discardStack.slice(0, -1)
+                if (at < 0) { set({ discardStack: rest }); return }
+                set({ suggestions: st.suggestions.map((x, i) => (i === at ? d.prev : x)), discardStack: rest, reviewIndex: at })
+            }
             // The picker and the edit sheet each edit one event; they close when that event is gone (undo, delete, import).
             const follow = (events: MatchEvent[]): Pick<AppState, 'picker' | 'panel'> => {
                 const { picker: p, panel, editingEventId } = get()
@@ -240,7 +253,7 @@ export const useAppState = create<AppState>()(
             // Undo/redo stacks
             undoStack: [],
             redoStack: [],
-            suggestions: [], discardUndo: null, returnTo: null,
+            suggestions: [], discardStack: [], returnTo: null,
             suggestionRun: null,
             reviewIndex: 0,
             // Preview mode state
@@ -415,9 +428,10 @@ export const useAppState = create<AppState>()(
                 })
             },
             undo: () => {
-                const d = get().discardUndo
-                if (d && get().undoDiscard()) {
-                    if (!d.hadEvent) return // a plain discard: that was the whole step
+                const last = get().discardStack[get().discardStack.length - 1]
+                if (last && last.top === get().undoStack[get().undoStack.length - 1]) {
+                    restoreDiscarded(last)
+                    if (!last.hadEvent) return // a plain discard: that was the whole step
                 }
                 const state = get()
                 if (state.undoStack.length === 0) return
@@ -554,7 +568,7 @@ export const useAppState = create<AppState>()(
                 if (decision.kind === 'reject') {
                     set({
                         suggestions: get().suggestions.map((x) => (x.id === id ? { ...x, status: 'rejected', keptAs: live ? x.keptAs : undefined, eventId: live } : x)),
-                        discardUndo: { prev: s, depth: get().undoStack.length, hadEvent: !!live },
+                        discardStack: [...get().discardStack.slice(-(MAX_UNDO_DEPTH - 1)), { prev: s, top: get().undoStack[get().undoStack.length - 1], hadEvent: !!live }],
                     })
                     return
                 }
@@ -566,15 +580,19 @@ export const useAppState = create<AppState>()(
             },
             undoDiscard: (id) => {
                 const st = get()
-                const d = st.discardUndo
-                if (!d || d.depth !== st.undoStack.length || (id !== undefined && d.prev.id !== id)) return false
-                const at = st.suggestions.findIndex((x) => x.id === d.prev.id)
-                if (at < 0) { set({ discardUndo: null }); return false }
-                set({ suggestions: st.suggestions.map((x, i) => (i === at ? d.prev : x)), discardUndo: null, reviewIndex: at })
+                const last = st.discardStack[st.discardStack.length - 1]
+                if (!last || last.top !== st.undoStack[st.undoStack.length - 1] || (id !== undefined && last.prev.id !== id)) return false
+                get().undo()
                 return true
             },
-            restoreSuggestion: (id) => set({ suggestions: get().suggestions.map((x) => (x.id === id ? { ...x, status: 'pending', keptAs: undefined, eventId: undefined } : x)), discardUndo: null }),
-            clearSuggestions: () => set({ discardUndo: null, suggestions: [], suggestionRun: null, reviewIndex: 0 }),
+            undoIfTop: (top) => {
+                const st = get()
+                if (st.undoStack.length === 0 || st.undoStack[st.undoStack.length - 1] !== top) return false
+                get().undo()
+                return true
+            },
+            restoreSuggestion: (id) => set({ suggestions: get().suggestions.map((x) => (x.id === id ? { ...x, status: 'pending', keptAs: undefined, eventId: undefined } : x)), discardStack: get().discardStack.filter((d) => d.prev.id !== id) }),
+            clearSuggestions: () => set({ discardStack: [], suggestions: [], suggestionRun: null, reviewIndex: 0 }),
             setReviewIndex: (i) => set({ reviewIndex: Math.max(0, i) }),
             openReviewAt: (id) => {
                 const i = get().suggestions.findIndex((x) => x.id === id)

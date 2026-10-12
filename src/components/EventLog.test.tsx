@@ -246,6 +246,19 @@ describe('EventLog replay toggle', () => {
     })
 })
 
+describe('EventLog delete toast', () => {
+    it('should not undo a later change when its Undo is used after something else happened', async () => {
+        setup([{ id: 'g', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites' }, { id: 'h', matchTimeSec: 200, sourceFileIndex: 0, type: 'highlight' }, kickOff(0)])
+        render(<EventLog />)
+        await userEvent.click(screen.getAllByRole('button', { name: 'Delete event' })[0])
+        const toast = toastStore.getState().toast
+        act(() => { useAppState.getState().updateEvent('h', { replay: true }) }) // a later, non-toasting change
+        act(() => { toast?.action?.run() })
+        expect(byId('g')).toBeUndefined() // the delete was not undone
+        expect(byId('h')?.replay).toBe(true) // and the later change stayed
+    })
+})
+
 describe('EventLog undo of a discard', () => {
     it('should enable Undo for a pending discard and undo it like ⌘Z', () => {
         setup([kickOff(0)], { panel: null })
