@@ -135,6 +135,13 @@ npm run lint       # baseline: 12 known problems — add none
 - **Import:** ⋯ → Import… opens one dialog: left, a project `.json` from Export project (asks before replacing existing
   events); right, pasted goal times — one per line, `MM:SS`, `H:MM:SS` or seconds, optionally "Team - Scorer"
   (`utils/bulkPaste.ts`, live preview). Export project is its own menu item.
+- **Known final score:** optional `knownFinalScore: Score | null` (persist v25), entered under the team cards in Match
+  setup and the New match Match step (`MatchDetails`; New match passes `compact`, which leaves out logo and graphics
+  style). Cleared by `newMatch()`; carried in project JSON and transfer links. `utils/scoreGap.ts` compares it with the
+  tagged score (`finalScore()`): the Find goals tally's second line ("Final 13 – 9 · 3 to find" / "✓ All goals tagged" /
+  "1 more than the final score (Whites)"), review summary lines, a quiet note in Export `ReelSummary`, and a one-off
+  toast when tagging reaches it (`useAllGoalsToast` in `SuggestionReview`). Not on the scorebug, rail or cards; graphics
+  and file names keep using the tagged goals.
 - **Projects:** export/import JSON, and transfer links (`#p=`, deflate + base64url in the URL fragment — never sent
   to a server). Files are relinked by key on the receiving device.
 

@@ -11,6 +11,13 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-12
 
+- **Optional known final score in New match and Match setup; Find goals says how many goals are left** (user). One
+  optional scoreline under the team cards (not a separate step). The gap shows only where goals are found: the Find goals
+  tally ("3 to find", "✓ All goals tagged", or "N more than the final score"), the review summary, a one-off "All N goals
+  tagged" toast, and a quiet Export note. Graphics and file names keep the tagged score. The New match wizard drops
+  league logo and graphics style (still in Match setup / Export). *Why:* knowing the real result tells the reviewer when
+  every goal is found and how many are missing, without adding a third score to the editor. *Where:*
+  `docs/superpowers/specs/2026-10-12-known-final-score-design.md`, branch `feat/known-final-score`.
 - **The match strip's hover bubble names the symbol under the pointer** (user). Over an event icon, a marker's flag icon
   (not its hairline) or a suggestion ring, the bubble reads e.g. "Goal · 10:00 · V2" or "Detected moment · …", at the
   symbol's own time. Anywhere else it shows the time as before. Native `title` tooltips on icons were removed, so two
