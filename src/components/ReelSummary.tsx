@@ -1,6 +1,8 @@
 import { useId, useMemo, useState } from 'react'
 import { useAppState } from '../state'
 import { clipSettingsLine, formatReelLength, reelSummary } from '../utils/reel'
+import { formatScore, finalScore } from '../utils/score'
+import { scoreGap } from '../utils/scoreGap'
 import { ClipSettings } from './ClipSettings'
 
 /** Export panel → Reel: length and clip count of the reel, a one-line recap of the clip / replay settings, and an Edit disclosure that reveals them. */
@@ -13,6 +15,8 @@ export function ReelSummary() {
     const replayBeforeSec = useAppState((s) => s.replayBeforeSec)
     const replayAfterSec = useAppState((s) => s.replayAfterSec)
     const replaySpeed = useAppState((s) => s.replaySpeed)
+    const teams = useAppState((s) => s.teams)
+    const known = useAppState((s) => s.knownFinalScore)
     const [editing, setEditing] = useState(false)
     const panelId = useId()
 
@@ -20,6 +24,9 @@ export function ReelSummary() {
         events, cumulativeOffsets, durationsSec: files.map((f) => f.durationSec ?? Infinity),
         before, after, replay: { beforeSec: replayBeforeSec, afterSec: replayAfterSec, speed: replaySpeed },
     }), [events, cumulativeOffsets, files, before, after, replayBeforeSec, replayAfterSec, replaySpeed])
+
+    const tagged = finalScore(events, teams)
+    const differs = known && teams.length >= 2 && !scoreGap(tagged, known)?.complete
 
     return (
         <div role="group" aria-label="Reel summary" className="reel-summary">
@@ -34,6 +41,7 @@ export function ReelSummary() {
                     {editing ? 'Done' : 'Edit'}
                 </button>
             </p>
+            {differs && known && <p className="reel-summary__settings m-0">Tagged {formatScore(tagged)}, final score {formatScore(known)}.</p>}
             {editing && <div id={panelId} className="reel-summary__editor"><ClipSettings /></div>}
         </div>
     )

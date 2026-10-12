@@ -1406,6 +1406,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .tally { margin-bottom: 12px; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 4px 6px; font-size: 14px; color: var(--sh-muted); }
 .tally__team { font-size: 14px; color: var(--sh-text); }
 .tally__score { font-family: var(--sh-font-mono); font-weight: 700; font-size: 16px; color: var(--sh-text); }
+.tally__gap { font-size: 14px; color: var(--sh-text); }
 .rtl__handle kbd { margin-left: 3px; text-decoration: none; display: inline-block; }
 @media (pointer: coarse) { .rtl__handle kbd { display: none; } }
 .rv__steps .event-picker__person .event-picker__input { order: 0; }

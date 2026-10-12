@@ -6,7 +6,7 @@ import { GoalsTally } from './GoalsTally'
 
 const ev = (id: string, type: 'goal' | 'own_goal', team: string, t: number, pen = false) => ({ id, type, team, matchTimeSec: t, sourceFileIndex: 0, ...(pen ? { pen: true } : {}) })
 beforeEach(() => {
-    useAppState.setState({ cumulativeOffsets: [0], currentTimeInFileSec: 0, events: [], teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#000', roster: [] }] })
+    useAppState.setState({ cumulativeOffsets: [0], currentTimeInFileSec: 0, events: [], knownFinalScore: null, teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#000', roster: [] }] })
 })
 
 describe('GoalsTally', () => {
@@ -23,5 +23,40 @@ describe('GoalsTally', () => {
         expect(screen.getByText('0 – 1')).toBeTruthy()
         act(() => { useAppState.setState({ teams: [] }) })
         expect(screen.queryByText(/Goals tagged/)).toBeNull()
+    })
+
+    describe('with a known final score', () => {
+        const goals = (n: number, team: string, from = 0) => Array.from({ length: n }, (_, i) => ev(`${team}${from + i}`, 'goal', team, 10 + from + i))
+        it('should say how many goals are still to find', () => {
+            useAppState.setState({ events: [...goals(11, 'Whites'), ...goals(8, 'Colours')] as never, knownFinalScore: [13, 9] })
+            render(<GoalsTally />)
+            expect(screen.getByText('11 – 8')).toBeTruthy()
+            expect(screen.getByText('final 13 – 9')).toBeTruthy()
+            expect(screen.getByText('3 to find')).toBeTruthy()
+            expect(screen.getByLabelText('Goals tagged: Whites 11, Colours 8. Final score Whites 13, Colours 9. 3 to find.')).toBeTruthy()
+        })
+        it('should show a tick and no final score or gap once everything is tagged', () => {
+            useAppState.setState({ events: [...goals(13, 'Whites'), ...goals(9, 'Colours')] as never, knownFinalScore: [13, 9] })
+            render(<GoalsTally />)
+            expect(screen.getByText('13 – 9')).toBeTruthy()
+            expect(screen.getByText('✓ all goals tagged')).toBeTruthy()
+            expect(screen.queryByText(/to find/)).toBeNull()
+            expect(screen.getByLabelText('Goals tagged: Whites 13, Colours 9. All goals tagged.')).toBeTruthy()
+        })
+        it('should warn in words when a team has more than the final score', () => {
+            useAppState.setState({ events: [...goals(14, 'Whites'), ...goals(9, 'Colours')] as never, knownFinalScore: [13, 9] })
+            render(<GoalsTally />)
+            expect(screen.getByText('final 13 – 9')).toBeTruthy()
+            const warn = screen.getByText('1 more than the final score (Whites)')
+            expect(warn.className).toContain('msg-warn')
+            expect(screen.queryByText(/to find/)).toBeNull()
+            expect(screen.getByLabelText('Goals tagged: Whites 14, Colours 9. Final score Whites 13, Colours 9. 1 more than the final score (Whites).')).toBeTruthy()
+        })
+        it('should be unchanged without a known score', () => {
+            useAppState.setState({ events: goals(2, 'Whites') as never, knownFinalScore: null })
+            render(<GoalsTally />)
+            expect(screen.queryByText(/final/)).toBeNull()
+            expect(screen.getByLabelText('Goals tagged: Whites 2, Colours 0')).toBeTruthy()
+        })
     })
 })
