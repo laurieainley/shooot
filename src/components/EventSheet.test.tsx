@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import type { MatchEvent, Team, VideoSourceFile } from '../types'
@@ -81,11 +81,9 @@ describe('EventSheet', () => {
         expect(ev()?.notes).toBe('header')
     })
 
-    it('should toggle the slow-mo replay', async () => {
-        const toggle = screen.getByRole('checkbox', { name: /replay/i })
-        expect(toggle).toBeChecked()
-        await userEvent.click(toggle)
-        expect(ev()?.replay).toBe(false)
+    it('should leave the slow-mo replay switch and framing to the action row and the Framing view', () => {
+        expect(screen.queryByRole('checkbox', { name: /replay/i })).not.toBeInTheDocument()
+        expect(screen.queryByRole('group', { name: 'Replay framing' })).not.toBeInTheDocument()
     })
 
     it('should delete the event and close', async () => {
@@ -104,6 +102,32 @@ describe('EventSheet', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Colours' }))
         useAppState.getState().undo()
         expect(ev()?.team).toBe('Whites')
+    })
+})
+
+describe('EventSheet — framing view', () => {
+    const open = (event: Partial<MatchEvent> = {}): void => {
+        setup(event)
+        act(() => { useAppState.getState().editEvent('a', 'framing') })
+    }
+    it('should show only the replay framing, titled Replay framing', () => {
+        open()
+        expect(screen.getByRole('dialog', { name: 'Replay framing' })).toBeInTheDocument()
+        expect(screen.getByRole('group', { name: 'Replay framing' })).toBeInTheDocument()
+        expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+        expect(screen.queryByRole('group', { name: 'Team' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /^Goal$/ })).not.toBeInTheDocument()
+    })
+    it('should close with the sheet close button', async () => {
+        open()
+        await userEvent.click(screen.getByRole('button', { name: 'Close' }))
+        expect(useAppState.getState().panel).toBeNull()
+    })
+    it('should close when the replay is switched off underneath it', () => {
+        open()
+        act(() => { useAppState.getState().updateEvent('a', { replay: false }) })
+        expect(useAppState.getState().panel).toBeNull()
     })
 })
 

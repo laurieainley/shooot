@@ -387,6 +387,16 @@ describe('panels and the picker', () => {
         expect(s().panel).toBe('menu')
     })
 
+    it('should open the edit sheet on the details view by default and on the framing view when asked', () => {
+        s().addEvent({ id: 'a', matchTimeSec: 1, sourceFileIndex: 0, type: 'goal' })
+        s().editEvent('a')
+        expect(s().editingView).toBe('details')
+        s().editEvent('a', 'framing')
+        expect(s().editingView).toBe('framing')
+        s().editEvent('a')
+        expect(s().editingView).toBe('details')
+    })
+
     it('should close the edit sheet when its event goes away (delete, undo)', () => {
         s().addEvent({ id: 'a', matchTimeSec: 1, sourceFileIndex: 0, type: 'highlight' })
         s().editEvent('a')
