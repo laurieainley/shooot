@@ -1123,10 +1123,10 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .shell--phone .top-bar .btn-primary { padding: 0 14px; font-size: 13px; }
   }
 
-/* Narrow event labels (landscape phone, desktop rail): a tighter tag so "Pen goal" and a name both fit. */
-/* Selected row: a second line of actions under the icon column (labels hide when the rail is narrow). */
+/* Clock and score text: 12px with a mouse, 14px on touch. */
 .event-row .clock, .event-row .row-score { font-size: 12px; }
 @media (pointer: coarse) { .event-row .clock, .event-row .row-score, .event-row .event-row__note, .event-row__type, .event-row .tag { font-size: 14px; } }
+/* Selected row: a second line of actions under the icon column (labels hide when the rail is narrow). */
 .event-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0 2px calc(var(--clock-ch, 5) * 1ch + 8px); white-space: nowrap; cursor: default; }
 .event-actions__download { display: inline-flex; }
 .act-btn {
@@ -1138,17 +1138,16 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .act-btn[aria-pressed="false"] { color: var(--sh-muted); }
 .act-btn--touch { min-height: 44px; min-width: 44px; font-size: 14px; }
 .act-btn--delete:hover { color: var(--sh-text); border-color: var(--sh-text); }
-/* Touch and narrow rails: no clock-column indent; the buttons share one line. */
+/* Touch and narrow rails: no clock-column indent; buttons share the line and wrap (never clip) when the labels do not fit. Under 360px: icons only. */
 @media (pointer: coarse) {
-  .event-actions { padding-left: 12px; flex-wrap: nowrap; }
+  .event-actions { padding-left: 12px; }
   .event-actions .act-btn { flex: 1 1 auto; padding: 0 8px; }
 }
 @container event-log (max-width: 420px) {
-  .event-actions { padding-left: 12px; flex-wrap: nowrap; }
+  .event-actions { padding-left: 12px; }
   .event-actions .act-btn { flex: 1 1 auto; padding: 0 8px; }
 }
 @container event-log (max-width: 360px) {
-  .event-actions { flex-wrap: wrap; } /* icons only; wrap rather than clip if even they do not fit */
   .event-actions__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .act-btn { min-width: 36px; padding: 0 6px; }
   .act-btn--touch { min-width: 44px; }
