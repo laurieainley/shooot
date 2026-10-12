@@ -33,4 +33,12 @@ describe('RenderChip', () => {
         act(() => { vi.advanceTimersByTime(5000) })
         expect(screen.queryByRole('button', { name: /reel ready/i })).not.toBeInTheDocument()
     })
+
+    it('should say the clip is ready after a clip job, and still open the Highlights tab', () => {
+        renderJobs().setState({ job: job({ kind: 'clip', phase: 'done', finishedAt: Date.now() }) })
+        render(<RenderChip />)
+        expect(screen.queryByRole('button', { name: /reel ready/i })).not.toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: /clip ready/i }))
+        expect(useAppState.getState()).toMatchObject({ panel: 'export', exportTab: 'highlights' })
+    })
 })
