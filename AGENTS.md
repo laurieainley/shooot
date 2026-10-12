@@ -183,9 +183,12 @@ npm run lint       # baseline: 12 known problems — add none
   flags, red playhead, hover/drag time bubble, keyboard focusable.
 - **Event icons:** `components/icons/EventIcon.tsx` + `utils/eventIcon.ts` (football, pen ball "P", own goal "OG",
   penalty spot / spot ✕, glove, whistle, star, flag, pause, chequered flag) — used in strip, rows, picker, edit sheet.
-- **Events rail:** rows = clock · team dot · icon · name (shirt font) [line 2: "Assist: X" / note] · score · file no. ·
-  ▶ ↻ ⌖ ×, fixed slots (`utils/eventRow.ts`). Header: "+ Tag event" (quiet, red REC dot), undo/redo, "?" shortcuts.
-  No rail footer and no key-hint bar.
+- **Events rail:** rows = clock · team dot · icon · name (body font, weight 600, normal case — not the shirt face) ·
+  note (inline, muted) · score · ▶ (`utils/eventRow.ts`); no assist, no file number (only a "file missing" warning).
+  The selected row expands into an action row (`EventActions`): ↻ Replay · ⌖ Framing (when replay is on) · person-icon
+  Edit · [Download clip slot] · × Delete; markers get Edit + Delete. Labels hide (icon-only) when the rail is ≤ 360px;
+  the row wraps rather than clips. Touch: a tap expands (Edit opens the sheet). Esc collapses, then leaves the log.
+  Header: "+ Tag event" (quiet, red REC dot), undo/redo, "?" shortcuts. No rail footer and no key-hint bar.
 - **Export:** right-hand drawer over a scrim (`FloatingPanel variant="drawer"`; full screen on phones). Highlights tab:
   Reel (`ReelSummary`: length, clips, clip/replay recap with an Edit disclosure), Graphics, Render, Share.
 - **Shortcuts sheet:** `?` key, the "?" button or ⋯ → Shortcuts (`ShortcutsSheet`, data in `utils/shortcutList.ts`,
