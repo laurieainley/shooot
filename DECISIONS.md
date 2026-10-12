@@ -11,6 +11,12 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-12
 
+- **Roster entry: Enter adds the name and stays in the field; names sit below the field; this device remembers
+  players and suggests them** (user). One remembered list for both teams (teams are reshuffled weekly), up to 6
+  suggestions while typing (most recent first; with an empty field, recent players not in a team), × forgets one. Device
+  data only (not in projects or links). *Why:* on phones Enter jumped to the next field, and names inside the box were
+  hard to scan; retyping the same players every week is slow. *Where:* `src/components/RosterTags.tsx`,
+  `src/utils/knownPlayers.ts`, persist v26.
 - **Event action row: slow-mo replay is a labelled switch; Edit and Framing open separate views** (user). Order:
   Slow-mo replay switch · Edit · Framing (replay on) · Download clip · Delete; a muted ↻ on the main row shows a replay
   is on; the edit sheet's duplicate replay toggle is gone. *Why:* "Replay" read as a button to more settings, not an

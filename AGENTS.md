@@ -143,6 +143,11 @@ npm run lint       # baseline: 12 known problems — add none
   "1 more than the final score (Whites)"), review summary lines, a quiet note in Export `ReelSummary`, and a one-off
   toast when tagging reaches it (`useAllGoalsToast` in `SuggestionReview`). Not on the scorebug, rail or cards; graphics
   and file names keep using the tagged goals.
+- **Roster entry:** `RosterTags` = text field + Add button, "Previous players" suggestions under it, roster chips
+  below (A–Z; tap to fix, × to remove). Enter / comma / Add / Tab add a name; Enter keeps focus so the phone keyboard
+  stays up (`enterKeyHint="enter"`, key or keyCode 13, `beforeinput` `insertLineBreak`). `knownPlayers` (persist v26,
+  `utils/knownPlayers.ts`) are this device's remembered names: recorded by `setTeams` / `addToRoster`, forgotten only via
+  the × on a suggestion, capped at 200, not in project files or transfer links, kept by `newMatch()`.
 - **Projects:** export/import JSON, and transfer links (`#p=`, deflate + base64url in the URL fragment — never sent
   to a server). Files are relinked by key on the receiving device.
 

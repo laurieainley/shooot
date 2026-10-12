@@ -23,6 +23,7 @@ import { normaliseGraphics, type GraphicsSettings } from './graphics/plan'
 
 const DEFAULT_GRAPHICS: GraphicsSettings = { cards: true, lowerThirds: true, replayTag: true, theme: 'shooot' }
 import type { ClipOptions, FullMatchSettings } from './utils/exportPlans'
+import { forgetPlayer, rememberPlayers, type KnownPlayer } from './utils/knownPlayers'
 
 /** Links events to the loaded files: migrated whole-timeline times are placed first, then file keys matched. */
 function relinkEvents(events: MatchEvent[], files: VideoSourceFile[]): MatchEvent[] {
@@ -111,6 +112,9 @@ type AppState = {
     setTeams: (teams: Team[]) => void
     renameTeam: (index: number, name: string) => void
     addToRoster: (team: string, name: string) => void
+    /** Player names used on this device, suggested when typing a roster. A device preference: not in projects or transfer links. */
+    knownPlayers: KnownPlayer[]
+    forgetPlayer: (name: string) => void
     markEvent: (timeInFileSec: number, opts?: { deferred?: boolean }) => void
     commitPending: () => void
     openPicker: (eventId: string) => void
@@ -485,7 +489,9 @@ export const useAppState = create<AppState>()(
                     suggestions: [], suggestionRun: null, reviewIndex: 0,
                 })
             },
-            setTeams: (teams) => set({ teams }),
+            knownPlayers: [],
+            forgetPlayer: (name) => set({ knownPlayers: forgetPlayer(get().knownPlayers, name) }),
+            setTeams: (teams) => set({ teams, knownPlayers: rememberPlayers(get().knownPlayers, teams.flatMap((t) => t.roster), Date.now()) }),
             renameTeam: (index, name) => {
                 const old = get().teams[index]?.name
                 if (old === undefined) return
@@ -499,6 +505,7 @@ export const useAppState = create<AppState>()(
                     t.name === team && !t.roster.some((r) => r.toLowerCase() === name.toLowerCase())
                         ? { ...t, roster: [...t.roster, name] }
                         : t),
+                knownPlayers: rememberPlayers(get().knownPlayers, [name], Date.now()),
             }),
             markEvent: (timeInFileSec, opts) => {
                 const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
@@ -682,6 +689,7 @@ export const useAppState = create<AppState>()(
                 replayAfterSec: state.replayAfterSec,
                 replaySpeed: state.replaySpeed,
                 teams: state.teams,
+                knownPlayers: state.knownPlayers,
                 graphics: state.graphics,
                 fullMatch: state.fullMatch,
                 clipOptions: state.clipOptions,
@@ -696,7 +704,7 @@ export const useAppState = create<AppState>()(
                 suggestions: state.suggestions,
                 suggestionRun: state.suggestionRun,
             }),
-            version: 25,
+            version: 26,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -792,6 +800,13 @@ export const useAppState = create<AppState>()(
 
                 // Known final score (v25): none until entered.
                 if (version < 25 && state.knownFinalScore === undefined) state.knownFinalScore = null
+
+                // Remembered players (v26): seeded from the current rosters.
+                if (version < 26) {
+                    const rosters: unknown[] = Array.isArray(state.teams) ? state.teams.map((t: { roster?: unknown }) => t?.roster) : []
+                    const names = rosters.flatMap((r) => (Array.isArray(r) ? r : []))
+                    state.knownPlayers = rememberPlayers([], names.filter((n: unknown): n is string => typeof n === 'string'), Date.now())
+                }
 
                 return state
             },
