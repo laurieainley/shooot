@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 const renderReel = vi.fn()
@@ -214,5 +214,22 @@ describe('RenderStatus', () => {
             await userEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' }))
             expect(((await screen.findByLabelText('Diagnostics report')) as HTMLTextAreaElement).value).toContain('Shooot render diagnostics')
         })
+    })
+
+    it('should show about N min left once a few seconds of progress exist', async () => {
+        vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+        try {
+            render(<RenderStatus kind="fullMatch" />)
+            const done = start()
+            await vi.waitFor(() => expect(renderJobs().getState().job?.phase).toBe('running'))
+            expect(screen.queryByLabelText('Time left')).not.toBeInTheDocument()
+            for (let i = 0; i <= 10; i++) {
+                renderJobs().setState({ job: { ...renderJobs().getState().job!, fraction: i * 0.01 } })
+                await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
+            }
+            expect(screen.getByLabelText('Time left')).toHaveTextContent(/about \d+ min left/)
+            renderJobs().getState().cancel()
+            await done
+        } finally { vi.useRealTimers() }
     })
 })

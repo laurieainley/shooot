@@ -110,6 +110,10 @@ npm run lint       # baseline: 12 known problems — add none
   `VideoDecoder`/`VideoEncoder.isConfigSupported` says no. Audio: AAC is copied, anything else is encoded to AAC at 160 kbps.
   Resumable: units are the cards and ≤ 2-minute segments of output, each with its own encoder and a key frame at its
   start (an interruption loses at most the unit in progress); the output quality is part of the job signature.
+  **Storage fit and time:** `applyStorageFit()` (utils/outputQuality.ts) greys out options bigger than the site's free
+  storage (`storageRoom()` in render/storage.ts: quota − usage + old outputs `clearOldOutputs()` frees, 10% margin) and
+  auto-picks the largest that fits; no `estimate()` means no blocking. Time hints are device-range ranges; the running
+  render shows a live ETA (`utils/renderEta.ts`, moving average of progress per second) in `RenderStatus`.
 - **Chapters:** YouTube chapter times come from the real render timeline (engine `onTimeline` → `renderTimelines.ts`,
   matched by plan signature); until then an estimate from the render plan, flagged in the UI.
 - **Render storage:** outputs are written to OPFS first; `clearOldOutputs()` deletes earlier renders before each

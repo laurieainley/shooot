@@ -8,6 +8,7 @@ import { NetBulge } from './NetBulge'
 import { keepOpenNotice } from '../utils/renderNotice'
 import { dedupeSkipped } from '../utils/dedupeSkipped'
 import { SkippedList } from './SkippedList'
+import { etaSeconds, formatEta, stepEta, type EtaState } from '../utils/renderEta'
 
 interface RenderStatusProps {
     /** Which export this panel section belongs to: it shows that render, and notes when the other one is running. */
@@ -45,11 +46,20 @@ function RenderStatusBody({ kind, onStopped }: RenderStatusProps & { onStopped: 
     // The last render's report, kept across reloads (the engine saves it when a render ends).
     const [stored] = useState(() => loadLastReport())
     useEffect(() => { if (job?.phase !== 'running') setConfirming(false) }, [job?.phase])
+    const eta = useRef<{ id: number; state: EtaState | null }>({ id: -1, state: null })
     useEffect(() => {
         if (job?.phase !== 'running') return
-        const t = setInterval(() => tick((n) => n + 1), 1000)
+        const t = setInterval(() => {
+            const j = renderJobs().getState().job
+            if (j) {
+                if (eta.current.id !== j.id) eta.current = { id: j.id, state: null }
+                eta.current.state = stepEta(eta.current.state, Date.now(), j.fraction)
+            }
+            tick((n) => n + 1)
+        }, 1000)
         return () => clearInterval(t)
     }, [job?.phase])
+    const etaText = job && job.phase === 'running' && eta.current.id === job.id ? formatEta(etaSeconds(eta.current.state)) : null
 
     const jobs = renderJobs().getState()
     const keepRef = useRef<HTMLButtonElement>(null)
@@ -114,6 +124,7 @@ function RenderStatusBody({ kind, onStopped }: RenderStatusProps & { onStopped: 
     return (
         <>
             {job.phase === 'running' && busyBox(`${keepOpenNotice(navigator)}${conflict ? ' One render at a time.' : ''}`, `${Math.round(job.fraction * 100)}%`)}
+            {etaText && <p className="export-hint m-0" aria-label="Time left">{etaText}</p>}
             {job.phase === 'running' && <p className="render-voice voice-heading">{POLISHING}</p>}
             <div role="status" className="tc export-hint">{job.phase === 'failed' ? `Render failed: ${job.error}` : job.status}</div>
             <SkippedList skipped={skipped} />

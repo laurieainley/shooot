@@ -8,6 +8,8 @@ import { MissingFullFiles } from './MissingFullFiles'
 import { RenderStatus } from './RenderStatus'
 import { ResumeOffer } from './ResumeOffer'
 import { useSavedJob } from './useSavedJob'
+import { useStorageRoom } from './useStorageRoom'
+import { highlightsRoomWarning } from '../utils/outputQuality'
 
 export function RenderHighlights() {
     const files = useAppState((s) => s.files)
@@ -19,6 +21,8 @@ export function RenderHighlights() {
 
     const hasProxies = files.some((f) => f.kind === 'proxy')
     const disabled = files.length === 0 || !hasEvents
+    const room = useStorageRoom(busy)
+    const roomWarning = useAppState((s) => (!room || s.files.length === 0 ? null : highlightsRoomWarning(highlightsExport(s, 'full').bytes, room)))
 
     const run = (quality: RenderQuality): void => {
         const plan = highlightsExport(useAppState.getState(), quality)
@@ -49,6 +53,7 @@ export function RenderHighlights() {
             </button>
             <MissingFullFiles missing={missing} onChange={(m, msg) => { setMissing(m); setNote(msg) }} onPreviewInstead={() => run('preview')} />
             {note && <p role="note" className="export-hint">{note}</p>}
+            {roomWarning && <p role="note" className="export-hint">{roomWarning}</p>}
             <RenderStatus kind="highlights" />
         </div>
     )
