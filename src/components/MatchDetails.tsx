@@ -200,15 +200,15 @@ function FinalScoreField() {
     )
 }
 
-/**
- * The match itself: Title (the matchday heading on the graphics), both teams (name, initials, colour, roster) and
- * the final score if known, and (unless compact) the league logo and graphics style. Shared by the Match setup panel and the New match steps.
- */
 interface MatchDetailsProps {
     /** Leave out the league logo and graphics style (the New match steps; Match setup keeps them). */
     compact?: boolean
 }
 
+/**
+ * The match itself: Title (the matchday heading on the graphics), both teams (name, initials, colour, roster) and
+ * the final score if known, and (unless compact) the league logo and graphics style. Shared by the Match setup panel and the New match steps.
+ */
 export function MatchDetails({ compact = false }: MatchDetailsProps = {}) {
     const teamCount = useAppState((s) => Math.min(2, s.teams.length))
     const matchdayLabel = useAppState((s) => s.matchdayLabel)

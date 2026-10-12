@@ -25,13 +25,15 @@ export function GoalsTally() {
             <span className="tally__team voice-shirt" aria-hidden="true">{teams[0].name}</span>{' '}
             <span className="tally__score tc" aria-hidden="true">{a} – {b}</span>{' '}
             <span className="tally__team voice-shirt" aria-hidden="true">{teams[1].name}</span>
-            {gap && known && (gap.complete
-                ? <><span aria-hidden="true">·</span> <span className="tally__gap" aria-hidden="true">✓ all goals tagged</span></>
-                : <>
-                    <span aria-hidden="true">·</span> <span className="tally__gap tc" aria-hidden="true">final {known[0]} – {known[1]}</span>
-                    {short && <><span aria-hidden="true">·</span> <span className="tally__gap" aria-hidden="true">{toFindText(gap)}</span></>}
-                    {over && <><span aria-hidden="true">·</span> <span className="tally__gap msg-warn" aria-hidden="true">{extraText(gap, teams)}</span></>}
-                </>)}
+            {gap && known && (
+                <span className="tally__target" aria-hidden="true">
+                    {gap.complete ? '✓ All goals tagged' : <>
+                        Final <span className="tc">{known[0]} – {known[1]}</span>
+                        {short && <> · {toFindText(gap)}</>}
+                        {over && <> · <span className="msg-warn">{extraText(gap, teams)}</span></>}
+                    </>}
+                </span>
+            )}
         </p>
     )
 }
