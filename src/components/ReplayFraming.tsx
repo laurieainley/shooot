@@ -50,7 +50,7 @@ export function ReplayFraming({ event: e }: ReplayFramingProps) {
 
     return (
         <fieldset className="event-sheet__group replay-framing">
-            <legend>Replay framing</legend>
+            <legend className="sr-only">Replay framing</legend>{/* the sheet's title says it */}
             <div className="chips">
                 {choices.map((c) => (
                     <button

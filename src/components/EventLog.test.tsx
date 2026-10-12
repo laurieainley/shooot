@@ -597,17 +597,37 @@ describe('EventLog action row', () => {
         expect(useAppState.getState()).toMatchObject({ panel: 'event', editingEventId: 'a', editingView: 'framing' })
     })
 
-    it('should scroll an expanded row into view without smooth scrolling when motion is reduced', async () => {
+    it('should scroll only the list (never the page) to show an expanded row, without smoothing when motion is reduced', async () => {
         setup([goal('a', 100)])
-        const scroll = vi.fn()
-        Element.prototype.scrollIntoView = scroll
+        const pageScroll = vi.fn()
+        Element.prototype.scrollIntoView = pageScroll
+        const listScroll = vi.fn()
+        const rect = Element.prototype.getBoundingClientRect
+        Element.prototype.getBoundingClientRect = function (this: Element) {
+            const box = this.getAttribute('role') === 'listbox' ? { top: 0, bottom: 100 } : { top: 150, bottom: 200 }
+            return { ...box, left: 0, right: 100, width: 100, height: box.bottom - box.top, x: 0, y: box.top, toJSON: () => ({}) } as DOMRect
+        }
         const mm = window.matchMedia
         window.matchMedia = ((q: string) => ({ matches: q.includes('reduce'), media: q, addEventListener: () => undefined, removeEventListener: () => undefined, addListener: () => undefined, removeListener: () => undefined, onchange: null, dispatchEvent: () => false })) as typeof window.matchMedia
         try {
             render(<EventLog />)
+            const list = screen.getByRole('listbox', { name: 'Event list' })
+            list.scrollTo = listScroll as never
+            Object.defineProperty(list, 'scrollHeight', { value: 300, configurable: true })
+            Object.defineProperty(list, 'clientHeight', { value: 100, configurable: true })
             await userEvent.click(rows()[0])
-            expect(scroll).toHaveBeenCalledWith({ block: 'nearest', behavior: 'auto' })
-        } finally { window.matchMedia = mm }
+            expect(listScroll).toHaveBeenCalledWith({ top: 100, behavior: 'auto' })
+            expect(pageScroll).not.toHaveBeenCalled()
+        } finally { window.matchMedia = mm; Element.prototype.getBoundingClientRect = rect }
+    })
+
+    it('should scroll the page to an expanded row when the list itself does not scroll (phone portrait)', async () => {
+        setup([goal('a', 100)])
+        const pageScroll = vi.fn()
+        Element.prototype.scrollIntoView = pageScroll
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        expect(pageScroll).toHaveBeenCalledWith(expect.objectContaining({ block: 'nearest' }))
     })
 
     it('should show Framing only while the replay is on', async () => {
