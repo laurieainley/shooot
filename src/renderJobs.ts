@@ -23,6 +23,8 @@ export type RenderRequest = {
     signature?: string
     /** Save progress so the render can carry on after a reload. */
     resumable?: { signature: string; kind: Exclude<JobKind, 'clip'> }
+    /** Re-encode to H.264 at this quality instead of stream copying (Full match 4K / 1080p). */
+    output?: { quality: '4k' | '1080p'; videoBitrate: number }
 }
 
 export type JobPhase = 'running' | 'done' | 'failed'
@@ -131,6 +133,7 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                         outputName: req.outputName,
                         onTimeline: (t) => { timeline = t },
                         ...(req.resumable ? { resumable: req.resumable } : {}),
+                        ...(req.output ? { output: req.output } : {}),
                         // Reports also come for replay crops, which are drawn even when there are no graphics.
                         onGraphics: (report) => patch(id, { report }),
                         onDiagnostics: (diagnostics) => patch(id, { diagnostics }),

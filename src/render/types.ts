@@ -1,4 +1,5 @@
 import type { DiagnosticsReport } from './diagnostics'
+import type { ReencodeQuality } from './transcodePlan'
 export type Cut = {
     sourceIndex: number
     startSec: number
@@ -100,6 +101,11 @@ export type RenderOptions = {
      * identifies the render (plan, sources, graphics): a saved job with another signature is discarded.
      */
     resumable?: { signature: string; kind: 'highlights' | 'fullMatch' }
+    /**
+     * Re-encode the whole render to H.264 at this quality instead of stream copying (Full match "4K" / "1080p"): graphics are
+     * drawn into the frames as they are encoded. Omitted = stream copy ("Original").
+     */
+    output?: { quality: ReencodeQuality; videoBitrate: number; /** Benchmarks: always go through the canvas, even when the frame could pass straight to the encoder. */ forceCanvas?: boolean }
 }
 
 export type RenderFn = (cuts: Cut[], sources: RenderSource[], opts: RenderOptions) => Promise<File | Blob>

@@ -16,8 +16,18 @@ import { linkedEvents } from './relink'
 import { buildRenderPlan } from './renderPlan'
 import { resolveRenderSources, usedMissing, type RenderQuality } from './renderSources'
 import { scoreBugWindows, type ScoreBugMode } from './scoreBug'
+import { estimateEncodedBytes, type OutputQuality, type ReencodeQuality } from './outputQuality'
 
-export type FullMatchSettings = { cards: boolean; scoreBug: ScoreBugMode; intervalMin: number; captions: boolean; /** Slow-mo replays after each event that has one, as in the highlights. */ replays: boolean }
+export type FullMatchSettings = {
+    cards: boolean; scoreBug: ScoreBugMode; intervalMin: number; captions: boolean
+    /** Slow-mo replays after each event that has one, as in the highlights. */
+    replays: boolean
+    /** Original = stream copy (quickest, largest); 4K / 1080p = re-encoded H.264 (smaller, slower). */
+    quality: OutputQuality
+}
+
+/** A re-encoded output (omitted = stream copy). */
+export type PlanOutput = { quality: ReencodeQuality; videoBitrate: number }
 
 export type ExportState = {
     files: VideoSourceFile[]
@@ -52,20 +62,22 @@ export type ExportPlan = {
     /** Long renders save progress so they can resume after a reload. */
     resumable: boolean
     signature: string
+    /** Set when the render re-encodes (Full match 4K / 1080p). */
+    output?: PlanOutput
 }
 
 const matchday = (s: ExportState): string => s.matchdayLabel?.trim() || 'MATCH'
 const nonEmpty = (spec: GraphicsSpec): GraphicsSpec | undefined => (spec.intro || spec.outro || spec.overlays.length > 0 ? spec : undefined)
 const cardsSec = (spec: GraphicsSpec | undefined): number => (spec?.intro ? CARD_SEC : 0) + (spec?.outro ? (isSting(spec.outro) ? STING_SEC : CARD_SEC) : 0)
 
-function finish(kind: 'highlights' | 'fullMatch' | 'clip', quality: RenderQuality, s: ExportState, cuts: Cut[], spec: GraphicsSpec | undefined, resumable: boolean, clip?: { minute: number | null; label: string; person?: string }): ExportPlan {
+function finish(kind: 'highlights' | 'fullMatch' | 'clip', quality: RenderQuality, s: ExportState, cuts: Cut[], spec: GraphicsSpec | undefined, resumable: boolean, clip?: { minute: number | null; label: string; person?: string }, output?: PlanOutput): ExportPlan {
     const { sources, missing } = resolveRenderSources(s.files, quality)
     const durations = s.files.map((f) => f.durationSec ?? 0)
     const seconds = cuts.reduce((sum, c) => sum + (c.endSec - c.startSec) / (c.speed ?? 1), 0) + cardsSec(spec)
-    const bytes = estimateBytes(cuts.map((c) => ({ ...c })), sources.map((x) => x.file.size), durations)
+    const bytes = output ? estimateEncodedBytes(output.quality, seconds, output.videoBitrate) : estimateBytes(cuts.map((c) => ({ ...c })), sources.map((x) => x.file.size), durations)
     const outputName = outputFileName({ kind, preview: quality === 'preview', title: s.matchdayLabel, teams: s.teams, events: linkedEvents(s.events), clip })
-    const signature = jobSignature({ kind, quality, cuts, sources: sources.map((x) => [x.name, x.file.size]), spec: spec ?? null })
-    return { cuts, sources, missing, spec, outputName, kind, seconds, bytes, resumable, signature }
+    const signature = jobSignature({ kind, quality, cuts, sources: sources.map((x) => [x.name, x.file.size]), spec: spec ?? null, ...(output ? { output } : {}) })
+    return { cuts, sources, missing, spec, outputName, kind, seconds, bytes, resumable, signature, ...(output ? { output } : {}) }
 }
 
 export function highlightsExport(s: ExportState, quality: RenderQuality): ExportPlan {
@@ -76,7 +88,8 @@ export function highlightsExport(s: ExportState, quality: RenderQuality): Export
     return finish('highlights', quality, s, cuts, spec, false)
 }
 
-export function fullMatchExport(s: ExportState, quality: RenderQuality): ExportPlan {
+/** `output`: re-encode to this quality instead of stream copying (not for previews). */
+export function fullMatchExport(s: ExportState, quality: RenderQuality, output?: PlanOutput): ExportPlan {
     const linked = linkedEvents(s.events)
     const durations = s.files.map((f) => f.durationSec ?? 0)
     const span = fullMatchSpan(linked, s.cumulativeOffsets, durations)
@@ -87,7 +100,7 @@ export function fullMatchExport(s: ExportState, quality: RenderQuality): ExportP
         mode: s.fullMatch.scoreBug, intervalMin: s.fullMatch.intervalMin, gapsSec: recordingGaps(s.files, s.cumulativeOffsets),
     })
     const spec = nonEmpty(fullMatchGraphicsSpec({ events: linked, teams: s.teams, cuts, cumulativeOffsets: s.cumulativeOffsets, cards: s.fullMatch.cards, captions: s.fullMatch.captions, theme: s.graphics.theme, matchday: matchday(s), windows, replayTag: s.graphics.replayTag }))
-    return finish('fullMatch', quality, s, cuts, spec, true)
+    return finish('fullMatch', quality, s, cuts, spec, true, undefined, output)
 }
 
 export type ClipOptions = { replay: boolean; score: boolean }

@@ -160,6 +160,14 @@ describe('teams and picker', () => {
         expect((migrate({ clipOptions: { score: false, replay: false } }, 22) as { clipOptions: unknown }).clipOptions).toEqual({ score: false, replay: false })
     })
 
+    it('should migrate older saved full-match settings to Original output quality (v23)', () => {
+        const migrate = useAppState.persist.getOptions().migrate!
+        const old = { fullMatch: { cards: true, scoreBug: 'goals', intervalMin: 5, captions: true, replays: false } }
+        expect((migrate(old, 22) as { fullMatch: { quality: string } }).fullMatch.quality).toBe('original')
+        expect((migrate({ fullMatch: { ...old.fullMatch, quality: '1080p' } }, 23) as { fullMatch: { quality: string } }).fullMatch.quality).toBe('1080p')
+        expect(useAppState.getState().fullMatch.quality).toBe('original')
+    })
+
     it('should drop the removed adjustTimestampsByOffset setting (v18)', () => {
         const migrate = useAppState.persist.getOptions().migrate!
         const out = migrate({ adjustTimestampsByOffset: true, lengthBeforeGoalSec: 8 }, 17) as Record<string, unknown>
@@ -169,7 +177,7 @@ describe('teams and picker', () => {
 
     it('should migrate v8 legacy event types and persist teams (v9+)', () => {
         const opts = useAppState.persist.getOptions()
-        expect(opts.version).toBe(22)
+        expect(opts.version).toBe(23)
         const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
         expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
         expect(opts.partialize!(s())).toHaveProperty('teams')
@@ -206,7 +214,7 @@ describe('teams and picker', () => {
         const migrate = useAppState.persist.getOptions().migrate!
         const out = migrate({ graphics: { cards: true, lowerThirds: true, replayTag: false, theme: 'shooot' }, fullMatch: { cards: false, scoreBug: 'periodic', intervalMin: 7 } }, 12) as { graphics: { replayTag: boolean }; fullMatch: unknown }
         expect(out.graphics.replayTag).toBe(true)
-        expect(out.fullMatch).toEqual({ cards: false, scoreBug: 'goals', intervalMin: 7, captions: true, replays: false })
+        expect(out.fullMatch).toEqual({ cards: false, scoreBug: 'goals', intervalMin: 7, captions: true, replays: false, quality: 'original' })
         const fresh = migrate({}, 12) as Record<string, unknown>
         expect(fresh.graphics).toBeUndefined()
         expect(fresh.fullMatch).toBeUndefined()

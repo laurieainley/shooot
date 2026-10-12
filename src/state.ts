@@ -509,7 +509,7 @@ export const useAppState = create<AppState>()(
             openPicker: (eventId) => set({ picker: { eventId }, panel: get().panel === 'review' ? 'review' : null }),
             closePicker: () => set({ picker: null }),
             setGraphics: (partial) => set({ graphics: normaliseGraphics({ ...get().graphics, ...partial }, get().graphics) }),
-            fullMatch: { cards: true, scoreBug: 'goals', intervalMin: 5, captions: true, replays: false },
+            fullMatch: { cards: true, scoreBug: 'goals', intervalMin: 5, captions: true, replays: false, quality: 'original' },
             exportTab: 'highlights',
             setExportTab: (tab) => set({ exportTab: tab }),
             clipOptions: { score: true, replay: true },
@@ -679,7 +679,7 @@ export const useAppState = create<AppState>()(
                 suggestions: state.suggestions,
                 suggestionRun: state.suggestionRun,
             }),
-            version: 22,
+            version: 23,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -766,6 +766,9 @@ export const useAppState = create<AppState>()(
 
                 // Clip download options (v22).
                 if (version < 22) state.clipOptions = { score: true, replay: true }
+
+                // Full-match output quality (v23): Original (stream copy), as before.
+                if (version < 23 && state.fullMatch) state.fullMatch = { ...state.fullMatch, quality: 'original' }
 
                 return state
             },

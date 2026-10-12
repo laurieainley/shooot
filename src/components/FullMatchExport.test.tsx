@@ -37,7 +37,7 @@ describe('FullMatchExport', () => {
                 { id: 'w', type: 'final_whistle', matchTimeSec: 540, sourceFileIndex: 1 },
             ],
             teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }],
-            fullMatch: { cards: false, scoreBug: 'off', intervalMin: 5, captions: false, replays: false }, matchdayLabel: null,
+            fullMatch: { cards: false, scoreBug: 'off', intervalMin: 5, captions: false, replays: false, quality: 'original' }, matchdayLabel: null,
         })
     })
 
@@ -45,7 +45,7 @@ describe('FullMatchExport', () => {
         render(<FullMatchExport />)
         expect(screen.queryByText(/→/)).not.toBeInTheDocument() // just the length and size
         expect(screen.getByText('18:00')).toBeInTheDocument()
-        expect(screen.getByText(/about 2.3 GB/)).toBeInTheDocument()
+        expect(screen.getByRole('group', { name: 'Full match summary' })).toHaveTextContent(/about 2.3 GB/)
     })
 
     it('should say where it starts and ends when the markers are missing', () => {
@@ -97,5 +97,54 @@ describe('FullMatchExport', () => {
         render(<FullMatchExport />)
         expect(await screen.findByText(/can’t be resumed/)).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Resume render' })).not.toBeInTheDocument()
+    })
+
+    describe('output quality', () => {
+        const withSize = (width: number, height: number): void => {
+            useAppState.setState({ files: useAppState.getState().files.map((f) => ({ ...f, width, height })) })
+        }
+
+        it('should default to Original and list the size and time of each choice', () => {
+            withSize(3840, 2160)
+            render(<FullMatchExport />)
+            expect(screen.getByRole('radio', { name: 'Original' })).toBeChecked()
+            const list = screen.getByRole('list', { name: /output quality sizes/i })
+            expect(list).toHaveTextContent(/Original about 2\.3 GB, quickest/)
+            expect(list).toHaveTextContent(/4K about .* GB, about .* the match length/)
+            expect(list).toHaveTextContent(/1080p about .* GB, about .* the match length/)
+        })
+
+        it('should grey out 4K, saying why, when the footage is 1080p', () => {
+            withSize(1920, 1080)
+            render(<FullMatchExport />)
+            expect(screen.getByRole('radio', { name: '4K' })).toBeDisabled()
+            expect(screen.getByRole('radio', { name: '1080p' })).toBeEnabled()
+            expect(screen.getByRole('list', { name: /output quality sizes/i })).toHaveTextContent(/4K unavailable: The footage is 1920×1080, not 4K/)
+        })
+
+        it('should render with the chosen quality, resumable under its own signature', async () => {
+            withSize(3840, 2160)
+            renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
+            render(<FullMatchExport />)
+            await userEvent.click(screen.getByRole('radio', { name: '1080p' }))
+            expect(useAppState.getState().fullMatch.quality).toBe('1080p')
+            await userEvent.click(screen.getByRole('button', { name: /render full match/i }))
+            await waitFor(() => expect(renderReel).toHaveBeenCalled())
+            const opts = renderReel.mock.calls[0][2]
+            expect(opts.output).toEqual({ quality: '1080p', videoBitrate: 10_000_000 })
+            const original = fullMatchExport(useAppState.getState(), 'full')
+            expect(opts.resumable.signature).not.toBe(original.signature)
+        })
+
+        it('should stream copy when a saved 4K choice no longer fits the footage', async () => {
+            withSize(1920, 1080)
+            useAppState.setState({ fullMatch: { ...useAppState.getState().fullMatch, quality: '4k' } })
+            renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
+            render(<FullMatchExport />)
+            expect(screen.getByRole('radio', { name: 'Original' })).toBeChecked()
+            await userEvent.click(screen.getByRole('button', { name: /render full match/i }))
+            await waitFor(() => expect(renderReel).toHaveBeenCalled())
+            expect(renderReel.mock.calls[0][2].output).toBeUndefined()
+        })
     })
 })

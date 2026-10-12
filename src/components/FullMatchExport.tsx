@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useAppState } from '../state'
 import { useShallow } from 'zustand/react/shallow'
-import { fullMatchExport, type ExportState } from '../utils/exportPlans'
+import { fullMatchExport, type ExportState, type PlanOutput } from '../utils/exportPlans'
 import { formatBytes, PHONE_SIZE_WARNING } from '../utils/fullMatch'
 import { finalWhistleSec } from '../utils/matchClock'
 import { formatReelLength } from '../utils/reel'
 import { linkedEvents } from '../utils/relink'
 import type { RenderQuality } from '../utils/renderSources'
+import { QUALITY_LABEL, VIDEO_BITRATE, qualityOptions, timeHint, type OutputQuality } from '../utils/outputQuality'
 import { MAX_INTERVAL_MIN, MIN_INTERVAL_MIN, type ScoreBugMode } from '../utils/scoreBug'
 import { ExportSection as Section } from './ExportSection'
 import { MissingFullFiles } from './MissingFullFiles'
@@ -16,6 +17,7 @@ import { startExport } from './renderRequest'
 import { useRenderJobs } from '../renderJobs'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 import { useSavedJob } from './useSavedJob'
+import { useReencodeSupport } from './useReencodeSupport'
 
 const BUG_MODES: [ScoreBugMode, string][] = [['off', 'Off'], ['goals', 'After goals'], ['periodic', 'Periodic']]
 const INTERVALS = Array.from({ length: MAX_INTERVAL_MIN - MIN_INTERVAL_MIN + 1 }, (_, i) => i + MIN_INTERVAL_MIN)
@@ -37,21 +39,34 @@ export function FullMatchExport() {
     const [note, setNote] = useState<string | null>(null)
     const [missing, setMissing] = useState<string[]>([])
 
-    const plan = useMemo(() => fullMatchExport(st, 'full'), [st])
+    const firstSource = useMemo(() => {
+        const base = fullMatchExport(st, 'full')
+        return { file: base.sources[base.cuts[0]?.sourceIndex ?? 0]?.file, seconds: base.seconds, bytes: base.bytes }
+    }, [st])
+    const known = files[0]?.width && files[0]?.height ? { width: files[0].width, height: files[0].height } : null
+    const { source, support } = useReencodeSupport(firstSource.file, known)
+    const options = qualityOptions({ source, support, seconds: firstSource.seconds, originalBytes: firstSource.bytes })
+    // A choice that is not available here (e.g. 4K chosen in a saved project, now on 1080p footage) renders as Original.
+    const chosen = options.find((o) => o.id === fullMatch.quality)
+    const effective: OutputQuality = chosen && !chosen.disabled ? chosen.id : 'original'
+    const outputFor = (q: OutputQuality): PlanOutput | undefined => (q === 'original' ? undefined : { quality: q, videoBitrate: VIDEO_BITRATE[q] })
+    const plan = useMemo(() => fullMatchExport(st, 'full', outputFor(effective)), [st, effective])
     const linked = linkedEvents(events)
     const hasKickOff = linked.some((e) => e.type === 'kick_off')
     const hasWhistle = finalWhistleSec(linked, cumulativeOffsets) !== null
     const hasProxies = files.some((f) => f.kind === 'proxy')
     const disabled = plan.cuts.length === 0
 
-    const run = (quality: RenderQuality): void => {
-        const p = fullMatchExport(useAppState.getState(), quality)
+    const run = (quality: RenderQuality, output?: PlanOutput): void => {
+        const p = fullMatchExport(useAppState.getState(), quality, quality === 'full' ? output : undefined)
         if (p.missing.length > 0) { setMissing(p.missing); return }
         setMissing([])
         startExport('fullMatch', quality, p, true)
     }
     const job = saved.job
-    const matchingQuality = job ? (['full', 'preview'] as const).find((q) => fullMatchExport(useAppState.getState(), q).signature === job.signature) : undefined
+    // A saved render resumes as what it was: stream copy, a re-encode at either size, or the preview.
+    const candidates: { quality: RenderQuality; output?: PlanOutput }[] = [{ quality: 'full' }, { quality: 'full', output: outputFor('4k') }, { quality: 'full', output: outputFor('1080p') }, { quality: 'preview' }]
+    const matching = job ? candidates.find((c) => fullMatchExport(useAppState.getState(), c.quality, c.output).signature === job.signature) : undefined
 
     if (files.length === 0) return <Section title="Full match" hint="kick-off to final whistle, one MP4"><p className="export-body text-muted m-0">Load the match videos first.</p></Section>
 
@@ -69,6 +84,29 @@ export function FullMatchExport() {
                     <p role="alert" className="export-note">This file will be over 2 GB ({formatBytes(plan.bytes)}): make sure the phone has room, or render the preview from the proxies.</p>
                 )}
 
+                <fieldset className="segmented-field">
+                    <legend>Output quality</legend>
+                    <div className="segmented" role="radiogroup" aria-label="Output quality">
+                        {options.map((o) => (
+                            <label key={o.id} className="segmented__option">
+                                <input type="radio" name="full-match-quality" value={o.id} checked={effective === o.id} disabled={o.disabled} onChange={() => setFullMatch({ quality: o.id })} />
+                                <span>{o.label}</span>
+                            </label>
+                        ))}
+                    </div>
+                    <ul className="m-0 pl-0 list-none flex flex-col gap-1" aria-label="Output quality sizes">
+                        {options.map((o) => (
+                            <li key={o.id} className={`toggle-row__hint${o.disabled ? ' opacity-60' : ''}`}>
+                                <b>{QUALITY_LABEL[o.id]}</b>{o.disabled ? ` unavailable: ${o.reason}` : ` about ${formatBytes(o.bytes)}, ${timeHint(o.timeFactor)}`}
+                            </li>
+                        ))}
+                    </ul>
+                    <span className="toggle-row__hint">
+                        {effective === 'original'
+                            ? 'Copies the camera’s video as it is: quickest, but the file is as large as the footage.'
+                            : `Re-encodes to H.264 ${effective === '4k' ? '4K' : '1080p'} so the file is much smaller. Cards, captions and the score bug are drawn as it encodes; keep this tab open and the screen on.`}
+                    </span>
+                </fieldset>
                 <label className="toggle-row">
                     <input type="checkbox" checked={fullMatch.cards} onChange={(e) => setFullMatch({ cards: e.target.checked })} />
                     <span className="toggle-row__text">Title &amp; full-time cards<span className="toggle-row__hint">VS card before kick-off, final score after the whistle</span></span>
@@ -110,14 +148,14 @@ export function FullMatchExport() {
             <Section title="Render" hint="one MP4, kick-off to final whistle">
                 <div className="flex flex-col gap-2">
                     {job && (
-                        <ResumeOffer job={job} matches={!!matchingQuality} filesLoaded={files.length > 0} busy={busy}
-                            onResume={() => run(matchingQuality!)} onDiscard={() => void saved.discard()} />
+                        <ResumeOffer job={job} matches={!!matching} filesLoaded={files.length > 0} busy={busy}
+                            onResume={() => run(matching!.quality, matching!.output)} onDiscard={() => void saved.discard()} />
                     )}
                     {hasProxies && (
                         <button type="button" onClick={() => run('preview')} disabled={disabled} className="btn-quiet w-full justify-center">Preview full match (proxies)</button>
                     )}
-                    <button type="button" onClick={() => run('full')} disabled={disabled} className="btn-primary w-full justify-center">
-                        {hasProxies ? 'Render full match (full quality)' : 'Render full match'}
+                    <button type="button" onClick={() => run('full', outputFor(effective))} disabled={disabled} className="btn-primary w-full justify-center">
+                        {hasProxies ? 'Render full match (full quality)' : 'Render full match'}{effective === 'original' ? '' : ` as ${QUALITY_LABEL[effective]}`}
                     </button>
                     <MissingFullFiles missing={missing} onChange={(m, msg) => { setMissing(m); setNote(msg) }} onPreviewInstead={() => run('preview')} />
                     {note && <p role="note" className="export-hint">{note}</p>}
