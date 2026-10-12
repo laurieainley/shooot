@@ -5,7 +5,8 @@ import { createStore, type StoreApi } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import type { GraphicsReport } from './render/types'
 import type { DiagnosticsReport } from './render/diagnostics'
-import type { Cut, RenderFn, RenderGraphics, RenderSource } from './render/types'
+import type { Cut, RenderFn, RenderGraphics, RenderSource, RenderTimeline } from './render/types'
+import { saveTimeline } from './renderTimelines'
 import type { JobKind } from './render/renderJob'
 import type { RenderQuality } from './utils/renderSources'
 import { formatRenderProgress } from './utils/renderSources'
@@ -17,6 +18,8 @@ export type RenderRequest = {
     sources: RenderSource[]
     graphics?: RenderGraphics
     outputName: string
+    /** Identity of the plan (ExportPlan.signature): the real cut times of a finished render are kept under it. */
+    signature?: string
     /** Save progress so the render can carry on after a reload. */
     resumable?: { signature: string; kind: JobKind }
 }
@@ -114,6 +117,7 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                 try {
                     const req = await prepare()
                     if (signal.aborted) throw new DOMException('Render cancelled', 'AbortError')
+                    let timeline: RenderTimeline | null = null
                     const out = await deps.render(req.cuts, req.sources, {
                         onProgress: (p) => patch(id, { fraction: p.fraction, status: formatRenderProgress(p) }),
                         signal,
@@ -123,6 +127,7 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                             patch(id, { notice, status: 'Waiting for you' })
                         }),
                         outputName: req.outputName,
+                        onTimeline: (t) => { timeline = t },
                         ...(req.resumable ? { resumable: req.resumable } : {}),
                         // Reports also come for replay crops, which are drawn even when there are no graphics.
                         onGraphics: (report) => patch(id, { report }),
@@ -131,6 +136,7 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                     })
                     // Cancelled while it was finishing: the user said stop, so no file, no download, no notification.
                     if (signal.aborted) throw new DOMException('Render cancelled', 'AbortError')
+                    if (timeline && req.signature) saveTimeline(kind, req.signature, timeline)
                     const file = out instanceof File && out.name === req.outputName ? out : new File([out], req.outputName, { type: 'video/mp4' })
                     const url = deps.createUrl(file)
                     const elapsed = deps.now() - startedAt

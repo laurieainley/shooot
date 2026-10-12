@@ -71,12 +71,13 @@ export function generateHighlightChapters(
 }
 
 /**
- * Chapter lines of the highlights reel (no score header). `offsetSec` (a title card) delays every chapter but the
- * first, which YouTube needs at 00:00.
+ * Chapter lines of the highlights reel (no score header). `times` (event id → second in the video, from
+ * chapterTimes) places the chapters; without it they are estimated, `offsetSec` (a title card) delaying every
+ * chapter but the first. The first is always 00:00, which YouTube needs.
  */
 export function highlightChapterLines(
     goals: MatchEvent[], cumulativeOffsets: number[], lengthBeforeGoalSec: number, lengthAfterGoalSec: number,
-    teamOrder?: Team[], replay?: ReplayOptions, offsetSec = 0,
+    teamOrder?: Team[], replay?: ReplayOptions, offsetSec = 0, times?: Map<string, number>,
 ): string[] {
     goals = goals.filter((g) => !isMarker(g))
     const sorted = [...goals].sort((a, b) => absTime(a, cumulativeOffsets) - absTime(b, cumulativeOffsets))
@@ -85,8 +86,12 @@ export function highlightChapterLines(
     const lines: string[] = []
     const segmentLength = lengthBeforeGoalSec + lengthAfterGoalSec
     let extra = 0 // seconds added by earlier replays
+    let previous = 0
     sorted.forEach((g, i) => {
-        const at = i === 0 ? 0 : i * (segmentLength + 1) + extra + offsetSec
+        const exact = times?.get(g.id)
+        // Chapters never go backwards (merged events can share their clip's start).
+        const at = i === 0 ? 0 : exact !== undefined ? Math.max(previous, Math.floor(exact)) : i * (segmentLength + 1) + extra + offsetSec
+        previous = at
         lines.push(`${secondsToStamp(at)} ${chapterLabel(g, teams, running, teamLabeller(teamOrder))}`)
         if (replay && wantsReplay(g)) extra += Math.round((replay.beforeSec + replay.afterSec) / replay.speed)
     })
@@ -95,11 +100,13 @@ export function highlightChapterLines(
 
 /**
  * Chapter lines of the full match video, which starts at kick-off (after an optional title card of `offsetSec`):
- * "00:00 Kick off", then every event from kick-off to the final whistle, a little before it happens.
+ * "00:00 Kick off", then every event from kick-off to the final whistle, a little before it happens. `timeAt` maps a
+ * whole-recording second to its second in the video (chapterTimes.outputTimeAt); without it the video is assumed to
+ * start exactly at kick-off.
  */
 export function matchChapterLines(
     events: MatchEvent[], cumulativeOffsets: number[], kickOffSec: number, finalWhistleSec: number | null,
-    lengthBeforeGoalSec: number, teamOrder?: Team[], offsetSec = 0,
+    lengthBeforeGoalSec: number, teamOrder?: Team[], offsetSec = 0, timeAt?: (absSec: number) => number,
 ): string[] {
     const inMatch = events
         .filter((e) => !isMarker(e) || e.type === 'half_time')
@@ -110,10 +117,11 @@ export function matchChapterLines(
     const lines = ['00:00 Kick off']
     for (const e of inMatch) {
         if (e.type === 'half_time') {
-            lines.push(`${secondsToStamp(Math.max(0, Math.floor(absTime(e, cumulativeOffsets) - kickOffSec)) + offsetSec)} ${eventLabel(e)}`)
+            const at = timeAt ? Math.floor(timeAt(absTime(e, cumulativeOffsets))) : Math.max(0, Math.floor(absTime(e, cumulativeOffsets) - kickOffSec)) + offsetSec
+            lines.push(`${secondsToStamp(at)} ${eventLabel(e)}`)
             continue
         }
-        const at = Math.max(0, Math.floor(absTime(e, cumulativeOffsets) - kickOffSec - lengthBeforeGoalSec)) + offsetSec
+        const at = timeAt ? Math.floor(timeAt(absTime(e, cumulativeOffsets) - lengthBeforeGoalSec)) : Math.max(0, Math.floor(absTime(e, cumulativeOffsets) - kickOffSec - lengthBeforeGoalSec)) + offsetSec
         lines.push(`${secondsToStamp(at)} ${chapterLabel(e, teams, running, teamLabeller(teamOrder))}`)
     }
     return lines

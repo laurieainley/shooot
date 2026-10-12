@@ -11,6 +11,15 @@ export type Cut = {
     cropLabel?: string // how a failed crop is named in "Rendered without"
 }
 
+/**
+ * Where one cut really landed in the output file: it starts at the key frame at/before the requested start, so
+ * `sourceStartSec` can be up to a GOP earlier than `Cut.startSec`; `outDurationSec` is its real (speed-adjusted) length.
+ */
+export type CutTiming = { outStartSec: number; sourceStartSec: number; outDurationSec: number }
+
+/** One entry per cut, in order; null for a cut that is not in the output (outside its file). */
+export type RenderTimeline = (CutTiming | null)[]
+
 export type RenderSource = {
     name: string
     file: File
@@ -80,6 +89,8 @@ export type RenderOptions = {
      * re-encoded scaled to cover it. Resolve false to cancel the render.
      */
     confirmMixedSizes?: (notice: string) => Promise<boolean>
+    /** Called once when the file is complete, with where every cut really landed (see CutTiming). */
+    onTimeline?: (timeline: RenderTimeline) => void
     /** Output file name (default highlights.mp4). */
     outputName?: string
     /**

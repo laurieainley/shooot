@@ -3,7 +3,7 @@
 // the same render (same signature) carries on after the last finished unit; the logs are muxed into the MP4 at the end.
 import { del, get, set } from 'idb-keyval'
 import { LogParser, encodeRecord, type LogRecord } from './packetLog'
-import type { GraphicsReport } from './types'
+import type { CutTiming, GraphicsReport } from './types'
 
 const KEY = 'render-job'
 const DIR = 'render-job'
@@ -25,6 +25,8 @@ export type JobState = {
     done: number
     total: number
     copied: boolean
+    /** Where each cut landed in the output so far (null = not rendered); absent in jobs saved by older versions. */
+    timings?: (CutTiming | null)[]
     report: GraphicsReport | null
     /** Sample entries of the output tracks. */
     video: VideoDecoderConfig | null
