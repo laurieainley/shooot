@@ -7,6 +7,7 @@ import type { GraphicsReport } from './render/types'
 import type { DiagnosticsReport } from './render/diagnostics'
 import type { Cut, RenderFn, RenderGraphics, RenderSource, RenderTimeline } from './render/types'
 import { saveTimeline } from './renderTimelines'
+import { isStorageFull, storageFullMessage } from './render/storage'
 import type { JobKind } from './render/renderJob'
 import type { RenderQuality } from './utils/renderSources'
 import { formatRenderProgress } from './utils/renderSources'
@@ -147,7 +148,8 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                     if (signal.aborted || (e instanceof DOMException && e.name === 'AbortError')) {
                         if (get().job?.id === id) set({ job: null })
                     } else {
-                        patch(id, { phase: 'failed', error: e instanceof Error ? e.message : String(e), status: 'Render failed', finishedAt: deps.now() })
+                        const error = isStorageFull(e) ? await storageFullMessage() : e instanceof Error ? e.message : String(e)
+                        patch(id, { phase: 'failed', error, status: 'Render failed', finishedAt: deps.now() })
                     }
                 } finally {
                     void lock?.release().catch(() => {})
