@@ -1,15 +1,16 @@
 import {
-    ALL_FORMATS, BufferTarget, EncodedAudioPacketSource, EncodedPacket, EncodedPacketSink,
-    EncodedVideoPacketSource, Input, Mp4OutputFormat, Output, StreamTarget,
-    type InputAudioTrack, type InputVideoTrack, type StreamTargetChunk, type Target,
+    EncodedAudioPacketSource, EncodedPacket, EncodedPacketSink,
+    EncodedVideoPacketSource, Mp4OutputFormat, Output,
 } from 'mediabunny'
+import { openSource, makeTarget, type OpenSource } from './sourceInput'
+import { muxUnits } from './muxUnits'
+import { renderTranscoded } from './transcodeEngine'
 import { RenderDiagnostics, describeParams, errorInfo, publishReport } from './diagnostics'
-import { clearOldOutputs, isStorageFull } from './storage'
+import { isStorageFull } from './storage'
 import { cropLabels, cropOverlayFor } from './cropOverlay'
-import { fileSource } from './fileSource'
 import { openGraphicsSession, type GraphicsSession, type OutItem } from './graphicsSession'
 import { hasInbandParams, joinEntryConfig, planJoin, profileOf, type JoinPlan } from './joinParams'
-import { craToBla, lengthSize, withInbandParams } from './nal'
+import { craToBla, withInbandParams } from './nal'
 import { clipPartSeconds, replayPartAfter } from './captionJoin'
 import { planAudio } from './audioPlan'
 import { cutTiming } from '../utils/chapterTimes'
@@ -17,72 +18,13 @@ import { mixedSizeNotice } from './outputSize'
 import { overlayRegions } from './overlayRegions'
 import { encodeReplayAudio } from './replayAudio'
 import { makeSilentAudio, type SilentAudio } from './silentAudio'
-import { canJournal, discardJob, loadJob, openUnit, readUnit, removeUnit, saveJob, type JobState, type UnitWriter } from './renderJob'
+import { canJournal, discardJob, loadJob, openUnit, saveJob, type JobState, type UnitWriter } from './renderJob'
 import type { Cut, CutTiming, GraphicsReport, RenderCard, RenderFn, RenderGraphics, RenderOptions, RenderOverlay, RenderSource } from './types'
 
 const OUTPUT_NAME = 'highlights.mp4'
 
-type OpenSource = {
-    input: Input
-    video: InputVideoTrack
-    audio: InputAudioTrack | null
-    /** End of the last video frame (presentation time), i.e. the real end of the file. */
-    endSec: number
-    config: VideoDecoderConfig
-    /** NAL length-field size of the samples (avcC/hvcC). */
-    nalLength: number
-}
-
-async function openSource(src: RenderSource): Promise<OpenSource> {
-    const input = new Input({ source: fileSource(src.file), formats: ALL_FORMATS })
-    const video = await input.getPrimaryVideoTrack()
-    if (!video?.codec) {
-        input.dispose()
-        throw new Error(`${src.name}: no readable video track`)
-    }
-    const last = await new EncodedPacketSink(video).getPacket(Infinity)
-    const endSec = last ? last.timestamp + last.duration : await video.computeDuration()
-    const config = await video.getDecoderConfig()
-    if (!config) {
-        input.dispose()
-        throw new Error(`${src.name}: video cannot be read in this browser`)
-    }
-    const hevc = video.codec === 'hevc'
-    const nalLength = config.description ? lengthSize(config.description, hevc) : 4
-    return { input, video, audio: await input.getPrimaryAudioTrack(), endSec, config, nalLength }
-}
-
 function blaAtCutStart(src: OpenSource, p: EncodedPacket): Uint8Array | null {
     return p.type === 'key' && src.video.codec === 'hevc' && src.config.description ? craToBla(p.data, src.nalLength) : null
-}
-
-type OutputTarget = { target: Target; result: () => Promise<File | Blob>; discard: () => Promise<void> }
-
-async function makeTarget(name: string): Promise<OutputTarget> {
-    try {
-        const root = await navigator.storage.getDirectory()
-        await clearOldOutputs() // earlier renders (other names included) would otherwise fill the site's storage
-        await root.removeEntry(name).catch(() => undefined)
-        const handle = await root.getFileHandle(name, { create: true })
-        const writable = await handle.createWritable()
-        const sink = new WritableStream<StreamTargetChunk>({
-            write: (c) => writable.write({ type: 'write', position: c.position, data: c.data }),
-            close: () => writable.close(),
-            abort: () => writable.abort(),
-        })
-        return {
-            target: new StreamTarget(sink, { chunked: true }),
-            result: () => handle.getFile(),
-            discard: () => root.removeEntry(name).catch(() => undefined),
-        }
-    } catch {
-        const target = new BufferTarget()
-        return {
-            target,
-            result: async () => new Blob([target.buffer!], { type: 'video/mp4' }),
-            discard: async () => undefined,
-        }
-    }
 }
 
 function assertCompatible(sources: OpenSource[], used: Set<number>): void {
@@ -92,36 +34,6 @@ function assertCompatible(sources: OpenSource[], used: Set<number>): void {
     if (vc.size > 1) throw new Error('Clips use different video codecs (e.g. HEVC and H.264) and cannot be joined without re-encoding')
     // Clips without an audio track are fine (they get silence); the ones with audio must agree.
     if (!planAudio([...used].map((i) => sources[i].audio)).ok) throw new Error('Clips use different audio formats and cannot be joined without re-encoding')
-}
-
-/** Writes the saved units of a journaled render into the MP4, deleting each log once it is copied. */
-async function muxUnits(name: string, unitCount: number, first: OpenSource, audioSource: OpenSource | null, video: VideoDecoderConfig, audio: AudioDecoderConfig | null, signal?: AbortSignal): Promise<File | Blob> {
-    const { target, result, discard } = await makeTarget(name)
-    const output = new Output({ format: new Mp4OutputFormat({ fastStart: false }), target })
-    const vOut = new EncodedVideoPacketSource(first.video.codec!)
-    output.addVideoTrack(vOut)
-    const aOut = audio && audioSource?.audio?.codec ? new EncodedAudioPacketSource(audioSource.audio.codec) : null
-    if (aOut) output.addAudioTrack(aOut)
-    try {
-        await output.start()
-        let vFirst = true
-        let aFirst = true
-        for (let u = 0; u < unitCount; u++) {
-            if (signal?.aborted) throw new DOMException('Render cancelled', 'AbortError')
-            for await (const r of readUnit(u)) {
-                const p = new EncodedPacket(r.data, r.key ? 'key' : 'delta', r.timestamp, r.duration)
-                if (r.track === 0) { await vOut.add(p, vFirst ? { decoderConfig: video } : undefined); vFirst = false }
-                else if (aOut) { await aOut.add(p, aFirst ? { decoderConfig: audio! } : undefined); aFirst = false }
-            }
-            await removeUnit(u)
-        }
-        await output.finalize()
-        return await result()
-    } catch (e) {
-        await output.cancel().catch(() => undefined)
-        await discard()
-        throw e
-    }
 }
 
 /** Diagnostics only: what this source file is, as the browser and Mediabunny see it. Never fails the render. */
@@ -149,7 +61,7 @@ export const renderReel: RenderFn = async (cuts, sources, opts) => {
     const diag = new RenderDiagnostics({ kind: opts.resumable?.kind ?? opts.kind ?? 'highlights', outputName: opts.outputName ?? OUTPUT_NAME, ...(opts.wakeLockStatus ? { wakeLock: opts.wakeLockStatus } : {}) })
     const endTotal = diag.begin('total')
     try {
-        const out = await renderGraphicsFirst(cuts, sources, opts, diag)
+        const out = opts.output ? await renderTranscoded(cuts, sources, opts, diag) : await renderGraphicsFirst(cuts, sources, opts, diag)
         endTotal()
         publishReport(diag.report('done'), { onReport: opts.onDiagnostics })
         return out
@@ -582,7 +494,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             if (journal) {
                 onProgress({ cutIndex: cuts.length - 1, cutCount: cuts.length, fraction: 1, stage: 'Saving' })
                 const endMux = diag.begin('finalize')
-                const file = await muxUnits(journal.state.outputName, unitCount, first, audioSource, journal.state.video!, journal.state.audio, signal)
+                const file = await muxUnits(journal.state.outputName, unitCount, first.video.codec!, audioSource?.audio?.codec ?? null, journal.state.video!, journal.state.audio, signal)
                 await discardJob()
                 endMux()
                 if (timingsKnown) opts.onTimeline?.(timings)

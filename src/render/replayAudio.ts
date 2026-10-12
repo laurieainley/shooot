@@ -7,6 +7,7 @@ export type ReplayAudioOptions = {
     speed: number          // replay speed: the audio is stretched by 1 / speed, pitch kept
     gain: number           // volume factor (0.5 = −6 dB)
     outDurationSec: number // length of the replay in the output
+    bitrate?: number       // AAC bitrate (default 128 kbps)
 }
 
 const AAC_FRAME = 1024
@@ -68,7 +69,7 @@ export async function encodeReplayAudio(track: InputAudioTrack, opts: ReplayAudi
     if (typeof globalThis.AudioEncoder === 'undefined' || typeof globalThis.AudioDecoder === 'undefined') return null
     const sampleRate = track.sampleRate
     const channels = track.numberOfChannels
-    const config: AudioEncoderConfig = { codec: 'mp4a.40.2', sampleRate, numberOfChannels: channels, bitrate: 128_000 }
+    const config: AudioEncoderConfig = { codec: 'mp4a.40.2', sampleRate, numberOfChannels: channels, bitrate: opts.bitrate ?? 128_000 }
     const support = await AudioEncoder.isConfigSupported(config).catch(() => ({ supported: false }))
     if (!support.supported || !(await track.canDecode())) return null
 

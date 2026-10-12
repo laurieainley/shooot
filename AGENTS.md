@@ -101,6 +101,15 @@ npm run lint       # baseline: 12 known problems — add none
   Periodic; after goals = 1 s after for 5 s, like the highlights caption) and event captions are the only re-encoded
   parts. Optional slow-mo replays (`fullMatch.replays`, `withReplays()` in utils/fullMatch.ts) split the match after
   each replay window and insert the slowed cut; the match resumes at the key frame (≤ 1 GOP repeats).
+- **Full match output quality** (`fullMatch.quality`, persist v23): **Original** (default) is the stream copy above;
+  **4K** / **1080p** re-encode the whole match to constant-frame-rate H.264 (`render/transcodeEngine.ts`, started by
+  `RenderOptions.output`; plan fields in `utils/exportPlans.ts` `PlanOutput`; availability/size/time in
+  `utils/outputQuality.ts`; pure planning in `render/transcodePlan.ts`; WebCodecs support probes in
+  `render/transcodeSupport.ts`). Cards, captions, score bug, replay crops and slow-mo are drawn onto the canvas as each
+  frame is encoded (no second pass). 4K is disabled for sources below 4K; either option is disabled with a reason when
+  `VideoDecoder`/`VideoEncoder.isConfigSupported` says no. Audio: AAC is copied, anything else is encoded to AAC at 160 kbps.
+  Resumable: units are the cards and ≤ 2-minute segments of output, each with its own encoder and a key frame at its
+  start (an interruption loses at most the unit in progress); the output quality is part of the job signature.
 - **Chapters:** YouTube chapter times come from the real render timeline (engine `onTimeline` → `renderTimelines.ts`,
   matched by plan signature); until then an estimate from the render plan, flagged in the UI.
 - **Render storage:** outputs are written to OPFS first; `clearOldOutputs()` deletes earlier renders before each
@@ -134,6 +143,11 @@ npm run lint       # baseline: 12 known problems — add none
   full-volume audio.
 - **Colour:** generated frames use the footage's matrix/range (`rgbaToI420`). Untagged footage can shift hue slightly
   in crops (known).
+- **Re-encoding path** (Full match 4K/1080p): decode with Mediabunny's `VideoSampleSink`, pick the source frame for each
+  output tick (constant rate: the footage's nominal rate, 50/60 fps halved), draw to an `OffscreenCanvas`, hand the canvas
+  to a `VideoEncoder` (hardware preferred) and close every `VideoFrame` (the engine counts made/closed in the
+  diagnostics notes). Frames that need nothing drawn and are already the output size skip the canvas. H.264 SPS may differ
+  in colour signalling between units; only profile/level are checked against the saved sample entry.
 - **Mixed frame sizes:** output = first used file's size; others are scaled to cover + centre-cropped (re-encoded),
   with a pre-render notice and time estimate.
 - **Reading files:** always through `render/fileSource.ts` (8 MB aligned blocks), never `BlobSource` — Android USB
@@ -159,6 +173,10 @@ npm run lint       # baseline: 12 known problems — add none
 - **Android:** Chrome reads files live from USB (fast open, slow random reads — see fileSource). `accept` is omitted
   on Android too, or `.LRV` is greyed out in the picker. Keyboard overlays fields (`useKeyboardInset`).
 - **Desktop Chrome/Edge:** File System Access handles allow one-click relink after reload.
+- **Benchmark page:** `/bench` (`bench.html`, `src/bench/`) runs the real render modules on a file or a synthetic clip and
+  reports timings; not linked from the editor, `noindex`. Use it on a phone/iPad to measure export speed and catch errors.
+  In dev open `/bench.html` (the `/bench` rewrite is Vercel's); benchmark a production build (`vite build` +
+  `vite preview`), not the dev server, whose hot reload restarts a running benchmark.
 - **Deploys while a tab is open:** stale lazy chunks are recovered by one guarded reload (`staleBuildRecovery.ts`);
   the render engine is warmed at idle.
 - **Per-origin storage:** saved projects live in the browser per domain; moving domains loses them unless exported.
