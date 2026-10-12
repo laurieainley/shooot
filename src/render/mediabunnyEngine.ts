@@ -570,7 +570,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                     try { await renderCut(u - 1, cuts[u - 1]) } finally { endCut() }
                 } else {
                     if (!copied) throw new Error('Nothing to render: every cut is outside its file')
-                    const outro = await encodeCard(run?.graphics.outro, 'Full-time card')
+                    const outro = await encodeCard(run?.graphics.outro, run?.graphics.outro?.label ?? 'Full-time card')
                     if (outro) await addCard(outro)
                 }
                 if (journal && unitWriter) {
