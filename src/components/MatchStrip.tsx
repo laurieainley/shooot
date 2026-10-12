@@ -19,6 +19,12 @@ const RING_REACH_MOUSE_PX = 7
 const RING_REACH_TOUCH_PX = 12
 const RING_LANE_MOUSE_PX = 14
 const RING_LANE_TOUCH_PX = 24
+// Event icons (App.css .strip-dot): the button is the icon plus 8 px wide and 4 px high, its lane starts 11 px above the track floor
+// and each lane adds a step. On touch / pen only the icon's own box counts for a tap.
+const DOT_FLOOR_PX = 11
+const laneStepPx = (coarse: boolean): number => (coarse ? 12 : 11)
+/** A press from a finger or a pen (not a mouse). */
+const isTouchLike = (type: string): boolean => type === 'touch' || type === 'pen'
 
 /** The track's width in px, kept up to date (icon stacking depends on it). */
 function useWidth(ref: React.RefObject<HTMLElement | null>): number {
@@ -60,6 +66,7 @@ export function MatchStrip() {
     const coarse = useMediaQuery(COARSE_QUERY)
     const dragging = useRef(false)
     const down = useRef<{ x: number; y: number; at: number } | null>(null)
+    const lastTouchAt = useRef(-Infinity) // the click a tap on an icon leaves behind must not seek a second time
     const trackRef = useRef<HTMLDivElement | null>(null)
     const trackPx = useWidth(trackRef)
     // Pointer position as a fraction of the track: the hover / drag bubble, and (touch) the previewed playhead.
@@ -100,13 +107,29 @@ export function MatchStrip() {
         }
         return best?.mark ?? null
     }
-    /** A tap (little movement, short) within reach of a suggestion ring opens the review there; anything else is scrubbing. */
-    const tappedRing = (ev: ReactPointerEvent<HTMLDivElement>): string | null => {
+    /** The press that ends here was a tap (little movement, short), not a drag. Consumes the press. */
+    const takeTap = (ev: ReactPointerEvent<HTMLDivElement>): boolean => {
         const d = down.current
         down.current = null
-        if (!d) return null
-        if (Math.hypot(ev.clientX - d.x, ev.clientY - d.y) >= TAP_MOVE_PX || performance.now() - d.at >= TAP_MS) return null
-        return ringAt(ev)?.id ?? null
+        return !!d && Math.hypot(ev.clientX - d.x, ev.clientY - d.y) < TAP_MOVE_PX && performance.now() - d.at < TAP_MS
+    }
+    /** The event whose icon box (the glyph itself, no extra margin) holds the pointer. Touch / pen taps only. */
+    const iconAt = (ev: ReactPointerEvent<HTMLDivElement>): string | null => {
+        const rect = ev.currentTarget.getBoundingClientRect()
+        if (rect.width <= 0) return null
+        const half = iconPx / 2
+        for (let i = 0; i < strip.events.length; i++) {
+            const e = strip.events[i]
+            const cx = rect.left + (e.leftPct / 100) * rect.width
+            const bottom = rect.bottom - (DOT_FLOOR_PX + lanes[i] * laneStepPx(coarse)) - 2
+            if (Math.abs(ev.clientX - cx) <= half && ev.clientY <= bottom && ev.clientY >= bottom - iconPx) return e.id
+        }
+        return null
+    }
+    const jumpToEvent = (id: string): void => {
+        const st = useAppState.getState()
+        const ev = st.events.find((x) => x.id === id)
+        if (ev) st.seekToGoal(ev.sourceFileIndex ?? 0, Math.max(0, ev.matchTimeSec - st.lengthBeforeGoalSec))
     }
     /** Only the symbol itself names it: an event icon, a marker's flag icon (not its hairline) or a suggestion ring. */
     const symbolAt = (ev: ReactPointerEvent<HTMLDivElement>): { label: string; timeSec: number } | null => {
@@ -167,7 +190,9 @@ export function MatchStrip() {
                         aria-valuetext={formatClock(absNow, clockLong)}
                         className="strip-track"
                         onPointerDown={(ev) => {
-                            if ((ev.target as HTMLElement).closest('button')) return
+                            // A mouse press on an icon (or ring) is that button's click; a finger or pen press never is: it scrubs.
+                            if (!isTouchLike(ev.pointerType) && (ev.target as HTMLElement).closest('button')) return
+                            if (isTouchLike(ev.pointerType)) lastTouchAt.current = performance.now()
                             dragging.current = true
                             down.current = { x: ev.clientX, y: ev.clientY, at: performance.now() }
                             ev.currentTarget.setPointerCapture?.(ev.pointerId)
@@ -186,8 +211,11 @@ export function MatchStrip() {
                             if (dragging.current && ev.pointerType !== 'touch') seekFrac(frac)
                         }}
                         onPointerUp={(ev) => {
-                            const ring = dragging.current ? tappedRing(ev) : null
+                            const tap = dragging.current && takeTap(ev)
+                            const ring = tap ? ringAt(ev)?.id ?? null : null
+                            const icon = tap && !ring && isTouchLike(ev.pointerType) ? iconAt(ev) : null
                             if (ring) useAppState.getState().openReviewAt(ring)
+                            else if (icon) jumpToEvent(icon)
                             else if (dragging.current && ev.pointerType === 'touch') { const frac = fracAt(ev); if (frac !== null) seekFrac(frac) }
                             dragging.current = false
                             setTouchDrag(false)
@@ -233,11 +261,7 @@ export function MatchStrip() {
                                 data-id={e.id}
                                 data-lane={lanes[i]}
                                 style={{ left: `${e.leftPct}%`, '--lane': lanes[i] } as React.CSSProperties}
-                                onClick={() => {
-                                    const st = useAppState.getState()
-                                    const ev = st.events.find((x) => x.id === e.id)
-                                    if (ev) st.seekToGoal(ev.sourceFileIndex ?? 0, Math.max(0, ev.matchTimeSec - st.lengthBeforeGoalSec))
-                                }}
+                                onClick={() => { if (performance.now() - lastTouchAt.current > 700) jumpToEvent(e.id) }}
                             >
                                 <EventIcon event={{ type: e.kind, pen: e.pen }} size={iconPx} decorative />
                             </button>
