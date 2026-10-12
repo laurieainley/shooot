@@ -182,32 +182,18 @@
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Scorebug on the picture (Scorebug.tsx), proportions of the rendered graphics bug (64 px tall on a 1920 px frame). */
+/* Scorebug on the picture (Scorebug.tsx): the selected theme's score bug painter drawn on a canvas, so it matches the rendered graphics. */
 .scorebug-layer {
-  position: absolute; z-index: 25; inset: 0; pointer-events: none; container-type: inline-size;
+  position: absolute; z-index: 25; inset: 0; pointer-events: none; overflow: hidden;
 }
 .scorebug {
-  --u: max(calc(100cqw / 1920), 0.34px); /* one design pixel (cqw = the layer's width); keeps text >= 14px on phones */
-  position: absolute; display: flex; align-items: center; gap: calc(var(--u) * 20);
+  /* --u (one design pixel, in px) is set by Scorebug.tsx; the box's top-left is where the exported bug's top-left sits on screen */
+  position: absolute; width: 0; height: 0;
   top: calc(var(--u) * 28 + env(safe-area-inset-top, 0px)); left: calc(var(--u) * 40 + env(safe-area-inset-left, 0px) + 6px);
 }
-.scorebug__strip {
-  display: inline-flex; align-items: stretch; height: calc(var(--u) * 67); transform: skewX(var(--sh-skew)); transform-origin: left center;
-  background: var(--sh-surface); color: var(--sh-text); overflow: hidden;
-  box-shadow: 0 2px 10px rgb(0 0 0 / 0.35);
-}
-.scorebug__bar { flex: none; width: 5px; }
-.scorebug__initials {
-  display: grid; place-items: center; padding: 0 calc(var(--u) * 17); min-width: 2.2ch;
-  font-family: var(--sh-font); font-weight: 800; font-style: italic; font-stretch: var(--sh-stretch-scoreboard); text-transform: uppercase;
-  font-size: calc(var(--u) * 46); line-height: 1;
-}
-.scorebug__score {
-  display: grid; place-items: center; padding: 0 calc(var(--u) * 17); min-width: calc(var(--u) * 84);
-  background: var(--sh-lime); color: var(--sh-on-lime); font-family: var(--sh-font-mono); font-weight: 700; font-size: calc(var(--u) * 48); line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
+.scorebug__canvas { position: absolute; display: block; height: auto; }
 .scorebug__clock {
+  position: absolute; transform: translateY(-50%); white-space: nowrap;
   font-family: var(--sh-font-mono); font-weight: 700; font-size: max(14px, calc(var(--u) * 40)); color: var(--sh-on-video); opacity: 0.8;
   text-shadow: 0 1px 4px rgb(0 0 0 / 0.7);
 }

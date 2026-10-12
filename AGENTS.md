@@ -191,7 +191,7 @@ npm run lint       # baseline: 12 known problems — add none
 - **Top bar:** wordmark · Files button ("4 files · 56:34", warning dot when a file needs attention; opens the Files
   sheet) · Setup · Export · ⋯ (all `.top-btn`; only Export is lime). Phone/landscape: Setup lives in ⋯. No file pills.
   Render progress shows on the Export button (red dot + % + thin line), then "Ready"/"Failed" for 4 s.
-- **Video:** on-video `Scorebug` (initials, kit bars, score at the playhead, match clock) — no score in the top bar.
+- **Video:** on-video `Scorebug` is the selected graphics theme's own score-bug painter drawn on a canvas (matches the export; clock as text beside it); no score in the top bar.
 - **One timeline:** the match strip (`MatchStrip`) is the only scrubber (video.js progress bar disabled): numbered file
   bands, faint clip bands, event icons stacked in up to 3 lanes (`stackLanes`), Kick off / Half time / Final whistle
   flags, red playhead, hover/drag time bubble, keyboard focusable.
