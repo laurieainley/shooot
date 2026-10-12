@@ -220,7 +220,8 @@ describe('EventLog delete toast', () => {
     it('should not undo a later change when its Undo is used after something else happened', async () => {
         setup([{ id: 'g', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites' }, { id: 'h', matchTimeSec: 200, sourceFileIndex: 0, type: 'highlight' }, kickOff(0)])
         render(<EventLog />)
-        await userEvent.click(screen.getAllByRole('button', { name: 'Delete event' })[0])
+        await userEvent.click(rows()[0])
+        await userEvent.click(screen.getByRole('button', { name: 'Delete event' }))
         const toast = toastStore.getState().toast
         act(() => { useAppState.getState().updateEvent('h', { replay: true }) }) // a later, non-toasting change
         act(() => { toast?.action?.run() })
