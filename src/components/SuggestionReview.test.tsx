@@ -822,6 +822,20 @@ describe('Find goals: Top picks lane', () => {
         expect(screen.getByText(/Suggestion 1 of 3/)).toBeTruthy()
         expect(screen.queryByRole('button', { name: /^All/ })).toBeNull()
     })
+    it('should count only what is left in the lane buttons and update live, while the card keeps its position', () => {
+        tag(1); tag(3)
+        render(<SuggestionReview onClose={() => {}} />)
+        fireEvent.click(lane(/^Top picks/))
+        expect(lane(/^Top picks/).textContent).toMatch(/^Top picks \(2\)/)
+        press('x')
+        expect(lane(/^Top picks/).textContent).toMatch(/^Top picks \(1\)/)
+        expect(lane(/^Other moments/).textContent).toMatch(/^Other moments \(3\)/)
+        expect(screen.getByText(/Suggestion 2 of 2/)).toBeTruthy() // position in the lane, not the count left
+        dismissToast()
+        press('g'); press('1'); press('Enter')
+        expect(lane(/^Other moments/).textContent).toMatch(/^Other moments \(3\)/)
+        expect(lane(/^Top picks/).textContent).toMatch(/^Top picks \(0\)/)
+    })
     it('should open on Top picks, at its first suggestion to review, when review is (re)opened with top picks left', () => {
         tag(1); tag(3)
         act(() => { openFindGoals() })

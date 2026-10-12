@@ -1439,3 +1439,11 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 /* Event rail nudge to try Find goals (no goals tagged yet): one quiet line and a quiet button. */
 .find-prompt { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 8px 12px; border-bottom: 1px solid var(--sh-line); font-size: 13px; color: var(--sh-muted); }
 .find-prompt__text { flex: 1 1 160px; min-width: 0; }
+
+/* Mobile review (2026-10-13-mobile-review-fullscreen-design.md). The review panel is a size container: narrow panels
+   (phone landscape sidebar, <= 360px) get smaller lane buttons that may wrap to two lines instead of overflowing. */
+.review .column-panel__body { container: rvpanel / inline-size; }
+@container rvpanel (max-width: 360px) {
+  .lanes__btn { padding: 4px 6px; gap: 4px; white-space: normal; text-align: center; line-height: 1.15; font-size: 14px; }
+  .lanes__star, .lanes__icon { width: 14px; height: 14px; }
+}
