@@ -215,7 +215,7 @@ describe('SuggestionReview', () => {
         const seekSpy = (): ReturnType<typeof vi.fn> => { const f = vi.fn(); useAppState.setState({ seekToGoal: f }); return f }
         it('should default to 5 s before and 4 s after', () => {
             render(<SuggestionReview onClose={() => {}} />)
-            expect(screen.getByText('−5 s … +4 s')).toBeTruthy()
+            expect(screen.getByText('−5 s … +5 s')).toBeTruthy()
         })
         const earlier = (): void => { fireEvent.click(screen.getByRole('button', { name: 'Start 2 seconds earlier' })) }
         const later = (): void => { fireEvent.click(screen.getByRole('button', { name: 'End 2 seconds later' })) }
@@ -224,11 +224,11 @@ describe('SuggestionReview', () => {
             render(<SuggestionReview onClose={() => {}} />)
             seek.mockClear()
             earlier(); earlier()
-            expect(screen.getByText('−9 s … +4 s')).toBeTruthy()
+            expect(screen.getByText('−9 s … +5 s')).toBeTruthy()
             expect(seek).toHaveBeenLastCalledWith(0, 91)
             seek.mockClear()
             later()
-            expect(screen.getByText('−9 s … +6 s')).toBeTruthy()
+            expect(screen.getByText('−9 s … +7 s')).toBeTruthy()
             expect(seek).not.toHaveBeenCalled()
         })
         it('should reset to the default for the next suggestion', () => {
@@ -236,13 +236,13 @@ describe('SuggestionReview', () => {
             earlier(); later()
             act(() => { fireEvent.keyDown(window, { key: ']' }) })
             expect(screen.getByText(/Suggestion 2 of 2/)).toBeTruthy()
-            expect(screen.getByText('−5 s … +4 s')).toBeTruthy()
+            expect(screen.getByText('−5 s … +5 s')).toBeTruthy()
         })
         it('should not start before 0 or end after the last file', () => {
             useAppState.getState().setSuggestions(run, [{ timeSec: 7, score: 5 }, { timeSec: 598, score: 4 }])
             render(<SuggestionReview onClose={() => {}} />)
             earlier(); earlier(); earlier()
-            expect(screen.getByText('−7 s … +4 s')).toBeTruthy()
+            expect(screen.getByText('−7 s … +5 s')).toBeTruthy()
             act(() => { fireEvent.keyDown(window, { key: ']' }) })
             later(); later(); later()
             expect(screen.getByText('−5 s … +2 s')).toBeTruthy() // 598 + 4 clamps at 600, so = 600 is already the end
@@ -252,7 +252,7 @@ describe('SuggestionReview', () => {
             expect(screen.getByRole('button', { name: 'Start 2 seconds earlier' })).toBeTruthy()
             expect(screen.getByRole('button', { name: 'End 2 seconds later' })).toBeTruthy()
             earlier()
-            expect(screen.getByText('−7 s … +4 s')).toBeTruthy()
+            expect(screen.getByText('−7 s … +5 s')).toBeTruthy()
         })
     })
     describe('marking the moment', () => {
@@ -490,7 +490,7 @@ describe('SuggestionReview', () => {
             bar.getBoundingClientRect = () => ({ left: 0, width: 700, top: 0, height: 44, right: 700, bottom: 44, x: 0, y: 0, toJSON: () => ({}) })
             fireEvent.pointerDown(bar, { clientX: 350, pointerId: 1 })
             un()
-            expect(seek).toHaveBeenCalledWith(0, 99.5) // window 95…104, halfway
+            expect(seek).toHaveBeenCalledWith(0, 100) // window 95…105, halfway
             expect(screen.queryByTestId('rtl-marked')).toBeNull()
         })
         it('should ignore Shift with decision and window keys', () => {
@@ -498,13 +498,13 @@ describe('SuggestionReview', () => {
             for (const key of ['g', 'o', 's', 'h', 'x', 'm']) press(key, { shiftKey: true })
             expect(useAppState.getState().events).toHaveLength(0)
             expect(screen.queryByRole('button', { name: /^Confirm/ })).toBeNull()
-            expect(screen.getByText('−5 s … +4 s')).toBeTruthy()
+            expect(screen.getByText('−5 s … +5 s')).toBeTruthy()
         })
         it('should still extend the end when the total duration is unknown', () => {
             useAppState.setState({ files: [{ id: 'f', name: 'A.MP4', url: '', kind: 'full', file: new File([], 'A.MP4') }] as never })
             render(<SuggestionReview onClose={() => {}} />)
             fireEvent.click(screen.getByRole('button', { name: 'End 2 seconds later' }))
-            expect(screen.getByText('−5 s … +6 s')).toBeTruthy()
+            expect(screen.getByText('−5 s … +7 s')).toBeTruthy()
         })
         it('should not loop while paused, and loop again when playing', () => {
             const seek = vi.fn()
@@ -514,10 +514,10 @@ describe('SuggestionReview', () => {
             act(() => { useAppState.setState({ currentTimeInFileSec: 96 }) }) // landed after the start seek
             seek.mockClear()
             act(() => { setPlayerPaused(true) })
-            act(() => { useAppState.setState({ currentTimeInFileSec: 104.5 }) })
+            act(() => { useAppState.setState({ currentTimeInFileSec: 105.5 }) })
             expect(seek).not.toHaveBeenCalled()
             act(() => { setPlayerPaused(false) })
-            act(() => { useAppState.setState({ currentTimeInFileSec: 104.6 }) })
+            act(() => { useAppState.setState({ currentTimeInFileSec: 105.6 }) })
             expect(seek).toHaveBeenCalledTimes(1)
         })
         it('should step frames with the arrows and seconds with Shift, and from the nudge buttons while paused', () => {
@@ -937,16 +937,16 @@ describe('Find goals: Top picks lane', () => {
 describe('Review loop keys', () => {
     it('should publish the window shown (with extensions) for tags made during the review', () => {
         render(<SuggestionReview onClose={() => {}} />)
-        expect(getReviewWindow()).toMatchObject({ startAbs: 95, endAbs: 104 })
+        expect(getReviewWindow()).toMatchObject({ startAbs: 95, endAbs: 105 })
         press('}', { shiftKey: true }); press('}', { shiftKey: true })
-        expect(getReviewWindow()?.endAbs).toBe(108)
+        expect(getReviewWindow()?.endAbs).toBe(109)
     })
     it('should extend the loop with { and } (Shift+[ and Shift+]) and show the keys on the +2 s handles', () => {
         render(<SuggestionReview onClose={() => {}} />)
         press('{', { shiftKey: true })
-        expect(screen.getByText('−7 s … +4 s')).toBeTruthy()
+        expect(screen.getByText('−7 s … +5 s')).toBeTruthy()
         press('}', { shiftKey: true })
-        expect(screen.getByText('−7 s … +6 s')).toBeTruthy()
+        expect(screen.getByText('−7 s … +7 s')).toBeTruthy()
         expect(screen.getByRole('button', { name: 'Start 2 seconds earlier' }).textContent).toContain('{')
         expect(screen.getByRole('button', { name: 'End 2 seconds later' }).textContent).toContain('}')
         expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy() // [ and ] still move between suggestions

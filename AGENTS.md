@@ -191,7 +191,7 @@ npm run lint       # baseline: 12 known problems — add none
 - **Shortcuts sheet:** `?` key, the "?" button or ⋯ → Shortcuts (`ShortcutsSheet`, data in `utils/shortcutList.ts`,
   kept in sync with `shortcutFor` by a test).
 - **Find goals review card** (`SuggestionCard`, `ReviewTimeline`, `useMarkedMoment`, `PersonStep`, `utils/reviewMark.ts`):
-  watch & mark (mini timeline over the loop window, default −5 s … +4 s: progress, red playhead, estimate ring, marked
+  watch & mark (mini timeline over the loop window, default −5 s … +5 s: progress, red playhead, estimate ring, marked
   pin, +2 s end handles; M or the always-visible Mark moment button marks — Mark again once marked — and frame steps
   refine it; Space, speed keys and seeks never mark), then type, then team (never pre-selected), then optional scorer /
   assist / goalkeeper (`PersonStep`, shared with `EventPicker`: alphabetical, the scorer stays disabled in the assist
