@@ -232,7 +232,9 @@ npm run lint       # baseline: 12 known problems — add none
 - **Video:** on-video `Scorebug` is the selected graphics theme's own score-bug painter drawn on a canvas (matches the export; clock as text beside it); no score in the top bar.
 - **One timeline:** the match strip (`MatchStrip`) is the only scrubber (video.js progress bar disabled): numbered file
   bands, faint clip bands, event icons stacked in up to 3 lanes (`stackLanes`), Kick off / Half time / Final whistle
-  flags, red playhead, hover/drag time bubble, keyboard focusable.
+  flags, red playhead, hover/drag time bubble (over the exact symbol — event icon, marker flag icon, suggestion ring —
+  it names it at its own time: "Goal · 10:00 · V2", "Detected moment (top pick) · …"; no native `title` tooltips on
+  icons), keyboard focusable.
 - **Event icons:** `components/icons/EventIcon.tsx` + `utils/eventIcon.ts` (football, pen ball "P", own goal "OG",
   penalty spot / spot ✕, glove, whistle, star, flag, pause, chequered flag) — used in strip, rows, picker, edit sheet.
 - **Events rail:** rows = clock · team dot · icon · name (body font, weight 600, normal case — not the shirt face) ·
