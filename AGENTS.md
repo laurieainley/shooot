@@ -92,7 +92,13 @@ npm run lint       # baseline: 12 known problems — add none
   replay (default 3 s before → 1 s after at 0.5×, half volume). `buildRenderPlan()` turns events into cuts, splitting
   cuts that cross a file boundary.
 - **Full match:** Kick off → Final whistle across files, stream-copied; score bug windows (Off / After goals /
-  Periodic) and event captions are the only re-encoded parts.
+  Periodic; after goals = 1 s after for 5 s, like the highlights caption) and event captions are the only re-encoded
+  parts. Optional slow-mo replays (`fullMatch.replays`, `withReplays()` in utils/fullMatch.ts) split the match after
+  each replay window and insert the slowed cut; the match resumes at the key frame (≤ 1 GOP repeats).
+- **Chapters:** YouTube chapter times come from the real render timeline (engine `onTimeline` → `renderTimelines.ts`,
+  matched by plan signature); until then an estimate from the render plan, flagged in the UI.
+- **Render storage:** outputs are written to OPFS first; `clearOldOutputs()` deletes earlier renders before each
+  render (the per-site quota filled up otherwise); a quota error gets a plain message (`render/storage.ts`).
 - **Goal areas:** per team (`team1`/`team2`), drawn in Match setup; `replayGoalFor()` picks the replay crop.
 - **Reel order:** segments sort by whole-timeline time (`cumulativeOffsets[file] + matchTimeSec`); the old
   "Adjust timestamps by offset" option is gone (persist v18 deletes it; Kick off defines the match clock).
