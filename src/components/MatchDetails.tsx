@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useAppState } from '../state'
 import type { Team } from '../types'
 import { DEFAULT_LOGO_URLS } from '../graphics/assets'
+import { GraphicsStylePicker } from './GraphicsStylePicker'
 import { clearCustomLogo, loadCustomLogo, saveCustomLogo } from '../graphics/logoStore'
 
 function LogoField() {
@@ -159,6 +160,7 @@ export function MatchDetails() {
                 {Array.from({ length: teamCount }, (_, i) => <TeamCard key={i} index={i} />)}
             </div>
             <LogoField />
+            <GraphicsStylePicker />
         </section>
     )
 }
