@@ -413,6 +413,15 @@ describe('EventPicker toasts', () => {
             press('Enter'); press('w'); press('Escape')
             expect(s().suggestions[0].status).toBe('kept')
         })
+        it('should leave an already kept suggestion alone (no re-link, no duplicate)', () => {
+            sug()
+            act(() => { s().addEvent({ id: 'old', matchTimeSec: 99, sourceFileIndex: 0, type: 'goal', team: 'Whites' }); s().linkSuggestionEvent(s().suggestions[0].id, 'old') })
+            act(() => s().markEvent(100))
+            render(<EventPicker />)
+            press('Enter'); press('w'); press('Escape')
+            expect(s().suggestions[0]).toMatchObject({ status: 'kept', eventId: 'old' })
+            expect(toastStore.getState().toast?.text).toMatch(/tagged at/)
+        })
         it('should not link a tag outside the window, and still announce it as tagged', () => {
             sug()
             act(() => s().markEvent(300))

@@ -881,7 +881,7 @@ describe('Find goals: Top picks lane', () => {
         expect(lane(/^Other moments/).getAttribute('aria-pressed')).toBe('true')
         expect(useAppState.getState().reviewIndex).toBe(0)
         expect(screen.getByText(/Suggestion 1 of 3/)).toBeTruthy()
-        expect(toastStore.getState().toast?.text).toBe('Top picks done — on to other moments')
+        expect(toastStore.getState().toast?.text).toMatch(/^Goal · Whites confirmed at .* · on to other moments$/)
     })
     it('should not badge a top pick on the card (the lane says it)', () => {
         tag(0)
@@ -950,6 +950,30 @@ describe('Review loop keys', () => {
         expect(screen.getByRole('button', { name: 'Start 2 seconds earlier' }).textContent).toContain('{')
         expect(screen.getByRole('button', { name: 'End 2 seconds later' }).textContent).toContain('}')
         expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy() // [ and ] still move between suggestions
+    })
+})
+
+describe('Review keys and marking', () => {
+    it('should never mark with the speed keys or the seek arrows', () => {
+        const off = registerPlayerShortcut(vi.fn())
+        render(<SuggestionReview onClose={() => {}} />)
+        press('.'); press(','); press('/'); press('ArrowRight'); press('ArrowLeft', { shiftKey: true })
+        expect(screen.queryByTestId('rtl-marked')).toBeNull()
+        expect(screen.queryByRole('group', { name: 'What was it?' })).toBeNull() // the moment step is still open
+        off()
+    })
+    it('should treat keys typed in the focused person field as text, and Esc as skip without closing the panel', () => {
+        const onClose = vi.fn()
+        render(<SuggestionReview onClose={onClose} />)
+        press('g'); press('1')
+        const f = screen.getByRole('textbox', { name: 'Scorer' })
+        expect(document.activeElement).toBe(f) // focused on a fine pointer, like the picker
+        for (const key of ['x', 'm', 's', 'g', '2', '[', ' ']) fireEvent.keyDown(f, { key })
+        expect(useAppState.getState().suggestions[0].status).toBe('pending')
+        expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy()
+        fireEvent.keyDown(f, { key: 'Escape' })
+        expect(screen.queryByRole('textbox')).toBeNull()
+        expect(onClose).not.toHaveBeenCalled()
     })
 })
 
@@ -1048,6 +1072,17 @@ describe('Review toasts', () => {
         act(() => { toast?.action?.run() })
         expect(useAppState.getState().suggestions[0].status).toBe('pending')
         expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy()
+    })
+    it('should keep the Undo of a Discard when it was the last top pick, with the lane note in its text', () => {
+        useAppState.getState().setSuggestionBall(useAppState.getState().suggestions[1].id, { goal: 'team1', frames: 2 })
+        useAppState.setState({ reviewIndex: 1 })
+        render(<SuggestionReview onClose={() => {}} />)
+        press('x')
+        const toast = toastStore.getState().toast
+        expect(toast?.text).toMatch(/^Discarded .* · on to other moments$/)
+        expect(toast?.action?.label).toBe('Undo')
+        act(() => { toast?.action?.run() })
+        expect(useAppState.getState().suggestions[1].status).toBe('pending')
     })
     it('should not toast for moving, marking or scrubbing', () => {
         render(<SuggestionReview onClose={() => {}} />)

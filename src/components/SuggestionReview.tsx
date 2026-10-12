@@ -1,7 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react'
 import type { KeepType, Suggestion } from '../types'
 import { useAppState } from '../state'
-import { showToast } from '../toasts'
+import { showToast, toastStore } from '../toasts'
 import { useDetectJob } from '../detectJobs'
 import { TOP_PICKS_DONE, defaultLane, firstPendingInLane, firstToReviewInLane, laneCounts, laneNeighbour, laneSwitchVisible, positionInLane, type Lane } from '../utils/reviewLanes'
 import { NO_TOP_PICKS } from '../utils/voice'
@@ -52,13 +52,16 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
     }
     const freshIds = (): ReadonlySet<string> => new Set(useAppState.getState().events.map((e) => e.id))
     /** Past the last Top pick: on to the first other moment still to review (the only automatic lane switch). */
-    const leaveTopPicks = (): void => {
+    const leaveTopPicks = (decided = false): void => {
         const st = useAppState.getState()
         const first = firstPendingInLane(st.suggestions, 'other', freshIds())
         lastIn.current.top = index
         setPickedLane('other')
         go(first >= 0 ? first : st.suggestions.length)
-        showToast(TOP_PICKS_DONE)
+        // After a Confirm / Discard its own toast (with Undo) stays; the lane note joins its text.
+        const cur = decided ? toastStore.getState().toast : null
+        if (cur) showToast(`${cur.text} · on to other moments`, cur.action)
+        else showToast(TOP_PICKS_DONE)
     }
     /** Confirm / Discard: the next one still to review in the lane; finishing Top picks moves on to the other moments. */
     const afterDecision = (): void => {
@@ -69,7 +72,7 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
         if (lane === 'top') {
             const earlier = firstPendingInLane(st.suggestions, 'top', fresh)
             if (earlier >= 0) go(earlier)
-            else leaveTopPicks()
+            else leaveTopPicks(true)
             return
         }
         go(st.suggestions.length)

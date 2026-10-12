@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import { showToast } from '../toasts'
+import { effectiveStatus } from '../utils/suggestions'
 import { getReviewWindow } from './reviewWindowState'
 import { confirmedCopy, eventGlobalSec, matchClock, taggedCopy } from '../utils/toastCopy'
 import { nearbyMark } from '../utils/duplicates'
@@ -53,7 +54,8 @@ export function EventPicker() {
         const kick = selectMatchStartSec(st)
         // Tagged while reviewing, inside the current suggestion's loop: it counts for that suggestion, like Confirm.
         const sug = st.panel === 'review' ? st.suggestions[st.reviewIndex] : undefined
-        if (sug && (e.type === 'goal' || e.type === 'own_goal' || e.type === 'save' || e.type === 'highlight')) {
+        const taken = !!sug && effectiveStatus(sug, new Set(st.events.map((x) => x.id))) === 'kept' // already confirmed: leave it, no duplicate link
+        if (sug && !taken && (e.type === 'goal' || e.type === 'own_goal' || e.type === 'save' || e.type === 'highlight')) {
             const w = getReviewWindow()
             const at = eventGlobalSec(e, st.cumulativeOffsets)
             if (w && at >= w.startAbs && at <= w.endAbs) {

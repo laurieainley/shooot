@@ -14,6 +14,7 @@ import { confirmedCopy, discardedCopy, matchClock } from '../utils/toastCopy'
 import { shortcutFor } from '../utils/shortcuts'
 import { NO_PEOPLE, peopleCandidates, peopleDisabled, peopleLabel, peopleOpen, reopenPeople, startPeople, stepPeople, type PeopleState } from '../utils/reviewPeople'
 import { PersonStep } from './PersonStep'
+import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 import { useReviewLoop } from './useReviewLoop'
 import { useMarkedMoment } from './useMarkedMoment'
 import { ReviewTimeline } from './ReviewTimeline'
@@ -59,6 +60,7 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
     const kickOff = useAppState(selectMatchStartSec)
     const long = useAppState(selectClockLong)
     const paused = usePlayerPaused()
+    const coarse = useMediaQuery(COARSE_QUERY)
     const playheadSec = useAppState((s) => (s.cumulativeOffsets[s.currentFileIndex] ?? 0) + s.currentTimeInFileSec)
     const estimateSec = Math.max(0, suggestion.globalTimeSec + AUDIO_DETECT.eventOffsetSec)
     const loop = useReviewLoop(suggestion.globalTimeSec)
@@ -164,7 +166,8 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
             if (e.key === ']') { e.preventDefault(); onNext(); return }
             if (sideways || k === ',' || k === '.' || k === '/') {
                 const action = shortcutFor(e)
-                if (action) { e.preventDefault(); moment.followPlayhead(); runPlayerShortcut(action) }
+                // Seeking and speed never mark: only M, the button and frame steps do (a mark that is following the playhead keeps following).
+                if (action) { e.preventDefault(); runPlayerShortcut(action) }
             }
         }
         // A button activates on Space's key-up: stop that too.
@@ -265,14 +268,17 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
                 )}
 
                 {peopleOpen(people) && (
-                    <PersonStep key={people.pk?.step} label={peopleLabel(people)} autoFocus={people.pk?.step === 'assist'}
+                    <div data-owns-escape="">
+                    <PersonStep key={people.pk?.step} label={peopleLabel(people)} autoFocus={!coarse}
                         placeholder={`${peopleLabel(people)} (optional) — type to filter, Enter to pick, Tab to skip`}
                         query={people.pk?.query ?? ''} candidates={peopleCandidates(people, teams)} highlighted={people.pk?.highlighted ?? 0} showHighlight isDisabled={(n) => peopleDisabled(people, n)}
                         onQuery={(value) => setPeople((p) => stepPeople(p, { kind: 'text', value }, teams))}
                         onChoose={(value) => setPeople((p) => stepPeople(p, { kind: 'choose', value }, teams))}
                         onKeyDown={(e) => {
-                            if (['Enter', 'Tab', 'ArrowDown', 'ArrowUp'].includes(e.key)) { e.preventDefault(); setPeople((p) => stepPeople(p, { kind: 'key', key: e.key }, teams)) }
+                            // Typing is text here; Enter picks / skips, Tab and Esc skip, the arrows move.
+                            if (['Enter', 'Tab', 'Escape', 'ArrowDown', 'ArrowUp'].includes(e.key)) { e.preventDefault(); e.stopPropagation(); setPeople((p) => stepPeople(p, { kind: 'key', key: e.key === 'Escape' ? 'Tab' : e.key }, teams)) }
                         }} />
+                    </div>
                 )}
                 {!peopleOpen(people) && (people.scorer || people.assist) && (
                     <div className="rv__chips">
