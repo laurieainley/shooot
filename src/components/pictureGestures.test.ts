@@ -42,6 +42,16 @@ describe('attachPictureGestures', () => {
         expect(click.defaultPrevented).toBe(false)
     })
 
+    it('should not pan or pinch from inside a column panel shown over the picture (fullscreen review)', () => {
+        z.zoom = 2
+        const panel = document.createElement('div')
+        panel.className = 'column-panel'
+        el.appendChild(panel)
+        fire(panel, 'pointerdown', 1, 100, 100)
+        fire(window, 'pointermove', 1, 160, 100)
+        expect(z.panBy).not.toHaveBeenCalled()
+    })
+
     it('should not pan with one finger when not zoomed in', () => {
         fire(el, 'pointerdown', 1, 100, 100)
         fire(window, 'pointermove', 1, 160, 100)

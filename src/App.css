@@ -958,13 +958,6 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 @media (max-height: 500px) { .event-picker--column .event-picker__prompt { display: none; } }
 .rail { grid-template-columns: minmax(0, 1fr); } /* a wide panel inside never widens the rail */
 
-/* Compact: Cancel / Done sit in the header row, so the little height there is goes to the list. */
-.event-picker--compact { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr); column-gap: 8px; }
-.event-picker--compact .event-picker__head { grid-column: 1; grid-row: 1; align-self: center; }
-.event-picker--compact .event-picker__actions { grid-column: 2; grid-row: 1; position: static; padding: 0 0 6px; border: 0; background: none; }
-.event-picker--compact .event-picker__actions > button { flex: none; min-width: 72px; }
-.event-picker--compact .event-picker__body { grid-column: 1 / -1; grid-row: 2; padding-bottom: 8px; }
-.event-picker--compact .event-picker__prompt { display: none; }
 
 @media (pointer: coarse) {
   .row-btn.watch-btn { background: var(--sh-surface-2); box-shadow: inset 0 0 0 1px var(--sh-line); border-radius: var(--sh-radius-sm); }
@@ -1476,3 +1469,58 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .rv__choice { min-height: 44px; }
   .rv__decide .rv__save, .rv__decide .rv__discard { min-height: 48px; }
 }
+
+/* Fullscreen on touch (2026-10-13-mobile-review-fullscreen-design.md, decisions 4-6).
+   Landscape: the tag box and the review are a right-hand column (about 40 % wide, own scroll, safe-area aware).
+   Portrait: a bottom sheet of at most 60 % of the height. Both sit above the tap zones and the mark button. */
+.event-picker--compact {
+  display: flex; flex-direction: column; top: 0; right: 0; bottom: 0; left: auto; z-index: 60; width: clamp(300px, 40%, 440px); max-height: none; box-sizing: border-box;
+  border-width: 0 0 0 1px; border-radius: 0; box-shadow: -6px 0 22px rgb(0 0 0 / 0.35); font-size: 15px;
+  padding: max(8px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px)) 0 10px;
+}
+.event-picker--compact .event-picker__prompt { display: block; font-size: 15px; }
+.event-picker--compact .event-picker__title { font-size: 15px; }
+.event-picker--compact .event-picker__groups { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.event-picker--compact .event-picker__item--type { font-size: 14px; padding: 0 8px; gap: 6px; min-width: 0; }
+.event-picker--compact .event-picker__list--teams { flex-wrap: nowrap; }
+.event-picker--compact .event-picker__list--teams .event-picker__item { flex: 1 1 0; min-width: 0; min-height: 48px; justify-content: center; font-size: 16px; }
+.event-picker--compact .event-picker__actions { padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0px)); }
+.event-picker--compact .person-chip { font-size: 15px; }
+@media (orientation: portrait) {
+  .event-picker--compact {
+    top: auto; left: 0; width: auto; max-height: 60%; border-width: 1px 0 0; border-radius: var(--sh-radius-md) var(--sh-radius-md) 0 0;
+    box-shadow: 0 -8px 24px rgb(0 0 0 / 0.3); padding: 8px max(10px, env(safe-area-inset-right, 0px)) 0 max(10px, env(safe-area-inset-left, 0px));
+  }
+}
+
+.column-panel--fs {
+  position: absolute; top: 56px; right: 0; bottom: 0; z-index: 55; flex: none; width: clamp(300px, 40%, 440px); box-sizing: border-box; min-height: 0;
+  border-top: 0; border-left: 1px solid var(--sh-line); box-shadow: -6px 0 22px rgb(0 0 0 / 0.35); padding-right: env(safe-area-inset-right, 0px);
+}
+.column-panel--fs .column-panel__head { padding-block: 0; }
+.column-panel--fs .column-panel__body { padding-inline: 12px; }
+.column-panel--fs .rv__decide { margin-inline: -12px; padding-inline: 12px; }
+.column-panel--fs .rv { gap: 8px; }
+.column-panel--fs .rv__time { font-size: 22px; }
+.column-panel--fs .rv__steps { gap: 8px; }
+.column-panel--fs-hidden { display: none; }
+@media (orientation: portrait) {
+  .column-panel--fs {
+    top: auto; left: 0; width: auto; height: auto; max-height: 60%; border-left: 0; border-top: 1px solid var(--sh-line);
+    border-radius: var(--sh-radius-md) var(--sh-radius-md) 0 0; box-shadow: 0 -8px 24px rgb(0 0 0 / 0.3); padding-left: env(safe-area-inset-left, 0px);
+  }
+  .column-panel--fs .column-panel__body { flex: 1 1 auto; }
+}
+
+/* Toasts inside the fullscreen picture: top-left, under the scorebug, clear of the buttons at the top right. */
+.toast-host--fs { position: absolute; top: 64px; left: max(10px, env(safe-area-inset-left, 0px)); z-index: 10001; max-width: min(380px, calc(100% - 20px)); pointer-events: none; }
+
+/* Playback lock and Review buttons in the top-right group. */
+.lock-btn { position: relative; padding: 0 6px; }
+.lock-btn--on { background: var(--sh-on-video); color: var(--sh-video); }
+.lock-btn--on:active { background: var(--sh-on-video); }
+.review-btn { padding: 0 12px; font-size: 14px; white-space: nowrap; }
+@media (prefers-reduced-motion: no-preference) {
+  .lock-btn--hint { animation: lock-glow 1.6s ease-out 1; }
+}
+@keyframes lock-glow { 0%, 100% { box-shadow: 0 0 0 0 rgb(243 241 234 / 0); } 25%, 60% { box-shadow: 0 0 0 4px rgb(243 241 234 / 0.85); } }
