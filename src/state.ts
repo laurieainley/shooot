@@ -12,6 +12,7 @@ import { normaliseAreas } from './utils/crop'
 import { goalRectFromMarks, normaliseGoalMarks } from './utils/goalMarks'
 import { migrateEvent } from './utils/eventTypes'
 import { computeCumulativeOffsets, isLongTimeline } from './utils/timeline'
+import type { HighlightsQualityChoice } from './utils/outputQuality'
 import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/highlights'
 import { relinkEvents as relinkByKey, linkedEvents } from './utils/relink'
 import { kickOffSec, resolveGlobalEvents, withMigratedKickOff } from './utils/matchClock'
@@ -161,6 +162,9 @@ type AppState = {
     exportTab: 'highlights' | 'fullMatch'
     setExportTab: (tab: 'highlights' | 'fullMatch') => void
     setFullMatch: (partial: Partial<FullMatchSettings>) => void
+    /** Highlights output quality as chosen: 'auto' = the device's default (1080p on a phone, else Original) until the user picks one. */
+    highlightsQuality: HighlightsQualityChoice
+    setHighlightsQuality: (q: HighlightsQualityChoice) => void
     /** Remembered options of the per-event clip download (device preference, not part of a project). */
     clipOptions: ClipOptions
     setClipOptions: (patch: Partial<ClipOptions>) => void
@@ -512,6 +516,8 @@ export const useAppState = create<AppState>()(
             fullMatch: { cards: true, scoreBug: 'goals', intervalMin: 5, captions: true, replays: false, quality: 'original' },
             exportTab: 'highlights',
             setExportTab: (tab) => set({ exportTab: tab }),
+            highlightsQuality: 'auto',
+            setHighlightsQuality: (q) => set({ highlightsQuality: q }),
             clipOptions: { score: true, replay: true },
             setClipOptions: (patch) => set({ clipOptions: { ...get().clipOptions, ...patch } }),
             setFullMatch: (partial) => set({ fullMatch: { ...get().fullMatch, ...partial } }),
@@ -670,6 +676,7 @@ export const useAppState = create<AppState>()(
                 graphics: state.graphics,
                 fullMatch: state.fullMatch,
                 clipOptions: state.clipOptions,
+                highlightsQuality: state.highlightsQuality,
                 matchdayLabel: state.matchdayLabel,
                 goalAreas: state.goalAreas,
                 goalMarks: state.goalMarks,
@@ -679,7 +686,7 @@ export const useAppState = create<AppState>()(
                 suggestions: state.suggestions,
                 suggestionRun: state.suggestionRun,
             }),
-            version: 23,
+            version: 24,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -769,6 +776,9 @@ export const useAppState = create<AppState>()(
 
                 // Full-match output quality (v23): Original (stream copy), as before.
                 if (version < 23 && state.fullMatch) state.fullMatch = { ...state.fullMatch, quality: 'original' }
+
+                // Highlights output quality (v24): the device's default until the user chooses.
+                if (version < 24) state.highlightsQuality = 'auto'
 
                 return state
             },

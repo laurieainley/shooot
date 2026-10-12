@@ -1,11 +1,13 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import { resetRenderJobs } from '../renderJobs'
 import type { VideoSourceFile } from '../types'
 import { stubWebCodecs } from '../test/codecs'
+import { setMedia } from '../test/pointer'
+import { highlightsExport, planOutput } from '../utils/exportPlans'
 
 const renderReel = vi.fn()
 vi.mock('../render', () => ({ renderReel: (...a: unknown[]) => renderReel(...a) }))
@@ -126,5 +128,87 @@ describe('RenderHighlights', () => {
         expect(renderReel.mock.calls[0][0].length).toBeGreaterThan(0) // the cuts are still rendered
         expect(renderReel.mock.calls[0][2].graphics).toBeUndefined() // …without graphics
         expect(await screen.findByText(/does not have/i)).toBeInTheDocument()
+    })
+
+    describe('output quality', () => {
+        const full = (name: string, width: number, height: number): VideoSourceFile => ({ id: name, name, kind: 'full', url: '', file: new File([''], name), durationSec: 600, width, height })
+        const setup = (width = 3840, height = 2160): void => {
+            useAppState.setState({ files: [full('GX010001.MP4', width, height)], highlightsQuality: 'auto' })
+        }
+        afterEach(() => { setMedia({}); useAppState.setState({ highlightsQuality: 'auto' }) })
+
+        it('should default to Original on a desktop and list size and time for each choice, named for the reel', () => {
+            setMedia({ desktop: true })
+            setup()
+            render(<RenderHighlights />)
+            expect(screen.getByRole('radio', { name: 'Original' })).toBeChecked()
+            const list = screen.getByRole('list', { name: /output quality sizes/i })
+            expect(list).toHaveTextContent(/Original about .*, roughly .* for a \d+ min reel|Original about .*, under a minute/)
+            expect(list).toHaveTextContent(/1080p about/)
+        })
+
+        it('should default to 1080p on a phone until the user chooses, and then keep the choice', async () => {
+            setMedia({ coarse: true, portrait: true })
+            setup()
+            const { unmount } = render(<RenderHighlights />)
+            expect(screen.getByRole('radio', { name: '1080p' })).toBeChecked()
+            expect(useAppState.getState().highlightsQuality).toBe('auto')
+            await userEvent.click(screen.getByRole('radio', { name: 'Original' }))
+            expect(useAppState.getState().highlightsQuality).toBe('original')
+            unmount()
+            render(<RenderHighlights />)
+            expect(screen.getByRole('radio', { name: 'Original' })).toBeChecked()
+        })
+
+        it('should grey out 4K, saying why, when the footage is 1080p, and fall back to Original for a saved 4K choice', () => {
+            setMedia({ desktop: true })
+            setup(1920, 1080)
+            useAppState.setState({ highlightsQuality: '4k' })
+            render(<RenderHighlights />)
+            expect(screen.getByRole('radio', { name: '4K' })).toBeDisabled()
+            expect(screen.getByRole('radio', { name: 'Original' })).toBeChecked()
+            expect(screen.getByRole('list', { name: /output quality sizes/i })).toHaveTextContent(/4K unavailable: The footage is 1920×1080, not 4K/)
+        })
+
+        it('should pass the chosen output to the renderer, under its own signature', async () => {
+            setMedia({ desktop: true })
+            setup()
+            renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
+            render(<RenderHighlights />)
+            await userEvent.click(screen.getByRole('radio', { name: '4K' }))
+            await userEvent.click(screen.getByRole('button', { name: /render mp4 as 4k/i }))
+            await waitFor(() => expect(renderReel).toHaveBeenCalled())
+            expect(renderReel.mock.calls[0][2].output).toEqual({ quality: '4k', videoBitrate: 20_000_000 })
+            const st = useAppState.getState()
+            expect(highlightsExport(st, 'full', planOutput('4k')).signature).not.toBe(highlightsExport(st, 'full').signature)
+        })
+
+        it('should stream copy (no output) for Original', async () => {
+            setMedia({ desktop: true })
+            setup()
+            renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
+            render(<RenderHighlights />)
+            await userEvent.click(screen.getByRole('button', { name: /render mp4/i }))
+            await waitFor(() => expect(renderReel).toHaveBeenCalled())
+            expect(renderReel.mock.calls[0][2].output).toBeUndefined()
+        })
+
+        describe('storage fit', () => {
+            const stubStorage = (estimate: unknown): void => { Object.defineProperty(navigator, 'storage', { value: { estimate, getDirectory: async () => { throw new Error('no opfs') } }, configurable: true }) }
+            afterEach(() => { Reflect.deleteProperty(navigator, 'storage') })
+
+            it('should grey out options too big for the browser’s storage and pick the largest that fits', async () => {
+                setMedia({ desktop: true })
+                setup()
+                useAppState.setState({ files: [{ ...full('GX010001.MP4', 3840, 2160), file: Object.assign(new File([''], 'GX010001.MP4'), {}) }] })
+                Object.defineProperty(useAppState.getState().files[0].file, 'size', { value: 40e9 })
+                stubStorage(async () => ({ quota: 500e6, usage: 0 }))
+                render(<RenderHighlights />)
+                await waitFor(() => expect(screen.getByRole('radio', { name: 'Original' })).toBeDisabled())
+                expect(screen.getByRole('radio', { name: '4K' })).toBeChecked()
+                expect(screen.getByRole('list', { name: /output quality sizes/i })).toHaveTextContent(/Too big for this browser’s storage/)
+                expect(screen.getByText(/Original would not fit in this browser’s storage, so 4K is selected/)).toBeInTheDocument()
+            })
+        })
     })
 })

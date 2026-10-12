@@ -16,7 +16,7 @@ import { linkedEvents } from './relink'
 import { buildRenderPlan } from './renderPlan'
 import { resolveRenderSources, usedMissing, type RenderQuality } from './renderSources'
 import { scoreBugWindows, type ScoreBugMode } from './scoreBug'
-import { estimateEncodedBytes, type OutputQuality, type ReencodeQuality } from './outputQuality'
+import { VIDEO_BITRATE, estimateEncodedBytes, type OutputQuality, type ReencodeQuality } from './outputQuality'
 
 export type FullMatchSettings = {
     cards: boolean; scoreBug: ScoreBugMode; intervalMin: number; captions: boolean
@@ -80,12 +80,21 @@ function finish(kind: 'highlights' | 'fullMatch' | 'clip', quality: RenderQualit
     return { cuts, sources, missing, spec, outputName, kind, seconds, bytes, resumable, signature, ...(output ? { output } : {}) }
 }
 
-export function highlightsExport(s: ExportState, quality: RenderQuality): ExportPlan {
+/** The re-encode settings for an output quality (undefined = Original, the stream copy). */
+export function planOutput(q: OutputQuality): PlanOutput | undefined {
+    return q === 'original' ? undefined : { quality: q, videoBitrate: VIDEO_BITRATE[q] }
+}
+
+/**
+ * `output`: re-encode the whole reel to this quality instead of stream copying (full-quality renders only). The re-encode cuts at
+ * the exact clip in/out points (no whole-GOP snapping), so the chapter times stay exact.
+ */
+export function highlightsExport(s: ExportState, quality: RenderQuality, output?: PlanOutput): ExportPlan {
     const linked = linkedEvents(s.events)
     const segments = mergeOverlappingGoalSegments(linked, s.cumulativeOffsets, s.lengthBeforeGoalSec, s.lengthAfterGoalSec)
     const cuts = buildRenderPlan(segments, s.files.map((f) => f.durationSec ?? Infinity), replayOptionsFor({ ...s, events: linked }))
     const spec = nonEmpty(buildGraphicsSpec({ events: linked, teams: s.teams, cuts, cumulativeOffsets: s.cumulativeOffsets, settings: s.graphics, matchday: matchday(s) }))
-    return finish('highlights', quality, s, cuts, spec, false)
+    return finish('highlights', quality, s, cuts, spec, false, undefined, quality === 'full' ? output : undefined)
 }
 
 /** `output`: re-encode to this quality instead of stream copying (not for previews). */

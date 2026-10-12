@@ -29,6 +29,8 @@ type DescriptionArgs = {
      * same plan; without it (or when its length does not fit) the times are estimated from the plan.
      */
     timeline?: RenderTimeline | null
+    /** The video is re-encoded (4K / 1080p): cuts are frame-exact, so the estimate has no key-frame slack. */
+    reencoded?: boolean
 }
 
 function compose(blocks: string[][]): string {
@@ -45,7 +47,7 @@ export function highlightsDescription(a: DescriptionArgs): string {
     const { scoreLine, lines } = goalscorers(linked, a.teams)
     const segments = mergeOverlappingGoalSegments(linked, a.cumulativeOffsets, a.before, a.after)
     const { cuts, origins } = buildRenderPlanWithOrigins(segments, (a.durationsSec ?? []).map((d) => d ?? Infinity), a.replay)
-    const timeline = a.timeline && a.timeline.length === cuts.length ? a.timeline : estimateTimeline(cuts, a.introSec)
+    const timeline = a.timeline && a.timeline.length === cuts.length ? a.timeline : estimateTimeline(cuts, a.introSec, a.reencoded ? 0 : undefined)
     const times = highlightEventTimes({ segments, cuts, origins, timeline, beforeSec: a.before })
     const chapters = highlightChapterLines(linked, a.cumulativeOffsets, a.before, a.after, a.teams, a.replay, a.introSec, times)
     return compose([scoreLine ? [scoreLine] : [], chapters, scorersBlock(lines)])
@@ -60,7 +62,7 @@ export function fullMatchDescription(a: DescriptionArgs): string {
     const matchCuts = fullMatchCuts((a.durationsSec ?? []).map((d) => d ?? 0), ...spanOf(linked, a))
     // Inserted replays are extra cuts; events map to their normal-speed cut (outputTimeAt).
     const cuts = a.fullMatchReplays && a.replay ? withReplays(matchCuts, linked, a.cumulativeOffsets, a.replay) : matchCuts
-    const timeline = a.timeline && a.timeline.length === cuts.length ? a.timeline : estimateTimeline(cuts, a.introSec)
+    const timeline = a.timeline && a.timeline.length === cuts.length ? a.timeline : estimateTimeline(cuts, a.introSec, a.reencoded ? 0 : undefined)
     const timeAt = cuts.length > 0 ? (abs: number): number => outputTimeAt(abs, cuts, timeline, a.cumulativeOffsets) : undefined
     const chapters = matchChapterLines(linked, a.cumulativeOffsets, start, end, a.before, a.teams, a.introSec, timeAt)
     return compose([scoreLine ? [scoreLine] : [], chapters, scorersBlock(lines)])

@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useSavedTimeline } from '../renderTimelines'
-import { fullMatchExport, highlightsExport, type ExportState } from '../utils/exportPlans'
+import { fullMatchExport, highlightsExport, planOutput, type ExportState } from '../utils/exportPlans'
 import { useAppState } from '../state'
 import { CARD_SEC } from '../graphics/layout'
 import { fullMatchDescription, highlightsDescription } from '../utils/descriptions'
 import { goalscorersText } from '../utils/goalscorers'
 import { linkedEvents } from '../utils/relink'
+import { resolveHighlightsQuality } from '../utils/outputQuality'
+import { useLayout } from './useMediaQuery'
 
 interface DescriptionCopyProps {
     /** Which video the description is for. */
@@ -21,13 +23,19 @@ export function DescriptionCopy({ kind }: DescriptionCopyProps) {
     const exactFor = (st: ExportState) => {
         if (!saved) return null
         const plan = kind === 'highlights' ? highlightsExport : fullMatchExport
-        return (['full', 'preview'] as const).some((q) => plan(st, q).signature === saved.signature) ? saved.timeline : null
+        // Stream copy, either re-encode, or the preview: the render's signature includes its output quality.
+        const tries = [['full', undefined], ['full', planOutput('4k')], ['full', planOutput('1080p')], ['preview', undefined]] as const
+        return tries.some(([q, o]) => plan(st, q, o).signature === saved.signature) ? saved.timeline : null
     }
     // Only the fields an export plan reads (not playback time), so this does not recompute while the video plays.
     const files = useAppState((s) => s.files), events = useAppState((s) => s.events), offsets = useAppState((s) => s.cumulativeOffsets)
     const before = useAppState((s) => s.lengthBeforeGoalSec), after = useAppState((s) => s.lengthAfterGoalSec)
     const replayBefore = useAppState((s) => s.replayBeforeSec), replayAfter = useAppState((s) => s.replayAfterSec), replaySpeed = useAppState((s) => s.replaySpeed)
     const graphics = useAppState((s) => s.graphics), teams = useAppState((s) => s.teams), matchday = useAppState((s) => s.matchdayLabel)
+    const quality = useAppState((s) => s.highlightsQuality)
+    const layout = useLayout()
+    // Highlights re-encoded (4K / 1080p) cut exactly; the estimate has no key-frame slack then.
+    const reencoded = kind === 'highlights' ? resolveHighlightsQuality(quality, layout === 'phone' || layout === 'landscape') !== 'original' : false
     const fullMatch = useAppState((s) => s.fullMatch), goalAreas = useAppState((s) => s.goalAreas)
     const estimated = useMemo(() => {
         if (events.length === 0) return false
@@ -53,6 +61,7 @@ export function DescriptionCopy({ kind }: DescriptionCopyProps) {
             durationsSec: st.files.map((f) => f.durationSec),
             fullMatchReplays: st.fullMatch.replays,
             timeline: exactFor(st),
+            reencoded: kind === 'highlights' ? reencoded : st.fullMatch.quality !== 'original',
             introSec: (kind === 'highlights' ? highlightsExport : fullMatchExport)(st, 'full').spec?.intro ? CARD_SEC : 0,
         }
         return kind === 'highlights' ? highlightsDescription(args) : fullMatchDescription(args)
