@@ -7,7 +7,8 @@ import { wantsReplay } from '../utils/replays'
 import { FloatingPanel } from './FloatingPanel'
 import { startExport } from './renderRequest'
 import { CopyDiagnostics } from './CopyDiagnostics'
-import { SkippedList, dedupe } from './RenderStatus'
+import { SkippedList } from './SkippedList'
+import { dedupeSkipped } from '../utils/dedupeSkipped'
 
 export interface ClipDownloadProps {
     event: MatchEvent
@@ -60,7 +61,7 @@ export function ClipDownload({ event }: ClipDownloadProps) {
         else if (ownJob.phase === 'failed') status = ownJob.error ?? 'The clip could not be rendered'
     }
     const finished = ownJob != null && ownJob.phase !== 'running'
-    const skipped = dedupe(ownJob?.report?.skipped ?? ownJob?.diagnostics?.graphics.skipped ?? [])
+    const skipped = dedupeSkipped(ownJob?.report?.skipped ?? ownJob?.diagnostics?.graphics.skipped ?? [])
     const result = ownJob?.phase === 'done' ? ownJob.result : null
     const canShare = result != null && typeof navigator.canShare === 'function' && navigator.canShare({ files: [result.file] })
     const jobs = renderJobs().getState()
