@@ -11,6 +11,11 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-12
 
+- **Leaving the page asks first while Find goals is running, as it already did for renders** (user). *Why:* a closed
+  tab loses the run; the ball check alone takes about 10 minutes. *Where:* `src/components/useLeaveWarning.ts`.
+- **On touch, one finger pans the video while zoomed in; two fingers still pinch and pan** (user). *Why:* two fingers
+  cover more of the picture. At 1× one finger does nothing new (taps and page scrolling are unchanged), and a tap
+  without movement still plays / pauses. *Where:* `src/components/pictureGestures.ts`.
 - **Optional known final score in New match and Match setup; Find goals says how many goals are left** (user). One
   optional scoreline under the team cards (not a separate step). The gap shows only where goals are found: the Find goals
   tally ("3 to find", "✓ All goals tagged", or "N more than the final score"), the review summary, a one-off "All N goals

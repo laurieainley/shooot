@@ -223,6 +223,9 @@ npm run lint       # baseline: 12 known problems — add none
     (`utils/voice.ts`); errors and instructions stay plain; we "tag" moments (not "mark");
   - touch targets ≥ 44 px, text ≥ 14 px on touch, contrast ≥ 4.5:1 (`node scripts/check-contrast.mjs`), respect
     `prefers-reduced-motion`, never red-vs-green alone to distinguish meanings.
+- **Picture gestures** (`components/pictureGestures.ts`): while zoomed, mouse drag or **one finger** pans (a tap still plays /
+  pauses); two fingers pinch-zoom (1×–4×) and pan; wheel / trackpad pinch zooms. Leaving the page while a render or
+  Find goals is running asks first (`useLeaveWarning`).
 - **Keyboard:** one window-level handler (`Player.tsx` + `utils/shortcuts.ts` + `components/playerShortcuts.ts`);
   shortcuts work wherever focus is, except in text fields/menus/tabs, controls inside a dialog (`[role=dialog]`,
   `[aria-modal]` — dialogs own their keys), or while a picker/sheet is open. The event log ignores keys from portalled
