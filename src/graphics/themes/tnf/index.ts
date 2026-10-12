@@ -1,4 +1,4 @@
-// "TNF": the league's badge look: sky-blue rounded panels with a white rim, shirt yellow, orange/white stripes, Barlow Condensed Italic.
+// "TNF": Shooot's angular leaning plates in the league's colours (sky blue, shirt yellow, navy, orange/white stripes), Barlow Condensed Italic.
 import { CARD_SEC } from '../../layout'
 import { captionWord } from '../shooot'
 import type { GraphicsTheme } from '../types'
@@ -17,7 +17,7 @@ export const tnfTheme: GraphicsTheme = {
     caption: {
         word: captionWord,
         tone: (e) => (e.type === 'goal' ? 'goal' : e.type === 'own_goal' ? 'ownGoal' : 'other'),
-        defaultStripe: T.sky,
+        defaultStripe: T.skyPale,
         minutes: true,
         scorers: true,
     },

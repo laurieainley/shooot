@@ -67,8 +67,8 @@ function motion(t: number, duration: number): { alpha: number; dx: number } {
     return { alpha: p, dx: -60 * (1 - p) }
 }
 
-/** Captions, the score bug and the REPLAY tag are drawn 1.05× the original design (1.4×, then 25 % smaller). */
-export const OVERLAY_SCALE = 1.05
+/** Captions, the score bug and the REPLAY tag are drawn 0.84× the original design (1.4×, then 25 % smaller, then another 20 % so they cover less of the frame). */
+export const OVERLAY_SCALE = 0.84
 const k = (v: number): number => Math.round(v * OVERLAY_SCALE)
 
 const BUG_H = k(64)
@@ -76,7 +76,7 @@ const BUG_PAD = k(16)
 const BUG_BAR = k(8)
 const ACCENT_H = k(4)
 const EVENT_H = k(72)
-const NOTE_H = k(50)
+const NOTE_H = k(44)
 /** Captions stay left of the REPLAY tag (top right). */
 const CAPTION_MAX_RIGHT = 1480
 
@@ -134,7 +134,7 @@ export function captionLayout(spec: CaptionSpec, t: number, hasLogo: boolean, du
     const pad = k(22)
     const gap = k(20)
     const labelSize = k(54)
-    const noteSize = k(36)
+    const noteSize = k(33)
     const textX = SAFE_X + stripeW + pad
     const labelW = measure(spec.label, labelSize)
     const personX = textX + labelW + gap
