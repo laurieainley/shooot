@@ -54,16 +54,17 @@ describe('FullMatchExport', () => {
         expect(screen.getByText(/tag Kick off \(K\) and Final whistle \(W\)/i)).toBeInTheDocument()
     })
 
-    it('should render kick-off to final whistle as full-match.mp4, resumable', async () => {
+    it('should render kick-off to final whistle named by score, resumable', async () => {
         renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
         render(<FullMatchExport />)
         await userEvent.click(screen.getByRole('button', { name: /render full match/i }))
         await waitFor(() => expect(renderReel).toHaveBeenCalled())
         const [cuts, , opts] = renderReel.mock.calls[0]
         expect(cuts).toEqual([{ sourceIndex: 0, startSec: 60, endSec: 600 }, { sourceIndex: 1, startSec: 0, endSec: 540 }])
-        expect(opts.outputName).toBe('full-match.mp4')
+        expect(opts.outputName).toBe('Whites 1-0 Colours (full match).mp4')
         expect(opts.resumable).toMatchObject({ kind: 'fullMatch' })
-        expect(await screen.findByText('Downloaded full-match.mp4')).toBeInTheDocument()
+        expect(await screen.findByText('Whites 1-0 Colours (full match).mp4')).toBeInTheDocument()
+        expect(screen.getByText(/^Downloading/)).toBeInTheDocument()
         expect(screen.getByRole('link', { name: 'Download again' })).toBeInTheDocument()
     })
 

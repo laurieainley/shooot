@@ -40,11 +40,6 @@ export function estimateTextWidth(text: string, size: number, voice: FontVoice =
     return text.length * size * EM_WIDTH[voice]
 }
 
-/** `0.5` → `0.5×`, `1/3` → `0.33×`. */
-export function formatSpeed(speed: number): string {
-    return `${+speed.toFixed(2)}×`
-}
-
 const RIM = 4
 const rim = { stroke: T.white, lineWidth: RIM } as const
 
@@ -261,10 +256,10 @@ const REPLAY_H = 66
 /** Design-space rows of the REPLAY tag. */
 export const REPLAY_ROWS: [number, number] = [SAFE_Y - 8, SAFE_Y + REPLAY_H + 14]
 
-/** "REPLAY 0.5×" tag, top right: a yellow pill with navy text, shown instantly for the length of a slowed replay. */
-export function replayTagLayout(t: number, duration: number, measure: MeasureText = estimateTextWidth, speed = 0.5): DrawOp[] {
+/** "REPLAY" tag, top right: a yellow pill with navy text, shown instantly for the length of a slowed replay. */
+export function replayTagLayout(t: number, duration: number, measure: MeasureText = estimateTextWidth): DrawOp[] {
     const size = 42
-    const text = `REPLAY ${formatSpeed(speed)}`
+    const text = 'REPLAY' // just REPLAY: the speed is visible, not worth spelling out
     const pad = 30
     // Wide enough for the text in whatever font is in use (a fallback face is wider than the real one).
     const w = Math.max(200, measure(text, size, 'display') + 2 * pad)

@@ -43,11 +43,6 @@ export function estimateTextWidth(text: string, size: number, voice: FontVoice =
     return text.length * size * EM_WIDTH[voice]
 }
 
-/** `0.5` → `0.5×`, `1/3` → `0.33×`. */
-export function formatSpeed(speed: number): string {
-    return `${+speed.toFixed(2)}×`
-}
-
 /** How far a -10° lean of a shape `h` tall moves its top / bottom edge sideways from the pivot (centre). */
 export const leanShift = (h: number): number => Math.ceil((SKEW * h) / 2)
 
@@ -295,12 +290,12 @@ export function captionLayout(spec: CaptionSpec, t: number, hasLogo: boolean, du
 /** Design-space rows of the REPLAY tag. */
 export const REPLAY_ROWS: [number, number] = [SAFE_Y - 8, SAFE_Y + k(64) + 14]
 
-/** "REPLAY 0.5×" tag, top right, shown instantly for the length of a slowed replay (broadcast convention; captions are top left). */
-export function replayTagLayout(t: number, duration: number, measure: MeasureText = estimateTextWidth, speed = 0.5): DrawOp[] {
+/** "REPLAY" tag, top right, shown instantly for the length of a slowed replay (broadcast convention; captions are top left). */
+export function replayTagLayout(t: number, duration: number, measure: MeasureText = estimateTextWidth): DrawOp[] {
     const h = k(64)
     const dot = k(9)
     const size = k(46)
-    const text = `REPLAY ${formatSpeed(speed)}`
+    const text = 'REPLAY' // just REPLAY: the speed is visible, not worth spelling out
     const pad = k(18)
     // Wide enough for the text in whatever font is in use (a fallback face is wider than the mono instance).
     const w = Math.max(k(150), pad + 2 * dot + k(12) + measure(text, size, 'mono') + pad)

@@ -36,5 +36,5 @@ export const shoootTheme: GraphicsTheme = {
     paintCard: (ctx, spec, t, _d, assets) => paintOps(ctx, cardLayout(spec, t, CARD_SEC, !!assets.logo, measureWith(ctx)), assets),
     paintCaption: (ctx, spec, t, d, assets) => paintOps(ctx, captionLayout(spec, t, !!assets.logo, d, measureWith(ctx)), assets),
     paintScoreBug: (ctx, bug, t, d, fade, assets) => paintOps(ctx, scoreBugLayout(bug, t, d, !!assets.logo, fade, measureWith(ctx)), assets),
-    paintReplayTag: (ctx, t, d, speed, assets) => paintOps(ctx, replayTagLayout(t, d, measureWith(ctx), speed), assets),
+    paintReplayTag: (ctx, t, d, _speed, assets) => paintOps(ctx, replayTagLayout(t, d, measureWith(ctx)), assets),
 }

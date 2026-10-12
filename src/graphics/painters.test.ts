@@ -98,7 +98,7 @@ describe('replay tag painter', () => {
         } as unknown as OffscreenCanvasRenderingContext2D
         const [tag] = toRenderGraphics({ overlays: [{ kind: 'replayTag', cutIndex: 0, startSec: 0, durationSec: 4, speed: 0.25, label: 'Replay tag' }] }, { logo: null }).overlays
         tag.paint(ctx, 1)
-        expect(drawn).toEqual(['REPLAY 0.25×'])
+        expect(drawn).toEqual(['REPLAY'])
     })
 })
 

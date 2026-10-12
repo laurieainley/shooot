@@ -8,6 +8,7 @@ import { CARD_SEC } from '../graphics/layout'
 import { estimateBytes, fullMatchCuts, fullMatchSpan, recordingGaps } from './fullMatch'
 import { mergeOverlappingGoalSegments } from './highlights'
 import { jobSignature } from './jobSignature'
+import { outputFileName } from './outputName'
 import { linkedEvents } from './relink'
 import { buildRenderPlan } from './renderPlan'
 import { resolveRenderSources, type RenderQuality } from './renderSources'
@@ -39,7 +40,9 @@ export type ExportPlan = {
     missing: string[]
     /** Graphics to draw (undefined = none). */
     spec: GraphicsSpec | undefined
+    /** "Matchday 3 - Whites 2-4 Colours.mp4" (see outputFileName). */
     outputName: string
+    kind: 'highlights' | 'fullMatch'
     /** Output length (cards included) and estimated size. */
     seconds: number
     bytes: number
@@ -52,14 +55,14 @@ const matchday = (s: ExportState): string => s.matchdayLabel?.trim() || 'MATCH'
 const nonEmpty = (spec: GraphicsSpec): GraphicsSpec | undefined => (spec.intro || spec.outro || spec.overlays.length > 0 ? spec : undefined)
 const cardsSec = (spec: GraphicsSpec | undefined): number => (spec?.intro ? CARD_SEC : 0) + (spec?.outro ? CARD_SEC : 0)
 
-function finish(kind: 'highlights' | 'fullMatch', quality: RenderQuality, s: ExportState, cuts: Cut[], spec: GraphicsSpec | undefined, base: string, resumable: boolean): ExportPlan {
+function finish(kind: 'highlights' | 'fullMatch', quality: RenderQuality, s: ExportState, cuts: Cut[], spec: GraphicsSpec | undefined, resumable: boolean): ExportPlan {
     const { sources, missing } = resolveRenderSources(s.files, quality)
     const durations = s.files.map((f) => f.durationSec ?? 0)
     const seconds = cuts.reduce((sum, c) => sum + (c.endSec - c.startSec) / (c.speed ?? 1), 0) + cardsSec(spec)
     const bytes = estimateBytes(cuts.map((c) => ({ ...c })), sources.map((x) => x.file.size), durations)
-    const outputName = `${base}${quality === 'preview' ? '-preview' : ''}.mp4`
+    const outputName = outputFileName({ kind, preview: quality === 'preview', title: s.matchdayLabel, teams: s.teams, events: linkedEvents(s.events) })
     const signature = jobSignature({ kind, quality, cuts, sources: sources.map((x) => [x.name, x.file.size]), spec: spec ?? null })
-    return { cuts, sources, missing, spec, outputName, seconds, bytes, resumable, signature }
+    return { cuts, sources, missing, spec, outputName, kind, seconds, bytes, resumable, signature }
 }
 
 export function highlightsExport(s: ExportState, quality: RenderQuality): ExportPlan {
@@ -67,7 +70,7 @@ export function highlightsExport(s: ExportState, quality: RenderQuality): Export
     const segments = mergeOverlappingGoalSegments(linked, s.cumulativeOffsets, s.lengthBeforeGoalSec, s.lengthAfterGoalSec)
     const cuts = buildRenderPlan(segments, s.files.map((f) => f.durationSec ?? Infinity), replayOptionsFor({ ...s, events: linked }))
     const spec = nonEmpty(buildGraphicsSpec({ events: linked, teams: s.teams, cuts, cumulativeOffsets: s.cumulativeOffsets, settings: s.graphics, matchday: matchday(s) }))
-    return finish('highlights', quality, s, cuts, spec, 'highlights', false)
+    return finish('highlights', quality, s, cuts, spec, false)
 }
 
 export function fullMatchExport(s: ExportState, quality: RenderQuality): ExportPlan {
@@ -80,5 +83,5 @@ export function fullMatchExport(s: ExportState, quality: RenderQuality): ExportP
         mode: s.fullMatch.scoreBug, intervalMin: s.fullMatch.intervalMin, gapsSec: recordingGaps(s.files, s.cumulativeOffsets),
     })
     const spec = nonEmpty(fullMatchGraphicsSpec({ events: linked, teams: s.teams, cuts, cumulativeOffsets: s.cumulativeOffsets, cards: s.fullMatch.cards, captions: s.fullMatch.captions, theme: s.graphics.theme, matchday: matchday(s), windows }))
-    return finish('fullMatch', quality, s, cuts, spec, 'full-match', true)
+    return finish('fullMatch', quality, s, cuts, spec, true)
 }

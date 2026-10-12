@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { BUG_ROWS, OVERLAY_SCALE, formatSpeed, leanShift, CAPTION_DELAY_SEC, CAPTION_ROWS, CAPTION_SEC, captionLayout, cardFade, cardLayout, replayTagLayout, scoreBugLayout, estimateTextWidth, type DrawOp, type PolyOp, type RectOp, type TextOp } from './layout'
+import { BUG_ROWS, OVERLAY_SCALE, leanShift, CAPTION_DELAY_SEC, CAPTION_ROWS, CAPTION_SEC, captionLayout, cardFade, cardLayout, replayTagLayout, scoreBugLayout, estimateTextWidth, type DrawOp, type PolyOp, type RectOp, type TextOp } from './layout'
 import { C } from './brandColors'
 import { INK_DARK } from '../../teamStyle'
 import type { BugSpec, CaptionSpec, CardSpec } from '../../types'
@@ -276,7 +276,7 @@ describe('scoreBugLayout', () => {
 describe('replayTagLayout', () => {
     it('should draw a REPLAY tag in the top-right safe area', () => {
         const ops = replayTagLayout(1, 6)
-        expect(textOf(ops)).toEqual(['REPLAY 0.5×'])
+        expect(textOf(ops)).toEqual(['REPLAY'])
         expect(texts(ops)[0].voice).toBe('mono')
         const box = ops.find((o) => o.kind === 'rect')!
         // the lean moves its top-right corner out by leanShift: the corner still lies inside title-safe
@@ -285,10 +285,7 @@ describe('replayTagLayout', () => {
     })
 
     it('should show the actual replay speed', () => {
-        expect(textOf(replayTagLayout(1, 6, estimateTextWidth, 0.25))).toEqual(['REPLAY 0.25×'])
-        expect(textOf(replayTagLayout(1, 6, estimateTextWidth, 0.75))).toEqual(['REPLAY 0.75×'])
-        expect(formatSpeed(1 / 3)).toBe('0.33×')
-        expect(formatSpeed(0.5)).toBe('0.5×')
+        expect(textOf(replayTagLayout(1, 6, estimateTextWidth))).toEqual(['REPLAY'])
     })
 
     it('should lean and carry a red record dot', () => {
@@ -311,7 +308,7 @@ describe('replayTagLayout', () => {
         const narrow = replayTagLayout(1, 6).find((o): o is RectOp => o.kind === 'rect')!
         expect(box.w).toBeGreaterThan(narrow.w)
         expect(box.x + box.w + leanShift(box.h)).toBe(1824)
-        expect(box.w).toBeGreaterThanOrEqual(wide('REPLAY 0.5×', 50))
+        expect(box.w).toBeGreaterThanOrEqual(wide('REPLAY', 50))
     })
 
     it('should be scaled like the captions (≥ 19 px text on a 768×432 reel)', () => {

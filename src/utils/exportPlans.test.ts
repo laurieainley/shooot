@@ -19,10 +19,10 @@ const state = (extra: Partial<ExportState> = {}): ExportState => ({
 })
 
 describe('fullMatchExport', () => {
-    it('should cut kick-off → whistle across the files, named full-match.mp4, resumable, with size and length', () => {
+    it('should cut kick-off → whistle across the files, named by score, resumable, with size and length', () => {
         const p = fullMatchExport(state(), 'full')
         expect(p.cuts).toEqual([{ sourceIndex: 0, startSec: 30, endSec: 100 }, { sourceIndex: 1, startSec: 0, endSec: 50 }])
-        expect(p.outputName).toBe('full-match.mp4')
+        expect(p.outputName).toBe('Whites 1-0 Colours (full match).mp4')
         expect(p.seconds).toBe(120 + 8) // two 4 s cards
         expect(p.bytes).toBe(700 + 500)
         expect(p.resumable).toBe(true)
@@ -45,7 +45,7 @@ describe('fullMatchExport', () => {
     it('should need the full files of a proxy timeline, unless rendering a preview', () => {
         const s = state({ files: [file('GL010001.LRV', 'proxy'), file('GL020001.LRV', 'proxy')] })
         expect(fullMatchExport(s, 'full').missing).toEqual(['GL010001.LRV', 'GL020001.LRV'])
-        expect(fullMatchExport(s, 'preview')).toMatchObject({ missing: [], outputName: 'full-match-preview.mp4' })
+        expect(fullMatchExport(s, 'preview')).toMatchObject({ missing: [], outputName: 'Whites 1-0 Colours (full match, preview).mp4' })
     })
 
     it('should change signature when the plan changes', () => {
@@ -58,7 +58,7 @@ describe('fullMatchExport', () => {
 describe('highlightsExport', () => {
     it('should plan the reel stream copied, ignoring a legacy score-always-on setting', () => {
         const p = highlightsExport(state(), 'full')
-        expect(p.outputName).toBe('highlights.mp4')
+        expect(p.outputName).toBe('Whites 1-0 Colours.mp4')
         expect(p.cuts.map((c) => [c.startSec, c.endSec, c.speed ?? 1])).toEqual([[50, 64, 1], [56, 61, 0.5]])
         expect(p.resumable).toBe(false)
         const legacy = highlightsExport(state({ graphics: { cards: true, lowerThirds: true, replayTag: false, scoreBug: true } as never }), 'full')

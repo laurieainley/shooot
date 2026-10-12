@@ -16,7 +16,7 @@ export async function requestFor(plan: ExportPlan, onGraphicsError: (reason: str
     return {
         cuts: plan.cuts, sources: plan.sources, outputName: plan.outputName,
         ...(graphics ? { graphics } : {}),
-        ...(plan.resumable ? { resumable: { signature: plan.signature, kind: plan.outputName.startsWith('full-match') ? 'fullMatch' as const : 'highlights' as const } } : {}),
+        ...(plan.resumable ? { resumable: { signature: plan.signature, kind: plan.kind } } : {}),
     }
 }
 

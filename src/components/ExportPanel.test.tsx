@@ -90,7 +90,7 @@ describe('ExportPanel', () => {
         expect(within(screen.getByRole('dialog', { name: 'Export' })).getByText(/42%/)).toBeInTheDocument()
         expect(screen.getByText(/until the render finishes/i)).toBeInTheDocument()
         finish(new Blob(['x'], { type: 'video/mp4' }))
-        expect(await screen.findByText('Downloaded highlights-preview.mp4')).toBeInTheDocument()
+        expect(await screen.findByText(/\(preview\)\.mp4$/)).toBeInTheDocument()
         expect(click).toHaveBeenCalledTimes(1)
         click.mockRestore()
     })

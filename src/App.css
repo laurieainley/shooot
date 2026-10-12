@@ -1104,7 +1104,9 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .empty-log__lead { display: block; margin-bottom: 4px; color: var(--sh-text); font-size: 15px; }
 .render-voice { margin: 0; color: var(--sh-text); font-size: 15px; }
 .render-ready { display: flex; align-items: center; gap: 10px; flex-basis: 100%; margin: 0; }
-.render-ready span:last-child { font-size: 15px; line-height: 1.2; }
+.render-ready__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.render-ready__text .voice-heading { font-size: 15px; line-height: 1.2; }
+.render-ready__file { font-size: 12px; color: var(--sh-muted); overflow-wrap: anywhere; }
 .opening-status .sh-net { flex: none; }
 @media (prefers-reduced-motion: reduce) {
   .render-chip__text::before, .spinner, .export-btn__dot, .render-busy--active { animation: none !important; }

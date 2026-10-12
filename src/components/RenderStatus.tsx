@@ -118,11 +118,16 @@ function RenderStatusBody({ kind, onStopped }: RenderStatusProps & { onStopped: 
             <SkippedList skipped={skipped} />
             {job.result && (
                 <div className="render-done">
-                    <p className="render-ready"><NetBulge mode="once" size={40} /><span className="voice-heading">{REEL_READY}</span></p>
-                    <span>{job.result.downloaded ? `Downloaded ${job.result.file.name}` : `${job.result.file.name} is ready`}</span>
+                    <p className="render-ready"><NetBulge mode="once" size={40} />
+                        <span className="render-ready__text">
+                            <span className="voice-heading">{REEL_READY}</span>
+                            {/* What happened to the file, as a sentence: not a pill next to the buttons, where it read like one. */}
+                            <span className="render-ready__file">{job.result.downloaded ? 'Downloading' : 'Ready to download:'} <span className="tc">{job.result.file.name}</span></span>
+                        </span>
+                    </p>
                     <a href={job.result.url} download={job.result.file.name} className={job.result.downloaded ? 'btn-quiet no-underline' : 'btn-primary no-underline'}
                         onClick={(e) => { e.preventDefault(); jobs.downloadAgain() }}>
-                        {job.result.downloaded ? 'Download again' : `Download ${job.result.file.name}`}
+                        {job.result.downloaded ? 'Download again' : 'Download'}
                     </a>
                     {canShare && (
                         <button type="button" onClick={() => navigator.share({ files: [job.result!.file] }).catch(() => undefined)} className="btn-quiet">Share</button>

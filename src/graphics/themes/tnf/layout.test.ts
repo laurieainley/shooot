@@ -102,9 +102,9 @@ describe('tnf scoreBugLayout', () => {
 })
 
 describe('tnf replayTagLayout', () => {
-    it('should draw a yellow pill with navy REPLAY and the speed, inside title-safe and its rows', () => {
-        const ops = replayTagLayout(1, 6, estimateTextWidth, 0.5)
-        expect(texts(ops)[0]).toMatchObject({ text: 'REPLAY 0.5×', color: T.navy })
+    it('should draw a yellow pill with navy REPLAY (no speed), inside title-safe and its rows', () => {
+        const ops = replayTagLayout(1, 6, estimateTextWidth)
+        expect(texts(ops)[0]).toMatchObject({ text: 'REPLAY', color: T.navy })
         const pill = rects(ops)[0]
         expect(pill.fill).toBe(T.yellow)
         expect(pill.x + pill.w).toBeLessThanOrEqual(1920 - 96)
