@@ -11,6 +11,16 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-12
 
+- **Event action row: slow-mo replay is a labelled switch; Edit and Framing open separate views** (user). Order:
+  Slow-mo replay switch · Edit · Framing (replay on) · Download clip · Delete; a muted ↻ on the main row shows a replay
+  is on; the edit sheet's duplicate replay toggle is gone. *Why:* "Replay" read as a button to more settings, not an
+  on/off state, and Edit showed framing the user didn't ask for. *Where:* `src/components/EventActions.tsx`,
+  `EventSheet.tsx`, branch `feat/action-row-replay-switch`.
+- **Clip file names never include the score** (user: "don't need score in filename either way"). `Matchday 3 - Hawks v
+  Lions - 13' Goal DJ.mp4`. Highlights and full-match names keep the score. *Why:* a shared clip shouldn't spoil the
+  result. *Where:* `src/utils/outputName.ts`.
+- **After a finished clip, Download again is the primary button; Render again is quiet** (user). *Why:* the lime
+  Download next to Download again started a second render by mistake. *Where:* `src/components/ClipDownload.tsx`.
 - **Leaving the page asks first while Find goals is running, as it already did for renders** (user). *Why:* a closed
   tab loses the run; the ball check alone takes about 10 minutes. *Where:* `src/components/useLeaveWarning.ts`.
 - **On touch, one finger pans the video while zoomed in; two fingers still pinch and pan** (user). *Why:* two fingers
