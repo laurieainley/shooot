@@ -50,30 +50,24 @@ describe('GraphicsSettings', () => {
     })
 })
 
-describe('GraphicsSettings theme picker', () => {
+describe('GraphicsSettings style line', () => {
     let restore = (): void => undefined
     afterEach(() => restore())
     beforeEach(() => {
         restore = stubWebCodecs()
-        useAppState.setState({ graphics: { cards: true, lowerThirds: true, replayTag: true, theme: 'shooot' } })
+        useAppState.setState({ graphics: { cards: true, lowerThirds: true, replayTag: true, theme: 'classic' }, panel: null })
     })
 
-    it('should offer the two looks with Shooot selected by default', () => {
+    it('should no longer hold the style picker, only say which style is used', () => {
         render(<GraphicsSettings />)
-        expect(screen.getByRole('radio', { name: /shooot/i })).toBeChecked()
-        expect(screen.getByRole('radio', { name: /classic/i })).not.toBeChecked()
+        expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument()
+        expect(screen.queryByRole('radio')).not.toBeInTheDocument()
+        expect(screen.getByText('Classic')).toBeInTheDocument()
     })
 
-    it('should switch the look in the store and keep the other switches', async () => {
+    it('should open Match setup from the style line', async () => {
         render(<GraphicsSettings />)
-        await userEvent.click(screen.getByRole('radio', { name: /classic/i }))
-        expect(s().graphics).toEqual({ cards: true, lowerThirds: true, replayTag: true, theme: 'classic' })
-        expect(screen.getByRole('radio', { name: /classic/i })).toBeChecked()
-    })
-
-    it('should fall back to Shooot for an unknown saved theme', () => {
-        useAppState.setState({ graphics: { cards: true, lowerThirds: true, replayTag: true, theme: 'neon' as never } })
-        render(<GraphicsSettings />)
-        expect(screen.getByRole('radio', { name: /shooot/i })).toBeChecked()
+        await userEvent.click(screen.getByRole('button', { name: /change in match setup/i }))
+        expect(s().panel).toBe('match')
     })
 })

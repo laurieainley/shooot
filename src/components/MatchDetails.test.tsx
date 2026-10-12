@@ -81,3 +81,30 @@ describe('MatchDetails', () => {
         expect(saved.blob).toBeNull()
     })
 })
+
+describe('MatchDetails graphics style', () => {
+    beforeEach(() => {
+        useAppState.setState({
+            teams: [{ name: 'Whites', color: '#f0f0f0', roster: [] }, { name: 'Colours', color: '#ec5fa4', roster: [] }],
+            graphics: { cards: true, lowerThirds: true, replayTag: true, theme: 'shooot' },
+        })
+    })
+
+    it('should offer the three styles with the current one selected and switch the style in the store', async () => {
+        render(<MatchDetails />)
+        const group = screen.getByRole('radiogroup', { name: 'Graphics style' })
+        expect(group).toBeInTheDocument()
+        expect(screen.getAllByRole('radio')).toHaveLength(3)
+        expect(screen.getByRole('radio', { name: /shooot/i })).toBeChecked()
+        await userEvent.click(screen.getByRole('radio', { name: /tnf/i }))
+        expect(s().graphics.theme).toBe('tnf')
+        expect(s().graphics.cards).toBe(true)
+        expect(screen.getByRole('radio', { name: /tnf/i })).toBeChecked()
+    })
+
+    it('should show Shooot for an unknown saved style', () => {
+        useAppState.setState({ graphics: { cards: true, lowerThirds: true, replayTag: true, theme: 'neon' as never } })
+        render(<MatchDetails />)
+        expect(screen.getByRole('radio', { name: /shooot/i })).toBeChecked()
+    })
+})
