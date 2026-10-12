@@ -1,0 +1,14 @@
+.bench { max-width: 760px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; color: var(--sh-text); }
+.bench h1 { font-size: 1.4rem; margin: 0; }
+.bench h2 { font-size: 1rem; margin: 0 0 8px; }
+.bench section { border: 1px solid var(--sh-border, rgba(127,127,127,.35)); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.bench label.row { display: flex; gap: 10px; align-items: flex-start; min-height: 44px; align-items: center; }
+.bench .small { font-size: .875rem; color: var(--sh-muted); margin: 0; }
+.bench pre { font-family: var(--sh-font-mono); font-size: .8rem; white-space: pre-wrap; word-break: break-word; margin: 0; max-height: 260px; overflow: auto; }
+.bench .warn { border-left: 3px solid var(--sh-warn, #d9a400); padding: 4px 10px; margin: 0; }
+.bench .bar { height: 6px; border-radius: 3px; background: rgba(127,127,127,.3); overflow: hidden; }
+.bench .bar > i { display: block; height: 100%; background: var(--sh-text); }
+.bench .buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.bench .result { border-top: 1px solid rgba(127,127,127,.25); padding-top: 8px; font-size: .9rem; }
+.bench .result b { font-family: var(--sh-font-mono); }
+.bench .failed { color: var(--sh-rec, #e0453a); }

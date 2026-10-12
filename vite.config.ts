@@ -3,6 +3,7 @@ import { defineConfig } from 'vite'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import fs from 'fs'
+import { fileURLToPath } from 'node:url'
 
 // Local HTTPS dev certs (mkcert, gitignored). Absent in CI/Vercel, where only `vite build` runs.
 const CERT_KEY = './localhost+2-key.pem'
@@ -34,6 +35,8 @@ export default defineConfig({
     minify: 'esbuild',
     sourcemap: false,
     rollupOptions: {
+      // /bench is the on-device benchmark page (not linked from the editor).
+      input: { main: fileURLToPath(new URL('./index.html', import.meta.url)), bench: fileURLToPath(new URL('./bench.html', import.meta.url)) },
       output: {
         manualChunks: {
           // Separate vendor chunks for better caching
