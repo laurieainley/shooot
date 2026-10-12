@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { JobKind } from '../render/renderJob'
 import { renderJobs, useRenderJobs } from '../renderJobs'
 import { loadLastReport } from '../render/diagnostics'
@@ -12,12 +12,31 @@ interface RenderStatusProps {
     kind: JobKind
 }
 
-const CONFIRM_AFTER_MS = 10_000
+const STOPPED_NOTE_MS = 5000
 const dedupe = (skipped: { label: string; reason: string }[]): { label: string; reason: string }[] => [...new Map(skipped.map((g) => [`${g.label}|${g.reason}`, g])).values()]
 const NAMES: Record<JobKind, string> = { highlights: 'highlights', fullMatch: 'full match' }
 
-/** The render's progress, Cancel (confirmed after 10 s), skipped graphics, and the downloaded file. */
+/** The render's progress, Cancel (confirmed in place; once confirmed the box goes at once), skipped graphics, and the downloaded file. */
 export function RenderStatus({ kind }: RenderStatusProps) {
+    const stopping = useRenderJobs((s) => s.stopping)
+    const queued = useRenderJobs((s) => s.queued)
+    const [stopped, setStopped] = useState(false)
+    useEffect(() => {
+        if (!stopped) return
+        const t = setTimeout(() => setStopped(false), STOPPED_NOTE_MS)
+        return () => clearTimeout(t)
+    }, [stopped])
+    const note = stopping ? 'Stopping render…' : stopped ? 'Render stopped' : ''
+    return (
+        <>
+            <RenderStatusBody kind={kind} onStopped={() => setStopped(true)} />
+            {queued && <p className="render-stopping m-0 text-[12px] text-muted">Stopping the previous render… yours starts next.</p>}
+            {note && <span role="status" className="sr-only">{note}</span>}
+        </>
+    )
+}
+
+function RenderStatusBody({ kind, onStopped }: RenderStatusProps & { onStopped: () => void }) {
     const job = useRenderJobs((s) => s.job)
     const conflict = useRenderJobs((s) => s.conflict)
     const [confirming, setConfirming] = useState(false)
@@ -32,25 +51,41 @@ export function RenderStatus({ kind }: RenderStatusProps) {
     }, [job?.phase])
 
     const jobs = renderJobs().getState()
-    const askCancel = (): void => {
-        if (job && Date.now() - job.startedAt > CONFIRM_AFTER_MS) setConfirming(true)
-        else jobs.cancel()
-    }
-    const cancelControls = confirming ? (
-        <span role="group" aria-label="Cancel the render?" className="flex flex-wrap items-center gap-2">
-            <span>Cancel at {Math.round((job?.fraction ?? 0) * 100)}%?</span>
-            <button type="button" className="btn-quiet btn-danger" onClick={() => { setConfirming(false); jobs.cancel() }}>Cancel render</button>
-            <button type="button" className="btn-quiet" onClick={() => setConfirming(false)}>Keep rendering</button>
-        </span>
-    ) : <button type="button" className="btn-quiet" onClick={askCancel}>Cancel</button>
+    const keepRef = useRef<HTMLButtonElement>(null)
+    useEffect(() => {
+        if (!confirming) return
+        keepRef.current?.focus()
+        const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') { e.stopPropagation(); setConfirming(false) } }
+        document.addEventListener('keydown', onKey, true)
+        return () => document.removeEventListener('keydown', onKey, true)
+    }, [confirming])
+    const stop = (): void => { setConfirming(false); jobs.cancel(); onStopped() }
+    /** The whole box: its message, or (after Cancel) a one-line "Stop at 42%?" in the same place. */
+    const busyBox = (message: string, pct?: string) => (
+        <div className="render-busy render-busy--active" role={confirming ? 'group' : undefined} aria-label={confirming ? 'Stop the render?' : undefined}>
+            {confirming ? (
+                <>
+                    <span className="render-busy__text">Stop at {Math.round((job?.fraction ?? 0) * 100)}%?</span>
+                    <span className="render-busy__actions">
+                        <button type="button" className="btn-quiet render-busy__btn" onClick={stop}>Stop</button>
+                        <button type="button" ref={keepRef} className="btn-quiet render-busy__btn" onClick={() => setConfirming(false)}>Keep going</button>
+                    </span>
+                </>
+            ) : (
+                <>
+                    <span className="render-busy__text" data-pct={pct}>{message}</span>
+                    <span className="render-busy__actions">
+                        <button type="button" className="btn-quiet render-busy__btn" onClick={() => setConfirming(true)}>Cancel</button>
+                    </span>
+                </>
+            )}
+        </div>
+    )
 
     if (job && job.kind !== kind) {
         if (job.phase !== 'running') return null
         return (
-            <div className="render-busy" role="status">
-                <p className="m-0">Rendering {NAMES[job.kind]} · {Math.round(job.fraction * 100)}%{conflict ? ' — one render at a time: cancel it to start this one.' : ''}</p>
-                {cancelControls}
-            </div>
+            busyBox(`Rendering ${NAMES[job.kind]} · ${Math.round(job.fraction * 100)}%${conflict ? ' — one render at a time: cancel it to start this one.' : ''}`)
         )
     }
     if (!job) {
@@ -77,12 +112,7 @@ export function RenderStatus({ kind }: RenderStatusProps) {
     }
     return (
         <>
-            {job.phase === 'running' && (
-                <div className="render-busy">
-                    <p className="m-0">{keepOpenNotice(navigator)}{conflict ? ' One render at a time.' : ''}</p>
-                    {cancelControls}
-                </div>
-            )}
+            {job.phase === 'running' && busyBox(`${keepOpenNotice(navigator)}${conflict ? ' One render at a time.' : ''}`, `${Math.round(job.fraction * 100)}%`)}
             {job.phase === 'running' && <p className="render-voice voice-heading">{POLISHING}</p>}
             <div role="status" className="tc text-[12px] text-muted">{job.phase === 'failed' ? `Render failed: ${job.error}` : job.status}</div>
             <SkippedList skipped={skipped} />

@@ -1,6 +1,6 @@
 # Clip download and calmer event rows — design
 
-Date: 2026-10-10 · Status: approved in conversation, awaiting written-spec review
+Date: 2026-10-10 (currency review 2026-10-12) · Status: approved in conversation, awaiting written-spec review
 
 ## Why
 
@@ -9,8 +9,8 @@ each row carries an assist line, a file tag and four action buttons. Making room
 moment to move secondary actions out of the row.
 
 Out of scope (parked in `docs/superpowers/notes/ideas.md`): vertical (9:16) clips and automatic reframing (ball /
-player tracking). The description tidy-up (no assists, no scorer minutes, team abbreviations) is a separate bounded
-change on `feat/description-tidy`.
+player tracking). The description tidy-up (no assists, no scorer minutes, team abbreviations) shipped separately
+(`deaba2c`).
 
 ## Decisions (from the user)
 
@@ -48,6 +48,11 @@ change on `feat/description-tidy`.
 - Keyboard: unchanged shortcuts in the focused log (Enter watch, ⌫ delete, R replay, E/T/N edit). Tab from the
   list moves into the action row of the selected event; Shift+Tab returns.
 - Brand: chalk icons; lime only on the popover's Download button. No new colours; tokens only.
+- Leave the rail's other parts as they are: the header (+ Tag event, undo/redo, ?), the relink banner, and the Find goals
+  rows at the top of the list (`FindGoalsProgress`, and the planned "Review suggestions (N left)" button from
+  `2026-10-11-review-actions-toasts-design.md`). Events tagged from the Find goals review card appear as normal rows and
+  get the same selection/expansion (the review panel stays open while tagging).
+- Update AGENTS.md §7 "Events rail" when this ships (it still lists the assist line, file number and inline buttons).
 
 ## 2. Clip download
 
@@ -66,7 +71,7 @@ in `src/utils/exportPlans.ts`:
 - Sources: `resolveRenderSources` as for the reel (full files when attached, else proxies with the existing
   "preview quality" handling).
 - Output name: `<home>-<away>-<minute>-<type>[-<person>].mp4`, lower-case, ASCII, from team initials, the match
-  minute, a short type slug (`goal`, `pen-goal`, `own-goal`, `save`, `highlight` …) and the person; e.g.
+  minute (same `matchMinute` as the captions, which now read `34'`), a short type slug (`goal`, `pen-goal`, `own-goal`, `save`, `highlight` …) and the person; e.g.
   `haw-lio-13-goal-dj.mp4`. Without teams: `clip-13-goal-dj.mp4`. Pure helper `clipFileName()` in
   `src/utils/clipName.ts`.
 - Not resumable (short).
@@ -83,10 +88,14 @@ in `src/utils/exportPlans.ts`:
 - ⬇ opens `ClipDownloadPopover` (FloatingPanel anchored; sheet on phones): ☑ Score (hidden when teams aren't set),
   ☑ Replay (hidden when the event has no replay), primary **Download**.
 - Choices persist in the store (`clipOptions: { score: boolean; replay: boolean }`, default both true): state
-  version bump + migration + test; project import/transfer ignore it (device preference).
-- Download starts a render through the existing render manager (`renderJobs`) with kind `clip`; progress on the
-  Export button as today, auto-download once, report/diagnostics as for other renders.
-- While another render is running, Download is disabled with "A render is in progress".
+  version bump (currently 20; take the next free number at implementation time — other branches are bumping it too)
+  + migration + test; project import/transfer ignore it (device preference).
+- Download starts a render through the existing render manager (`renderJobs`); `JobKind` (`render/renderJob.ts`,
+  today `'highlights' | 'fullMatch'`) gains `'clip'`. Progress on the Export button as today, auto-download once,
+  report/diagnostics as for other renders. If the toast store from the review-actions spec exists by then, also
+  confirm with a toast ("Clip ready — downloaded"); otherwise the Export button's Ready state is enough.
+- While another render is running, Download is disabled with "A render is in progress" (`renderJobs.start` already
+  answers `'busy'`; the disabled state just says so up front).
 - A clip whose event isn't linked to a loaded file: Download disabled with "Relink the file first".
 
 ## 3. Error handling

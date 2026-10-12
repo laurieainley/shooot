@@ -79,17 +79,17 @@ describe('AppShell', () => {
         expect(screen.getByLabelText('Replay before')).toBeInTheDocument()
     })
 
-    it('should show only Files, Setup, Export and the menu in the desktop top bar', () => {
+    it('should show only Files, Match setup, Export and the menu in the desktop top bar', () => {
         setWidth(true)
         const { container } = render(<AppShell />)
         const bar = container.querySelector('.top-bar')! as HTMLElement
         expect(within(bar).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Files: 1 file · 10:00', 'Match setup', 'Export', 'Menu'])
-        expect(bar).toHaveTextContent('Setup')
+        expect(bar).toHaveTextContent('Match setup')
         expect(bar).not.toHaveTextContent('GX010226')
         expect(bar.querySelectorAll('.btn-primary, .render-chip')).toHaveLength(0)
     })
 
-    it('should open Match setup from the Setup button on desktop', async () => {
+    it('should open Match setup from the Match setup button on desktop', async () => {
         setWidth(true)
         render(<AppShell />)
         await userEvent.click(screen.getByRole('button', { name: 'Match setup' }))
@@ -125,7 +125,7 @@ describe('AppShell', () => {
 
     it('should put the preview bar below the video on the phone', () => {
         setWidth(false)
-        useAppState.setState({ isPreviewMode: true, previewSegments: [], previewSteps: [{ sourceIndex: 0, startSec: 0, endSec: 10, speed: 1, gain: 1, replay: false, clipIndex: 0 }], currentPreviewSegment: 0 })
+        useAppState.setState({ isPreviewMode: true, previewSegments: [], previewSteps: [{ sourceIndex: 0, startSec: 0, endSec: 10, speed: 1, gain: 1, replay: false, clipIndex: 0, eventIds: [] }], currentPreviewSegment: 0 })
         const { container } = render(<AppShell />)
         const bar = screen.getByRole('group', { name: 'Preview' })
         expect(container.querySelector('.stage')).not.toContainElement(bar)
@@ -165,7 +165,7 @@ describe('AppShell', () => {
 
         it('should float the preview bar over the picture rather than stacking it below', () => {
             setLandscape()
-            useAppState.setState({ isPreviewMode: true, previewSegments: [], previewSteps: [{ sourceIndex: 0, startSec: 0, endSec: 10, speed: 1, gain: 1, replay: false, clipIndex: 0 }], currentPreviewSegment: 0 })
+            useAppState.setState({ isPreviewMode: true, previewSegments: [], previewSteps: [{ sourceIndex: 0, startSec: 0, endSec: 10, speed: 1, gain: 1, replay: false, clipIndex: 0, eventIds: [] }], currentPreviewSegment: 0 })
             const { container } = render(<AppShell />)
             expect(container.querySelector('.stage')).toContainElement(screen.getByRole('group', { name: 'Preview' }))
         })

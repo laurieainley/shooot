@@ -20,15 +20,36 @@ describe('PreviewControls', () => {
         s().addEvents([{ id: 'g', matchTimeSec: 50, sourceFileIndex: 0, type: 'goal' }, { id: 'h', matchTimeSec: 200, sourceFileIndex: 0, type: 'highlight' }])
     })
 
-    it('should start from clip 1 and show the replay as part of its clip', async () => {
+    it('should start from clip 1, step clip by clip with a label that never changes width', async () => {
         render(<PreviewControls />)
         await userEvent.click(screen.getByRole('button', { name: /preview in player/i }))
-        expect(screen.getByRole('group', { name: 'Preview' })).toHaveTextContent('Clip 1 / 2')
-        await userEvent.click(screen.getByRole('button', { name: 'Next' }))
-        expect(screen.getByRole('group', { name: 'Preview' })).toHaveTextContent('Clip 1 / 2 · replay')
-        await userEvent.click(screen.getByRole('button', { name: 'Next' }))
-        expect(screen.getByRole('group', { name: 'Preview' })).toHaveTextContent('Clip 2 / 2')
-        expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+        const group = screen.getByRole('group', { name: 'Preview' })
+        const count = group.querySelector<HTMLElement>('.preview-controls__count')!
+        const width = count.style.minWidth
+        expect(group).toHaveTextContent('Clip 1 / 2')
+        act(() => s().nextPreviewSegment()) // the replay plays as part of clip 1: no extra text
+        expect(count.textContent).toBe('Clip 1 / 2')
+        await userEvent.click(screen.getByRole('button', { name: 'Next clip' }))
+        expect(count.textContent).toBe('Clip 2 / 2')
+        expect(count.style.minWidth).toBe(width)
+        expect(screen.getByRole('button', { name: 'Next clip' })).toBeDisabled()
+        await userEvent.click(screen.getByRole('button', { name: 'Previous clip' }))
+        expect(count.textContent).toBe('Clip 1 / 2')
+    })
+
+    it('should mark the clip\'s events in the list, as a replay while the replay plays', () => {
+        const id = s().events.find((e) => !e.unlinked)!.id
+        const row = document.createElement('li')
+        row.dataset.eventId = id
+        document.body.appendChild(row)
+        act(() => s().startPreview())
+        render(<PreviewControls />)
+        expect(row.dataset.previewing).toBe('clip')
+        act(() => s().nextPreviewSegment())
+        expect(row.dataset.previewing).toBe('replay')
+        act(() => s().exitPreview())
+        expect(row.dataset.previewing).toBeUndefined()
+        row.remove()
     })
 
     it('should exit with the Exit button', async () => {

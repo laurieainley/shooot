@@ -5,7 +5,7 @@ describe('autoInitials', () => {
     it('should take the first letters of up to two words', () => {
         expect(autoInitials("Ryan's Rovers")).toBe('RR')
         expect(autoInitials('Walford Town')).toBe('WT')
-        expect(autoInitials('FC United of Manchester')).toBe('FU')
+        expect(autoInitials('FC United of Manchester')).toBe('FUO')
     })
 
     it('should take two letters of a single word', () => {

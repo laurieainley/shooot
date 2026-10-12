@@ -22,27 +22,86 @@ describe('RenderStatus', () => {
         }))
     })
 
-    it('should cancel a young render at once', async () => {
+    const runningAt = async (fraction: number) => {
+        const done = start()
+        await waitFor(() => expect(renderJobs().getState().job?.phase).toBe('running'))
+        renderJobs().setState({ job: { ...renderJobs().getState().job!, fraction } })
+        return done
+    }
+
+    it('should swap Cancel for a one-line confirm in place, and Keep going restores it', async () => {
+        const done = runningAt(0.5)
+        render(<RenderStatus kind="fullMatch" />)
+        const box = document.querySelector('.render-busy')!
+        await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+        expect(document.querySelector('.render-busy')).toBe(box)
+        expect(screen.getByText('Stop at 50%?')).toBeInTheDocument()
+        await userEvent.click(screen.getByRole('button', { name: 'Keep going' }))
+        expect(renderJobs().getState().job?.phase).toBe('running')
+        expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+        expect(screen.queryByText('Stop at 50%?')).not.toBeInTheDocument()
+        renderJobs().getState().cancel()
+        await done
+    })
+
+    it('should treat Escape as Keep going', async () => {
+        const done = runningAt(0.2)
+        render(<RenderStatus kind="fullMatch" />)
+        await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+        await userEvent.keyboard('{Escape}')
+        expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+        expect(renderJobs().getState().job?.phase).toBe('running')
+        renderJobs().getState().cancel()
+        await done
+    })
+
+    it('should hide the box the moment Stop is pressed, even young, and announce it', async () => {
         const done = start()
         render(<RenderStatus kind="fullMatch" />)
         await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
-        await done
+        await userEvent.click(screen.getByRole('button', { name: 'Stop' }))
+        expect(document.querySelector('.render-busy')).toBeNull()
         expect(renderJobs().getState().job).toBeNull()
+        expect(screen.getByRole('status')).toHaveTextContent(/Stopping render|Render stopped/)
+        await done
+        await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Render stopped'))
     })
 
-    it('should ask before cancelling a render that is more than 10 s in', async () => {
+    it('should not bring the box back, or show a result, when the engine reports after Stop', async () => {
+        let late!: { onProgress: (p: unknown) => void; finish: () => void }
+        renderReel.mockImplementation((_c, _s, o: { onProgress: (p: unknown) => void }) => new Promise((resolve) => { late = { onProgress: o.onProgress, finish: () => resolve(new Blob(['x'])) } }))
         const done = start()
-        await waitFor(() => expect(renderJobs().getState().job?.phase).toBe('running'))
-        renderJobs().setState({ job: { ...renderJobs().getState().job!, startedAt: Date.now() - 20_000, fraction: 0.5 } })
         render(<RenderStatus kind="fullMatch" />)
+        await waitFor(() => expect(late).toBeDefined())
         await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-        expect(screen.getByText('Cancel at 50%?')).toBeInTheDocument()
-        await userEvent.click(screen.getByRole('button', { name: 'Keep rendering' }))
-        expect(renderJobs().getState().job?.phase).toBe('running')
-        await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-        await userEvent.click(screen.getByRole('button', { name: 'Cancel render' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Stop' }))
+        late.onProgress({ fraction: 0.9 })
+        expect(document.querySelector('.render-busy')).toBeNull()
+        late.finish()
         await done
         expect(renderJobs().getState().job).toBeNull()
+        expect(screen.queryByText(/Reel ready|Render failed|Downloaded/)).not.toBeInTheDocument()
+    })
+
+    it('should start a queued render once the stopping one has ended, and it works', async () => {
+        let abortNow!: () => void
+        renderReel.mockImplementationOnce((_c, _s, o: { signal: AbortSignal }) => new Promise((_, reject) => {
+            abortNow = () => reject(new DOMException('Render cancelled', 'AbortError'))
+            o.signal.addEventListener('abort', () => undefined)
+        }))
+        renderReel.mockImplementationOnce(async () => new Blob(['x']))
+        const first = start()
+        render(<RenderStatus kind="fullMatch" />)
+        await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Stop' }))
+        const second = start()
+        expect(await screen.findByText(/Stopping the previous render/)).toBeInTheDocument()
+        expect(renderJobs().getState().job).toBeNull()
+        abortNow()
+        await first
+        await second
+        expect(renderJobs().getState().job?.phase).toBe('done')
+        expect(screen.queryByText(/Stopping the previous render/)).not.toBeInTheDocument()
     })
 
     it('should show a render of the other export as running, with its own Cancel', async () => {

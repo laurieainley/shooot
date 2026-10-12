@@ -61,7 +61,8 @@ export function runShortcut(action: ShortcutAction, p: ShortcutPlayer, zoom: Zoo
             break
         }
         case 'jumpEnd': { const d = p.duration(); if (d) p.currentTime(d - 1); break }
-        case 'prevFile': switchFile(-1); break
-        case 'nextFile': switchFile(1); break
+        // In the preview, [ ] move between clips instead of files.
+        case 'prevFile': if (useAppState.getState().isPreviewMode) useAppState.getState().stepPreviewClip(-1); else switchFile(-1); break
+        case 'nextFile': if (useAppState.getState().isPreviewMode) useAppState.getState().stepPreviewClip(1); else switchFile(1); break
     }
 }

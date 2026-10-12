@@ -4,6 +4,7 @@ import { ClipSettings } from './ClipSettings'
 import { EventSheet } from './EventSheet'
 import { FilesSheet } from './FilesSheet'
 import { MatchSetup } from './MatchSetup'
+import { NewMatchFlow } from './NewMatchFlow'
 import { ImportModal } from './ImportModal'
 import { SuggestionReview } from './SuggestionReview'
 import { Sheet } from './Sheet'
@@ -18,6 +19,7 @@ export function Panels() {
     switch (panel) {
         case 'files': return <FilesSheet onClose={close} />
         case 'match': return <MatchSetup onClose={close} />
+        case 'newmatch': return <NewMatchFlow onClose={close} />
         case 'settings': return <Sheet label="Advanced settings" onClose={close} className="sheet--narrow"><ClipSettings /></Sheet>
         case 'shortcuts': return <ShortcutsSheet onClose={close} />
         case 'review': return <SuggestionReview onClose={close} />

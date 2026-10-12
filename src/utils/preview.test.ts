@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildPreviewPlan, shouldAdvance, previewVolume, type PreviewStep } from './preview'
+import { buildPreviewPlan, clipStep, shouldAdvance, previewVolume, type PreviewStep } from './preview'
 import type { HighlightSegment } from './highlights'
 import type { MatchEvent } from '../types'
 
@@ -37,7 +37,7 @@ describe('buildPreviewPlan — crops', () => {
 })
 
 describe('shouldAdvance', () => {
-    const step: PreviewStep = { sourceIndex: 0, startSec: 90, endSec: 104, speed: 1, gain: 1, replay: false, clipIndex: 0 }
+    const step: PreviewStep = { sourceIndex: 0, startSec: 90, endSec: 104, speed: 1, gain: 1, replay: false, clipIndex: 0, eventIds: [] }
 
     it('should advance at the end of the step once its seek has landed', () => {
         expect(shouldAdvance(104, step, true)).toBe(true)
@@ -51,7 +51,7 @@ describe('shouldAdvance', () => {
 })
 
 describe('previewVolume', () => {
-    const step = (gain: number): PreviewStep => ({ sourceIndex: 0, startSec: 0, endSec: 5, speed: gain < 1 ? 0.5 : 1, gain, replay: gain < 1, clipIndex: 0 })
+    const step = (gain: number): PreviewStep => ({ sourceIndex: 0, startSec: 0, endSec: 5, speed: gain < 1 ? 0.5 : 1, gain, replay: gain < 1, clipIndex: 0, eventIds: [] })
 
     it('should play a replay at half the volume the viewer chose, as rendered', () => {
         expect(previewVolume(0.8, step(0.5))).toBeCloseTo(0.4)
@@ -66,5 +66,29 @@ describe('previewVolume', () => {
         expect(previewVolume(2, step(1))).toBe(1)
         expect(previewVolume(-1, step(1))).toBe(0)
         expect(previewVolume(Number.NaN, step(0.5))).toBe(0.5)
+    })
+})
+
+describe('clipStep', () => {
+    // clip 0: normal + replay, clip 1: normal only, clip 2: normal + replay
+    const steps = [[0, false], [0, true], [1, false], [2, false], [2, true]].map(([clipIndex, replay]) =>
+        ({ sourceIndex: 0, startSec: 0, endSec: 5, speed: 1, gain: 1, replay, clipIndex, eventIds: [] }) as PreviewStep)
+
+    it('should go to the first step of the next clip, skipping the replay', () => {
+        expect(clipStep(steps, 0, 1)).toBe(2)
+        expect(clipStep(steps, 1, 1)).toBe(2)
+        expect(clipStep(steps, 4, 1)).toBe(4) // last clip: stays
+    })
+
+    it('should restart the clip from its replay, else go to the previous clip', () => {
+        expect(clipStep(steps, 4, -1)).toBe(3)
+        expect(clipStep(steps, 3, -1)).toBe(2)
+        expect(clipStep(steps, 2, -1)).toBe(0)
+        expect(clipStep(steps, 0, -1)).toBe(0)
+    })
+
+    it('should list each clip\'s events on its steps', () => {
+        const plan = buildPreviewPlan([seg(0, 90, 104, [g('a', 100), g('b', 102)])], [600], REPLAY)
+        expect(plan.every((s) => s.eventIds.join() === 'a,b')).toBe(true)
     })
 })

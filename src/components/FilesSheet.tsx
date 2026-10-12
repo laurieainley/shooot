@@ -47,7 +47,7 @@ export function FilesSheet({ onClose }: FilesSheetProps) {
     }
 
     return (
-        <Sheet label="Files" onClose={onClose} className="sheet--narrow">
+        <Sheet label="Files" onClose={onClose} className="sheet--roomy">
             {files.length === 0
                 ? <p className="m-0 py-3 text-[13px] text-muted">No videos loaded.</p>
                 : (

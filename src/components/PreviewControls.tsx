@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useAppState } from '../state'
+import type { PreviewStep } from '../utils/preview'
 
 interface PreviewControlsProps {
     onStart?: () => void
@@ -16,8 +17,7 @@ export function PreviewControls({ onStart }: PreviewControlsProps) {
     const current = useAppState((s) => s.currentPreviewSegment)
     const startPreview = useAppState((s) => s.startPreview)
     const exitPreview = useAppState((s) => s.exitPreview)
-    const nextPreviewSegment = useAppState((s) => s.nextPreviewSegment)
-    const prevPreviewSegment = useAppState((s) => s.prevPreviewSegment)
+    const stepPreviewClip = useAppState((s) => s.stepPreviewClip)
     const hasEvents = useAppState((s) => s.events.some((e) => !e.unlinked))
 
     // Esc leaves the preview (unless a menu, sheet or the picker has it).
@@ -33,15 +33,19 @@ export function PreviewControls({ onStart }: PreviewControlsProps) {
         return () => window.removeEventListener('keydown', onKey)
     }, [isPreviewMode])
 
+    const step = steps[current]
+    usePreviewRowMarks(isPreviewMode ? step : undefined)
+
     if (isPreviewMode) {
-        const step = steps[current]
         const clips = steps.length > 0 ? steps[steps.length - 1].clipIndex + 1 : 0
+        const clip = (step?.clipIndex ?? 0) + 1
         return (
             <div className="preview-controls" role="group" aria-label="Preview">
                 <span className="preview-controls__label">Preview</span>
-                <button type="button" aria-label="Previous" onClick={prevPreviewSegment} disabled={current === 0} className="btn-icon">←</button>
-                <span className="tc text-[13px]">Clip {(step?.clipIndex ?? 0) + 1} / {clips}{step?.replay ? ' · replay' : ''}</span>
-                <button type="button" aria-label="Next" onClick={nextPreviewSegment} disabled={current >= steps.length - 1} className="btn-icon">→</button>
+                <button type="button" aria-label="Previous clip" title="Previous clip ([)" onClick={() => stepPreviewClip(-1)} disabled={current === 0} className="btn-icon">←</button>
+                {/* Fixed width (sized for the largest count) so the arrows never move. */}
+                <span className="preview-controls__count tc text-[13px]" style={{ minWidth: `${6 + 2 * String(clips).length}ch` }}>Clip {clip} / {clips}</span>
+                <button type="button" aria-label="Next clip" title="Next clip (])" onClick={() => stepPreviewClip(1)} disabled={clip >= clips} className="btn-icon">→</button>
                 <button type="button" onClick={exitPreview} className="btn-quiet">Exit</button>
             </div>
         )
@@ -52,4 +56,22 @@ export function PreviewControls({ onStart }: PreviewControlsProps) {
             Preview in player
         </button>
     )
+}
+
+/**
+ * Highlights the events of the clip being previewed in the event list (and scrolls to them): `data-previewing` on
+ * their rows ("clip", or "replay" while the slowed replay plays). Set on the rows' existing `data-event-id`, so the
+ * list itself needs no preview state.
+ */
+function usePreviewRowMarks(step: PreviewStep | undefined): void {
+    const ids = step?.eventIds.join(' ') ?? ''
+    const replay = !!step?.replay
+    const events = useAppState((s) => s.events) // the list re-renders rows: mark them again
+    useEffect(() => {
+        if (!ids) return
+        const rows = ids.split(' ').flatMap((id) => Array.from(document.querySelectorAll<HTMLElement>(`[data-event-id="${CSS.escape(id)}"]`)))
+        for (const r of rows) r.dataset.previewing = replay ? 'replay' : 'clip'
+        rows[0]?.scrollIntoView?.({ block: 'nearest' })
+        return () => { for (const r of rows) delete r.dataset.previewing }
+    }, [ids, replay, events])
 }
