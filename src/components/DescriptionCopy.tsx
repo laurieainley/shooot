@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useSavedTimeline } from '../renderTimelines'
+import { fullMatchExport, highlightsExport, type ExportState } from '../utils/exportPlans'
 import { useAppState } from '../state'
 import { CARD_SEC } from '../graphics/layout'
 import { fullMatchDescription, highlightsDescription } from '../utils/descriptions'
@@ -14,6 +16,28 @@ interface DescriptionCopyProps {
 export function DescriptionCopy({ kind }: DescriptionCopyProps) {
     const hasEvents = useAppState((s) => linkedEvents(s.events).length > 0)
     const [copied, setCopied] = useState<string | null>(null)
+    const saved = useSavedTimeline(kind)
+    // Real times only while the plan is the one that was rendered (either quality); otherwise they are estimates.
+    const exactFor = (st: ExportState) => {
+        if (!saved) return null
+        const plan = kind === 'highlights' ? highlightsExport : fullMatchExport
+        return (['full', 'preview'] as const).some((q) => plan(st, q).signature === saved.signature) ? saved.timeline : null
+    }
+    // Only the fields an export plan reads (not playback time), so this does not recompute while the video plays.
+    const files = useAppState((s) => s.files), events = useAppState((s) => s.events), offsets = useAppState((s) => s.cumulativeOffsets)
+    const before = useAppState((s) => s.lengthBeforeGoalSec), after = useAppState((s) => s.lengthAfterGoalSec)
+    const replayBefore = useAppState((s) => s.replayBeforeSec), replayAfter = useAppState((s) => s.replayAfterSec), replaySpeed = useAppState((s) => s.replaySpeed)
+    const graphics = useAppState((s) => s.graphics), teams = useAppState((s) => s.teams), matchday = useAppState((s) => s.matchdayLabel)
+    const fullMatch = useAppState((s) => s.fullMatch), goalAreas = useAppState((s) => s.goalAreas)
+    const estimated = useMemo(() => {
+        if (events.length === 0) return false
+        const st: ExportState = {
+            files, events, cumulativeOffsets: offsets, lengthBeforeGoalSec: before, lengthAfterGoalSec: after,
+            replayBeforeSec: replayBefore, replayAfterSec: replayAfter, replaySpeed, graphics, teams, matchdayLabel: matchday, fullMatch, goalAreas,
+        }
+        return exactFor(st) === null
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- exactFor only reads `saved` and `kind`
+    }, [files, events, offsets, before, after, replayBefore, replayAfter, replaySpeed, graphics, teams, matchday, fullMatch, goalAreas, saved, kind])
 
     const copy = async (label: string, make: () => string): Promise<void> => {
         await navigator.clipboard.writeText(make())
@@ -26,7 +50,9 @@ export function DescriptionCopy({ kind }: DescriptionCopyProps) {
             events: st.events, teams: st.teams, cumulativeOffsets: st.cumulativeOffsets,
             before: st.lengthBeforeGoalSec, after: st.lengthAfterGoalSec,
             replay: { beforeSec: st.replayBeforeSec, afterSec: st.replayAfterSec, speed: st.replaySpeed },
-            introSec: st.graphics.cards && st.teams.length >= 2 ? CARD_SEC : 0,
+            durationsSec: st.files.map((f) => f.durationSec),
+            timeline: exactFor(st),
+            introSec: (kind === 'highlights' ? highlightsExport : fullMatchExport)(st, 'full').spec?.intro ? CARD_SEC : 0,
         }
         return kind === 'highlights' ? highlightsDescription(args) : fullMatchDescription(args)
     }
@@ -42,6 +68,7 @@ export function DescriptionCopy({ kind }: DescriptionCopyProps) {
                 className="btn-quiet">
                 Copy goalscorers
             </button>
+            {estimated && <span className="text-[12px] text-muted">Times are estimates until you render.</span>}
             {copied && <span role="status" className="text-[12px] text-muted">{copied} copied</span>}
         </div>
     )

@@ -11,12 +11,13 @@ import { hasInbandParams, joinEntryConfig, planJoin, profileOf, type JoinPlan } 
 import { craToBla, lengthSize, withInbandParams } from './nal'
 import { clipPartSeconds, replayPartAfter } from './captionJoin'
 import { planAudio } from './audioPlan'
+import { cutTiming } from '../utils/chapterTimes'
 import { mixedSizeNotice } from './outputSize'
 import { overlayRegions } from './overlayRegions'
 import { encodeReplayAudio } from './replayAudio'
 import { makeSilentAudio, type SilentAudio } from './silentAudio'
 import { canJournal, discardJob, loadJob, openUnit, readUnit, removeUnit, saveJob, type JobState, type UnitWriter } from './renderJob'
-import type { Cut, GraphicsReport, RenderCard, RenderFn, RenderGraphics, RenderOptions, RenderOverlay, RenderSource } from './types'
+import type { Cut, CutTiming, GraphicsReport, RenderCard, RenderFn, RenderGraphics, RenderOptions, RenderOverlay, RenderSource } from './types'
 
 const OUTPUT_NAME = 'highlights.mp4'
 
@@ -275,12 +276,17 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
         // Journaled (resumable) renders write every unit to its own log and mux at the end; others write the MP4 directly.
         let journal: { state: JobState } | null = null
         let startUnit = 0
+        // Where every cut really landed in the output (reported at the end, for the YouTube chapters).
+        let timings: (CutTiming | null)[] = cuts.map(() => null)
+        let timingsKnown = true
         if (opts.resumable && await canJournal()) {
             const prev = await loadJob()
             const same = prev && prev.signature === opts.resumable.signature && prev.graphics === !!run && prev.unitCount === cuts.length + 2
             if (same && prev.unitsDone > 0) {
                 journal = { state: prev }
                 startUnit = prev.unitsDone
+                if (prev.timings?.length === cuts.length) timings = prev.timings
+                else timingsKnown = false // saved by an older version: the finished cuts' places are not known
             } else {
                 await discardJob()
                 const state: JobState = {
@@ -537,6 +543,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                     }
                 }
             }
+            timings[ci] = cutTiming(cursor, cutStart, cutEnd, speed)
             cursor += outSpan
             done += span(cut)
             onProgress({ cutIndex: ci, cutCount: cuts.length, fraction: Math.min(1, done / total) })
@@ -565,7 +572,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                 if (journal && unitWriter) {
                     await unitWriter.close()
                     unitWriter = null
-                    await saveJob({ ...journal.state, unitsDone: u + 1, cursor, done, total, copied, report: run ? structuredClone(run.report) : null })
+                    await saveJob({ ...journal.state, unitsDone: u + 1, cursor, done, total, copied, timings, report: run ? structuredClone(run.report) : null })
                 }
             }
             if (journal) {
@@ -574,12 +581,14 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                 const file = await muxUnits(journal.state.outputName, unitCount, first, audioSource, journal.state.video!, journal.state.audio, signal)
                 await discardJob()
                 endMux()
+                if (timingsKnown) opts.onTimeline?.(timings)
                 return file
             }
             const endFin = diag.begin('finalize')
             await direct!.output.finalize()
             const file = await direct!.result()
             endFin()
+            if (timingsKnown) opts.onTimeline?.(timings)
             return file
         } catch (e) {
             await unitWriter?.abort()

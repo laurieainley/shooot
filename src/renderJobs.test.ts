@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createRenderJobs, type RenderJobDeps } from './renderJobs'
 import type { RenderRequest } from './renderJobs'
+import { resetTimelines, savedTimeline } from './renderTimelines'
 
 const req = (name = 'highlights.mp4'): RenderRequest => ({ cuts: [{ sourceIndex: 0, startSec: 0, endSec: 1 }], sources: [], outputName: name })
 
@@ -160,5 +161,22 @@ describe('render job manager', () => {
             await done
             expect(answer).toBe(false)
         })
+    })
+})
+
+describe('render job timeline', () => {
+    it('should keep where the cuts landed under the request signature when the render finishes', async () => {
+        resetTimelines()
+        const timeline = [{ outStartSec: 4, sourceStartSec: 89, outDurationSec: 22 }]
+        const { store } = setup(async (_c, _s, o) => { o.onTimeline?.(timeline); return new Blob(['x']) })
+        await store.getState().start({ kind: 'highlights', quality: 'full' }, async () => ({ ...req(), signature: 'sig-1' }))
+        expect(savedTimeline('highlights')).toEqual({ signature: 'sig-1', timeline })
+        expect(savedTimeline('fullMatch')).toBeNull()
+    })
+    it('should not keep a timeline of a failed render', async () => {
+        resetTimelines()
+        const { store } = setup(async (_c, _s, o) => { o.onTimeline?.([]); throw new Error('boom') })
+        await store.getState().start({ kind: 'highlights', quality: 'full' }, async () => ({ ...req(), signature: 'sig-2' }))
+        expect(savedTimeline('highlights')).toBeNull()
     })
 })

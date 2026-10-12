@@ -14,15 +14,26 @@ export type ReplayOptions = {
 /** Replays keep their (slowed, pitch-kept) audio at half volume (−6 dB). */
 export const REPLAY_GAIN = 0.5
 
+/** Where a cut of the plan comes from: the clip of segment `segment`, or a replay inside that segment. */
+export type CutOrigin = { segment: number; replay: boolean }
+
 export function buildRenderPlan(segments: HighlightSegment[], durationsSec: number[], replay?: ReplayOptions): Cut[] {
+    return buildRenderPlanWithOrigins(segments, durationsSec, replay).cuts
+}
+
+/** The plan plus, for every cut (same order), which segment it belongs to and whether it is a replay. */
+export function buildRenderPlanWithOrigins(segments: HighlightSegment[], durationsSec: number[], replay?: ReplayOptions): { cuts: Cut[]; origins: CutOrigin[] } {
     const cuts: Cut[] = []
+    const origins: CutOrigin[] = []
+    let segment = 0
     const push = (sourceIndex: number, start: number, end: number, extra: Partial<Cut> = {}): void => {
         const dur = durationsSec[sourceIndex] ?? Infinity
         const startSec = Math.max(0, Math.min(start, dur))
         const endSec = Math.max(0, Math.min(end, dur))
-        if (endSec > startSec) cuts.push({ sourceIndex, startSec, endSec, ...extra })
+        if (endSec > startSec) { cuts.push({ sourceIndex, startSec, endSec, ...extra }); origins.push({ segment, replay: extra.speed !== undefined }) }
     }
-    for (const s of segments) {
+    for (const [si, s] of segments.entries()) {
+        segment = si
         const idx = s.sourceFileIndex
         if (s.startTime < 0 && idx > 0) {
             const prevDur = durationsSec[idx - 1] ?? 0
@@ -40,5 +51,5 @@ export function buildRenderPlan(segments: HighlightSegment[], durationsSec: numb
                 { speed: replay.speed, gain: REPLAY_GAIN, ...(crop ? { crop, cropLabel: `Replay zoom: ${eventLabel(e)} ${formatHMS(e.matchTimeSec)}` } : {}) })
         }
     }
-    return cuts
+    return { cuts, origins }
 }
