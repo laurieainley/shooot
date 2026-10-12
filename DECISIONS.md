@@ -9,6 +9,12 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ---
 
+## 2026-10-13
+
+- **Preview: zoom locked, row ▶ jumps to that clip inside the preview, no speed overlay** (user). *Why:* the preview
+  should show exactly what renders, and jumping around it shouldn't drop you out of it. *Where:* `src/utils/preview.ts`,
+  `src/state.ts` `jumpToPreviewEvent`, `src/components/Player.tsx`.
+
 ## 2026-10-12
 
 - **Roster entry: Enter adds the name and stays in the field; names sit below the field; this device remembers
