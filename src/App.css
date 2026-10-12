@@ -1143,6 +1143,16 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .act-btn[aria-pressed="true"] { border-color: var(--sh-text); }
 .act-btn[aria-pressed="false"] { color: var(--sh-muted); }
 .act-btn--touch { min-height: 44px; min-width: 44px; font-size: 14px; }
+/* Slow-mo replay switch: on = filled track, knob right; off = outlined track, knob left (readable without colour). No lime. */
+.act-switch__track { position: relative; flex: none; width: 26px; height: 16px; border-radius: 8px; border: 1.5px solid var(--sh-muted); background: transparent; box-sizing: border-box; }
+.act-switch__knob { position: absolute; top: 50%; left: 2px; width: 9px; height: 9px; border-radius: 50%; background: var(--sh-muted); transform: translateY(-50%); transition: left 120ms ease, background-color 120ms ease; }
+.act-switch[aria-checked="true"] .act-switch__track { background: var(--sh-text); border-color: var(--sh-text); }
+.act-switch[aria-checked="true"] .act-switch__knob { left: calc(100% - 11px); background: var(--sh-ground); }
+.act-switch[aria-checked="false"] { color: var(--sh-muted); }
+.act-switch__glyph { display: none; }
+@media (prefers-reduced-motion: reduce) { .act-switch__knob { transition: none; } }
+/* The row's passive replay mark (never a button). */
+.event-row__replay { flex: none; color: var(--sh-muted); font-size: 13px; line-height: 1; }
 .act-btn--delete:hover { color: var(--sh-text); border-color: var(--sh-text); }
 /* Touch and narrow rails: no clock-column indent; buttons share the line and wrap (never clip) when the labels do not fit. Under 360px: icons only. */
 @media (pointer: coarse) {
@@ -1157,6 +1167,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 }
 @container event-log (max-width: 360px) {
   .event-actions__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .act-switch__glyph { display: inline; }
   .act-btn { min-width: 36px; padding: 0 6px; }
   .act-btn--touch { min-width: 44px; }
 }

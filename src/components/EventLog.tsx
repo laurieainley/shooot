@@ -76,7 +76,9 @@ export function EventLog() {
     useEffect(() => {
         if (!selectedId) return
         const el = listRef.current?.querySelector<HTMLElement>(`[data-event-id="${CSS.escape(selectedId)}"]`)
-        el?.scrollIntoView?.({ block: 'nearest' })
+        // The expanded row (with its action row) comes fully into view; no animation when motion is reduced.
+        const reduce = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        el?.scrollIntoView?.({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' })
     }, [selectedId])
 
     // Watch = seek to the clip start and play. Selecting a row never moves or starts the video.
@@ -187,7 +189,7 @@ export function EventLog() {
                             onWatch={() => { setSelectedId(e.id); watch(e) }}
                             onEdit={(field) => { setSelectedId(e.id); setEditing(field ? { id: e.id, field } : null) }}
                             onToggleReplay={() => toggleReplay(e)}
-                            onFraming={() => useAppState.getState().editEvent(e.id)}
+                            onFraming={() => useAppState.getState().editEvent(e.id, 'framing')}
                             onRemove={() => remove(events.indexOf(e))}
                             restoreFocus={() => rootRef.current?.focus()}
                             touch={coarse}
@@ -286,6 +288,7 @@ function EventRow({ event: e, teams, selected, clock, score, editing, onSelect, 
                             : <span className="event-row__type">{controlLabel(e)}</span>}
                     </span>
                     {parts.note && <span className="event-row__note" onDoubleClick={(ev) => { stop(ev); onEdit('notes') }}>{parts.note}</span>}
+                    {wantsReplay(e) && <span className="event-row__replay" title="Slow-mo replay on"><span aria-hidden="true">↻</span><span className="sr-only">slow-mo replay</span></span>}
                 </span>
             )}
 

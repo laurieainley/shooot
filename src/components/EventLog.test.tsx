@@ -185,20 +185,33 @@ describe('EventLog replay toggle', () => {
         ])
     })
 
-    it('should show a pressed Replay button for goals and an unpressed one otherwise', async () => {
+    it('should show a Slow-mo replay switch that is on for goals and off otherwise', async () => {
         render(<EventLog />)
         await userEvent.click(rows()[0])
-        expect(screen.getByRole('button', { name: 'Replay' })).toHaveAttribute('aria-pressed', 'true')
+        expect(screen.getByRole('switch', { name: 'Slow-mo replay' })).toBeChecked()
         await userEvent.click(rows()[1])
-        expect(screen.getByRole('button', { name: 'Replay' })).toHaveAttribute('aria-pressed', 'false')
+        expect(screen.getByRole('switch', { name: 'Slow-mo replay' })).not.toBeChecked()
+    })
+
+    it('should show a passive replay glyph in the row, not a button, only while the replay is on', async () => {
+        render(<EventLog />)
+        const glyph = (i: number): Element | null => rows()[i].querySelector('.event-row__replay')
+        expect(glyph(0)).not.toBeNull()
+        expect(glyph(0)).toHaveTextContent('slow-mo replay')
+        expect(glyph(0)?.closest('button')).toBeNull()
+        expect(glyph(0)).toHaveAttribute('title', 'Slow-mo replay on')
+        expect(glyph(1)).toBeNull()
+        await userEvent.click(rows()[1])
+        await userEvent.click(screen.getByRole('switch', { name: 'Slow-mo replay' }))
+        expect(glyph(1)).not.toBeNull()
     })
 
     it('should flip the effective replay setting when clicked, without seeking', async () => {
         render(<EventLog />)
         await userEvent.click(rows()[0])
-        await userEvent.click(screen.getByRole('button', { name: 'Replay' }))
+        await userEvent.click(screen.getByRole('switch', { name: 'Slow-mo replay' }))
         await userEvent.click(rows()[1])
-        await userEvent.click(screen.getByRole('button', { name: 'Replay' }))
+        await userEvent.click(screen.getByRole('switch', { name: 'Slow-mo replay' }))
         expect(byId('g')?.replay).toBe(false)
         expect(byId('h')?.replay).toBe(true)
         expect(seekToGoal).not.toHaveBeenCalled()
@@ -479,7 +492,7 @@ describe('EventLog on touch screens', () => {
 
     it('should make action buttons touch-sized and keep the row free of replay and delete buttons', async () => {
         render(<EventLog />)
-        expect(within(rows()[0]).queryByRole('button', { name: 'Replay' })).not.toBeInTheDocument()
+        expect(within(rows()[0]).queryByRole('switch')).not.toBeInTheDocument()
         await userEvent.click(rows()[0])
         expect(screen.getByRole('button', { name: 'Delete event' })).toHaveClass('act-btn--touch')
     })
@@ -513,7 +526,8 @@ describe('EventLog — match markers', () => {
         expect(within(fw).getByText('Final whistle')).toBeInTheDocument()
         expect(within(fw).getByText('49:00')).toBeInTheDocument()
         for (const r of [ko, fw]) {
-            expect(within(r).queryByRole('button', { name: 'Replay' })).not.toBeInTheDocument()
+            expect(within(r).queryByRole('switch')).not.toBeInTheDocument()
+            expect(r.querySelector('.event-row__replay')).toBeNull()
             expect(r.querySelector('[data-team-dot]')).toBeNull()
             expect(r.querySelector('[data-score]')).toBeNull()
         }
@@ -557,12 +571,43 @@ describe('EventLog action row', () => {
         render(<EventLog />)
         await userEvent.click(rows()[0])
         const actions = within(rows()[0]).getByRole('group', { name: 'Event actions' })
-        await userEvent.click(within(actions).getByRole('button', { name: 'Replay' }))
+        await userEvent.click(within(actions).getByRole('switch', { name: 'Slow-mo replay' }))
         expect(byId('a')?.replay).toBe(false)
         await userEvent.click(within(actions).getByRole('button', { name: /edit/i }))
         expect(useAppState.getState()).toMatchObject({ panel: 'event', editingEventId: 'a' })
         await userEvent.click(within(actions).getByRole('button', { name: /delete/i }))
         expect(byId('a')).toBeUndefined()
+    })
+
+    it('should order the action row: replay switch, Edit, Framing, Download, Delete', async () => {
+        setup([goal('a', 100)])
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        const actions = within(rows()[0]).getByRole('group', { name: 'Event actions' })
+        expect(Array.from(actions.querySelectorAll('button')).map((b) => b.getAttribute('aria-label'))).toEqual(['Slow-mo replay', 'Edit details', 'Replay framing', 'Download clip', 'Delete event'])
+    })
+
+    it('should open the details view from Edit and only the framing view from Framing', async () => {
+        setup([goal('a', 100)])
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        await userEvent.click(screen.getByRole('button', { name: 'Edit details' }))
+        expect(useAppState.getState()).toMatchObject({ panel: 'event', editingEventId: 'a', editingView: 'details' })
+        await userEvent.click(screen.getByRole('button', { name: 'Replay framing' }))
+        expect(useAppState.getState()).toMatchObject({ panel: 'event', editingEventId: 'a', editingView: 'framing' })
+    })
+
+    it('should scroll an expanded row into view without smooth scrolling when motion is reduced', async () => {
+        setup([goal('a', 100)])
+        const scroll = vi.fn()
+        Element.prototype.scrollIntoView = scroll
+        const mm = window.matchMedia
+        window.matchMedia = ((q: string) => ({ matches: q.includes('reduce'), media: q, addEventListener: () => undefined, removeEventListener: () => undefined, addListener: () => undefined, removeListener: () => undefined, onchange: null, dispatchEvent: () => false })) as typeof window.matchMedia
+        try {
+            render(<EventLog />)
+            await userEvent.click(rows()[0])
+            expect(scroll).toHaveBeenCalledWith({ block: 'nearest', behavior: 'auto' })
+        } finally { window.matchMedia = mm }
     })
 
     it('should show Framing only while the replay is on', async () => {
