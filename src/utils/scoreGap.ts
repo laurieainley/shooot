@@ -21,6 +21,13 @@ export function scoreGap(tagged: Score, known: Score | null): ScoreGap | null {
     }
 }
 
+/** A stored or received final score: two whole numbers 0-99, else null. */
+export function parseKnownScore(v: unknown): Score | null {
+    if (!Array.isArray(v) || v.length !== 2) return null
+    const ok = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 0 && n <= 99
+    return ok(v[0]) && ok(v[1]) ? [v[0], v[1]] : null
+}
+
 const total = ([a, b]: Score): number => a + b
 const teamName = (teams: Team[], i: 0 | 1): string => teams[i]?.name?.trim() || `Team ${i + 1}`
 

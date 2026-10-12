@@ -187,7 +187,7 @@ describe('teams and picker', () => {
 
     it('should migrate v8 legacy event types and persist teams (v9+)', () => {
         const opts = useAppState.persist.getOptions()
-        expect(opts.version).toBe(24)
+        expect(opts.version).toBe(25)
         const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
         expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
         expect(opts.partialize!(s())).toHaveProperty('teams')
@@ -311,6 +311,28 @@ describe('newMatch', () => {
         expect(s()).toMatchObject({ files: [], events: [], cumulativeOffsets: [], picker: null, teams, lengthBeforeGoalSec: 12, replaySpeed: 0.25 })
         s().undo()
         expect(s().events.map((e) => e.id)).toEqual(['e'])
+    })
+})
+
+describe('known final score', () => {
+    it('should default to null, set and clear', () => {
+        useAppState.setState({ knownFinalScore: null })
+        s().setKnownFinalScore([13, 9])
+        expect(s().knownFinalScore).toEqual([13, 9])
+        s().setKnownFinalScore(null)
+        expect(s().knownFinalScore).toBeNull()
+    })
+    it('should be persisted and cleared by newMatch', () => {
+        useAppState.setState({ knownFinalScore: [3, 2], undoStack: [], redoStack: [] })
+        expect(useAppState.persist.getOptions().partialize!(s())).toHaveProperty('knownFinalScore', [3, 2])
+        s().newMatch()
+        expect(s().knownFinalScore).toBeNull()
+    })
+    it('should migrate older saves to null (v25) and keep an existing value', () => {
+        const migrate = useAppState.persist.getOptions().migrate!
+        expect((migrate({ events: [] }, 23) as Record<string, unknown>).knownFinalScore).toBeNull()
+        expect((migrate({ events: [] }, 24) as Record<string, unknown>).knownFinalScore).toBeNull()
+        expect((migrate({ knownFinalScore: [1, 0] }, 25) as Record<string, unknown>).knownFinalScore).toEqual([1, 0])
     })
 })
 
