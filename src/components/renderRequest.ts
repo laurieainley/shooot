@@ -16,7 +16,7 @@ export async function requestFor(plan: ExportPlan, onGraphicsError: (reason: str
     return {
         cuts: plan.cuts, sources: plan.sources, outputName: plan.outputName, signature: plan.signature,
         ...(graphics ? { graphics } : {}),
-        ...(plan.resumable ? { resumable: { signature: plan.signature, kind: plan.kind } } : {}),
+        ...(plan.resumable && plan.kind !== 'clip' ? { resumable: { signature: plan.signature, kind: plan.kind } } : {}),
     }
 }
 
