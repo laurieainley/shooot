@@ -506,7 +506,7 @@ export const useAppState = create<AppState>()(
             openPicker: (eventId) => set({ picker: { eventId }, panel: get().panel === 'review' ? 'review' : null }),
             closePicker: () => set({ picker: null }),
             setGraphics: (partial) => set({ graphics: normaliseGraphics({ ...get().graphics, ...partial }, get().graphics) }),
-            fullMatch: { cards: true, scoreBug: 'goals', intervalMin: 5, captions: true },
+            fullMatch: { cards: true, scoreBug: 'goals', intervalMin: 5, captions: true, replays: false },
             exportTab: 'highlights',
             setExportTab: (tab) => set({ exportTab: tab }),
             setFullMatch: (partial) => set({ fullMatch: { ...get().fullMatch, ...partial } }),
@@ -673,7 +673,7 @@ export const useAppState = create<AppState>()(
                 suggestions: state.suggestions,
                 suggestionRun: state.suggestionRun,
             }),
-            version: 20,
+            version: 21,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -754,6 +754,9 @@ export const useAppState = create<AppState>()(
 
                 // Labs (v20).
                 if (version < 20) state.labs = state.labs === true
+
+                // Full-match slow-mo replays (v21): off.
+                if (version < 21 && state.fullMatch) state.fullMatch = { ...state.fullMatch, replays: false }
 
                 return state
             },

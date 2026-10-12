@@ -3,7 +3,7 @@ import type { MatchEvent, Team } from '../types'
 import type { RenderTimeline } from '../render/types'
 import { highlightChapterLines, matchChapterLines } from './chapters'
 import { estimateTimeline, highlightEventTimes, outputTimeAt } from './chapterTimes'
-import { fullMatchCuts, fullMatchSpan } from './fullMatch'
+import { fullMatchCuts, fullMatchSpan, withReplays } from './fullMatch'
 import { mergeOverlappingGoalSegments } from './highlights'
 import { buildRenderPlanWithOrigins } from './renderPlan'
 import { goalscorers } from './goalscorers'
@@ -18,6 +18,8 @@ type DescriptionArgs = {
     before: number
     after: number
     replay?: ReplayOptions
+    /** The full match includes slow-mo replays (needs `replay`). */
+    fullMatchReplays?: boolean
     /** Length of the title card at the start of the video (0 without cards). */
     introSec: number
     /** File lengths (unknown = missing); they decide where cuts are clamped or split, so chapters can follow the plan. */
@@ -55,7 +57,9 @@ export function fullMatchDescription(a: DescriptionArgs): string {
     const start = kickOffSec(linked, a.cumulativeOffsets)
     const end = finalWhistleSec(linked, a.cumulativeOffsets)
     // The video is one stream copy from kick-off, which starts at the key frame before it: follow the real (or planned) cuts.
-    const cuts = fullMatchCuts((a.durationsSec ?? []).map((d) => d ?? 0), ...spanOf(linked, a))
+    const matchCuts = fullMatchCuts((a.durationsSec ?? []).map((d) => d ?? 0), ...spanOf(linked, a))
+    // Inserted replays are extra cuts; events map to their normal-speed cut (outputTimeAt).
+    const cuts = a.fullMatchReplays && a.replay ? withReplays(matchCuts, linked, a.cumulativeOffsets, a.replay) : matchCuts
     const timeline = a.timeline && a.timeline.length === cuts.length ? a.timeline : estimateTimeline(cuts, a.introSec)
     const timeAt = cuts.length > 0 ? (abs: number): number => outputTimeAt(abs, cuts, timeline, a.cumulativeOffsets) : undefined
     const chapters = matchChapterLines(linked, a.cumulativeOffsets, start, end, a.before, a.teams, a.introSec, timeAt)

@@ -72,6 +72,10 @@ export function FullMatchExport() {
                 <input type="checkbox" checked={fullMatch.captions} onChange={(e) => setFullMatch({ captions: e.target.checked })} />
                 <span className="toggle-row__text">Event captions<span className="toggle-row__hint">Who scored (and the assist) just after each goal, as in the highlights</span></span>
             </label>
+            <label className="toggle-row">
+                <input type="checkbox" checked={fullMatch.replays} onChange={(e) => setFullMatch({ replays: e.target.checked })} />
+                <span className="toggle-row__text">Slow-mo replays<span className="toggle-row__hint">After each goal with a replay, as in the highlights</span></span>
+            </label>
             <fieldset className="segmented-field">
                 <legend>Score bug</legend>
                 <div className="segmented" role="radiogroup" aria-label="Score bug">

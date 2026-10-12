@@ -142,6 +142,19 @@ describe('fullMatchGraphicsSpec', () => {
         ])
     })
 
+    it('should keep windows on the match cuts around an inserted replay, which only gets its tag', () => {
+        const replayCuts: Cut[] = [
+            { sourceIndex: 0, startSec: 30, endSec: 96 },
+            { sourceIndex: 0, startSec: 92, endSec: 96, speed: 0.5, gain: 0.5 },
+            { sourceIndex: 0, startSec: 96, endSec: 100 }, { sourceIndex: 1, startSec: 0, endSec: 50 },
+        ]
+        const spec = fullMatchGraphicsSpec({ ...args, cuts: replayCuts, replayTag: true })
+        const bugs = spec.overlays.filter((o) => o.kind === 'scoreBug').map((o) => [o.cutIndex, o.startSec, o.durationSec])
+        expect(bugs).toEqual([[0, 30, 8], [0, 95, 1], [2, 96, 4], [3, 0, 5]])
+        expect(spec.overlays.filter((o) => o.cutIndex === 1).map((o) => o.kind)).toEqual(['replayTag'])
+        expect(fullMatchGraphicsSpec({ ...args, cuts: replayCuts }).overlays.some((o) => o.kind === 'replayTag')).toBe(false)
+    })
+
     it('should add VS and full-time cards only when asked', () => {
         expect(fullMatchGraphicsSpec(args).intro).toMatchObject({ heading: 'CUP', centre: 'VS' })
         expect(fullMatchGraphicsSpec(args).outro).toMatchObject({ heading: 'FULL TIME', centre: '1 - 0' })

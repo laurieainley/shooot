@@ -113,3 +113,25 @@ describe('full match chapters', () => {
         expect(stamps(text)[1]).toBe('02:14')
     })
 })
+
+describe('full match chapters with replays', () => {
+    const events: MatchEvent[] = [
+        { id: 'k', matchTimeSec: 60, sourceFileIndex: 0, type: 'kick_off' },
+        goal('a', 200),
+        { id: 'w', matchTimeSec: 500, sourceFileIndex: 1, type: 'final_whistle' },
+        goal('b', 300, 1),
+    ]
+    const args = { ...base, events, introSec: 0, replay: { beforeSec: 5, afterSec: 3, speed: 0.5 }, fullMatchReplays: true }
+
+    it('should map events to their normal-speed cut, later ones shifted by the replays before them', () => {
+        const off = fullMatchDescription({ ...args, fullMatchReplays: false })
+        const on = fullMatchDescription(args)
+        const [offA, offB] = stamps(off).slice(1)
+        const [onA, onB] = stamps(on).slice(1)
+        expect(onA).toBe(offA)
+        // Goal b comes after the replay of goal a: 8 s of source at 0.5x = +16 s, plus the estimated key-frame slack (1 s per cut, ~1 s repeated at the join).
+        const sec = (t: string): number => Number(t.slice(0, 2)) * 60 + Number(t.slice(3))
+        expect(sec(onB) - sec(offB)).toBeGreaterThanOrEqual(15)
+        expect(sec(onB) - sec(offB)).toBeLessThanOrEqual(20)
+    })
+})
