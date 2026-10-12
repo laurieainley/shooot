@@ -236,7 +236,7 @@ export function MatchStrip() {
                                 onClick={() => {
                                     const st = useAppState.getState()
                                     const ev = st.events.find((x) => x.id === e.id)
-                                    if (ev) st.seekToGoal(ev.sourceFileIndex ?? 0, Math.max(0, ev.matchTimeSec - st.lengthBeforeGoalSec))
+                                    if (ev && !st.jumpToPreviewEvent(ev.id)) st.seekToGoal(ev.sourceFileIndex ?? 0, Math.max(0, ev.matchTimeSec - st.lengthBeforeGoalSec))
                                 }}
                             >
                                 <EventIcon event={{ type: e.kind, pen: e.pen }} size={iconPx} decorative />

@@ -50,8 +50,9 @@ export function runShortcut(action: ShortcutAction, p: ShortcutPlayer, zoom: Zoo
         case 'mark': useAppState.getState().markEvent(time(p)); break
         case 'mute': p.muted(!p.muted()); break
         case 'fullscreen': if (p.isFullscreen()) p.exitFullscreen(); else p.requestFullscreen(); break
-        case 'zoomCycle': zoom.cycle(); break
-        case 'zoomReset': zoom.reset(); break
+        // Zoom is locked in the preview (clips show the whole picture, as rendered).
+        case 'zoomCycle': if (!useAppState.getState().isPreviewMode) zoom.cycle(); break
+        case 'zoomReset': if (!useAppState.getState().isPreviewMode) zoom.reset(); break
         case 'speedDown': p.playbackRate(Math.max(0.25, rate - 0.25)); break
         case 'speedUp': p.playbackRate(Math.min(4, rate + 0.25)); break
         case 'speedReset': p.playbackRate(1); break

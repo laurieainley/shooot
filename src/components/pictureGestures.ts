@@ -5,9 +5,9 @@ import type { ZoomPan } from './useZoomPan'
  * Pan and zoom gestures on the player picture. Mouse: drag the picture to pan while zoomed, wheel / trackpad pinch zooms
  * towards the cursor, two-finger scroll pans. Touch: one finger pans while zoomed (a tap still plays / pauses), two fingers
  * pinch-zoom between 1× and 4× and pan; lifting one finger after a pinch carries on panning with the other.
- * A pan or pinch swallows the click it ends with (no play / pause). Returns the cleanup.
+ * A pan or pinch swallows the click it ends with (no play / pause). While `locked()` (the preview) nothing is handled. Returns the cleanup.
  */
-export function attachPictureGestures(el: HTMLElement, zoom: () => ZoomPan): () => void {
+export function attachPictureGestures(el: HTMLElement, zoom: () => ZoomPan, locked: () => boolean = () => false): () => void {
     const pointers = new Map<number, { x: number; y: number }>()
     let pinch: { dist: number; zoom: number; mid: { x: number; y: number } } | null = null
     let drag: { id: number; start: { x: number; y: number }; at: number; dragging: boolean } | null = null
@@ -16,7 +16,7 @@ export function attachPictureGestures(el: HTMLElement, zoom: () => ZoomPan): () 
         const [a, b] = Array.from(pointers.values())
         return { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } }
     }
-    const onPicture = (e: Event): boolean => !(e.target as HTMLElement).closest('.vjs-control-bar, button, .event-picker, .vjs-menu')
+    const onPicture = (e: Event): boolean => !locked() && !(e.target as HTMLElement).closest('.vjs-control-bar, button, .event-picker, .vjs-menu')
     const onDown = (e: PointerEvent): void => {
         if (!onPicture(e)) return
         if (e.pointerType === 'touch') {
