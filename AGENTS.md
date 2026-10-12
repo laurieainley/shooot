@@ -197,6 +197,20 @@ npm run lint       # baseline: 12 known problems — add none
   reports timings; not linked from the editor, `noindex`. Use it on a phone/iPad to measure export speed and catch errors.
   In dev open `/bench.html` (the `/bench` rewrite is Vercel's); benchmark a production build (`vite build` +
   `vite preview`), not the dev server, whose hot reload restarts a running benchmark.
+- **Bench experiments** (`/bench` → Experiments, `src/bench/experiments.ts` + `src/bench/experiments/*`): candidate speed-ups measured as
+  baseline/variant pairs on the first N seconds (default 45) of ONE file; "Run all experiments" or tick some; the **iPad / Pixel / Mac**
+  presets (`src/bench/presets.ts`, the likely device is highlighted, never auto-applied) tick the stages + experiments for that device and
+  one Start runs them all. Results go to a comparison table and into Copy results / Share JSON as an `experiments` array (existing shape
+  unchanged). Every engine switch lives in `RenderOptions.experiments` (`render/experiments.ts`) and is **off by default**: with it omitted
+  the editor's render paths behave exactly as before. Switches: `parallelUnits` + `segmentSec` (#1, units encoded concurrently in
+  `transcodeEngine`, each with its own decoder/encoder/canvas/WebGL scaler; journaled renders only), `unitCache` (#2, bench-only unit cache
+  in OPFS keyed by an input hash), `targetFile` (#4, mux straight into a `showSaveFilePicker` file), `OverlayBitmapCache` passed to
+  `prepareSpec` (#5, still stretches of captions/bug/tag drawn from bitmaps), `tightSpans` (#6, Original highlights re-encode only the
+  visible part of each overlay window), `latencyMode` (#7), `encodeQueue` + `decodeAhead` (#9). #3 (render while a `<video>` plays) and #10
+  (the engine in `renderWorker.ts`; graphics build in the worker through `self.fonts`) are bench-only. The re-encode now always counts
+  where time goes (decode wait / paint+scale / encoder call / back-pressure / packet writes → diagnostics note, `onStats`, stage
+  `detail.pipeline`), and stages can time the save step ("deliver": wrap + read the output back through its blob URL, after the stage
+  clock stops). How the highlights engine picks its re-encoded span is described at the top of `experiments/tightSpans.ts`.
 - **Deploys while a tab is open:** stale lazy chunks are recovered by one guarded reload (`staleBuildRecovery.ts`);
   the render engine is warmed at idle.
 - **Per-origin storage:** saved projects live in the browser per domain; moving domains loses them unless exported.

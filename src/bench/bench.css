@@ -12,3 +12,9 @@
 .bench .result { border-top: 1px solid rgba(127,127,127,.25); padding-top: 8px; font-size: .9rem; }
 .bench .result b { font-family: var(--sh-font-mono); }
 .bench .failed { color: var(--sh-rec, #e0453a); }
+.bench .suggested { outline: 2px solid var(--sh-text); outline-offset: 2px; }
+.bench .table-wrap { overflow-x: auto; }
+.bench .exp-table { border-collapse: collapse; font-size: .8rem; width: 100%; }
+.bench .exp-table th, .bench .exp-table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid rgba(127,127,127,.25); vertical-align: top; }
+.bench .exp-table tr.hot td:first-child { font-weight: 700; }
+.bench .exp-table tr.hot td:first-child::before { content: '★ '; }

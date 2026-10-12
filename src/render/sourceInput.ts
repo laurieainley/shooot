@@ -40,12 +40,13 @@ export async function openSource(src: RenderSource): Promise<OpenSource> {
 
 export type OutputTarget = { target: Target; result: () => Promise<File | Blob>; discard: () => Promise<void> }
 
-export async function makeTarget(name: string): Promise<OutputTarget> {
+export async function makeTarget(name: string, into?: FileSystemFileHandle): Promise<OutputTarget> {
     try {
         const root = await navigator.storage.getDirectory()
         await clearOldOutputs() // earlier renders (other names included) would otherwise fill the site's storage
-        await root.removeEntry(name).catch(() => undefined)
-        const handle = await root.getFileHandle(name, { create: true })
+        if (!into) await root.removeEntry(name).catch(() => undefined)
+        // Benchmarks (experiment 4): `into` is a file the user picked; the MP4 is streamed straight into it.
+        const handle = into ?? await root.getFileHandle(name, { create: true })
         const writable = await handle.createWritable()
         const sink = new WritableStream<StreamTargetChunk>({
             write: (c) => writable.write({ type: 'write', position: c.position, data: c.data }),
@@ -55,9 +56,10 @@ export async function makeTarget(name: string): Promise<OutputTarget> {
         return {
             target: new StreamTarget(sink, { chunked: true }),
             result: () => handle.getFile(),
-            discard: () => root.removeEntry(name).catch(() => undefined),
+            discard: () => (into ? Promise.resolve() : root.removeEntry(name).catch(() => undefined)),
         }
-    } catch {
+    } catch (e) {
+        if (into) throw e
         const target = new BufferTarget()
         return {
             target,

@@ -16,6 +16,7 @@ import { planAudio } from './audioPlan'
 import { cutTiming } from '../utils/chapterTimes'
 import { mixedSizeNotice } from './outputSize'
 import { overlayRegions } from './overlayRegions'
+import { tightenOverlays } from './tightOverlays'
 import { encodeReplayAudio } from './replayAudio'
 import { makeSilentAudio, type SilentAudio } from './silentAudio'
 import { canJournal, discardJob, loadJob, openUnit, saveJob, type JobState, type UnitWriter } from './renderJob'
@@ -155,6 +156,11 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
         const cardSec = (c: RenderCard | undefined): number => (session && c ? c.durationSec : 0)
         const total = (cuts.reduce((acc, c) => acc + span(c), 0) + cardSec(run?.graphics.intro) + cardSec(run?.graphics.outro)) || 1
         let done = 0
+        const spanStats: { outStart: number; outEnd: number; windowSec: number }[] = []
+        const spanReport = (): void => opts.onStats?.({
+            overlaySpans: spanStats.length, reencodedSourceSec: +spanStats.reduce((a, x) => a + x.outEnd - x.outStart, 0).toFixed(3),
+            overlayWindowSec: +spanStats.reduce((a, x) => a + x.windowSec, 0).toFixed(3),
+        })
 
         // Cards are encoded before anything is written, so a failure just leaves the card out.
         const encodeCard = async (card: RenderCard | undefined, stage: string): Promise<EncodedPacket[] | null> => {
@@ -221,7 +227,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
 
         let direct: { output: Output; vOut: EncodedVideoPacketSource; aOut: EncodedAudioPacketSource | null; result: () => Promise<File | Blob>; discard: () => Promise<void> } | null = null
         if (!journal) {
-            const { target, result, discard } = await makeTarget(outputName)
+            const { target, result, discard } = await makeTarget(outputName, opts.experiments?.targetFile)
             const output = new Output({ format: new Mp4OutputFormat({ fastStart: false }), target })
             const vOut = new EncodedVideoPacketSource(first.video.codec!)
             output.addVideoTrack(vOut)
@@ -355,6 +361,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                     } else overlays.push(o)
                 }
             }
+            if (opts.experiments?.tightSpans && overlays) overlays = tightenOverlays(overlays) // experiment 6
             if (session && cut.crop) overlays = [...(overlays ?? []), cropOverlayFor(cut, ci, cutStart, realEnd)]
             // Footage of another frame size: every picture is re-encoded (the whole cut is one window that draws nothing).
             const rescale = !!session && session.rescales(src)
@@ -375,7 +382,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                     const mine = overlays!.filter((o) => o.startSec < end && o.startSec + o.durationSec > start)
                     if (mine.length === 0) { for (const p of buf) yield { packet: p, generated: false, splice: false }; return }
                     onProgress({ cutIndex: ci, cutCount: cuts.length, fraction: Math.min(1, (done + Math.max(0, start - cut.startSec)) / total), stage: 'Graphics' })
-                    const r = await sess.overlayCut(src, buf, end, mine)
+                    const r = await sess.overlayCut(src, buf, end, mine, opts.onStats ? (s) => spanStats.push(s) : undefined)
                     // Scaled footage must not be copied unscaled into a file of another size: that is a failure.
                     if (rescale && r.skipped.length > 0) throw new Error(`${sources[cut.sourceIndex].name}: ${r.skipped[0].reason}`)
                     report.applied.push(...r.applied.filter(Boolean))
@@ -494,10 +501,11 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             if (journal) {
                 onProgress({ cutIndex: cuts.length - 1, cutCount: cuts.length, fraction: 1, stage: 'Saving' })
                 const endMux = diag.begin('finalize')
-                const file = await muxUnits(journal.state.outputName, unitCount, first.video.codec!, audioSource?.audio?.codec ?? null, journal.state.video!, journal.state.audio, signal)
+                const file = await muxUnits(journal.state.outputName, unitCount, first.video.codec!, audioSource?.audio?.codec ?? null, journal.state.video!, journal.state.audio, signal, opts.experiments?.targetFile)
                 await discardJob()
                 endMux()
                 if (timingsKnown) opts.onTimeline?.(timings)
+                spanReport()
                 return file
             }
             const endFin = diag.begin('finalize')
@@ -505,6 +513,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             const file = await direct!.result()
             endFin()
             if (timingsKnown) opts.onTimeline?.(timings)
+            spanReport()
             return file
         } catch (e) {
             await unitWriter?.abort()
