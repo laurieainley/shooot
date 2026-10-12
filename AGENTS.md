@@ -114,6 +114,17 @@ npm run lint       # baseline: 12 known problems — add none
   storage (`storageRoom()` in render/storage.ts: quota − usage + old outputs `clearOldOutputs()` frees, 10% margin) and
   auto-picks the largest that fits; no `estimate()` means no blocking. Time hints are device-range ranges; the running
   render shows a live ETA (`utils/renderEta.ts`, moving average of progress per second) in `RenderStatus`.
+- **Highlights output quality** (`highlightsQuality` in the store, persist v24; `'auto'` = the device default, any other value is the
+  user's explicit choice and sticks): the same Original / 4K / 1080p choice as Full match, via the shared `OutputQualityField`
+  (segmented control) in `RenderHighlights`, the same option list (`qualityOptions`), availability rules (`useReencodeSupport`), size and
+  time hints and `applyStorageFit` grey-out/auto-pick (the old warning-only `highlightsRoomWarning` is gone). `highlightsExport(state,
+  'full', planOutput(q))` puts the output in the job signature; `RenderOptions.output` sends the whole reel (clips, replays, slow-mo,
+  cards, captions, score bug, replay tag, sting) through `transcodeEngine` in one pass. Re-encoded cuts are frame-exact (no GOP snapping),
+  so `onTimeline` chapters are exact; estimates for re-encoded reels have no key-frame slack (`DescriptionArgs.reencoded`). Defaults:
+  Original on desktop/tablet; 1080p on a phone layout (`phone` or landscape phone; `resolveHighlightsQuality`) because on a Pixel Original
+  is slowest (2.2x the reel: its replays/graphics are re-encoded HEVC 4K) vs 1080p ~1.0x, 4K ~1.25x; iPad Original 0.4x, 4K 0.84x; Mac
+  Chrome Original ~0.5x, 1080p 0.7x, 4K 0.9x (`HIGHLIGHTS_ORIGINAL_TIME`). Time hints are "for a N min reel". Highlights are not resumable.
+  The plan is memoised from a shallow selector without the playhead, so the panel does not re-plan while the video plays.
 - **Chapters:** YouTube chapter times come from the real render timeline (engine `onTimeline` → `renderTimelines.ts`,
   matched by plan signature); until then an estimate from the render plan, flagged in the UI.
 - **Render storage:** outputs are written to OPFS first; `clearOldOutputs()` deletes earlier renders before each

@@ -18,6 +18,21 @@ const COPIED_AUDIO_BITRATE = 192_000
  */
 export const ENCODE_TIME_RANGE: Record<ReencodeQuality, [number, number]> = { '4k': [0.8, 1.3], '1080p': [0.65, 1.1] }
 
+/**
+ * Highlights "Original" time as a multiple of the reel length. Its replay and graphics sections are re-encoded (HEVC 4K),
+ * which is cheap on a Mac (0.5x) or iPad (0.4x) but the slowest option on an Android phone (2.2x on a Pixel).
+ */
+export const HIGHLIGHTS_ORIGINAL_TIME: { desktop: [number, number]; phone: [number, number] } = { desktop: [0.4, 0.6], phone: [1.8, 2.4] }
+
+/** The Highlights choice as saved: 'auto' = the device's default until the user picks something. */
+export type HighlightsQualityChoice = 'auto' | OutputQuality
+
+/** What 'auto' means: Original on a desktop or tablet, 1080p on a phone (where Original is the slowest). An explicit choice always wins. */
+export function resolveHighlightsQuality(choice: HighlightsQualityChoice | undefined, phone: boolean): OutputQuality {
+    if (choice && choice !== 'auto') return choice
+    return phone ? '1080p' : 'original'
+}
+
 export const QUALITY_LABEL: Record<OutputQuality, string> = { original: 'Original', '4k': '4K', '1080p': '1080p' }
 
 export type SourceInfo = { width: number; height: number }
@@ -41,7 +56,7 @@ export type QualityOption = {
 }
 
 /** The three choices for this footage and browser. `originalBytes` is the stream-copy estimate. */
-export function qualityOptions(o: { source: SourceInfo | null; support: CodecSupport; seconds: number; originalBytes: number }): QualityOption[] {
+export function qualityOptions(o: { source: SourceInfo | null; support: CodecSupport; seconds: number; originalBytes: number; /** Original is not a plain copy (Highlights): how long it takes. */ originalTimeRange?: [number, number] }): QualityOption[] {
     const long = o.source ? Math.max(o.source.width, o.source.height) : 0
     const reasonFor = (q: ReencodeQuality): string | null => {
         if (!o.source) return 'Load the match videos first.'
@@ -55,7 +70,7 @@ export function qualityOptions(o: { source: SourceInfo | null; support: CodecSup
         return { id: q, label: QUALITY_LABEL[q], disabled: reason !== null, reason, bytes: estimateEncodedBytes(q, o.seconds), timeRange: ENCODE_TIME_RANGE[q] }
     }
     return [
-        { id: 'original', label: 'Original', disabled: false, reason: null, bytes: o.originalBytes, timeRange: null },
+        { id: 'original', label: 'Original', disabled: false, reason: null, bytes: o.originalBytes, timeRange: o.originalTimeRange ?? null },
         re('4k'),
         re('1080p'),
     ]
@@ -66,14 +81,14 @@ const minutes = (sec: number): number => {
     return m >= 15 ? Math.round(m / 5) * 5 : Math.max(1, Math.round(m))
 }
 
-/** "roughly 30–60 min for a 49 min match, depending on the device" / "quickest" for a stream copy. */
-export function timeHint(range: [number, number] | null, seconds: number): string {
+/** "roughly 30–60 min for a 49 min match, depending on the device" / "quickest" for a stream copy. `noun` names what the length is of (match, reel). */
+export function timeHint(range: [number, number] | null, seconds: number, noun = 'match'): string {
     if (range === null) return 'quickest'
     if (seconds < 60) return 'under a minute'
     const lo = minutes(seconds * range[0])
     const hi = Math.max(lo, minutes(seconds * range[1]))
     const span = lo === hi ? `${lo} min` : `${lo}–${hi} min`
-    return `roughly ${span} for a ${Math.round(seconds / 60)} min match, depending on the device`
+    return `roughly ${span} for a ${Math.round(seconds / 60)} min ${noun}, depending on the device`
 }
 
 // ---- Storage fit ----
@@ -125,10 +140,4 @@ export function applyStorageFit(options: QualityOption[], room: { quota: number;
     const original = marked.find((o) => o.id === 'original')!
     const pick = !lostToRoom && usable(original) ? original : marked.filter(usable).sort((a, b) => b.bytes - a.bytes)[0]!
     return { options: marked, effective: pick.id, privateHint, note: lostToRoom ? `${QUALITY_LABEL[chosen]} would not fit in this browser’s storage, so ${QUALITY_LABEL[pick.id]} is selected.` : null }
-}
-
-/** Highlights: a warning when the reel might not fit; null when it fits or the browser will not say. */
-export function highlightsRoomWarning(bytes: number, room: { quota: number; free: number } | null): string | null {
-    if (!room || bytes * FIT_MARGIN <= room.free) return null
-    return `This reel may not fit in this browser’s storage (about ${gb(bytes)} needed, ${gb(room.free)} available).`
 }

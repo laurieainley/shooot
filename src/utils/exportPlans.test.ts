@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { clipExport, fullMatchExport, highlightsExport, type ExportState } from './exportPlans'
+import { clipExport, fullMatchExport, highlightsExport, planOutput, type ExportState } from './exportPlans'
 import { STING_SEC } from '../graphics/layout'
 import type { MatchEvent, VideoSourceFile } from '../types'
 
@@ -17,6 +17,24 @@ const state = (extra: Partial<ExportState> = {}): ExportState => ({
     teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }],
     matchdayLabel: null, fullMatch: { cards: true, scoreBug: 'periodic', intervalMin: 5, captions: false, replays: false, quality: 'original' },
     ...extra,
+})
+
+describe('highlightsExport output quality', () => {
+    it('should keep the cuts and graphics the same in every quality, with its own signature and size estimate', () => {
+        const copy = highlightsExport(state(), 'full')
+        const enc = highlightsExport(state(), 'full', { quality: '4k', videoBitrate: 20e6 })
+        expect(enc.cuts).toEqual(copy.cuts)
+        expect(enc.spec).toEqual(copy.spec)
+        expect(enc.output).toEqual({ quality: '4k', videoBitrate: 20e6 })
+        expect(enc.bytes).toBeCloseTo(((20e6 + 192_000) / 8) * enc.seconds, -3)
+        expect(enc.outputName).toBe(copy.outputName)
+        const sigs = [copy, enc, highlightsExport(state(), 'full', planOutput('1080p'))].map((p) => p.signature)
+        expect(new Set(sigs).size).toBe(3)
+        expect(copy.signature).toBe(highlightsExport(state(), 'full').signature)
+    })
+    it('should never re-encode a preview render', () => {
+        expect(highlightsExport(state(), 'preview', planOutput('1080p')).output).toBeUndefined()
+    })
 })
 
 describe('fullMatchExport output quality', () => {

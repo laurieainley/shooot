@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AUDIO_BITRATE, VIDEO_BITRATE, estimateEncodedBytes, applyStorageFit, highlightsRoomWarning, qualityOptions, timeHint } from './outputQuality'
+import { AUDIO_BITRATE, VIDEO_BITRATE, estimateEncodedBytes, applyStorageFit, qualityOptions, resolveHighlightsQuality, timeHint } from './outputQuality'
 import type { CodecSupport } from '../render/transcodeSupport'
 
 const ok: CodecSupport = { decode: true, encode: { '4k': true, '1080p': true } }
@@ -119,10 +119,22 @@ describe('applyStorageFit', () => {
     })
 })
 
-describe('highlightsRoomWarning', () => {
-    it('should warn only when the reel is bigger than the room', () => {
-        expect(highlightsRoomWarning(2e9, { quota: 10e9, free: 1e9 })).toMatch(/may not fit.*2\.0 GB needed, 1\.0 GB available/)
-        expect(highlightsRoomWarning(2e9, { quota: 10e9, free: 5e9 })).toBeNull()
-        expect(highlightsRoomWarning(2e9, null)).toBeNull()
+describe('resolveHighlightsQuality', () => {
+    it('should default to Original off a phone and 1080p on one, until the user chooses', () => {
+        expect(resolveHighlightsQuality('auto', false)).toBe('original')
+        expect(resolveHighlightsQuality(undefined, false)).toBe('original')
+        expect(resolveHighlightsQuality('auto', true)).toBe('1080p')
+    })
+    it('should keep an explicit choice on every device', () => {
+        expect(resolveHighlightsQuality('original', true)).toBe('original')
+        expect(resolveHighlightsQuality('4k', false)).toBe('4k')
+    })
+})
+
+describe('highlights time hints', () => {
+    it('should name the reel and give Original a time when it is not a plain copy', () => {
+        expect(timeHint([0.4, 0.6], 6 * 60, 'reel')).toBe('roughly 2–4 min for a 6 min reel, depending on the device')
+        const o = qualityOptions({ source: { width: 3840, height: 2160 }, support: { decode: true, encode: { '4k': true, '1080p': true } }, seconds: 360, originalBytes: 1e9, originalTimeRange: [1.8, 2.4] })
+        expect(o[0].timeRange).toEqual([1.8, 2.4])
     })
 })

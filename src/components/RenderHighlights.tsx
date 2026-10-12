@@ -1,18 +1,35 @@
 import { useMemo, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useAppState } from '../state'
-import { highlightsExport } from '../utils/exportPlans'
+import { highlightsExport, planOutput, type ExportState, type PlanOutput } from '../utils/exportPlans'
 import { startExport } from './renderRequest'
 import { useRenderJobs } from '../renderJobs'
 import type { RenderQuality } from '../utils/renderSources'
+import { HIGHLIGHTS_ORIGINAL_TIME, QUALITY_LABEL, applyStorageFit, qualityOptions, resolveHighlightsQuality } from '../utils/outputQuality'
 import { MissingFullFiles } from './MissingFullFiles'
+import { OutputQualityField } from './OutputQualityField'
 import { RenderStatus } from './RenderStatus'
 import { ResumeOffer } from './ResumeOffer'
+import { useLayout } from './useMediaQuery'
+import { useReencodeSupport } from './useReencodeSupport'
 import { useSavedJob } from './useSavedJob'
 import { useStorageRoom } from './useStorageRoom'
-import { highlightsRoomWarning } from '../utils/outputQuality'
 
+/** Export highlights → Render: output quality (Original / 4K / 1080p), then the render buttons. */
 export function RenderHighlights() {
-    const files = useAppState((s) => s.files)
+    // Only what the plan reads (not the playhead), so the panel does not re-plan the reel while the video plays.
+    const st = useAppState(useShallow((s): ExportState => ({
+        files: s.files, events: s.events, cumulativeOffsets: s.cumulativeOffsets,
+        lengthBeforeGoalSec: s.lengthBeforeGoalSec, lengthAfterGoalSec: s.lengthAfterGoalSec, replayBeforeSec: s.replayBeforeSec,
+        replayAfterSec: s.replayAfterSec, replaySpeed: s.replaySpeed, graphics: s.graphics, teams: s.teams, matchdayLabel: s.matchdayLabel,
+        fullMatch: s.fullMatch, goalAreas: s.goalAreas,
+    })))
+    const choice = useAppState((s) => s.highlightsQuality)
+    const setQuality = useAppState((s) => s.setHighlightsQuality)
+    const { files } = st
+    const layout = useLayout()
+    // Original is the slowest option on a phone, so a phone defaults to 1080p until the user chooses.
+    const phone = layout === 'phone' || layout === 'landscape'
     const hasEvents = useAppState((s) => s.events.some((e) => !e.unlinked))
     const busy = useRenderJobs((s) => s.job?.phase === 'running')
     const saved = useSavedJob('highlights', busy)
@@ -21,18 +38,21 @@ export function RenderHighlights() {
 
     const hasProxies = files.some((f) => f.kind === 'proxy')
     const disabled = files.length === 0 || !hasEvents
+    const base = useMemo(() => {
+        const p = highlightsExport(st, 'full')
+        return { file: p.sources[p.cuts[0]?.sourceIndex ?? 0]?.file, seconds: p.seconds, bytes: p.bytes }
+    }, [st])
+    const known = files[0]?.width && files[0]?.height ? { width: files[0].width, height: files[0].height } : null
+    const { source, support } = useReencodeSupport(base.file, known)
     const room = useStorageRoom(busy)
-    const events = useAppState((s) => s.events)
-    const before = useAppState((s) => s.lengthBeforeGoalSec)
-    const after = useAppState((s) => s.lengthAfterGoalSec)
-    // Not a store selector: the playhead lives in the store and would re-plan the reel on every tick.
-    const roomWarning = useMemo(
-        () => (!room || files.length === 0 ? null : highlightsRoomWarning(highlightsExport(useAppState.getState(), 'full').bytes, room)),
-        [room, files, events, before, after],
-    )
+    // A choice that is not available here (4K on 1080p footage, a codec this browser cannot handle) renders as Original;
+    // one that will not fit in the browser's storage gives way to the largest that does.
+    const { options, effective, note: fitNote, privateHint } = applyStorageFit(
+        qualityOptions({ source, support, seconds: base.seconds, originalBytes: base.bytes, originalTimeRange: phone ? HIGHLIGHTS_ORIGINAL_TIME.phone : HIGHLIGHTS_ORIGINAL_TIME.desktop }),
+        room, resolveHighlightsQuality(choice, phone))
 
-    const run = (quality: RenderQuality): void => {
-        const plan = highlightsExport(useAppState.getState(), quality)
+    const run = (quality: RenderQuality, output?: PlanOutput): void => {
+        const plan = highlightsExport(useAppState.getState(), quality, output)
         if (plan.missing.length > 0) {
             setMissing(plan.missing)
             return
@@ -42,25 +62,34 @@ export function RenderHighlights() {
     }
 
     const job = saved.job
-    const matchingQuality = job ? (['full', 'preview'] as const).find((q) => highlightsExport(useAppState.getState(), q).signature === job.signature) : undefined
+    // A saved render resumes as what it was: stream copy, a re-encode at either size, or the preview.
+    const candidates: { quality: RenderQuality; output?: PlanOutput }[] = [{ quality: 'full' }, { quality: 'full', output: planOutput('4k') }, { quality: 'full', output: planOutput('1080p') }, { quality: 'preview' }]
+    const matching = job ? candidates.find((c) => highlightsExport(useAppState.getState(), c.quality, c.output).signature === job.signature) : undefined
 
     return (
         <div className="flex flex-col gap-2">
+            <OutputQualityField name="highlights-quality" options={options} effective={effective} onChange={setQuality}
+                seconds={base.seconds} noun="reel" fitNote={fitNote}
+                description={effective === 'original'
+                    ? `Copies the camera’s video as it is and re-encodes only the replays and graphics: ${phone ? 'the largest file, and the slowest on a phone' : 'quickest on a computer, but the file is as large as the footage'}.`
+                    : `Re-encodes the whole reel to H.264 ${effective === '4k' ? '4K' : '1080p'}, cut exactly at each clip, so the file is much smaller. Replays, cards and captions are drawn as it encodes.`}>
+                {privateHint && <span className="toggle-row__hint">Private windows have very little storage; use a normal window for a long reel.</span>}
+                {phone && effective !== 'original' && <span className="toggle-row__hint">Keep the screen on, the tab open and the device plugged in.</span>}
+            </OutputQualityField>
             {job && (
-                <ResumeOffer job={job} matches={!!matchingQuality} filesLoaded={files.length > 0} busy={busy}
-                    onResume={() => run(matchingQuality!)} onDiscard={() => void saved.discard()} />
+                <ResumeOffer job={job} matches={!!matching} filesLoaded={files.length > 0} busy={busy}
+                    onResume={() => run(matching!.quality, matching!.output)} onDiscard={() => void saved.discard()} />
             )}
             {hasProxies && (
                 <button onClick={() => run('preview')} disabled={disabled} className="btn-quiet w-full justify-center">
                     Preview reel (proxies)
                 </button>
             )}
-            <button onClick={() => run('full')} disabled={disabled} className="btn-primary w-full justify-center">
-                {hasProxies ? 'Full quality render' : 'Render MP4'}
+            <button onClick={() => run('full', planOutput(effective))} disabled={disabled} className="btn-primary w-full justify-center">
+                {hasProxies ? 'Full quality render' : 'Render MP4'}{effective === 'original' ? '' : ` as ${QUALITY_LABEL[effective]}`}
             </button>
             <MissingFullFiles missing={missing} onChange={(m, msg) => { setMissing(m); setNote(msg) }} onPreviewInstead={() => run('preview')} />
             {note && <p role="note" className="export-hint">{note}</p>}
-            {roomWarning && <p role="note" className="export-hint">{roomWarning}</p>}
             <RenderStatus kind="highlights" />
         </div>
     )

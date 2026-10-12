@@ -30,6 +30,11 @@ describe('highlightsDescription', () => {
         ])
     })
 
+    it('should estimate without key-frame slack when the video is re-encoded (cuts are frame-exact)', () => {
+        const exact = highlightsDescription({ ...base, introSec: 0, reencoded: true }).split('\n')
+        expect(exact.slice(2, 6)).toEqual(['00:00 Goal 1-0 (HAW) Sam', '00:14 Highlight Jo: nutmeg', '00:28 Goal 1-1 (LIO) Priya', '00:42 Highlight'])
+    })
+
     it('should shift chapters after the title card but keep the first at 00:00', () => {
         const lines = highlightsDescription({ ...base, introSec: 4 }).split('\n')
         expect(lines.slice(2, 4)).toEqual(['00:00 Goal 1-0 (HAW) Sam', '00:19 Highlight Jo: nutmeg'])
