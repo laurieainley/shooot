@@ -1134,7 +1134,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .clip-download__opt { display: flex; align-items: center; gap: 8px; min-height: 32px; font: 600 14px var(--sh-font); color: var(--sh-text); cursor: pointer; }
 .clip-download__opt input { width: 18px; height: 18px; accent-color: var(--sh-text); }
 .clip-download__note { margin: 0; font-size: 14px; color: var(--sh-muted); overflow-wrap: anywhere; }
-@media (pointer: coarse) { .clip-download__opt { min-height: 44px; } .clip-download__body .btn-primary { min-height: 44px; } }
+@media (pointer: coarse) { .clip-download__opt { min-height: 44px; } .clip-download__body .btn-primary, .clip-download__body .btn-quiet { min-height: 44px; } }
 .act-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 30px; padding: 0 10px; border-radius: 6px;
   border: 1px solid var(--sh-line); background: transparent; color: var(--sh-text); font: 600 12px var(--sh-font); cursor: pointer;
