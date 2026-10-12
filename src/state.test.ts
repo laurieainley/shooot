@@ -187,7 +187,7 @@ describe('teams and picker', () => {
 
     it('should migrate v8 legacy event types and persist teams (v9+)', () => {
         const opts = useAppState.persist.getOptions()
-        expect(opts.version).toBe(25)
+        expect(opts.version).toBe(26)
         const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
         expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
         expect(opts.partialize!(s())).toHaveProperty('teams')
@@ -1001,5 +1001,36 @@ describe('setMarkerAt', () => {
         expect(ko[0]).toMatchObject({ sourceFileIndex: 1, matchTimeSec: 5 })
         s().undo()
         expect(s().events.filter((e) => e.type === 'kick_off')[0]).toMatchObject({ sourceFileIndex: 0, matchTimeSec: 20 })
+    })
+})
+
+describe('known players (device preference)', () => {
+    const team = (name: string, roster: string[]) => ({ name, color: '#fff', roster })
+    beforeEach(() => {
+        useAppState.setState({ knownPlayers: [], teams: [team('Whites', []), team('Colours', [])] })
+    })
+
+    it('should remember names added through setTeams, addToRoster and a rename', () => {
+        s().setTeams([team('Whites', ['Jo']), team('Colours', [])])
+        s().addToRoster('Colours', 'Sam')
+        s().setTeams([team('Whites', ['Joe']), team('Colours', ['Sam'])])
+        expect(s().knownPlayers.map((p) => p.name).sort()).toEqual(['Jo', 'Joe', 'Sam'])
+    })
+    it('should not forget a player removed from a roster, until forgetPlayer', () => {
+        s().setTeams([team('Whites', ['Jo']), team('Colours', [])])
+        s().setTeams([team('Whites', []), team('Colours', [])])
+        expect(s().knownPlayers.map((p) => p.name)).toEqual(['Jo'])
+        s().forgetPlayer('jo')
+        expect(s().knownPlayers).toEqual([])
+    })
+    it('should keep them through newMatch, persist them, and migrate from rosters (v26)', () => {
+        s().setTeams([team('Whites', ['Jo']), team('Colours', [])])
+        s().newMatch()
+        expect(s().knownPlayers).toHaveLength(1)
+        expect(useAppState.persist.getOptions().partialize!(s())).toHaveProperty('knownPlayers')
+        const migrate = useAppState.persist.getOptions().migrate!
+        const out = migrate({ teams: [team('A', ['Jo', 'Sam']), team('B', ['jo', 'Bea'])] }, 25) as { knownPlayers: { name: string }[] }
+        expect(out.knownPlayers.map((p) => p.name).sort()).toEqual(['Bea', 'Sam', 'jo'])
+        expect((migrate({ knownPlayers: [{ name: 'X', lastUsed: 1 }], teams: [] }, 26) as { knownPlayers: unknown[] }).knownPlayers).toHaveLength(1)
     })
 })

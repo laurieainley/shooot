@@ -76,6 +76,9 @@ function TeamCard({ index: i }: TeamCardProps) {
     const setTeams = useAppState((s) => s.setTeams)
     const renameTeam = useAppState((s) => s.renameTeam)
     const setTeamInitials = useAppState((s) => s.setTeamInitials)
+    const known = useAppState((s) => s.knownPlayers)
+    const forgetPlayer = useAppState((s) => s.forgetPlayer)
+    const allTeams = useAppState((s) => s.teams)
     const [name, setName] = useState(team.name)
     // While the initials box has focus it shows exactly what is typed, so clearing it to retype works.
     const [typed, setTyped] = useState<string | null>(null)
@@ -129,7 +132,14 @@ function TeamCard({ index: i }: TeamCardProps) {
                     style={{ background: teamBackground(MULTI_COLOR) }}
                 />
             </div>
-            <RosterTags label={`Team ${i + 1} roster`} names={team.roster} onChange={(roster) => patch({ roster })} />
+            <RosterTags
+                label={`Team ${i + 1} roster`}
+                names={team.roster}
+                onChange={(roster) => patch({ roster })}
+                known={known}
+                exclude={allTeams.flatMap((t) => t.roster)}
+                onForget={forgetPlayer}
+            />
         </div>
     )
 }

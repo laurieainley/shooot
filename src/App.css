@@ -472,28 +472,32 @@
 .final-score__dash { color: var(--sh-muted); font-family: var(--sh-font-mono); }
 .final-score__clear { min-height: 44px; }
 .match-details .graphics-setup__logo { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--sh-line); }
-/* Roster as tags: name chips you can click to fix, × to remove, with the add field at the end. */
-.roster-tags {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 76px; align-content: flex-start; padding: 8px;
-  border: 1px solid var(--sh-line); border-radius: var(--sh-radius-sm); background: var(--sh-ground); cursor: text;
-}
-.roster-tags:focus-within { border-color: var(--sh-text); }
+/* Roster: a field with an Add button, previous players under it, the roster as chips below. */
+.roster { display: flex; flex-direction: column; gap: 8px; }
+.roster__entry { display: flex; flex-direction: column; gap: 8px; scroll-margin: 80px 0; }
+.roster__row { display: flex; gap: 8px; align-items: stretch; }
+.roster__input { flex: 1 1 auto; min-width: 0; width: 100%; box-sizing: border-box; }
+.roster__add { flex: none; }
+.roster__list, .roster-suggest { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.roster-suggest { padding: 0; }
 .roster-tag {
   display: inline-flex; align-items: stretch; max-width: 100%; border: 1px solid var(--sh-line); border-radius: 999px;
   background: var(--sh-surface-2); color: var(--sh-text); font-size: 13px; overflow: hidden;
 }
+.roster-suggest__chip { background: transparent; border-style: dashed; }
 .roster-tag__name, .roster-tag__remove, .roster-tag__edit { font: inherit; color: inherit; background: none; border: 0; }
 .roster-tag__name { padding: 3px 4px 3px 11px; cursor: text; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.roster-suggest__name { cursor: pointer; }
 .roster-tag__name:hover { text-decoration: underline; text-decoration-color: var(--sh-muted); text-underline-offset: 3px; }
 .roster-tag__remove { display: grid; place-items: center; padding: 0 9px 0 5px; color: var(--sh-muted); cursor: pointer; }
 .roster-tag__remove:hover { color: var(--sh-text); }
 .roster-tag__edit { padding: 3px 4px 3px 11px; min-width: 4ch; outline: none; box-shadow: inset 0 -2px 0 var(--sh-text); }
-.roster-tags__input { flex: 1 1 120px; min-width: 100px; border: 0; background: none; color: var(--sh-text); font: inherit; font-size: 13px; padding: 4px 2px; outline: none; }
-.roster-tags__input::placeholder { color: var(--sh-muted); opacity: 1; }
 @media (pointer: coarse) {
+  .roster__input { font-size: 16px; }
+  .roster__add { min-height: 44px; min-width: 56px; font-size: 14px; }
+  .roster-tag { font-size: 14px; }
   .roster-tag__name { padding-top: 9px; padding-bottom: 9px; }
   .roster-tag__remove { padding: 0 14px 0 8px; }
-  .roster-tags__input { font-size: 16px; min-height: 36px; }
 }
 /* New match steps */
 .steps { display: flex; gap: 6px; list-style: none; margin: 8px 0 0; padding: 0; }

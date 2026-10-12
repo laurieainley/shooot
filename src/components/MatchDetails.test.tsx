@@ -191,3 +191,29 @@ it('should leave out the logo and graphics style when compact', () => {
     expect(screen.getByLabelText('Title')).toBeInTheDocument()
     expect(screen.getAllByLabelText(/final score/)).toHaveLength(2)
 })
+
+describe('MatchDetails remembered players', () => {
+    beforeEach(() => {
+        useAppState.setState({
+            teams: [{ name: 'A', color: '#f0f0f0', roster: ['Sam'] }, { name: 'B', color: '#ec5fa4', roster: [] }],
+            knownPlayers: [{ name: 'Sam', lastUsed: 3 }, { name: 'Jo', lastUsed: 2 }, { name: 'Bea', lastUsed: 1 }],
+        })
+    })
+
+    it('should suggest remembered players who are in neither team, add one to the team and remember typed names', async () => {
+        render(<MatchDetails />)
+        await userEvent.click(screen.getByLabelText('Team 2 roster'))
+        expect(screen.queryByRole('button', { name: 'Add Sam' })).toBeNull() // already in Team 1
+        await userEvent.click(screen.getByRole('button', { name: 'Add Jo' }))
+        expect(useAppState.getState().teams[1].roster).toEqual(['Jo'])
+        await userEvent.type(screen.getByLabelText('Team 2 roster'), 'Kit{Enter}')
+        expect(useAppState.getState().knownPlayers.map((p) => p.name)).toContain('Kit')
+    })
+
+    it('should forget a suggested player', async () => {
+        render(<MatchDetails />)
+        await userEvent.click(screen.getByLabelText('Team 2 roster'))
+        await userEvent.click(screen.getByRole('button', { name: 'Forget Bea' }))
+        expect(useAppState.getState().knownPlayers.map((p) => p.name)).not.toContain('Bea')
+    })
+})
