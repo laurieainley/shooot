@@ -638,3 +638,19 @@ describe('EventLog action row', () => {
         expect(screen.getByRole('button', { name: 'Dl' }).parentElement).toHaveClass('event-actions__download')
     })
 })
+
+describe('EventLog with the clip popover open', () => {
+    it('should ignore keys pressed inside the portalled popover', async () => {
+        setup([{ id: 'a', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites' }, kickOff(0)])
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        await userEvent.click(screen.getByRole('button', { name: 'Download clip' }))
+        const dialog = screen.getByRole('dialog', { name: 'Download clip' })
+        dialog.focus()
+        const before = byId('a')?.replay
+        await userEvent.keyboard('{Delete}')
+        await userEvent.keyboard('r')
+        expect(byId('a')).toBeDefined()
+        expect(byId('a')?.replay).toBe(before)
+    })
+})

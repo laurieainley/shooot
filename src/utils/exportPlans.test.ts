@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { fullMatchExport, highlightsExport, type ExportState } from './exportPlans'
+import { clipExport, fullMatchExport, highlightsExport, type ExportState } from './exportPlans'
+import { STING_SEC } from '../graphics/layout'
 import type { MatchEvent, VideoSourceFile } from '../types'
 
 const file = (name: string, kind: 'full' | 'proxy' = 'full', size = 1000): VideoSourceFile =>
@@ -91,5 +92,82 @@ describe('highlightsExport — replay zoom', () => {
     })
     it('should not crop without goal areas', () => {
         expect(highlightsExport(state(), 'full').cuts.every((c) => !c.crop)).toBe(true)
+    })
+})
+
+describe('clipExport', () => {
+    const long = (name: string): VideoSourceFile => ({ ...file(name), durationSec: 600 })
+    const clipEvents: MatchEvent[] = [
+        { id: 'ko', type: 'kick_off', matchTimeSec: 0, sourceFileIndex: 0 },
+        { id: 'G1', type: 'goal', matchTimeSec: 100, sourceFileIndex: 0, team: 'Whites', scorer: 'DJ' },
+        { id: 'G2', type: 'goal', matchTimeSec: 105, sourceFileIndex: 0, team: 'Colours', scorer: 'Al' },
+        { id: 'G3', type: 'goal', matchTimeSec: 3, sourceFileIndex: 1, team: 'Whites', scorer: 'Sam' },
+        { id: 'U', type: 'goal', matchTimeSec: 50, sourceFileIndex: 0, unlinked: true, team: 'Whites' },
+    ]
+    const cs = (extra: Partial<ExportState> = {}): ExportState =>
+        state({ files: [long('a.mp4'), long('b.mp4')], events: clipEvents, cumulativeOffsets: [0, 600], ...extra })
+    const both = { replay: true, score: true }
+    it('should only list the proxy-only files the clip reads as missing', () => {
+        const s = cs({ files: [long('a.mp4'), long('b.mp4'), file('GL030001.LRV', 'proxy')], cumulativeOffsets: [0, 600, 1200] })
+        expect(clipExport(s, 'G1', both, 'full')!.missing).toEqual([])
+        const t = cs({ files: [long('a.mp4'), { ...long('b.mp4'), kind: 'proxy' }, file('GL030001.LRV', 'proxy')], cumulativeOffsets: [0, 600, 1200] })
+        expect(clipExport(t, 'G3', both, 'full')!.missing).toContain('b.mp4')
+        expect(clipExport(t, 'G3', both, 'full')!.missing).not.toContain('GL030001.LRV')
+        expect(clipExport(t, 'G1', both, 'full')!.missing).not.toContain('b.mp4')
+    })
+    const captions = (p: NonNullable<ReturnType<typeof clipExport>>) => p.spec!.overlays.filter((o) => o.kind === 'caption')
+
+    it('should cut only that event with its padding, then its replay', () => {
+        const p = clipExport(cs(), 'G1', both, 'full')!
+        expect(p.cuts.filter((c) => (c.speed ?? 1) === 1)).toEqual([{ sourceIndex: 0, startSec: 90, endSec: 104 }])
+        expect(p.cuts.some((c) => (c.speed ?? 1) < 1)).toBe(true)
+        expect(p.kind).toBe('clip')
+    })
+    it('should leave the replay out when the option is off or the event has none', () => {
+        expect(clipExport(cs(), 'G1', { replay: false, score: true }, 'full')!.cuts.every((c) => (c.speed ?? 1) === 1)).toBe(true)
+        const s = cs({ events: clipEvents.map((e) => (e.id === 'G1' ? { ...e, replay: false } : e)) })
+        expect(clipExport(s, 'G1', both, 'full')!.cuts.every((c) => (c.speed ?? 1) === 1)).toBe(true)
+    })
+    it('should caption only that event even with a neighbour inside its padding', () => {
+        const caps = captions(clipExport(cs(), 'G1', { replay: false, score: true }, 'full')!)
+        expect(caps).toHaveLength(1)
+        expect(caps[0].kind === 'caption' && caps[0].spec.person).toBe('DJ')
+    })
+    it('should split a clip across the file boundary and caption only the part with the event', () => {
+        const p = clipExport(cs(), 'G3', { replay: false, score: true }, 'full')!
+        expect(p.cuts.map((c) => [c.sourceIndex, c.startSec, c.endSec])).toEqual([[0, 593, 600], [1, 0, 7]])
+        const caps = captions(p)
+        expect(caps.length).toBeGreaterThan(0)
+        expect(caps.every((o) => p.cuts[o.cutIndex].sourceIndex === 1)).toBe(true)
+    })
+    it('should carry the chosen caption on into its replay cut', () => {
+        const p = clipExport(cs(), 'G1', both, 'full')!
+        const caps = captions(p)
+        expect(caps.some((o) => (p.cuts[o.cutIndex].speed ?? 1) < 1)).toBe(true)
+        expect(caps.some((o) => (p.cuts[o.cutIndex].speed ?? 1) === 1)).toBe(true)
+    })
+    it('should end with the sting and have no title or full-time card', () => {
+        const p = clipExport(cs(), 'G1', { replay: false, score: true }, 'full')!
+        expect(p.spec?.intro).toBeUndefined()
+        expect(p.spec?.outro).toEqual({ kind: 'sting' })
+    })
+    it('should count the sting in the clip length', () => {
+        const p = clipExport(cs(), 'G1', { replay: false, score: true }, 'full')!
+        expect(p.seconds).toBe(14 + STING_SEC)
+    })
+    it('should drop the score from the caption when the option is off', () => {
+        const on = captions(clipExport(cs(), 'G1', { replay: false, score: true }, 'full')!)
+        const off = captions(clipExport(cs(), 'G1', { replay: false, score: false }, 'full')!)
+        expect(on.every((o) => o.kind === 'caption' && !!o.spec.bug)).toBe(true)
+        expect(off.every((o) => o.kind === 'caption' && !o.spec.bug)).toBe(true)
+    })
+    it('should name the file from title and score, minute, type and person', () => {
+        expect(clipExport(cs(), 'G1', both, 'full')!.outputName).toBe("Whites 2-1 Colours - 2' Goal DJ.mp4")
+        expect(clipExport(cs(), 'G1', both, 'preview')!.outputName).toBe("Whites 2-1 Colours - 2' Goal DJ (preview).mp4")
+    })
+    it('should refuse markers, unknown and unlinked events', () => {
+        expect(clipExport(cs(), 'ko', both, 'full')).toBeNull()
+        expect(clipExport(cs(), 'nope', both, 'full')).toBeNull()
+        expect(clipExport(cs(), 'U', both, 'full')).toBeNull()
     })
 })

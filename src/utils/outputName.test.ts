@@ -28,3 +28,16 @@ describe('outputFileName', () => {
         expect(name({ title: 'Matchday 3', teams: [] })).toBe('Matchday 3.mp4')
     })
 })
+
+describe('outputFileName clips', () => {
+    const clip = (o: Partial<Parameters<typeof outputFileName>[0]>) => outputFileName({ kind: 'clip', preview: false, title: 'Matchday 3', teams, events, ...o })
+    it('should add the minute, label and person after the title and score', () => {
+        expect(clip({ clip: { minute: 13, label: 'Goal', person: 'DJ' } })).toBe("Matchday 3 - Whites 1-2 Colours - 13' Goal DJ.mp4")
+    })
+    it('should fall back to Clip without a title or teams, and skip a missing minute or person', () => {
+        expect(clip({ title: null, teams: [], events: [], clip: { minute: null, label: 'Save' } })).toBe('Clip - Save.mp4')
+    })
+    it('should tag preview clips and clean unsafe characters in the person', () => {
+        expect(clip({ preview: true, title: null, teams: [], events: [], clip: { minute: 5, label: 'Goal (pen)', person: 'A/B' } })).toBe("Clip - 5' Goal (pen) A B (preview).mp4")
+    })
+})

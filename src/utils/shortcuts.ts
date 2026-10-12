@@ -51,6 +51,8 @@ export function shouldHandleShortcut(target: EventTarget | null, ctx: ShortcutCo
     if ((el as HTMLElement).isContentEditable) return false
     const tag = el.tagName
     if (tag === 'TEXTAREA' || tag === 'SELECT') return false
+    // A dialog (e.g. the clip download popover) owns its keys, even on its checkboxes and buttons.
+    if (el.closest('[role="dialog"], [aria-modal="true"]')) return false
     if (tag === 'INPUT') return PLAIN_INPUTS.includes((el as HTMLInputElement).type)
     const role = el.getAttribute('role')
     if (role && TEXT_ROLES.includes(role)) return false

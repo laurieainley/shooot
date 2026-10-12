@@ -6,6 +6,8 @@ import { REEL_READY, POLISHING } from '../utils/voice'
 import { CopyDiagnostics } from './CopyDiagnostics'
 import { NetBulge } from './NetBulge'
 import { keepOpenNotice } from '../utils/renderNotice'
+import { dedupeSkipped } from '../utils/dedupeSkipped'
+import { SkippedList } from './SkippedList'
 
 interface RenderStatusProps {
     /** Which export this panel section belongs to: it shows that render, and notes when the other one is running. */
@@ -13,8 +15,7 @@ interface RenderStatusProps {
 }
 
 const STOPPED_NOTE_MS = 5000
-const dedupe = (skipped: { label: string; reason: string }[]): { label: string; reason: string }[] => [...new Map(skipped.map((g) => [`${g.label}|${g.reason}`, g])).values()]
-const NAMES: Record<JobKind, string> = { highlights: 'highlights', fullMatch: 'full match' }
+const NAMES: Record<JobKind, string> = { highlights: 'highlights', fullMatch: 'full match', clip: 'clip' }
 
 /** The render's progress, Cancel (confirmed in place; once confirmed the box goes at once), skipped graphics, and the downloaded file. */
 export function RenderStatus({ kind }: RenderStatusProps) {
@@ -92,13 +93,13 @@ function RenderStatusBody({ kind, onStopped }: RenderStatusProps & { onStopped: 
         if (!stored || stored.kind !== kind) return null
         return (
             <>
-                <SkippedList skipped={dedupe(stored.graphics.skipped)} note={`from the last render, ${new Date(stored.finishedAt ?? stored.startedAt).toLocaleString()}`} />
+                <SkippedList skipped={dedupeSkipped(stored.graphics.skipped)} note={`from the last render, ${new Date(stored.finishedAt ?? stored.startedAt).toLocaleString()}`} />
                 <CopyDiagnostics report={stored} />
             </>
         )
     }
     const canShare = job.result != null && typeof navigator.canShare === 'function' && navigator.canShare({ files: [job.result.file] })
-    const skipped = dedupe(job.report?.skipped ?? job.diagnostics?.graphics.skipped ?? [])
+    const skipped = dedupeSkipped(job.report?.skipped ?? job.diagnostics?.graphics.skipped ?? [])
     if (job.phase === 'running' && job.notice) {
         return (
             <div className="render-busy" role="alertdialog" aria-label="Different frame sizes">
@@ -136,17 +137,5 @@ function RenderStatusBody({ kind, onStopped }: RenderStatusProps & { onStopped: 
             )}
             {job.diagnostics && job.phase !== 'running' && <CopyDiagnostics report={job.diagnostics} />}
         </>
-    )
-}
-
-function SkippedList({ skipped, note }: { skipped: { label: string; reason: string }[]; note?: string }) {
-    if (skipped.length === 0) return null
-    return (
-        <div className="rounded border border-line p-2 text-[12px] text-muted">
-            <p className="m-0 mb-1">Rendered without:{note && <span className="font-normal"> ({note})</span>}</p>
-            <ul className="m-0 list-disc pl-4">
-                {skipped.map((g, i) => <li key={i}>{g.label} — {g.reason}</li>)}
-            </ul>
-        </div>
     )
 }

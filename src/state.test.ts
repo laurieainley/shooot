@@ -147,6 +147,19 @@ describe('teams and picker', () => {
         expect(s().teams[0]).toMatchObject({ name: 'A', roster: ['x'] })
     })
 
+    it('should default clip options to score and replay on, and remember changes', () => {
+        expect(s().clipOptions).toEqual({ score: true, replay: true })
+        s().setClipOptions({ score: false })
+        expect(s().clipOptions).toEqual({ score: false, replay: true })
+        s().setClipOptions({ score: true })
+    })
+
+    it('should migrate older saved state with default clip options (v22)', () => {
+        const migrate = useAppState.persist.getOptions().migrate!
+        expect((migrate({}, 20) as { clipOptions: unknown }).clipOptions).toEqual({ score: true, replay: true })
+        expect((migrate({ clipOptions: { score: false, replay: false } }, 22) as { clipOptions: unknown }).clipOptions).toEqual({ score: false, replay: false })
+    })
+
     it('should drop the removed adjustTimestampsByOffset setting (v18)', () => {
         const migrate = useAppState.persist.getOptions().migrate!
         const out = migrate({ adjustTimestampsByOffset: true, lengthBeforeGoalSec: 8 }, 17) as Record<string, unknown>
@@ -156,7 +169,7 @@ describe('teams and picker', () => {
 
     it('should migrate v8 legacy event types and persist teams (v9+)', () => {
         const opts = useAppState.persist.getOptions()
-        expect(opts.version).toBe(21)
+        expect(opts.version).toBe(22)
         const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
         expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
         expect(opts.partialize!(s())).toHaveProperty('teams')

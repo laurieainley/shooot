@@ -1,9 +1,10 @@
 // Turns a graphics spec (plain data) into the engine's painters, using the spec's theme.
 import type { RenderGraphics, RenderOverlay } from '../render/types'
-import { CARD_SEC, cardFade } from './layout'
+import { CARD_SEC, STING_SEC, cardFade } from './layout'
 import { designFit, type PaintAssets } from './paint'
+import { paintSting } from './sting'
 import { getTheme, type GraphicsTheme } from './themes'
-import type { CardSpec, GraphicsSpec, OverlaySpec } from './types'
+import { isSting, type CardSpec, type GraphicsSpec, type OverlaySpec } from './types'
 
 type Painter = (ctx: OffscreenCanvasRenderingContext2D, t: number) => void
 
@@ -32,6 +33,11 @@ function card(spec: CardSpec, label: string, assets: PaintAssets, theme: Graphic
     }
 }
 
+function sting(assets: PaintAssets) {
+    // Animated per frame (no `fade`): the wordmark eases itself in and out.
+    return { label: 'Shooot sting', durationSec: STING_SEC, paint: (ctx: OffscreenCanvasRenderingContext2D, t: number) => paintSting(ctx, t, STING_SEC, assets) }
+}
+
 export function toRenderGraphics(spec: GraphicsSpec, assets: PaintAssets): RenderGraphics {
     const theme = getTheme(spec.theme)
     const rowsOf = (kind: OverlaySpec['kind']): [number, number] => ({ caption: theme.rows.caption, replayTag: theme.rows.replay, scoreBug: theme.rows.bug })[kind]
@@ -50,7 +56,7 @@ export function toRenderGraphics(spec: GraphicsSpec, assets: PaintAssets): Rende
     }))
     return {
         ...(spec.intro ? { intro: card(spec.intro, 'Title card', assets, theme) } : {}),
-        ...(spec.outro ? { outro: card(spec.outro, 'Full-time card', assets, theme) } : {}),
+        ...(spec.outro ? { outro: isSting(spec.outro) ? sting(assets) : card(spec.outro, 'Full-time card', assets, theme) } : {}),
         overlays,
     }
 }

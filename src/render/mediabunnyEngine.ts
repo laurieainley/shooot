@@ -146,7 +146,7 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message : Stri
 const isAbort = (e: unknown): boolean => e instanceof DOMException && e.name === 'AbortError'
 
 export const renderReel: RenderFn = async (cuts, sources, opts) => {
-    const diag = new RenderDiagnostics({ kind: opts.resumable?.kind ?? 'highlights', outputName: opts.outputName ?? OUTPUT_NAME, ...(opts.wakeLockStatus ? { wakeLock: opts.wakeLockStatus } : {}) })
+    const diag = new RenderDiagnostics({ kind: opts.resumable?.kind ?? opts.kind ?? 'highlights', outputName: opts.outputName ?? OUTPUT_NAME, ...(opts.wakeLockStatus ? { wakeLock: opts.wakeLockStatus } : {}) })
     const endTotal = diag.begin('total')
     try {
         const out = await renderGraphicsFirst(cuts, sources, opts, diag)
@@ -570,7 +570,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                     try { await renderCut(u - 1, cuts[u - 1]) } finally { endCut() }
                 } else {
                     if (!copied) throw new Error('Nothing to render: every cut is outside its file')
-                    const outro = await encodeCard(run?.graphics.outro, 'Full-time card')
+                    const outro = await encodeCard(run?.graphics.outro, run?.graphics.outro?.label ?? 'Full-time card')
                     if (outro) await addCard(outro)
                 }
                 if (journal && unitWriter) {

@@ -8,7 +8,7 @@ import type { CutTiming, GraphicsReport } from './types'
 const KEY = 'render-job'
 const DIR = 'render-job'
 
-export type JobKind = 'highlights' | 'fullMatch'
+export type JobKind = 'highlights' | 'fullMatch' | 'clip'
 
 export type JobState = {
     kind: JobKind

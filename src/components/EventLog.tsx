@@ -24,6 +24,7 @@ import { RelinkBanner } from './RelinkBanner'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 import { ShortcutsButton } from './ShortcutsButton'
 import { EventActions } from './EventActions'
+import { ClipDownload } from './ClipDownload'
 
 type Field = 'scorer' | 'team' | 'time' | 'notes'
 type Editing = { id: string; field: Field } | null
@@ -99,6 +100,8 @@ export function EventLog() {
     }
 
     const onKeyDown = (ev: ReactKeyboardEvent<HTMLElement>): void => {
+        // Portalled children (the clip popover) bubble through React; their keys are not the log's.
+        if (!(ev.currentTarget as Node).contains(ev.target as Node)) return
         if (isTyping(ev.target as Element) || ev.metaKey || ev.ctrlKey || ev.altKey) return
         // A focused button (action row, Watch) owns Enter/Space and the row shortcuts; only Esc collapses and returns focus to the log.
         if ((ev.target as Element).closest('button')) {
@@ -297,7 +300,7 @@ function EventRow({ event: e, teams, selected, clock, score, editing, onSelect, 
                 <WatchButton onWatch={onWatch} disabled={e.unlinked} />
             </span>
             {selected && <EventActions event={e} touch={touch} onToggleReplay={onToggleReplay} onFraming={onFraming}
-                onEdit={() => useAppState.getState().editEvent(e.id)} onRemove={onRemove} />}
+                onEdit={() => useAppState.getState().editEvent(e.id)} onRemove={onRemove} download={<ClipDownload event={e} />} />}
         </li>
     )
 }

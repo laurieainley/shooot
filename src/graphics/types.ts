@@ -49,11 +49,15 @@ export type OverlaySpec =
 
 export type CaptionClock = { offsetSec: number; rate: number; totalSec: number }
 
+/** The Shooot end sting (brand wordmark on the ground colour), used by downloaded clips in every theme. */
+export type StingSpec = { kind: 'sting' }
+export const isSting = (o: CardSpec | StingSpec | undefined): o is StingSpec => !!o && 'kind' in o && o.kind === 'sting'
+
 /** What graphics a reel gets, as plain data (see plan.ts); painters.ts turns it into engine graphics. */
 export type GraphicsSpec = {
     /** The look the painters use (shooot when absent). */
     theme?: ThemeId
     intro?: CardSpec
-    outro?: CardSpec
+    outro?: CardSpec | StingSpec
     overlays: OverlaySpec[]
 }

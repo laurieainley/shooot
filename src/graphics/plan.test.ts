@@ -363,3 +363,30 @@ describe('themes', () => {
         expect(spec.outro?.scorers).toBeUndefined()
     })
 })
+
+describe('buildGraphicsSpec clip options', () => {
+    const events = [ev('A', 100, { team: "Ryan's Rovers" }), ev('B', 105, { team: 'Walford Town' })]
+    const clipCuts: Cut[] = [{ sourceIndex: 0, startSec: 90, endSec: 115 }]
+    const run = (extra: Partial<Parameters<typeof buildGraphicsSpec>[0]>, settings = ALL) =>
+        buildGraphicsSpec({ events, teams, cuts: clipCuts, cumulativeOffsets: [0], settings, matchday: 'M', ...extra })
+    type Cap = Extract<ReturnType<typeof run>['overlays'][number], { kind: 'caption' }>
+    const caps = (extra: Partial<Parameters<typeof buildGraphicsSpec>[0]>, settings = ALL): Cap[] =>
+        run(extra, settings).overlays.filter((o): o is Cap => o.kind === 'caption')
+
+    it('should caption only the chosen event but score it from all events', () => {
+        const captions = caps({ captionEvents: new Set(['B']) })
+        expect(captions).toHaveLength(1)
+        expect(captions[0].label).toContain('Caption')
+        expect(captions[0].spec.bug?.text).toBe('1–1')
+    })
+    it('should leave the score out when captionScore is false', () => {
+        const captions = caps({ captionScore: false })
+        expect(captions.length).toBeGreaterThan(0)
+        expect(captions.every((o) => !o.spec.bug)).toBe(true)
+    })
+    it('should skip cards when cards is false', () => {
+        const spec = run({ cards: false })
+        expect(spec.intro).toBeUndefined()
+        expect(spec.outro).toBeUndefined()
+    })
+})

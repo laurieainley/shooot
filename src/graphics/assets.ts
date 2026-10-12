@@ -3,6 +3,8 @@ import { DEFAULT_THEME_ID, getTheme, type GraphicsTheme, type ThemeId } from './
 
 export const DEFAULT_LOGO_URLS = ['/brand/tnf-logo.webp', '/brand/tnf-logo.png']
 
+export const WORDMARK_URL = '/brand/shooot-wordmark.svg'
+
 const fontLoads = new Map<ThemeId, Promise<boolean>>()
 
 /** Loads the theme's bundled fonts (only that theme's); resolves false if any could not be loaded (fallbacks are used). */
@@ -60,4 +62,19 @@ export async function loadLogo(custom?: Blob | null): Promise<ImageBitmap | null
         } catch { /* try the next format */ }
     }
     return null
+}
+
+/** The Shooot wordmark for the end sting, rasterised 2048 px wide (SVG to bitmap), or null if it cannot load. */
+export async function loadWordmark(): Promise<ImageBitmap | null> {
+    try {
+        const img = new Image()
+        img.src = WORDMARK_URL
+        await img.decode()
+        const w = 2048
+        const h = Math.round(w * (img.naturalHeight / img.naturalWidth))
+        // Draw at full size first: createImageBitmap(svgImage, { resize }) comes back empty in Chrome.
+        const canvas = new OffscreenCanvas(w, h)
+        canvas.getContext('2d')?.drawImage(img, 0, 0, w, h)
+        return await createImageBitmap(canvas)
+    } catch { return null }
 }

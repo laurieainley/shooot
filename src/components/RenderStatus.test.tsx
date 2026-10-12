@@ -10,7 +10,7 @@ import { renderJobs, resetRenderJobs } from '../renderJobs'
 import { RenderStatus } from './RenderStatus'
 import { RenderDiagnostics, saveLastReport, type DiagnosticsReport } from '../render/diagnostics'
 
-const start = (kind: 'highlights' | 'fullMatch' = 'fullMatch') =>
+const start = (kind: 'highlights' | 'fullMatch' | 'clip' = 'fullMatch') =>
     renderJobs().getState().start({ kind, quality: 'full' }, async () => ({ cuts: [], sources: [], outputName: 'full-match.mp4' }))
 
 describe('RenderStatus', () => {
@@ -28,6 +28,16 @@ describe('RenderStatus', () => {
         renderJobs().setState({ job: { ...renderJobs().getState().job!, fraction } })
         return done
     }
+
+    it('should name a running clip job', async () => {
+        const done = start('clip')
+        await waitFor(() => expect(renderJobs().getState().job?.phase).toBe('running'))
+        renderJobs().setState({ job: { ...renderJobs().getState().job!, fraction: 0.4 } })
+        render(<RenderStatus kind="highlights" />)
+        expect(await screen.findByText('Rendering clip · 40%')).toBeInTheDocument()
+        renderJobs().getState().cancel()
+        await done
+    })
 
     it('should swap Cancel for a one-line confirm in place, and Keep going restores it', async () => {
         const done = runningAt(0.5)

@@ -107,28 +107,34 @@ export function buildGraphicsSpec(args: {
     cumulativeOffsets: number[]
     settings: GraphicsSettings
     matchday: string
-}): GraphicsSpec {
-    const { teams, cuts, cumulativeOffsets, settings } = args
+    /** Caption only these events (default: all). The others still count towards the score. */
+    captionEvents?: ReadonlySet<string>
+    /** false builds captions without the score bug (default true). */
+    captionScore?: boolean
+    /** false skips the title and full-time cards even when the setting is on (default true). */
+    cards?: boolean
+}): GraphicsSpec & { outro?: CardSpec } {
+    const { teams, cuts, cumulativeOffsets, settings, captionEvents, captionScore = true, cards: wantCards = true } = args
     const events = linkedEvents(args.events)
     const theme = getTheme(settings.theme)
-    const spec: GraphicsSpec = { theme: theme.id, overlays: [] }
+    const spec: GraphicsSpec & { outro?: CardSpec } = { theme: theme.id, overlays: [] }
     const both = teams.length >= 2
     const globalOf = (src: number, t: number): number => (cumulativeOffsets[src] ?? 0) + t
 
-    if (settings.cards && both) Object.assign(spec, cards(teams, events, args.matchday, cumulativeOffsets, theme))
+    if (settings.cards && both && wantCards) Object.assign(spec, cards(teams, events, args.matchday, cumulativeOffsets, theme))
 
     const captions: CaptionOverlay[] = []
     if (settings.lowerThirds) {
         const after = both ? scoresAfter(events, teams, cumulativeOffsets) : new Map<string, Score>()
         const parts: CaptionOverlay[][] = []
         for (const e of events) {
-            if (!wantsLowerThird(e)) continue
+            if (!wantsLowerThird(e) || (captionEvents && !captionEvents.has(e.id))) continue
             const src = e.sourceFileIndex ?? 0
             const t = e.matchTimeSec
             const cutIndex = cuts.findIndex((c) => c.sourceIndex === src && (c.speed ?? 1) === 1 && c.startSec <= t && t < c.endSec)
             if (cutIndex === -1) continue
             const cut = cuts[cutIndex]
-            const cs = eventCaptionSpec(e, teams, both ? (after.get(e.id) ?? scoreAt(events, teams, cumulativeOffsets, globalOf(src, t))) : undefined, events, cumulativeOffsets, theme)
+            const cs = eventCaptionSpec(e, teams, captionScore && both ? (after.get(e.id) ?? scoreAt(events, teams, cumulativeOffsets, globalOf(src, t))) : undefined, events, cumulativeOffsets, theme)
             // Goals etc.: 1 s after the event; what the clip cannot hold carries on over the start of its replay.
             // Highlights: from the start of their clip (the moment itself is the whole point of the clip).
             const atClipStart = e.type === 'highlight'

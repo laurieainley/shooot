@@ -91,6 +91,8 @@ export type RenderOptions = {
     confirmMixedSizes?: (notice: string) => Promise<boolean>
     /** Called once when the file is complete, with where every cut really landed (see CutTiming). */
     onTimeline?: (timeline: RenderTimeline) => void
+    /** Which kind of render this is, for the diagnostics report (default highlights). A resumable job's own kind wins. */
+    kind?: 'highlights' | 'fullMatch' | 'clip'
     /** Output file name (default highlights.mp4). */
     outputName?: string
     /**

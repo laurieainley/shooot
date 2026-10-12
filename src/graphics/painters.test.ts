@@ -133,3 +133,12 @@ describe('toRenderGraphics themes', () => {
         expect(c.rows(1920, 1080)).toEqual(CLASSIC_CAPTION_ROWS)
     })
 })
+
+describe('toRenderGraphics sting outro', () => {
+    it('should give an animated 3.5 s sting card without a fade', () => {
+        const g = toRenderGraphics({ overlays: [], outro: { kind: 'sting' } }, { logo: null, wordmark: null })
+        expect(g.outro?.label).toBe('Shooot sting')
+        expect(g.outro?.durationSec).toBe(3.5)
+        expect(g.outro?.fade).toBeUndefined()
+    })
+})

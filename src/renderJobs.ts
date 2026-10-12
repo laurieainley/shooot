@@ -22,7 +22,7 @@ export type RenderRequest = {
     /** Identity of the plan (ExportPlan.signature): the real cut times of a finished render are kept under it. */
     signature?: string
     /** Save progress so the render can carry on after a reload. */
-    resumable?: { signature: string; kind: JobKind }
+    resumable?: { signature: string; kind: Exclude<JobKind, 'clip'> }
 }
 
 export type JobPhase = 'running' | 'done' | 'failed'
@@ -122,6 +122,7 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                     const out = await deps.render(req.cuts, req.sources, {
                         onProgress: (p) => patch(id, { fraction: p.fraction, status: formatRenderProgress(p) }),
                         signal,
+                        kind,
                         ...(lock ? { wakeLockStatus: () => lock.status() } : {}),
                         confirmMixedSizes: (notice) => new Promise<boolean>((resolve) => {
                             pending = resolve
@@ -137,7 +138,7 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                     })
                     // Cancelled while it was finishing: the user said stop, so no file, no download, no notification.
                     if (signal.aborted) throw new DOMException('Render cancelled', 'AbortError')
-                    if (timeline && req.signature) saveTimeline(kind, req.signature, timeline)
+                    if (timeline && req.signature && kind !== 'clip') saveTimeline(kind, req.signature, timeline)
                     const file = out instanceof File && out.name === req.outputName ? out : new File([out], req.outputName, { type: 'video/mp4' })
                     const url = deps.createUrl(file)
                     const elapsed = deps.now() - startedAt

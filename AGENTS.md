@@ -89,8 +89,14 @@ npm run lint       # baseline: 12 known problems — add none
   highlight) + markers Kick off / Half time / Final whistle. Optional team, person, assist (goals), note.
   The match clock starts at Kick off; ends swap after Half time (replay zoom target).
 - **Reel:** clip padding (default 10 s before / 4 s after), overlapping clips merge, scoring events get a slow-mo
-  replay (default 3 s before → 1 s after at 0.5×, half volume). `buildRenderPlan()` turns events into cuts, splitting
+  replay (default 4 s before → 1 s after at 0.5×, half volume). `buildRenderPlan()` turns events into cuts, splitting
   cuts that cross a file boundary.
+- **Clip download:** a selected row's Download clip popover (`ClipDownload`) renders one event through `clipExport()`:
+  its padding, its replay (option), a caption for that event only (score option; `buildGraphicsSpec` `captionEvents` /
+  `captionScore` / `cards`), no title/full-time card, and a 3.5 s Shooot sting (`graphics/sting.ts`, outro
+  `{ kind: 'sting' }`; a missing wordmark fails the sting visibly). Name: `outputFileName` clip form
+  (`… - 13' Goal DJ.mp4`). Job kind `'clip'`: never resumable, doesn't save a timeline or the last diagnostics report;
+  quality falls back to preview only for files the clip reads. Options persist as `clipOptions` (state v22).
 - **Full match:** Kick off → Final whistle across files, stream-copied; score bug windows (Off / After goals /
   Periodic; after goals = 1 s after for 5 s, like the highlights caption) and event captions are the only re-encoded
   parts. Optional slow-mo replays (`fullMatch.replays`, `withReplays()` in utils/fullMatch.ts) split the match after
@@ -173,7 +179,9 @@ npm run lint       # baseline: 12 known problems — add none
   - touch targets ≥ 44 px, text ≥ 14 px on touch, contrast ≥ 4.5:1 (`node scripts/check-contrast.mjs`), respect
     `prefers-reduced-motion`, never red-vs-green alone to distinguish meanings.
 - **Keyboard:** one window-level handler (`Player.tsx` + `utils/shortcuts.ts` + `components/playerShortcuts.ts`);
-  shortcuts work wherever focus is, except in text fields/menus/tabs or while a picker/sheet is open. A focused control
+  shortcuts work wherever focus is, except in text fields/menus/tabs, controls inside a dialog (`[role=dialog]`,
+  `[aria-modal]` — dialogs own their keys), or while a picker/sheet is open. The event log ignores keys from portalled
+  popovers opened from its rows. A focused control
   that owns a key wins (e.g. the event log's ↑/↓/Enter/Delete/R/E/T/N). Main keys: Space play/pause · G tag ·
   ←/→ ±5 s (Shift ±1 s) · ↑/↓ frame step · , . / speed · Home/End · [ ] previous/next file · Z/0 zoom · F fullscreen ·
   M mute · L event log · ? shortcuts · ⌘Z / ⇧⌘Z undo/redo. Keep `utils/shortcutList.ts` in sync when changing keys.

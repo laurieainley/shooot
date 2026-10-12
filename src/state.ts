@@ -20,7 +20,7 @@ import { buildPreviewPlan, clipStep, type PreviewStep } from './utils/preview'
 import { normaliseGraphics, type GraphicsSettings } from './graphics/plan'
 
 const DEFAULT_GRAPHICS: GraphicsSettings = { cards: true, lowerThirds: true, replayTag: true, theme: 'shooot' }
-import type { FullMatchSettings } from './utils/exportPlans'
+import type { ClipOptions, FullMatchSettings } from './utils/exportPlans'
 
 /** Links events to the loaded files: migrated whole-timeline times are placed first, then file keys matched. */
 function relinkEvents(events: MatchEvent[], files: VideoSourceFile[]): MatchEvent[] {
@@ -161,6 +161,9 @@ type AppState = {
     exportTab: 'highlights' | 'fullMatch'
     setExportTab: (tab: 'highlights' | 'fullMatch') => void
     setFullMatch: (partial: Partial<FullMatchSettings>) => void
+    /** Remembered options of the per-event clip download (device preference, not part of a project). */
+    clipOptions: ClipOptions
+    setClipOptions: (patch: Partial<ClipOptions>) => void
     /** Matchday heading on the title card; null = "MATCH". */
     matchdayLabel: string | null
     setMatchdayLabel: (label: string | null) => void
@@ -509,6 +512,8 @@ export const useAppState = create<AppState>()(
             fullMatch: { cards: true, scoreBug: 'goals', intervalMin: 5, captions: true, replays: false },
             exportTab: 'highlights',
             setExportTab: (tab) => set({ exportTab: tab }),
+            clipOptions: { score: true, replay: true },
+            setClipOptions: (patch) => set({ clipOptions: { ...get().clipOptions, ...patch } }),
             setFullMatch: (partial) => set({ fullMatch: { ...get().fullMatch, ...partial } }),
             setGoalAreas: (areas) => set({ goalAreas: areas ? normaliseAreas(areas) : null }),
             setGoalMarks: (team, marks) => {
@@ -664,6 +669,7 @@ export const useAppState = create<AppState>()(
                 teams: state.teams,
                 graphics: state.graphics,
                 fullMatch: state.fullMatch,
+                clipOptions: state.clipOptions,
                 matchdayLabel: state.matchdayLabel,
                 goalAreas: state.goalAreas,
                 goalMarks: state.goalMarks,
@@ -673,7 +679,7 @@ export const useAppState = create<AppState>()(
                 suggestions: state.suggestions,
                 suggestionRun: state.suggestionRun,
             }),
-            version: 21,
+            version: 22,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -757,6 +763,9 @@ export const useAppState = create<AppState>()(
 
                 // Full-match slow-mo replays (v21): off.
                 if (version < 21 && state.fullMatch) state.fullMatch = { ...state.fullMatch, replays: false }
+
+                // Clip download options (v22).
+                if (version < 22) state.clipOptions = { score: true, replay: true }
 
                 return state
             },
