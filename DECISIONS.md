@@ -11,6 +11,12 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-12
 
+- **The match strip's hover bubble names the symbol under the pointer** (user). Over an event icon, a marker's flag icon
+  (not its hairline) or a suggestion ring, the bubble reads e.g. "Goal · 10:00 · V2" or "Detected moment · …", at the
+  symbol's own time. Anywhere else it shows the time as before. Native `title` tooltips on icons were removed, so two
+  popups don't show at once. Suggestion rings are called "Detected moment" (they were "Suggested moment"). *Why:*
+  clarity about what each mark on the timeline is, without the bubble changing as you scrub. *Where:*
+  `src/components/MatchStrip.tsx`.
 - **Find goals review loop defaults to −5 s … +5 s** (user). Supersedes −5 … +4 and earlier entries below.
   *Why:* the 03-09 goal at 28:14 had a crowd reaction ~11 s late. Across 51 real goals, −5 … +4 covered 37 and
   −9 … +6 would cover 47, but the user hadn't needed more lead-in when watching highlights, so they chose the smaller

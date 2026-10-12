@@ -7,8 +7,8 @@ import { formatHMS } from './timeline'
 export type StripFile = { name: string; leftPct: number; widthPct: number }
 export type StripSpan = { leftPct: number; widthPct: number }
 /** An event icon on the strip: `kind` + `pen` pick the glyph (utils/eventIcon). Kit colours stay on rows and the scorebug. */
-export type StripEvent = { id: string; leftPct: number; pen: boolean; title: string; kind: MatchEvent['type'] }
-export type StripFlag = { id: string; kind: MarkerType; leftPct: number; title: string }
+export type StripEvent = { id: string; leftPct: number; pen: boolean; title: string; kind: MatchEvent['type']; label: string; timeSec: number }
+export type StripFlag = { id: string; kind: MarkerType; leftPct: number; title: string; label: string; timeSec: number }
 export type MatchStrip = {
     totalSec: number
     files: StripFile[]
@@ -54,7 +54,7 @@ export function buildMatchStrip(args: {
         return { leftPct: pct(start), widthPct: Math.round((pct(end) - pct(start)) * 100) / 100 }
     })
     const globalOf = (e: MatchEvent): number => e.globalTimeSec ?? (cumulativeOffsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec
-    const flags = linked.filter(isMarker).map((e) => ({ id: e.id, kind: e.type, leftPct: pct(globalOf(e)), title: `${eventLabel(e)} ${formatHMS(globalOf(e))}` }))
+    const flags = linked.filter(isMarker).map((e) => ({ id: e.id, kind: e.type, leftPct: pct(globalOf(e)), title: `${eventLabel(e)} ${formatHMS(globalOf(e))}`, label: eventLabel(e), timeSec: globalOf(e) }))
     const stripEvents = linked.filter((e) => !isMarker(e)).map((e) => {
         const g = (cumulativeOffsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec
         const note = shortNote(e.notes)
@@ -64,6 +64,8 @@ export function buildMatchStrip(args: {
             pen: e.pen === true,
             title: `${formatHMS(g)} ${eventLabel(e)}${e.team ? ` – ${e.team}` : ''}${e.scorer ? ` (${e.scorer})` : ''}${note ? ` — ${note}` : ''}`,
             kind: e.type,
+            label: eventLabel(e),
+            timeSec: g,
         }
     })
     const playheadPct = pct((cumulativeOffsets[currentFileIndex] ?? 0) + currentTimeSec)

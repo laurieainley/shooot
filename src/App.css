@@ -344,13 +344,14 @@
   content: ""; position: absolute; top: 0; left: -5px; width: 10px; height: 10px; border-radius: 50%;
   background: var(--sh-rec); box-shadow: 0 0 0 2px var(--sh-ground);
 }
-/* Hover / drag: the time under the pointer. */
+/* Hover / drag: the time under the pointer; over an event icon, marker flag or suggestion ring, its name first (body font). */
 .strip-bubble {
   position: absolute; bottom: calc(100% + 6px); transform: translateX(-50%); z-index: 6; pointer-events: none; white-space: nowrap;
   padding: 4px 9px; border-radius: var(--sh-radius-sm); background: var(--sh-surface-2); color: var(--sh-text); border: 1px solid var(--sh-line);
   font-size: 13px; font-weight: 700; box-shadow: 0 4px 14px rgb(0 0 0 / 0.35);
 }
 .strip-bubble__file { font-weight: 400; color: var(--sh-muted); }
+.strip-bubble__label { font-family: var(--sh-font); font-weight: 600; }
 @media (pointer: coarse) { .strip-bubble { font-size: 16px; padding: 6px 12px; bottom: calc(100% + 14px); } }
 .kickoff-flag { position: relative; display: inline-block; width: 10px; height: 13px; border-left: 2px solid var(--sh-text); }
 .kickoff-flag::after { content: ""; position: absolute; top: 0; left: 0; width: 8px; height: 7px; background: var(--sh-text); clip-path: polygon(0 0, 100% 50%, 0 100%); }

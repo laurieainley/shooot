@@ -35,8 +35,8 @@ describe('buildMatchStrip', () => {
     it('should draw Kick off and Final whistle as flags, not dots or clips', () => {
         const s = buildMatchStrip({ ...base, events: [ev('k', 0, 100, { type: 'kick_off' }), ev('w', 1, 300, { type: 'final_whistle' })] })
         expect(s.flags).toEqual([
-            { id: 'k', kind: 'kick_off', leftPct: 10, title: 'Kick off 01:40' },
-            { id: 'w', kind: 'final_whistle', leftPct: 90, title: 'Final whistle 15:00' },
+            { id: 'k', kind: 'kick_off', leftPct: 10, title: 'Kick off 01:40', label: 'Kick off', timeSec: 100 },
+            { id: 'w', kind: 'final_whistle', leftPct: 90, title: 'Final whistle 15:00', label: 'Final whistle', timeSec: 900 },
         ])
         expect(s.events).toEqual([])
         expect(s.clips).toEqual([])
@@ -44,7 +44,7 @@ describe('buildMatchStrip', () => {
 
     it('should place event icons in global time, skipping unlinked', () => {
         const s = buildMatchStrip({ ...base, events: [ev('a', 1, 100, { team: 'Colours' }), ev('b', 0, 50, { unlinked: true })] })
-        expect(s.events).toEqual([{ id: 'a', leftPct: 70, pen: false, title: expect.stringContaining('Goal'), kind: 'goal' }])
+        expect(s.events).toEqual([{ id: 'a', leftPct: 70, pen: false, title: expect.stringContaining('Goal'), kind: 'goal', label: 'Goal', timeSec: 700 }])
     })
 
     it('should add a shortened note to the dot title', () => {
