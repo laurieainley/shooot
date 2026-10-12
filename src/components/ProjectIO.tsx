@@ -6,9 +6,9 @@ export function ProjectIO() {
 
     const onExport = (): void => {
         const st = useAppState.getState()
-        const { teams, goalAreas, goalMarks } = st
+        const { teams, goalAreas, goalMarks, knownFinalScore } = st
         const matchStartTimeSec = selectMatchStartSec(st) // kept for older versions of the app
-        const blob = new Blob([JSON.stringify({ events, goals: events, teams, matchStartTimeSec, goalAreas, goalMarks, graphicsTheme: st.graphics.theme }, null, 2)], { type: 'application/json' })
+        const blob = new Blob([JSON.stringify({ events, goals: events, teams, matchStartTimeSec, goalAreas, goalMarks, knownFinalScore, graphicsTheme: st.graphics.theme }, null, 2)], { type: 'application/json' })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url

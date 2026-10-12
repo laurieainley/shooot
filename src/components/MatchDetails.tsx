@@ -1,8 +1,9 @@
 import { MULTI_COLOR, isMultiColor, solidTeamColor, teamBackground } from '../utils/teamColor'
 import { deriveInitials } from '../utils/initials'
 import { RosterTags } from './RosterTags'
-import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react'
 import { useAppState } from '../state'
+import { parseKnownScore } from '../utils/scoreGap'
 import type { Team } from '../types'
 import { DEFAULT_LOGO_URLS } from '../graphics/assets'
 import { GraphicsStylePicker } from './GraphicsStylePicker'
@@ -133,11 +134,82 @@ function TeamCard({ index: i }: TeamCardProps) {
     )
 }
 
+const digits = (v: string): string => v.replace(/\D/g, '').slice(0, 2)
+
+/** The final score, if the user already knows it: two boxes saved together (both whole numbers, or both empty for none). */
+function FinalScoreField() {
+    const teams = useAppState((s) => s.teams)
+    const known = useAppState((s) => s.knownFinalScore)
+    const setKnown = useAppState((s) => s.setKnownFinalScore)
+    const [vals, setVals] = useState<[string, string]>(() => [known ? String(known[0]) : '', known ? String(known[1]) : ''])
+    const [left, setLeft] = useState(false) // focus has left the row once: now a half-filled score gets its hint
+    const labelId = useId()
+    const hintId = useId()
+    // Follows the store when the score changes elsewhere (Clear, a loaded project, a new match).
+    useEffect(() => {
+        setVals((cur) => {
+            const now = parseKnownScore(cur.every((v) => v !== '') ? [Number(cur[0]), Number(cur[1])] : null)
+            if (known && now && now[0] === known[0] && now[1] === known[1]) return cur
+            if (!known && cur[0] === '' && cur[1] === '') return cur
+            if (!known && (cur[0] === '') !== (cur[1] === '')) return cur // half typed: keep it
+            return known ? [String(known[0]), String(known[1])] : ['', '']
+        })
+    }, [known])
+    const name = (i: 0 | 1): string => teams[i]?.name?.trim() || `Team ${i + 1}`
+    const save = (v: [string, string]): void => {
+        if (v[0] === '' && v[1] === '') setKnown(null)
+        else if (v[0] !== '' && v[1] !== '') setKnown([Number(v[0]), Number(v[1])])
+    }
+    const half = (vals[0] === '') !== (vals[1] === '')
+    const box = (i: 0 | 1) => (
+        <input
+            aria-label={`${name(i)} final score`}
+            inputMode="numeric"
+            autoComplete="off"
+            value={vals[i]}
+            onChange={(e) => setVals((cur) => (i === 0 ? [digits(e.target.value), cur[1]] : [cur[0], digits(e.target.value)]))}
+            onKeyDown={(e) => { if (e.key === 'Enter') { setLeft(true); save(vals) } }}
+            className="field final-score__box"
+            aria-describedby={half && left ? hintId : undefined}
+        />
+    )
+    return (
+        <div
+            role="group"
+            aria-labelledby={labelId}
+            className="final-score"
+            onBlur={(e) => {
+                if (e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)) return
+                setLeft(true)
+                save(vals)
+            }}
+        >
+            <span id={labelId} className="final-score__label">Final score (if you know it)</span>
+            <div className="final-score__row">
+                <span className="final-score__team">{name(0)}</span>
+                {box(0)}
+                <span className="final-score__dash" aria-hidden="true">–</span>
+                {box(1)}
+                <span className="final-score__team">{name(1)}</span>
+                {known && (
+                    <button type="button" className="btn-quiet final-score__clear" aria-label="Clear final score" onClick={() => { setVals(['', '']); setKnown(null) }}>Clear</button>
+                )}
+            </div>
+            {half && left && <p id={hintId} className="m-0 text-[12px] msg-warn" role="status">Enter both scores, or leave both empty.</p>}
+        </div>
+    )
+}
+
+interface MatchDetailsProps {
+    /** Leave out the league logo and graphics style (the New match steps; Match setup keeps them). */
+    compact?: boolean
+}
+
 /**
  * The match itself: Title (the matchday heading on the graphics), both teams (name, initials, colour, roster) and
- * the league logo. Shared by the Match setup panel and the New match steps.
+ * the final score if known, and (unless compact) the league logo and graphics style. Shared by the Match setup panel and the New match steps.
  */
-export function MatchDetails() {
+export function MatchDetails({ compact = false }: MatchDetailsProps = {}) {
     const teamCount = useAppState((s) => Math.min(2, s.teams.length))
     const matchdayLabel = useAppState((s) => s.matchdayLabel)
     const setMatchdayLabel = useAppState((s) => s.setMatchdayLabel)
@@ -159,8 +231,9 @@ export function MatchDetails() {
             <div className="team-grid">
                 {Array.from({ length: teamCount }, (_, i) => <TeamCard key={i} index={i} />)}
             </div>
-            <LogoField />
-            <GraphicsStylePicker />
+            <FinalScoreField />
+            {!compact && <LogoField />}
+            {!compact && <GraphicsStylePicker />}
         </section>
     )
 }

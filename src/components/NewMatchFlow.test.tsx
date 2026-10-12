@@ -43,6 +43,14 @@ describe('NewMatchFlow', () => {
         expect(useAppState.getState().matchdayLabel).toBe('Cup final')
     })
 
+    it('should keep the Match step simple: final score yes, league logo and graphics style no', async () => {
+        render(<NewMatchFlow onClose={() => {}} />)
+        await userEvent.click(screen.getByRole('button', { name: 'Skip for now' }))
+        expect(screen.getByText('Final score (if you know it)')).toBeInTheDocument()
+        expect(screen.queryByRole('img', { name: /league logo/i })).not.toBeInTheDocument()
+        expect(screen.queryByRole('radiogroup', { name: 'Graphics style' })).not.toBeInTheDocument()
+    })
+
     it('should list loaded videos, then offer Next through Match to a Goals step ending in Done', async () => {
         useAppState.setState({ files: [file] })
         const onClose = vi.fn()

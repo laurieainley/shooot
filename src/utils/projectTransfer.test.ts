@@ -12,7 +12,7 @@ const payload = (over: Partial<TransferPayload> = {}): TransferPayload => ({
     lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5,
     graphics: { cards: true, lowerThirds: true, replayTag: false, theme: 'shooot' },
     fullMatch: { cards: true, scoreBug: 'periodic', intervalMin: 5, captions: false, replays: false, quality: 'original' },
-    matchdayLabel: 'Matchday 3', goalAreas: null, goalMarks: null,
+    matchdayLabel: 'Matchday 3', goalAreas: null, goalMarks: null, knownFinalScore: null,
     ...over,
 })
 
@@ -103,5 +103,15 @@ describe('removed adjustTimestampsByOffset', () => {
     it('should not carry the old flag in a new payload, and ignore it in an old link', () => {
         const old = { ...payload(), adjustTimestampsByOffset: true } as unknown as TransferPayload
         expect('adjustTimestampsByOffset' in buildTransferPayload(old)).toBe(false)
+    })
+})
+
+describe('known final score in transfers', () => {
+    it('should round trip through a link', async () => {
+        const decoded = await decodeProject(await encodeProject(buildTransferPayload(payload({ knownFinalScore: [13, 9] }))))
+        expect(decoded.knownFinalScore).toEqual([13, 9])
+    })
+    it('should be in the transferable slice', () => {
+        expect(buildTransferPayload(payload({ knownFinalScore: [1, 0] }))).toHaveProperty('knownFinalScore', [1, 0])
     })
 })

@@ -1,6 +1,7 @@
 import type { GoalAreas, GoalMarksByTeam, MatchEvent, Team } from '../types'
 import type { GraphicsSettings } from '../graphics/plan'
 import type { FullMatchSettings } from './exportPlans'
+import type { Score } from './score'
 
 /** Everything about a project except the video: events, teams, settings. */
 export interface TransferPayload {
@@ -16,13 +17,15 @@ export interface TransferPayload {
     matchdayLabel: string | null
     goalAreas: GoalAreas | null
     goalMarks: GoalMarksByTeam | null
+    /** Optional (absent in older links and files): the final score the user knows. */
+    knownFinalScore?: Score | null
     /** Only in projects from before goal areas belonged to teams (read, never written). */
     whitesAttackLeft?: boolean
 }
 
 const KEYS: (keyof TransferPayload)[] = [
     'events', 'teams', 'lengthBeforeGoalSec', 'lengthAfterGoalSec', 'replayBeforeSec', 'replayAfterSec', 'replaySpeed',
-    'graphics', 'fullMatch', 'matchdayLabel', 'goalAreas', 'goalMarks',
+    'graphics', 'fullMatch', 'matchdayLabel', 'goalAreas', 'goalMarks', 'knownFinalScore',
 ]
 
 /** The transferable slice of the app state (never files). */

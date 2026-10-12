@@ -4,6 +4,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { GoalAreas, GoalMarks, GoalMarksByTeam, GoalTeam, KeepType, MarkerType, MatchEvent, Suggestion, SuggestionRun, Team, VideoSourceFile } from './types'
 import type { ScoredMoment } from './utils/goalAudioScore'
+import type { Score } from './utils/score'
 import { effectiveStatus, firstPendingIndex, mergeSuggestions, runMatchesFiles } from './utils/suggestions'
 import { globalToFileTime } from './utils/matchStrip'
 import { AUDIO_DETECT } from './detect/detectConfig'
@@ -171,6 +172,9 @@ type AppState = {
     /** Matchday heading on the title card; null = "MATCH". */
     matchdayLabel: string | null
     setMatchdayLabel: (label: string | null) => void
+    /** The final score the user already knows (team order), or null. Not the score of the tagged goals (`finalScore()`). */
+    knownFinalScore: Score | null
+    setKnownFinalScore: (score: Score | null) => void
     setTeamInitials: (index: number, initials: string) => void
     /** Replay zoom: where each team's goal is in the picture (null = not set). */
     goalAreas: GoalAreas | null
@@ -245,6 +249,7 @@ export const useAppState = create<AppState>()(
             opening: null,
             graphics: DEFAULT_GRAPHICS,
             matchdayLabel: null,
+            knownFinalScore: null,
             goalAreas: null,
             goalMarks: null,
             labs: false,
@@ -473,7 +478,7 @@ export const useAppState = create<AppState>()(
                     files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0,
                     isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, picker: null, panel: null,
                     undoStack: [...state.undoStack.slice(-49), state.events], redoStack: [],
-                    matchdayLabel: null, goalAreas: null, goalMarks: null,
+                    matchdayLabel: null, knownFinalScore: null, goalAreas: null, goalMarks: null,
                     suggestions: [], suggestionRun: null, reviewIndex: 0,
                 })
             },
@@ -544,6 +549,7 @@ export const useAppState = create<AppState>()(
                 return next
             }) }),
             setMatchdayLabel: (label) => set({ matchdayLabel: label?.trim() ? label : null }),
+            setKnownFinalScore: (score) => set({ knownFinalScore: score }),
             setTeamInitials: (index, initials) => set({
                 teams: get().teams.map((t, i) => {
                     if (i !== index) return t
@@ -678,6 +684,7 @@ export const useAppState = create<AppState>()(
                 clipOptions: state.clipOptions,
                 highlightsQuality: state.highlightsQuality,
                 matchdayLabel: state.matchdayLabel,
+                knownFinalScore: state.knownFinalScore,
                 goalAreas: state.goalAreas,
                 goalMarks: state.goalMarks,
                 labs: state.labs,
@@ -686,7 +693,7 @@ export const useAppState = create<AppState>()(
                 suggestions: state.suggestions,
                 suggestionRun: state.suggestionRun,
             }),
-            version: 24,
+            version: 25,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -779,6 +786,9 @@ export const useAppState = create<AppState>()(
 
                 // Highlights output quality (v24): the device's default until the user chooses.
                 if (version < 24) state.highlightsQuality = 'auto'
+
+                // Known final score (v25): none until entered.
+                if (version < 25 && state.knownFinalScore === undefined) state.knownFinalScore = null
 
                 return state
             },

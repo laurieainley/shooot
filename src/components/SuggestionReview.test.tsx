@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppState } from '../state'
 import { getReviewWindow } from './reviewWindowState'
-import { dismissToast, toastStore } from '../toasts'
+import { dismissToast, showToast, toastStore } from '../toasts'
 
 const startDetectionMock = vi.hoisted(() => vi.fn())
 const job = vi.hoisted(() => ({ phase: 'done', fraction: 1, error: null as string | null, ballPhase: 'idle', ballFraction: 0, ballError: null as string | null, ballEp: null as string | null, ballMs: null as number | null, ballDetail: null as string | null }))
@@ -1098,6 +1098,68 @@ describe('Review toasts', () => {
         press(']'); press('m')
         fireEvent.click(screen.getByRole('button', { name: /Next/ }))
         expect(toastStore.getState().toast).toBeNull()
+    })
+})
+
+describe('Review: all goals tagged toast', () => {
+    const goal = (id: string, team: string, t: number) => ({ id, type: 'goal', team, matchTimeSec: t, sourceFileIndex: 0 })
+    beforeEach(() => { dismissToast(); useAppState.setState({ knownFinalScore: [1, 0], undoStack: [], redoStack: [] }) })
+    afterEach(() => { useAppState.setState({ knownFinalScore: null }) })
+    it('should add the note to the Confirm toast when the confirm reaches the known score', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        press('g'); press('1'); press('Enter')
+        expect(toastStore.getState().toast?.text).toMatch(/^Goal · Whites confirmed at \d\d:\d\d(\.\d)? · all goals tagged$/)
+    })
+    it('should keep a Discard-style Undo and its action when it joins the text', () => {
+        const run = vi.fn()
+        render(<SuggestionReview onClose={() => {}} />)
+        act(() => {
+            useAppState.setState({ events: [goal('a', 'Whites', 50)] as never })
+            showToast('Goal · Whites tagged', { label: 'Undo', run })
+        })
+        const toast = toastStore.getState().toast
+        expect(toast?.text).toBe('Goal · Whites tagged · all goals tagged')
+        expect(toast?.action?.label).toBe('Undo')
+    })
+    it('should show its own toast when no other toast came with it', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        act(() => { useAppState.setState({ events: [goal('a', 'Whites', 50)] as never }) })
+        expect(toastStore.getState().toast?.text).toBe('All 1 goal tagged — the rest of the review is optional')
+    })
+    it('should use the plural for more goals', () => {
+        useAppState.setState({ knownFinalScore: [13, 9] })
+        const evs = [...Array.from({ length: 12 }, (_, i) => goal(`w${i}`, 'Whites', i)), ...Array.from({ length: 9 }, (_, i) => goal(`c${i}`, 'Colours', 100 + i))]
+        useAppState.setState({ events: evs as never })
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(toastStore.getState().toast).toBeNull()
+        act(() => { useAppState.setState({ events: [...evs, goal('last', 'Whites', 60)] as never }) })
+        expect(toastStore.getState().toast?.text).toBe('All 22 goals tagged — the rest of the review is optional')
+    })
+    it('should not fire on mount when already complete, nor for further changes while complete', () => {
+        useAppState.setState({ events: [goal('a', 'Whites', 50)] as never })
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(toastStore.getState().toast).toBeNull()
+        act(() => { useAppState.setState({ events: [goal('a', 'Whites', 50), { id: 'f', type: 'foul', matchTimeSec: 5, sourceFileIndex: 0 }] as never }) })
+        expect(toastStore.getState().toast).toBeNull()
+    })
+    it('should not fire without a known score or while still short', () => {
+        useAppState.setState({ knownFinalScore: null })
+        render(<SuggestionReview onClose={() => {}} />)
+        act(() => { useAppState.setState({ events: [goal('a', 'Whites', 50)] as never }) })
+        expect(toastStore.getState().toast).toBeNull()
+        act(() => { useAppState.setState({ knownFinalScore: [3, 0] }) })
+        expect(toastStore.getState().toast).toBeNull()
+    })
+    it('should fire once per false-to-true change, not on every render', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        act(() => { useAppState.setState({ events: [goal('a', 'Whites', 50)] as never }) })
+        const first = toastStore.getState().toast
+        expect(first?.text).toMatch(/^All 1 goal tagged/)
+        act(() => { useAppState.setState({ reviewIndex: 1 }) })
+        expect(toastStore.getState().toast).toBe(first)
+        act(() => { useAppState.setState({ events: [] }) })
+        act(() => { dismissToast(); useAppState.setState({ events: [goal('a', 'Whites', 50)] as never }) })
+        expect(toastStore.getState().toast?.text).toMatch(/^All 1 goal tagged/)
     })
 })
 
