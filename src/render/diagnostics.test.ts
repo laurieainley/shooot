@@ -178,4 +178,24 @@ describe('publish', () => {
         expect(cb).toHaveBeenCalled()
         expect(loadLastReport(s)).not.toBeNull()
     })
+
+    it('should not keep a clip report as the last report, but still call back', async () => {
+        const { publishReport } = await import('./diagnostics')
+        const s = memory()
+        const con = { groupCollapsed: vi.fn(), log: vi.fn(), groupEnd: vi.fn() }
+        const cb = vi.fn()
+        publishReport({ ...sample(), kind: 'clip' }, { storage: s, console: con, onReport: cb })
+        expect(cb).toHaveBeenCalledTimes(1)
+        expect(loadLastReport(s)).toBeNull()
+    })
+
+    it('should keep a highlights report as the last report and not let a later clip report replace it', async () => {
+        const { publishReport } = await import('./diagnostics')
+        const s = memory()
+        const con = { groupCollapsed: vi.fn(), log: vi.fn(), groupEnd: vi.fn() }
+        publishReport({ ...sample(), kind: 'highlights' }, { storage: s, console: con })
+        expect(loadLastReport(s)?.kind).toBe('highlights')
+        publishReport({ ...sample(), kind: 'clip' }, { storage: s, console: con })
+        expect(loadLastReport(s)?.kind).toBe('highlights')
+    })
 })
