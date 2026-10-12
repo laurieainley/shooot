@@ -97,7 +97,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             const p = await probeDirectScale(encoder.config, srcW, srcH)
             directScale = p.ok
             gl = GlScaler.create(W, H)
-            diag.note(`Scale path: ${p.ok ? 'encoder scales plain frames' : `2D canvas for plain frames (encoder scaling unusable: ${p.reason})`}; ${gl ? 'WebGL for frames with graphics' : '2D canvas for frames with graphics (no WebGL2)'}`)
+            diag.note(`Scale path: ${p.ok ? 'encoder scales plain frames' : `${gl ? 'WebGL' : '2D canvas'} for plain frames (encoder scaling unusable: ${p.reason})`}; ${gl ? 'WebGL for frames with graphics' : '2D canvas for frames with graphics (no WebGL2)'}`)
         }
 
         // Which cuts exist (a cut outside its file is dropped), and where graphics attach.
