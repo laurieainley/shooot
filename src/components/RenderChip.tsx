@@ -28,7 +28,7 @@ export function RenderChip({ variant = 'overlay' }: RenderChipProps) {
     const label = job.phase === 'running' ? polishingChip(job.fraction) : job.phase === 'done' ? 'Reel ready' : 'Render failed'
     const open = (): void => {
         const st = useAppState.getState()
-        st.setExportTab(job.kind)
+        st.setExportTab(job.kind === 'clip' ? 'highlights' : job.kind)
         st.openPanel('export')
     }
     return (

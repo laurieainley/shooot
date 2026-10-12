@@ -1,6 +1,7 @@
 import { prepareSpec } from '../graphics/prepare'
 import { graphicsSupport } from '../utils/capabilities'
 import type { ExportPlan } from '../utils/exportPlans'
+import type { JobKind } from '../render/renderJob'
 import { renderJobs, type RenderRequest } from '../renderJobs'
 import { askNotifyPermission } from './notify'
 
@@ -21,7 +22,7 @@ export async function requestFor(plan: ExportPlan, onGraphicsError: (reason: str
 }
 
 /** Starts the plan's render in the app's render manager (asks for notification permission first on long renders). */
-export function startExport(kind: 'highlights' | 'fullMatch', quality: 'full' | 'preview', plan: ExportPlan, long: boolean): void {
+export function startExport(kind: JobKind, quality: 'full' | 'preview', plan: ExportPlan, long: boolean): void {
     if (long) askNotifyPermission() // inside the click
     const jobs = renderJobs().getState()
     void jobs.start({ kind, quality }, () => requestFor(plan, (reason) => jobs.setReport({ applied: [], skipped: [{ label: 'Graphics', reason }] })))

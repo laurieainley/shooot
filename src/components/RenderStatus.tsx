@@ -14,7 +14,7 @@ interface RenderStatusProps {
 
 const STOPPED_NOTE_MS = 5000
 const dedupe = (skipped: { label: string; reason: string }[]): { label: string; reason: string }[] => [...new Map(skipped.map((g) => [`${g.label}|${g.reason}`, g])).values()]
-const NAMES: Record<JobKind, string> = { highlights: 'highlights', fullMatch: 'full match' }
+const NAMES: Record<JobKind, string> = { highlights: 'highlights', fullMatch: 'full match', clip: 'clip' }
 
 /** The render's progress, Cancel (confirmed in place; once confirmed the box goes at once), skipped graphics, and the downloaded file. */
 export function RenderStatus({ kind }: RenderStatusProps) {
