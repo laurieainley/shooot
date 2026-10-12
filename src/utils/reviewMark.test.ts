@@ -85,7 +85,7 @@ describe('instructionText', () => {
     it('should say what will be saved, and warn when unmarked', () => {
         const i = instructionText({ ...base, marked: true, decision: { type: 'goal', team: 'Whites' } })
         expect(i).toEqual({ text: 'Goal · Whites at 23:41.6 — press Enter to confirm', warning: null })
-        expect(instructionText({ ...base, marked: false, decision: { type: 'highlight', team: null } }).warning).toBe('Using the estimate — mark the exact moment for accurate clips')
+        expect(instructionText({ ...base, marked: false, decision: { type: 'highlight', team: null } }).warning).toBe('Using the playhead time — mark the exact moment for accurate clips')
     })
     it('should ask for the team when a goal has none, ', () => {
         expect(instructionText({ ...base, marked: true, decision: { type: 'goal', team: null } }).text).toContain('choose the team')
@@ -93,8 +93,8 @@ describe('instructionText', () => {
 })
 
 describe('confirmLabel', () => {
-    it('should read Confirm, or Confirm at estimate when never marked', () => {
-        expect(confirmLabel(true)).toBe('Confirm'); expect(confirmLabel(false)).toBe('Confirm at estimate')
+    it('should read Confirm', () => {
+        expect(confirmLabel()).toBe('Confirm')
     })
 })
 

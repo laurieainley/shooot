@@ -102,12 +102,12 @@ export type InstructionInput = {
     marked: boolean
     decision: DecisionState
     teamCount: number
-    /** The time that will be saved, formatted (the marked time, or the estimate when unmarked). */
+    /** The time that will be saved, formatted (the marked time, or the playhead when unmarked). */
     clock: string
 }
 export type Instruction = { text: string; warning: string | null }
 
-export const UNMARKED_WARNING = 'Using the estimate — mark the exact moment for accurate clips'
+export const UNMARKED_WARNING = 'Using the playhead time — mark the exact moment for accurate clips'
 
 /** The line under the timeline: what to do next, by state. */
 export function instructionText({ marked, decision, teamCount, clock }: InstructionInput): Instruction {
@@ -123,6 +123,6 @@ export function instructionText({ marked, decision, teamCount, clock }: Instruct
 }
 
 /** Label of the confirm button. */
-export function confirmLabel(marked: boolean): string {
-    return marked ? 'Confirm' : 'Confirm at estimate'
+export function confirmLabel(): string {
+    return 'Confirm'
 }

@@ -65,7 +65,7 @@ describe('SuggestionReview', () => {
     })
     it('should keep a goal from the touch buttons (44 px class) without the keyboard', () => {
         render(<SuggestionReview onClose={() => {}} />)
-        fireEvent.click(screen.getByRole('button', { name: 'Use the estimate instead' }))
+        fireEvent.click(screen.getByRole('button', { name: /^Mark moment/ }))
         expect(screen.getByRole('button', { name: /^Goal/ }).className).toContain('rv__choice')
         fireEvent.click(screen.getByRole('button', { name: /^Goal/ }))
         fireEvent.click(screen.getByRole('button', { name: /Whites/ }))
@@ -311,20 +311,21 @@ describe('SuggestionReview', () => {
             press('2')
             expect(screen.getByText('Goal · Colours at 01:37.3 — press Enter to confirm')).toBeTruthy()
         })
-        it('should save at the estimate, with a warning and the Save event at estimate label, when never marked', () => {
+        it('should save at the playhead, with a warning, when a type is chosen by key before marking', () => {
             render(<SuggestionReview onClose={() => {}} />)
+            at(61)
             press('h')
-            expect(screen.getByText('Using the estimate — mark the exact moment for accurate clips')).toBeTruthy()
-            expect(screen.getByRole('button', { name: /^Confirm at estimate/ })).toBeTruthy()
+            expect(screen.getByText('Using the playhead time — mark the exact moment for accurate clips')).toBeTruthy()
+            expect(screen.getByRole('button', { name: /^Confirm/ })).toBeTruthy()
             press('Enter')
-            expect(useAppState.getState().events[0]).toMatchObject({ type: 'highlight', matchTimeSec: 98 })
+            expect(useAppState.getState().events[0]).toMatchObject({ type: 'highlight', matchTimeSec: 61 })
         })
         it('should not count the brief pause after a seek as a mark', () => {
             render(<SuggestionReview onClose={() => {}} />)
             at(50)
             expect(screen.queryByTestId('rtl-marked')).toBeNull()
             press('h'); press('Enter')
-            expect(useAppState.getState().events[0]).toMatchObject({ matchTimeSec: 98 })
+            expect(useAppState.getState().events[0]).toMatchObject({ matchTimeSec: 50 })
         })
         it('should not mark when pausing after playing: Space only plays and pauses', () => {
             setPlayerPaused(false)
@@ -333,7 +334,7 @@ describe('SuggestionReview', () => {
             act(() => { setPlayerPaused(true) })
             expect(screen.queryByTestId('rtl-marked')).toBeNull()
             press('h'); press('Enter')
-            expect(useAppState.getState().events[0]).toMatchObject({ matchTimeSec: 98 })
+            expect(useAppState.getState().events[0]).toMatchObject({ matchTimeSec: 97.3 })
         })
         it('should toggle playback with Space without marking', () => {
             const toggle = vi.fn()
@@ -357,11 +358,15 @@ describe('SuggestionReview', () => {
             expect(screen.getByText('01:00.0', { selector: '.rv__momentat' })).toBeTruthy()
             expect(screen.getByRole('group', { name: 'What was it?' })).toBeTruthy() // type step stays below
         })
-        it('should show the estimate with Mark moment when the estimate is accepted', () => {
+        it('should not offer to use the estimate: Mark moment (at the playhead) and Discard are the two choices', () => {
             render(<SuggestionReview onClose={() => {}} />)
-            fireEvent.click(screen.getByRole('button', { name: 'Use the estimate instead' }))
-            expect(screen.getByText('estimate', { selector: '.rv__chipnote' })).toBeTruthy()
-            expect(screen.getByRole('button', { name: /^Mark moment/ })).toBeTruthy()
+            expect(screen.queryByRole('button', { name: /estimate/i })).toBeNull()
+            expect(screen.getByRole('button', { name: /^Mark moment/ }).className).toContain('btn-primary')
+            expect(screen.getByRole('button', { name: /^Discard/ })).toBeTruthy()
+            at(60)
+            fireEvent.click(screen.getByRole('button', { name: /^Mark moment/ }))
+            expect(screen.getByText('01:00.0', { selector: '.rv__momentat' })).toBeTruthy()
+            expect(screen.getByRole('button', { name: /^Confirm/ }).className).toContain('btn-primary')
             expect(screen.getByRole('group', { name: 'What was it?' })).toBeTruthy()
         })
         it('should count stepping a frame as a mark, on a two-file timeline', () => {
@@ -535,10 +540,10 @@ describe('SuggestionReview', () => {
             render(<SuggestionReview onClose={() => {}} />)
             expect(screen.getByRole('button', { name: 'Back one frame' })).toBeDisabled()
         })
-        it('should keep one step at a time: no type buttons until marked or the estimate is accepted', () => {
+        it('should keep one step at a time: no type buttons until marked', () => {
             render(<SuggestionReview onClose={() => {}} />)
             expect(screen.queryByRole('group', { name: 'What was it?' })).toBeNull()
-            fireEvent.click(screen.getByRole('button', { name: 'Use the estimate instead' }))
+            fireEvent.click(screen.getByRole('button', { name: /^Mark moment/ }))
             expect(screen.getByRole('group', { name: 'What was it?' })).toBeTruthy()
             expect(screen.getByRole('button', { name: /^Discard/ })).toBeTruthy()
         })
@@ -941,14 +946,16 @@ describe('Review loop keys', () => {
         press('}', { shiftKey: true }); press('}', { shiftKey: true })
         expect(getReviewWindow()?.endAbs).toBe(109)
     })
-    it('should extend the loop with { and } (Shift+[ and Shift+]) and show the keys on the +2 s handles', () => {
+    it('should extend the loop with { and } (Shift+[ and Shift+]) and show the keys in the +2 s handle tooltips', () => {
         render(<SuggestionReview onClose={() => {}} />)
         press('{', { shiftKey: true })
         expect(screen.getByText('−7 s … +5 s')).toBeTruthy()
         press('}', { shiftKey: true })
         expect(screen.getByText('−7 s … +7 s')).toBeTruthy()
-        expect(screen.getByRole('button', { name: 'Start 2 seconds earlier' }).textContent).toContain('{')
-        expect(screen.getByRole('button', { name: 'End 2 seconds later' }).textContent).toContain('}')
+        const earlier = screen.getByRole('button', { name: 'Start 2 seconds earlier' })
+        const later = screen.getByRole('button', { name: 'End 2 seconds later' })
+        expect(earlier.getAttribute('title')).toContain('{'); expect(later.getAttribute('title')).toContain('}')
+        expect(earlier.textContent).toBe('+2 s'); expect(later.textContent).toBe('+2 s') // no inline glyphs
         expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy() // [ and ] still move between suggestions
     })
 })
@@ -991,11 +998,13 @@ describe('Review keys', () => {
         expect(screen.getByText(/Suggestion 1 of 2/)).toBeTruthy()
         off()
     })
-    it('should show [ and ] on the Previous and Next buttons', () => {
+    it('should keep Previous and Next as quiet icon buttons with [ and ] in their tooltips', () => {
         useAppState.setState({ reviewIndex: 1 })
         render(<SuggestionReview onClose={() => {}} />)
-        expect(screen.getByRole('button', { name: 'Previous suggestion' }).textContent).toContain('[')
-        expect(screen.getByRole('button', { name: /^Next/ }).textContent).toContain(']')
+        const prev = screen.getByRole('button', { name: 'Previous suggestion' })
+        const next = screen.getByRole('button', { name: 'Next suggestion' })
+        expect(prev.getAttribute('title')).toContain('['); expect(next.getAttribute('title')).toContain(']')
+        expect(prev.className).toContain('rv__step'); expect(prev.textContent).toBe('')
     })
 })
 

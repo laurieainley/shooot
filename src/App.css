@@ -1265,8 +1265,6 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .rv__warn::before { content: '\26A0\FE0E'; margin-right: 6px; }
 .rv__hint { font-size: 14px; color: var(--sh-muted); text-align: center; }
 .rv__steps { display: flex; flex-direction: column; gap: 14px; }
-.rv__mark { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; border: 0; border-radius: var(--sh-radius-md); background: var(--sh-text); color: var(--sh-ground); font: inherit; font-size: 16px; font-weight: 800; cursor: pointer; }
-.rv__mark kbd { color: inherit; }
 .rv__dot { width: 10px; height: 10px; border-radius: 50%; background: var(--sh-rec); box-shadow: 0 0 0 2px var(--sh-ground); }
 .rv__steps > .rv__link { align-self: center; }
 .rv__moment { display: flex; flex-direction: column; gap: 8px; }
@@ -1290,12 +1288,18 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .rv__discard { align-self: center; }
 .rv__discarded { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .rv__discardednote { font-size: 15px; font-weight: 700; color: var(--sh-muted); }
-.rv__save { width: 100%; min-height: 52px; font-size: 16px; }
+.rv__decide { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.rv__decide .rv__save, .rv__decide .rv__discard { width: 100%; min-height: 52px; font-size: 16px; }
+.rv__decide .rv__discard { font-weight: 700; }
+.rv__step { display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: var(--sh-radius-md); background: transparent; color: var(--sh-muted); cursor: pointer; }
+.rv__step:hover:not(:disabled) { color: var(--sh-text); background: var(--sh-surface-2); }
+.rv__step:disabled { opacity: .3; cursor: default; }
+.rv__momentline .rv__link { min-height: 28px; margin-left: 6px; font-size: 13px; font-weight: 500; }
 .rv__save kbd { color: inherit; }
 .rv__save:disabled { opacity: .45; }
 @media (max-width: 480px) { .rv__seg:not(.rv__seg--team) { grid-auto-flow: row; grid-template-columns: 1fr 1fr; } .rv__seg:not(.rv__seg--team) .rv__choice:nth-child(3) { border-left: 0; } .rv__seg:not(.rv__seg--team) .rv__choice:nth-child(n+3) { border-top: 1px solid var(--sh-line); } }
-@media (max-width: 480px) { .rv { gap: 10px; } .rv__steps { gap: 10px; } .rv__time { font-size: 24px; } .rv__say { margin: 0; } .rv__mark, .rv__save { min-height: 48px; } }
-@media (pointer: coarse) { .rv kbd { display: none; } .rv__say { font-size: 16px; } .rv__warn, .rv__hint { font-size: 14px; } .rv__choice { min-height: 52px; font-size: 15px; } }
+@media (max-width: 480px) { .rv { gap: 10px; } .rv__steps { gap: 10px; } .rv__time { font-size: 24px; } .rv__say { margin: 0; } .rv__decide .rv__save, .rv__decide .rv__discard { min-height: 48px; } }
+@media (pointer: coarse) { .rv kbd { display: none; } .rv__say { font-size: 16px; } .rv__warn, .rv__hint { font-size: 14px; } .rv__choice { min-height: 52px; font-size: 15px; } .rv__step { width: 44px; height: 44px; } }
 
 /* Mini timeline: the loop window as a bar. Fill = playback progress, red line = playhead, ring = estimate, pin = marked. */
 .rtl { display: flex; flex-direction: column; gap: 4px; }
