@@ -13,6 +13,7 @@ vi.mock('../detectJobs', () => ({
 }))
 import { SuggestionReview } from './SuggestionReview'
 import { openFindGoals, setRangeStep } from './findGoals'
+import { setCoarsePointer } from '../test/pointer'
 import { isPlayerPaused, registerPlayerShortcut, registerPlayerSeekPaused, registerPlayerStep, registerPlayerToggle, setPlayerPaused } from './playerControl'
 
 const press = (key: string, opts: KeyboardEventInit = {}): void => { act(() => { fireEvent.keyDown(window, { key, ...opts }) }) }
@@ -1239,5 +1240,101 @@ describe('Review scorer and assist', () => {
         render(<SuggestionReview onClose={() => {}} />)
         press('o'); press('1')
         expect(field('Own goal by')).toBeTruthy()
+    })
+})
+
+describe('Find goals review card on touch', () => {
+    beforeEach(() => {
+        setCoarsePointer(true)
+        useAppState.setState({ teams: [{ name: 'Whites', color: '#fff', roster: ['Sam', 'Alex'] }, { name: 'Colours', color: '#000', roster: [] }] })
+    })
+    afterEach(() => setCoarsePointer(false))
+    const click = (name: RegExp | string): void => { fireEvent.click(screen.getByRole('button', { name })) }
+    const toTeam = (): void => { click(/^Mark moment/); click(/^Goal/); click(/Whites/) }
+
+    it('should pick the scorer from name chips, which moves straight to the assist, then skip with No assist', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        toTeam()
+        expect(screen.queryByRole('textbox')).toBeNull() // no keyboard
+        const scorers = screen.getByRole('group', { name: 'Scorer' })
+        expect([...scorers.querySelectorAll('button:not(.person-chip--new)')].map((b) => b.textContent)).toEqual(['Alex', 'Sam', 'Skip'])
+        click('Sam')
+        expect(screen.getByRole('group', { name: 'Assist' })).toBeTruthy()
+        expect(screen.getByRole('button', { name: 'Sam' })).toBeDisabled()
+        click('No assist')
+        click(/^Confirm/)
+        expect(useAppState.getState().events[0]).toMatchObject({ type: 'goal', team: 'Whites', scorer: 'Sam' })
+        expect(useAppState.getState().events[0].assist).toBeUndefined()
+    })
+    it('should take an assist from a chip', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        toTeam()
+        click('Sam'); click('Alex')
+        click(/^Confirm/)
+        expect(useAppState.getState().events[0]).toMatchObject({ scorer: 'Sam', assist: 'Alex' })
+    })
+    it('should open the text field only for + New name and add the name to the roster', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        toTeam()
+        click('+ New name')
+        fireEvent.change(screen.getByRole('textbox', { name: 'Scorer' }), { target: { value: 'Kit' } })
+        click('Add')
+        click('No assist')
+        click(/^Confirm/)
+        expect(useAppState.getState().events[0].scorer).toBe('Kit')
+        expect(useAppState.getState().teams[0].roster).toContain('Kit')
+    })
+    it('should skip the scorer with Skip and still confirm', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        toTeam()
+        click('Skip')
+        click(/^Confirm/)
+        expect(useAppState.getState().events[0].scorer).toBeUndefined()
+    })
+    it('should keep Mark moment / Confirm and Discard in one action bar outside the scrolling steps', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        const bar = document.querySelector('.rv > .rv__decide') as HTMLElement
+        expect(bar).toBeTruthy()
+        expect(bar.querySelector('button.btn-primary')?.textContent).toMatch(/^Mark moment/)
+        expect(bar.textContent).toMatch(/Discard/)
+        click(/^Mark moment/)
+        expect(document.querySelector('.rv > .rv__decide button.btn-primary')?.textContent).toMatch(/^Confirm/)
+    })
+    it('should hide the instruction line once marked, and never mention Enter', () => {
+        render(<SuggestionReview onClose={() => {}} />)
+        expect(document.querySelector('.rv__say')).toBeTruthy()
+        click(/^Mark moment/)
+        expect(document.querySelector('.rv__say')).toBeNull()
+        click(/^Goal/); click(/Whites/)
+        expect(screen.queryByText(/press Enter/)).toBeNull()
+    })
+    it('should scroll the next step into view when a step completes', () => {
+        const scroll = vi.fn()
+        Element.prototype.scrollIntoView = scroll
+        render(<SuggestionReview onClose={() => {}} />)
+        scroll.mockClear()
+        click(/^Mark moment/)
+        click(/^Goal/)
+        expect(scroll).toHaveBeenCalled()
+        expect(scroll.mock.calls.at(-1)?.[0]).toMatchObject({ block: 'nearest' })
+    })
+    it('should keep the goals tally and the lane switch on one line', () => {
+        act(() => { useAppState.getState().setSuggestionBall(useAppState.getState().suggestions[1].id, { goal: 'team1', frames: 2 }) })
+        render(<SuggestionReview onClose={() => {}} />)
+        const top = document.querySelector('.review__top') as HTMLElement
+        expect(top.querySelector('.tally')).toBeTruthy()
+        expect(top.querySelector('.lanes')).toBeTruthy()
+    })
+})
+
+describe('Find goals review card with a mouse', () => {
+    it('should keep the typed scorer field, the instruction line and the Enter hint', () => {
+        setCoarsePointer(false)
+        useAppState.setState({ teams: [{ name: 'Whites', color: '#fff', roster: ['Sam'] }, { name: 'Colours', color: '#000', roster: [] }] })
+        render(<SuggestionReview onClose={() => {}} />)
+        press('g'); press('1')
+        expect(screen.getByRole('textbox', { name: 'Scorer' })).toBeTruthy()
+        expect(document.querySelector('.rv__say')).toBeTruthy()
+        expect(screen.queryByRole('button', { name: '+ New name' })).toBeNull()
     })
 })

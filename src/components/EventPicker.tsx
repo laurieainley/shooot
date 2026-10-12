@@ -208,7 +208,10 @@ export function EventPicker() {
                 <PersonStep
                     label={personLabel}
                     autoFocus={!coarse}
-                    placeholder={coarse ? `Search or type ${personLabel.toLowerCase()}` : state.step === 'assist' ? 'Assist (optional) — type to filter, Enter to pick, Tab to skip' : `${personLabel} — type to filter, Enter to pick`}
+                    chips={coarse}
+                    skipLabel={state.step === 'assist' ? 'No assist' : 'Skip'}
+                    onSkip={canSkip ? () => dispatch({ kind: 'choose', value: SKIP }) : undefined}
+                    placeholder={coarse ? `Type a new ${personLabel.toLowerCase()}` : state.step === 'assist' ? 'Assist (optional) — type to filter, Enter to pick, Tab to skip' : `${personLabel} — type to filter, Enter to pick`}
                     query={state.query}
                     candidates={candidates}
                     highlighted={state.highlighted}
@@ -232,7 +235,7 @@ export function EventPicker() {
                 />
             )}
 
-            {canSkip && (
+            {canSkip && !(coarse && (state.step === 'scorer' || state.step === 'assist')) && (
                 <button type="button" className="event-picker__skip" onClick={() => dispatch({ kind: 'choose', value: SKIP })}>
                     Skip{!coarse && <kbd>Tab</kbd>}
                 </button>

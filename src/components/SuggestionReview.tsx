@@ -93,8 +93,10 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
     return (
         <ColumnPanel label="Suggested goals" onClose={onClose} className="review" badge={<BetaTag />}>
             <p className="sr-only" role="status" aria-live="polite">{announce}</p>
-            {suggestions.length > 0 && !rangeStep && !stale && phase !== 'running' && <GoalsTally />}
-            {switchShown && <LaneSwitch lane={lane} counts={left} onSelect={selectLane} />}
+            <div className="review__top">
+                {suggestions.length > 0 && !rangeStep && !stale && phase !== 'running' && <GoalsTally />}
+                {switchShown && <LaneSwitch lane={lane} counts={left} onSelect={selectLane} />}
+            </div>
             {rangeStep && phase !== 'running' ? <MatchRangeStep /> : null}
             {failed && !rangeStep && <DetectFailed />}
             {ballPhase === 'running' && <BallProgress />}
