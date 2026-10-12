@@ -3,7 +3,8 @@ import { useStore } from 'zustand'
 import { useAppState } from '../state'
 import { getDetectJob } from '../detectJobs'
 import { fileKeys } from '../utils/fileKey'
-import { firstPendingIndex, runMatchesFiles } from '../utils/suggestions'
+import { runMatchesFiles } from '../utils/suggestions'
+import { openingIndex } from '../utils/reviewLanes'
 import { finalWhistleSec, kickOffSec, markerGlobalSec } from '../utils/matchClock'
 
 /** False when the videos changed since the last Find goals (its suggestions then no longer apply). */
@@ -31,6 +32,13 @@ export function openFindGoals(again = false): void {
     setRangeStep(false)
     if (again || (st.suggestions.length === 0 && getDetectJob().phase !== 'running')) {
         setRangeStep(true) // always via the start form: confirm the match range (and Advanced detection)
-    } else if (current) st.setReviewIndex(firstPendingIndex(st.suggestions, new Set(st.events.map((e) => e.id))))
+    } else if (current) st.setReviewIndex(openingIndex(st.suggestions, new Set(st.events.map((e) => e.id))))
+    st.openPanel('review')
+}
+
+/** The rail button after review was closed: open on the default lane at the first suggestion still to review. */
+export function reopenReview(): void {
+    const st = useAppState.getState()
+    st.setReviewIndex(openingIndex(st.suggestions, new Set(st.events.map((e) => e.id))))
     st.openPanel('review')
 }

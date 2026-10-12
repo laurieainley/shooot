@@ -15,6 +15,11 @@ export function parseRoster(text: string): string[] {
     return out
 }
 
+/** Names in alphabetical order, ignoring case and accents (how every person list is shown). */
+export function sortNames(names: readonly string[]): string[] {
+    return [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+}
+
 export function filterRoster(roster: string[], query: string): string[] {
     const q = query.trim().toLowerCase()
     if (!q) return roster
@@ -43,5 +48,3 @@ export function rosterTeamFor(teams: Team[], team: string | undefined, type: Eve
     return type === 'own_goal' ? teams[1 - idx] : teams[idx]
 }
 
-/** Rosters in Match setup are shown and kept in alphabetical order (case-insensitive). */
-export const sortNames = (names: string[]): string[] => [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))

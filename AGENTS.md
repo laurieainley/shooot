@@ -190,17 +190,27 @@ npm run lint       # baseline: 12 known problems — add none
   Reel (`ReelSummary`: length, clips, clip/replay recap with an Edit disclosure), Graphics, Render, Share.
 - **Shortcuts sheet:** `?` key, the "?" button or ⋯ → Shortcuts (`ShortcutsSheet`, data in `utils/shortcutList.ts`,
   kept in sync with `shortcutFor` by a test).
-- **Find goals review card** (`SuggestionCard`, `ReviewTimeline`, `useMarkedMoment`, `utils/reviewMark.ts`): one step at
-  a time — watch & mark (mini timeline over the loop window: progress, red playhead, estimate ring, marked pin, +2 s end
-  handles; M or the always-visible Mark moment button marks — Mark again once marked — and frame steps refine it;
-  Space only plays/pauses and never marks), then type, then team, then Save event (Enter). Type keys select, they
-  never advance. Keys while open: M · G/O/S/H/X · 1/2 · Enter · Esc/Backspace clear · [ ] · ←/→ · ↑/↓ · Space.
-  Supersedes the "Goal time · paused = at playhead" line in the suggested-goals spec.
-- **Find goals start form** (`MatchRangeStep`): always shown before a run (Kick off / Final whistle, pre-filled). With
-  Labs on, an **Advanced detection** tick box runs the goal-mouth ball check (`startDetection({ ball })`; needs goals
-  marked in Match setup). After such a run the panel shows **All · Top picks** lanes (`utils/reviewLanes.ts`): both in
-  match order; the panel never switches lane or jumps by itself; the Top picks count rises live as tags arrive.
-  Spec: `docs/superpowers/specs/2026-10-11-review-lanes-design.md`.
+- **Find goals review card** (`SuggestionCard`, `ReviewTimeline`, `useMarkedMoment`, `PersonStep`, `utils/reviewMark.ts`):
+  watch & mark (mini timeline over the loop window, default −5 s … +4 s: progress, red playhead, estimate ring, marked
+  pin, +2 s end handles; M or the always-visible Mark moment button marks — Mark again once marked — and frame steps
+  refine it; Space, speed keys and seeks never mark), then type, then team (never pre-selected), then optional scorer /
+  assist / goalkeeper (`PersonStep`, shared with `EventPicker`: alphabetical, the scorer stays disabled in the assist
+  list), then **Confirm** (Enter). **Discard** (X) is one press: not a moment, ring removed, moves on; undoable.
+  ‹ Previous / Next › only move. Keys while open: M · G/O/S/H/X · 1/2 · Enter · Esc · [ ] previous/next suggestion ·
+  { } loop 2 s earlier/later · ←/→ ±5 s (Shift ±1 s) · ↑/↓ frame · , . / speed · Space. No shortcuts fire while a
+  person field is focused. Specs: `2026-10-11-review-lanes-design.md`, `2026-10-11-review-actions-toasts-design.md`.
+- **Find goals panel:** stays open while tagging (the picker opens on top; a tag inside the current loop confirms that
+  suggestion) and returns after Setup / Export / event edit; only ✕/Esc closes it. Start form (`MatchRangeStep`) always
+  shown first (Kick off / Final whistle pre-filled); with Labs on, **Advanced detection** runs the goal-mouth ball check
+  (`startDetection({ ball })`, needs goals marked). Then two disjoint lanes in match order (`utils/reviewLanes.ts`):
+  **Top picks** (lime star; ball seen in a goal mouth) and **Other moments**. Opens on Top picks while any are left;
+  moves on to Other moments automatically only when the last top pick is decided; never jumps when tags arrive. Header
+  tally "Goals tagged: Whites 3 – 2 Colours" (whole match). After closing, the rail shows "Review suggestions (N left ·
+  M top picks)". Suggestion rings sit in their own faint lane at the bottom of the match strip (only those still to
+  review; only a click on the ring opens the review).
+- **Toasts** (`src/toasts.ts`, `Toast`): one at a time, 4 s, top-right of the video (phone portrait: under the video);
+  confirm, discard (Undo), tag (Undo), delete (Undo), marker set. A toast's Undo only acts while its action is still the
+  latest undo step.
 - **Lime guard:** `utils/limeUsage.test.ts` fails if a lime token is used in App.css outside the allow-list
   (primary buttons, goal icon, scorebug score). Don't widen the allow-list without a design decision.
 

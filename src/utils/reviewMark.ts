@@ -60,7 +60,7 @@ export function timelineLayout(w: LoopWindow, estimateSec: number, playheadSec: 
     }
 }
 
-export type ReviewType = KeepType | 'reject'
+export type ReviewType = KeepType
 export type DecisionState = { type: ReviewType | null; team: string | null }
 export const EMPTY_DECISION: DecisionState = { type: null, team: null }
 
@@ -69,20 +69,23 @@ export type DecisionAction =
     | { kind: 'team'; team: string }
     | { kind: 'clear' }
 
+/** Goal, own goal and save ask which team (as the event picker does); a highlight does not. */
+const isTeamType = (type: ReviewType | null): boolean => type === 'goal' || type === 'own_goal' || type === 'save'
+
 export function needsTeam(type: ReviewType | null, teamCount: number): boolean {
-    return (type === 'goal' || type === 'own_goal') && teamCount >= 2
+    return isTeamType(type) && teamCount >= 2
 }
 
 /** Selecting a type never saves; goals pre-select `defaultTeam`. A team only counts once a goal / own goal is selected. */
 export function decisionReducer(state: DecisionState, a: DecisionAction): DecisionState {
     switch (a.kind) {
         case 'type': {
-            const wantsTeam = a.type === 'goal' || a.type === 'own_goal'
-            const keepTeam = wantsTeam && (state.type === 'goal' || state.type === 'own_goal') ? state.team : null
+            const wantsTeam = isTeamType(a.type)
+            const keepTeam = wantsTeam && isTeamType(state.type) ? state.team : null
             return { type: a.type, team: wantsTeam ? keepTeam ?? a.defaultTeam ?? null : null }
         }
         case 'team':
-            return state.type === 'goal' || state.type === 'own_goal' ? { ...state, team: a.team } : state
+            return isTeamType(state.type) ? { ...state, team: a.team } : state
         case 'clear':
             return EMPTY_DECISION
     }
@@ -114,14 +117,12 @@ export function instructionText({ marked, decision, teamCount, clock }: Instruct
             ? { text: `Marked at ${clock} — now choose what it was`, warning: null }
             : { text: 'Pause when the ball crosses the line or the moment happens, then press M (or tap Mark moment)', warning: null }
     }
-    if (type === 'reject') return { text: 'Not a goal — press Enter to reject', warning: null }
     if (needsTeam(type, teamCount) && team === null) return { text: `${TYPE_NAME[type]} at ${clock} — choose the team (1 / 2)`, warning: marked ? null : UNMARKED_WARNING }
     const what = team ? `${TYPE_NAME[type]} · ${team}` : TYPE_NAME[type]
-    return { text: `${what} at ${clock} — press Enter to save`, warning: marked ? null : UNMARKED_WARNING }
+    return { text: `${what} at ${clock} — press Enter to confirm`, warning: marked ? null : UNMARKED_WARNING }
 }
 
 /** Label of the confirm button. */
-export function confirmLabel(type: ReviewType | null, marked: boolean): string {
-    if (type === 'reject') return 'Reject'
-    return marked ? 'Save event' : 'Save event at estimate'
+export function confirmLabel(marked: boolean): string {
+    return marked ? 'Confirm' : 'Confirm at estimate'
 }

@@ -2,6 +2,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import { useAppState } from '../state'
+import { dismissToast, toastStore } from '../toasts'
+import { setReviewWindow } from './reviewWindowState'
 import { EventPicker } from './EventPicker'
 import { setCoarsePointer } from '../test/pointer'
 import type { VideoSourceFile } from '../types'
@@ -38,7 +40,7 @@ describe('EventPicker', () => {
         expect(s().picker).toBeNull()
     })
 
- it('should ask for an optional assist after the scorer, listing the team without the scorer', () => {
+ it('should ask for an optional assist after the scorer, listing the team with the scorer disabled', () => {
         render(<EventPicker />)
         press('Enter')
         press('w')
@@ -46,7 +48,7 @@ describe('EventPicker', () => {
         expect(s().picker).not.toBeNull()
         expect(screen.getByRole('textbox', { name: 'Assist' })).toBeInTheDocument()
         expect(screen.getByRole('option', { name: /sandy wu/i })).toBeInTheDocument()
-        expect(screen.queryByRole('option', { name: /sam taylor/i })).not.toBeInTheDocument()
+        expect(screen.getByRole('option', { name: /sam taylor/i })).toHaveAttribute('aria-disabled', 'true')
         press('Enter')
         expect(s().events[0]).toMatchObject({ type: 'goal', team: 'Whites', scorer: 'Sam Taylor', assist: 'Sandy Wu' })
         press('Enter') // empty note
@@ -353,3 +355,119 @@ describe('EventPicker optional note', () => {
         expect(s().events[0]).toMatchObject({ type: 'goal', scorer: 'Sam Taylor', notes: 'top corner' })
     })
 })
+
+describe('EventPicker toasts', () => {
+    beforeEach(() => {
+        dismissToast()
+        useAppState.setState({
+            files: [vf('a.mp4')], events: [], cumulativeOffsets: [0], currentFileIndex: 0, undoStack: [], redoStack: [], picker: null,
+            teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }],
+        })
+    })
+    it('should announce a tag when the picker closes, and Undo removes it', () => {
+        act(() => s().markEvent(100))
+        render(<EventPicker />)
+        press('Enter'); press('w')
+        expect(toastStore.getState().toast).toBeNull() // nothing while still choosing
+        press('Escape')
+        expect(s().picker).toBeNull()
+        const toast = toastStore.getState().toast
+        expect(toast?.text).toBe('Goal · Whites tagged at 01:40')
+        act(() => { toast?.action?.run() })
+        expect(s().events).toHaveLength(0)
+    })
+    it('should say nothing when closing an empty mark or editing an existing event', () => {
+        act(() => s().markEvent(100, { deferred: true }))
+        render(<EventPicker />)
+        press('Escape')
+        expect(toastStore.getState().toast).toBeNull()
+        const id = 'x1'
+        act(() => { useAppState.setState({ events: [{ id, type: 'goal', matchTimeSec: 5, sourceFileIndex: 0 }] }); s().openPicker(id) })
+        press('Escape')
+        expect(toastStore.getState().toast).toBeNull()
+    })
+    it('should announce a marker being set', () => {
+        act(() => s().setMarkerAt('kick_off', 0, 125))
+        expect(toastStore.getState().toast?.text).toBe('Kick off set at 02:05')
+    })
+    describe('while reviewing', () => {
+        const sug = (): void => {
+            setReviewWindow({ startAbs: 95, endAbs: 104 })
+            useAppState.getState().setSuggestions({ createdAt: 1, source: 'audio', configVersion: 1, analysedSec: 600, total: 1 }, [{ timeSec: 100, score: 5 }])
+            useAppState.setState({ panel: 'review', reviewIndex: 0 })
+        }
+        it('should link a goal tagged inside the loop window to the current suggestion, with the Confirm toast', () => {
+            sug()
+            act(() => s().markEvent(99))
+            render(<EventPicker />)
+            press('Enter'); press('w'); press('Escape')
+            expect(s().panel).toBe('review')
+            expect(s().suggestions[0]).toMatchObject({ status: 'kept', keptAs: 'goal', eventId: s().events[0].id })
+            expect(toastStore.getState().toast?.text).toBe('Goal · Whites confirmed at 01:39')
+        })
+        it('should use the loop window shown, including +2 s extensions', () => {
+            sug()
+            setReviewWindow({ startAbs: 95, endAbs: 108 }) // the user extended the end twice
+            act(() => s().markEvent(107))
+            render(<EventPicker />)
+            press('Enter'); press('w'); press('Escape')
+            expect(s().suggestions[0].status).toBe('kept')
+        })
+        it('should leave an already kept suggestion alone (no re-link, no duplicate)', () => {
+            sug()
+            act(() => { s().addEvent({ id: 'old', matchTimeSec: 99, sourceFileIndex: 0, type: 'goal', team: 'Whites' }); s().linkSuggestionEvent(s().suggestions[0].id, 'old') })
+            act(() => s().markEvent(100))
+            render(<EventPicker />)
+            press('Enter'); press('w'); press('Escape')
+            expect(s().suggestions[0]).toMatchObject({ status: 'kept', eventId: 'old' })
+            expect(toastStore.getState().toast?.text).toMatch(/tagged at/)
+        })
+        it('should not link a tag outside the window, and still announce it as tagged', () => {
+            sug()
+            act(() => s().markEvent(300))
+            render(<EventPicker />)
+            press('Enter'); press('w'); press('Escape')
+            expect(s().suggestions[0].status).toBe('pending')
+            expect(toastStore.getState().toast?.text).toBe('Goal · Whites tagged at 05:00')
+        })
+    })
+})
+
+describe('EventPicker person lists', () => {
+    beforeEach(() => {
+        useAppState.setState({
+            files: [vf('a.mp4')], events: [], cumulativeOffsets: [0], currentFileIndex: 0, undoStack: [], redoStack: [], picker: null,
+            teams: [{ name: 'Whites', color: '#fff', roster: ['Sandy Wu', 'zoe', 'Sam Taylor', 'Bob'] }, { name: 'Colours', color: '#f00', roster: [] }],
+        })
+        act(() => s().markEvent(100))
+    })
+    it('should list names alphabetically, and keep the scorer in the assist list, disabled and in place', () => {
+        render(<EventPicker />)
+        press('Enter'); press('w')
+        expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Bob', 'Sam Taylor', 'Sandy Wu', 'zoe'])
+        fireEvent.click(screen.getByRole('option', { name: /sam taylor/i }))
+        const opts = screen.getAllByRole('option')
+        expect(opts.map((o) => o.textContent)).toEqual(['Bob', 'Sam Taylor', 'Sandy Wu', 'zoe'])
+        const scorer = screen.getByRole('option', { name: /sam taylor/i })
+        expect(scorer).toHaveAttribute('aria-disabled', 'true')
+        expect(scorer.className).toContain('event-picker__item--disabled')
+        fireEvent.click(scorer)
+        expect(s().events[0].assist).toBeUndefined() // not selectable
+        expect(screen.getByRole('textbox', { name: 'Assist' })).toBeInTheDocument() // still on the assist step
+    })
+    it('should skip the disabled scorer with the arrow keys', () => {
+        render(<EventPicker />)
+        press('Enter'); press('w')
+        fireEvent.click(screen.getByRole('option', { name: /bob/i })) // scorer: first row
+        expect(screen.getByRole('option', { name: /sam taylor/i })).toHaveAttribute('aria-selected', 'true') // Bob is skipped
+        press('ArrowDown')
+        expect(screen.getByRole('option', { name: /sandy wu/i })).toHaveAttribute('aria-selected', 'true')
+        press('ArrowUp'); press('ArrowUp') // back past the disabled Bob, wrapping to the last row
+        expect(screen.getByRole('option', { name: /zoe/i })).toHaveAttribute('aria-selected', 'true')
+        press('ArrowDown')
+        expect(screen.getByRole('option', { name: /sam taylor/i })).toHaveAttribute('aria-selected', 'true')
+        press('Enter')
+        expect(s().events[0]).toMatchObject({ scorer: 'Bob', assist: 'Sam Taylor' })
+    })
+})
+

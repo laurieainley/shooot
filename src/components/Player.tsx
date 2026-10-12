@@ -3,7 +3,7 @@ import videojs from 'video.js'
 import 'video.js/dist/video-js.css'
 import { selectClockLong, useAppState } from '../state'
 import { shortcutFor, shouldHandleShortcut } from '../utils/shortcuts'
-import { registerPlayerSeekPaused, registerPlayerStep, registerPlayerToggle, setPlayerPaused } from './playerControl'
+import { registerPlayerSeekPaused, registerPlayerShortcut, registerPlayerStep, registerPlayerToggle, setPlayerPaused } from './playerControl'
 import { runShortcut, seekBy, stepFrame, type ShortcutPlayer } from './playerShortcuts'
 import { FullscreenControls } from './FullscreenControls'
 import { EventPicker } from './EventPicker'
@@ -167,6 +167,12 @@ export function Player() {
             else seekBy(p, direction)
         })
     }, [])
+
+    // Seek and speed keys for the review card (the global handler is off while a panel is open).
+    useEffect(() => registerPlayerShortcut((action) => {
+        const p = playerRef.current as ShortcutPlayer | null
+        if (p) runShortcut(action, p, zoomRef.current)
+    }), [])
 
     // Scrubbing the review timeline: seek (switching file if needed) and stay paused.
     useEffect(() => registerPlayerSeekPaused((f, t) => seekRef.current(f, t, false)), [])

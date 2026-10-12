@@ -35,10 +35,10 @@ export function reviewCounts(suggestions: Suggestion[], eventIds: ReadonlySet<st
 }
 
 /** Pending suggestions as positions on the match strip. */
-export function suggestionMarks(suggestions: Suggestion[], eventIds: ReadonlySet<string>, totalSec: number): { id: string; leftPct: number; timeSec: number }[] {
+export function suggestionMarks(suggestions: Suggestion[], eventIds: ReadonlySet<string>, totalSec: number): { id: string; leftPct: number; timeSec: number; top: boolean }[] {
     if (!(totalSec > 0)) return []
     return suggestions.filter((s) => effectiveStatus(s, eventIds) === 'pending')
-        .map((s) => ({ id: s.id, leftPct: Math.min(100, Math.max(0, (s.globalTimeSec / totalSec) * 100)), timeSec: s.globalTimeSec }))
+        .map((s) => ({ id: s.id, leftPct: Math.min(100, Math.max(0, (s.globalTimeSec / totalSec) * 100)), timeSec: s.globalTimeSec, top: !!s.ball }))
 }
 
 /** False when the videos changed since the run (a run saved before file keys were recorded counts as current). */

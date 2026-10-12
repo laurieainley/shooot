@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, act } from '@testing-library/react'
+import { toastStore } from '../toasts'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import { EventLog } from './EventLog'
@@ -238,6 +239,68 @@ describe('EventLog replay toggle', () => {
         render(<EventLog />)
         await userEvent.click(screen.getAllByRole('button', { name: 'Delete event' })[0])
         expect(byId('g')).toBeUndefined()
+        const toast = toastStore.getState().toast
+        expect(toast?.text).toMatch(/^Goal at .* deleted$/)
+        act(() => { toast?.action?.run() })
+        expect(byId('g')).toBeDefined() // Undo brings it back
+    })
+})
+
+describe('EventLog delete toast', () => {
+    it('should not undo a later change when its Undo is used after something else happened', async () => {
+        setup([{ id: 'g', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites' }, { id: 'h', matchTimeSec: 200, sourceFileIndex: 0, type: 'highlight' }, kickOff(0)])
+        render(<EventLog />)
+        await userEvent.click(screen.getAllByRole('button', { name: 'Delete event' })[0])
+        const toast = toastStore.getState().toast
+        act(() => { useAppState.getState().updateEvent('h', { replay: true }) }) // a later, non-toasting change
+        act(() => { toast?.action?.run() })
+        expect(byId('g')).toBeUndefined() // the delete was not undone
+        expect(byId('h')?.replay).toBe(true) // and the later change stayed
+    })
+})
+
+describe('EventLog undo of a discard', () => {
+    it('should enable Undo for a pending discard and undo it like ⌘Z', () => {
+        setup([kickOff(0)], { panel: null })
+        useAppState.setState({ suggestions: [], suggestionRun: null })
+        useAppState.getState().setSuggestions({ createdAt: 1, source: 'audio', configVersion: 1, analysedSec: 600, total: 1 }, [{ timeSec: 100, score: 3 }])
+        useAppState.setState({ undoStack: [] })
+        render(<EventLog />)
+        expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled()
+        act(() => { useAppState.getState().decideSuggestion(useAppState.getState().suggestions[0].id, { kind: 'reject' }) })
+        expect(screen.getByRole('button', { name: 'Undo' })).toBeEnabled()
+        fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+        expect(useAppState.getState().suggestions[0].status).toBe('pending')
+    })
+})
+
+describe('EventLog review button', () => {
+    const run = { createdAt: 1, source: 'audio' as const, configVersion: 1, analysedSec: 600, total: 3 }
+    const files = [vf('a.mp4')]
+    beforeEach(() => {
+        setup([kickOff(0)], { panel: null })
+        useAppState.setState({ suggestions: [], suggestionRun: null })
+        useAppState.getState().setSuggestions({ ...run, fileKeys: undefined }, [{ timeSec: 100, score: 3 }, { timeSec: 200, score: 3 }, { timeSec: 300, score: 3 }])
+        useAppState.setState({ files, panel: null })
+    })
+    it('should offer Review suggestions with the number left, and open the review at the first one', () => {
+        useAppState.getState().decideSuggestion(useAppState.getState().suggestions[0].id, { kind: 'reject' })
+        useAppState.getState().setSuggestionBall(useAppState.getState().suggestions[2].id, { goal: 'team1', frames: 2 })
+        render(<EventLog />)
+        fireEvent.click(screen.getByRole('button', { name: 'Review suggestions (2 left · 1 top pick)' }))
+        const st = useAppState.getState()
+        expect(st.panel).toBe('review')
+        expect(st.reviewIndex).toBe(2) // Top picks first
+    })
+    it('should not show when nothing is left or the review is open', () => {
+        for (const x of useAppState.getState().suggestions) useAppState.getState().decideSuggestion(x.id, { kind: 'reject' })
+        const { rerender } = render(<EventLog />)
+        expect(screen.queryByRole('button', { name: /^Review suggestions/ })).toBeNull()
+        useAppState.getState().restoreSuggestion(useAppState.getState().suggestions[0].id)
+        rerender(<EventLog />)
+        expect(screen.getByRole('button', { name: 'Review suggestions (1 left)' })).toBeTruthy()
+        act(() => { useAppState.setState({ panel: 'review' }) })
+        expect(screen.queryByRole('button', { name: /^Review suggestions/ })).toBeNull()
     })
 })
 
@@ -354,7 +417,7 @@ describe('EventLog header', () => {
         await userEvent.click(screen.getByRole('button', { name: /\+ tag event/i }))
         const [e] = useAppState.getState().events
         expect(e).toMatchObject({ matchTimeSec: 42, sourceFileIndex: 0, type: 'goal' })
-        expect(useAppState.getState().picker).toEqual({ eventId: e.id })
+        expect(useAppState.getState().picker).toEqual({ eventId: e.id, fresh: true })
         expect(screen.queryByPlaceholderText('00:42')).not.toBeInTheDocument()
     })
 

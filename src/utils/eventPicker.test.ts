@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pickerReducer, initialPickerState, touchPickerState, scorerCandidates, SKIP, type PickerState, type PickerInput, type PickerContext } from './eventPicker'
+import { pickerReducer, initialPickerState, touchPickerState, scorerCandidates, isDisabledName, SKIP, type PickerState, type PickerInput, type PickerContext } from './eventPicker'
 import type { Team } from '../types'
 import { PICKER_OPTIONS } from './eventTypes'
 
@@ -277,11 +277,15 @@ describe('pickerReducer — assist step', () => {
         expect(r.effects).not.toContainEqual({ kind: 'close' })
     })
 
-    it('should list the scorer\'s team roster without the scorer', () => {
+    it('should list the scorer\'s team roster alphabetically, the scorer kept in place but disabled', () => {
         const r = run(afterScorer)
-        expect(scorerCandidates(r.state, ctx)).toEqual(['Sandy Wu'])
+        expect(scorerCandidates(r.state, ctx)).toEqual(['Sam Taylor', 'Sandy Wu'])
+        expect(isDisabledName(r.state, 'Sam Taylor')).toBe(true)
+        expect(isDisabledName(r.state, 'Sandy Wu')).toBe(false)
+        expect(r.state.highlighted).toBe(1) // the first selectable row
         const typed = run([...afterScorer, { kind: 'text', value: 'sa' }])
-        expect(scorerCandidates(typed.state, ctx)).toEqual(['Sandy Wu'])
+        expect(scorerCandidates(typed.state, ctx)).toEqual(['Sam Taylor', 'Sandy Wu'])
+        expect(typed.state.highlighted).toBe(1)
     })
 
     it('should save a chosen assist and close', () => {

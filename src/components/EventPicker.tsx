@@ -1,11 +1,16 @@
 import { teamBackground } from '../utils/teamColor'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { selectClockLong, useAppState } from '../state'
+import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
+import { showToast } from '../toasts'
+import { effectiveStatus } from '../utils/suggestions'
+import { getReviewWindow } from './reviewWindowState'
+import { confirmedCopy, eventGlobalSec, matchClock, taggedCopy } from '../utils/toastCopy'
 import { nearbyMark } from '../utils/duplicates'
 import { EventTag } from './EventTag'
-import { PICKER_GROUPS, PICKER_OPTIONS, assistOf, controlLabel, type PickerOption } from '../utils/eventTypes'
-import { SKIP, initialPickerState, pickerReducer, touchPickerState, scorerCandidates, type PickerInput, type PickerState } from '../utils/eventPicker'
+import { PersonStep } from './PersonStep'
+import { PICKER_GROUPS, PICKER_OPTIONS, assistOf, isMarker, controlLabel, type PickerOption } from '../utils/eventTypes'
+import { SKIP, initialPickerState, pickerReducer, touchPickerState, scorerCandidates, isDisabledName, type PickerInput, type PickerState } from '../utils/eventPicker'
 import { teamShortcuts } from '../utils/roster'
 import { formatClock } from '../utils/timeline'
 import type { MatchEvent } from '../types'
@@ -40,6 +45,29 @@ export function EventPicker() {
 
     useEffect(() => { setState(startState(!!useAppState.getState().picker?.pending)) }, [picker?.eventId])
 
+    // Closing a fresh tag announces it (with Undo); closing an edit, a marker or an empty mark says nothing here.
+    const finish = (fresh: boolean, id: string): void => {
+        const st = useAppState.getState()
+        const e = st.events.find((x) => x.id === id)
+        st.closePicker()
+        if (!fresh || !e || isMarker(e)) return
+        const kick = selectMatchStartSec(st)
+        // Tagged while reviewing, inside the current suggestion's loop: it counts for that suggestion, like Confirm.
+        const sug = st.panel === 'review' ? st.suggestions[st.reviewIndex] : undefined
+        const taken = !!sug && effectiveStatus(sug, new Set(st.events.map((x) => x.id))) === 'kept' // already confirmed: leave it, no duplicate link
+        if (sug && !taken && (e.type === 'goal' || e.type === 'own_goal' || e.type === 'save' || e.type === 'highlight')) {
+            const w = getReviewWindow()
+            const at = eventGlobalSec(e, st.cumulativeOffsets)
+            if (w && at >= w.startAbs && at <= w.endAbs) {
+                st.linkSuggestionEvent(sug.id, id)
+                showToast(confirmedCopy(e.type, e.team, matchClock(at, kick, selectClockLong(st))))
+                return
+            }
+        }
+        showToast(taggedCopy(e.type, e.team, matchClock(eventGlobalSec(e, st.cumulativeOffsets), kick, selectClockLong(st))),
+            { label: 'Undo', run: () => { const s2 = useAppState.getState(); if (s2.events.some((x) => x.id === id)) s2.removeEvent(id) } })
+    }
+
     const dispatch = (input: PickerInput): void => {
         const store = useAppState.getState()
         const current = store.picker
@@ -55,9 +83,12 @@ export function EventPicker() {
             else if (fx.kind === 'remove') { if (useAppState.getState().events.some((e) => e.id === id)) store.removeEvent(id) }
             else if (fx.kind === 'addToRoster') store.addToRoster(fx.team, fx.name)
             else if (fx.kind === 'marker') store.placeMarker(id, fx.type)
-            else useAppState.getState().closePicker()
+            else finish(current.fresh === true, id)
         }
     }
+
+    const dispatchRef = useRef(dispatch)
+    dispatchRef.current = dispatch
 
     const cancel = (): void => {
         const store = useAppState.getState()
@@ -89,10 +120,10 @@ export function EventPicker() {
             const caretKey = step === 'text' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')
             if (HANDLED.has(e.key) && !(inText && e.key === 'Backspace') && !caretKey) {
                 e.preventDefault()
-                dispatch({ kind: 'key', key: e.key })
+                dispatchRef.current({ kind: 'key', key: e.key })
             } else if (isLetter && !inText) {
                 e.preventDefault()
-                dispatch({ kind: 'key', key: e.key })
+                dispatchRef.current({ kind: 'key', key: e.key })
             }
             // letters in the scorer / text steps fall through to the focused text field (default action not prevented)
         }
@@ -174,32 +205,18 @@ export function EventPicker() {
             )}
 
             {(state.step === 'scorer' || state.step === 'assist') && (
-                <div className="event-picker__person">
-                    <input
-                        autoFocus={!coarse}
-                        aria-label={personLabel}
-                        className="event-picker__input"
-                        placeholder={coarse ? `Search or type ${personLabel.toLowerCase()}` : state.step === 'assist' ? 'Assist (optional) — type to filter, Enter to pick, Tab to skip' : `${personLabel} — type to filter, Enter to pick`}
-                        value={state.query}
-                        enterKeyHint="done"
-                        autoComplete="off"
-                        onChange={(e) => dispatch({ kind: 'text', value: e.target.value })}
-                    />
-                    <ul role="listbox" className="event-picker__list">
-                        {candidates.map((n, i) => (
-                            <li key={n} role="option" aria-selected={!coarse && i === state.highlighted}
-                                className="event-picker__item" onClick={() => dispatch({ kind: 'choose', value: n })}>
-                                <span className="voice-shirt event-picker__person-name">{n}</span>
-                            </li>
-                        ))}
-                        {state.query.trim() && candidates.length === 0 && (
-                            <li role="option" aria-selected={!coarse} className="event-picker__item"
-                                onClick={() => dispatch({ kind: 'choose', value: state.query.trim() })}>
-                                <span>+ add “{state.query.trim()}”</span>
-                            </li>
-                        )}
-                    </ul>
-                </div>
+                <PersonStep
+                    label={personLabel}
+                    autoFocus={!coarse}
+                    placeholder={coarse ? `Search or type ${personLabel.toLowerCase()}` : state.step === 'assist' ? 'Assist (optional) — type to filter, Enter to pick, Tab to skip' : `${personLabel} — type to filter, Enter to pick`}
+                    query={state.query}
+                    candidates={candidates}
+                    highlighted={state.highlighted}
+                    showHighlight={!coarse}
+                    onQuery={(value) => dispatch({ kind: 'text', value })}
+                    onChoose={(value) => dispatch({ kind: 'choose', value })}
+                    isDisabled={(name) => isDisabledName(state, name)}
+                />
             )}
 
             {state.step === 'text' && (

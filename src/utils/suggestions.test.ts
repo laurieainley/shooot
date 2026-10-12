@@ -39,7 +39,8 @@ describe('reviewCounts', () => {
 
 describe('suggestionMarks', () => {
     it('should place pending suggestions as a percentage of the timeline', () => {
-        expect(suggestionMarks([s('a', 50), s('b', 75, 'rejected')], new Set(), 100)).toEqual([{ id: 'a', leftPct: 50, timeSec: 50 }])
+        expect(suggestionMarks([s('a', 50), s('b', 75, 'rejected')], new Set(), 100)).toEqual([{ id: 'a', leftPct: 50, timeSec: 50, top: false }])
+        expect(suggestionMarks([s('t', 50, 'pending', { ball: { goal: 'team1', frames: 2 } })], new Set(), 100)[0].top).toBe(true)
         expect(suggestionMarks([s('a', 50)], new Set(), 0)).toEqual([])
     })
 })

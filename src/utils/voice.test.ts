@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import type { EventType, MatchEvent } from '../types'
-import { emptyLogLine, POLISHING, polishingChip, REEL_READY, GOAL_MARKED, goalMarkedFor, listeningLine, keptSummary, downloadingModelLine } from './voice'
+import { emptyLogLine, POLISHING, polishingChip, REEL_READY, listeningLine, keptSummary, downloadingModelLine } from './voice'
 
 describe('voice', () => {
     it('should greet an empty log with the brand line, then say what to do', () => {
@@ -17,23 +16,8 @@ describe('voice', () => {
         expect(polishingChip(1.4)).toBe('Polishing… 100%')
     })
 
-    it('should word the done and goal-marked states', () => {
+    it('should word the done state', () => {
         expect(REEL_READY).toBe("Reel ready. Group chat won't know what's hit it.")
-        expect(GOAL_MARKED).toBe('Goal tagged.')
-    })
-})
-
-describe('goalMarkedFor', () => {
-    const goal = (id: string, type: EventType = 'goal'): Pick<MatchEvent, 'id' | 'type'> => ({ id, type })
-    it('should fire when exactly one scoring event was added', () => {
-        expect(goalMarkedFor([goal('a')], [goal('a'), goal('b')])).toBe('b')
-        expect(goalMarkedFor([goal('a')], [goal('a'), goal('b', 'own_goal')])).toBe('b')
-    })
-    it('should not fire for other events, removals, or bulk changes (import / undo)', () => {
-        expect(goalMarkedFor([], [goal('a', 'save')])).toBeNull()
-        expect(goalMarkedFor([goal('a')], [])).toBeNull()
-        expect(goalMarkedFor([], [goal('a'), goal('b')])).toBeNull()
-        expect(goalMarkedFor([goal('a')], [goal('a')])).toBeNull()
     })
 })
 

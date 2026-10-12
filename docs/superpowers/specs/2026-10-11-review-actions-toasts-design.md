@@ -62,3 +62,37 @@ reviewing closes Suggested goals; the event is tagged but not linked to the sugg
    running-progress row only when no run is in progress (while running, the existing progress row + Open stays).
 Tests: tagging during review keeps the panel open; in-window tag links the suggestion; other panel → close → back to
 review; default lane rules; rail button copy/visibility/open.
+
+## Addendum 2 (user, 2026-10-11): review keys, no Top pick tag, lane switch styling
+1. Keys while the review panel is open: ←/→ seek −/+5 s (Shift ±1 s) like the editor and no longer move between
+   suggestions; **[** and **]** are previous / next suggestion (in the review only; elsewhere they stay previous / next
+   file). ↑/↓ frame step, Space play/pause, `,` `.` `/` speed as in the editor. Previous / Next header buttons show `[` and `]`.
+   The loop window is still extended with the ±2 s buttons on the mini timeline.
+2. The "Top pick — Ball seen in a goal mouth" tag is removed from the card; Goal stays pre-selected for top picks.
+3. Lane switch: "Top picks" has a lime star before the label and a lime selected segment (text `--sh-on-lime`); "All"
+   has a plain neutral list glyph and keeps the neutral selected style. Approved exception to the lime guard
+   (`utils/limeUsage.test.ts`: `.lanes__star`, `.lanes__btn--top`).
+
+## Addendum 3 (user, 2026-10-11): disjoint lanes, auto-switch, scorer/assist on the card, summary spacing
+1. Lanes are disjoint: **Top picks** (has `ball`, left) and **Other moments** (no `ball`, right; neutral icon), counts
+   per lane. Without Advanced detection there is no switch and the list is all suggestions.
+2. When the last Top pick still to review is decided (Confirm or Discard) the review switches to the first Other
+   moment still to review with the toast "Top picks done — on to other moments" (the only automatic lane switch; Next
+   / `]` at the end of Top picks does the same). Default lane on open: Top picks if any is still to review, else Other moments.
+3. Scorer and assist on the card after Type and Team, before Confirm: the same optional person steps the EventPicker
+   uses (roster filter, Enter picks, Tab / Enter-on-empty skips, new names added to the roster). Goal → scorer + assist;
+   Own goal → the player; Save → keeper; Highlight → none. Toast copy includes the scorer: "Goal · Whites · Sam confirmed at 12:34".
+4. Summary "You kept X of Y": add the missing spacing above it and use the panel's body font.
+
+## Addendum 4 (user, 2026-10-11): goals tally in the review panel
+A compact line under the panel header, above the lane switch: "Goals tagged: Whites 3 – 2 Colours" (team names in the
+shirt font, score in JetBrains Mono), computed with the shared score helper over all events (not up to the playhead).
+Updates live on confirm / discard / undo.
+
+## Addendum 5 (user, 2026-10-11): loop keys, strip rings only on the ring, own ring lane
+1. While the review is open `{` (Shift+[) = start 2 s earlier, `}` (Shift+]) = end 2 s later; shown as key hints on the
+   two "+2 s" handles and in the shortcuts list.
+2. Match strip rings: only a click / tap ON the ring opens the review at that suggestion; a click near or under it
+   just seeks. Mouse: the ring's own size; touch / pen: a 24 px target centred on the ring. Only in the thin bottom lane.
+3. Rings sit in their own thin lane at the bottom of the strip (event icons stack above it), faint; only suggestions still
+   to review have one (confirmed ones are events, discarded ones disappear). Top picks show the small lime star.

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type Keyboard
 import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import type { MatchEvent, Team } from '../types'
 import { emptyLogLine } from '../utils/voice'
-import { FindGoalsProgress } from './FindGoalsProgress'
+import { FindGoalsProgress, ReviewRailButton } from './FindGoalsProgress'
 import { useDetectJob } from '../detectJobs'
 import { findGoalsProgress } from '../utils/findGoalsProgress'
 import { controlLabel, isMarker } from '../utils/eventTypes'
@@ -18,6 +18,8 @@ import { filterRoster, rosterTeamFor } from '../utils/roster'
 import { formatScore, scoresAfter } from '../utils/score'
 import { clockWidthCh, formatEventClock } from '../utils/timeline'
 import { TimeInput } from './TimeInput'
+import { showToast } from '../toasts'
+import { deletedCopy, eventGlobalSec, matchClock } from '../utils/toastCopy'
 import { RelinkBanner } from './RelinkBanner'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 import { ShortcutsButton } from './ShortcutsButton'
@@ -39,7 +41,7 @@ export function EventLog() {
     const offsets = useAppState((s) => s.cumulativeOffsets)
     const matchStartTimeSec = useAppState(selectMatchStartSec)
     const clockLong = useAppState(selectClockLong)
-    const canUndo = useAppState((s) => s.undoStack.length > 0)
+    const canUndo = useAppState((s) => s.undoStack.length > 0 || (s.discardStack.length > 0 && s.discardStack[s.discardStack.length - 1].top === s.undoStack[s.undoStack.length - 1]))
     const canRedo = useAppState((s) => s.redoStack.length > 0)
     const coarse = useMediaQuery(COARSE_QUERY)
     const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -87,7 +89,11 @@ export function EventLog() {
         const e = events[index]
         if (!e) return
         const next = events[index + 1] ?? events[index - 1]
-        useAppState.getState().removeEvent(e.id)
+        const st = useAppState.getState()
+        const copy = deletedCopy(e.type, matchClock(eventGlobalSec(e, st.cumulativeOffsets), selectMatchStartSec(st), selectClockLong(st)))
+        st.removeEvent(e.id)
+        const top = useAppState.getState().undoStack.at(-1) // Undo only while the delete is still the latest step
+        showToast(copy, { label: 'Undo', run: () => { useAppState.getState().undoIfTop(top) } })
         setSelectedId(next?.id ?? null)
     }
 
@@ -144,6 +150,7 @@ export function EventLog() {
 
             {events.length === 0 && finding ? <FindGoalsProgress /> : null}
             {events.length > 0 && <FindGoalsProgress />}
+            <ReviewRailButton />
             {events.length === 0 && !finding ? (
                 <>
                     <p className="empty-log m-0 px-3 py-4 text-[13px] text-muted">

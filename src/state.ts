@@ -1,3 +1,5 @@
+import { showToast } from './toasts'
+import { markerSetCopy, matchClock } from './utils/toastCopy'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { GoalAreas, GoalMarks, GoalMarksByTeam, GoalTeam, KeepType, MarkerType, MatchEvent, Suggestion, SuggestionRun, Team, VideoSourceFile } from './types'
@@ -26,6 +28,9 @@ function relinkEvents(events: MatchEvent[], files: VideoSourceFile[]): MatchEven
 }
 
 /** Menus and sheets; at most one is open, and never together with the event picker. */
+/** A Discard on the undo timeline: `top` is the undo stack's top snapshot (by identity) right after it, so it stays the next step to undo until any other step is pushed. */
+export interface DiscardEntry { prev: Suggestion; top: MatchEvent[] | undefined; hadEvent: boolean }
+
 export type Panel = 'menu' | 'files' | 'match' | 'newmatch' | 'settings' | 'import' | 'export' | 'event' | 'send' | 'shortcuts' | 'review'
 
 type AppState = {
@@ -100,7 +105,7 @@ type AppState = {
      * The event the picker is editing. `pending` (touch ＋): the time was captured but no event exists yet; it is
      * created (one undo step) by `commitPending` when a type is chosen, and closing the picker creates nothing.
      */
-    picker: { eventId: string; pending?: { matchTimeSec: number; sourceFileIndex: number } } | null
+    picker: { eventId: string; pending?: { matchTimeSec: number; sourceFileIndex: number }; /** Opened by tagging (not by editing an existing event): closing it announces the tag. */ fresh?: boolean } | null
     setTeams: (teams: Team[]) => void
     renameTeam: (index: number, name: string) => void
     addToRoster: (team: string, name: string) => void
@@ -130,7 +135,19 @@ type AppState = {
     reviewIndex: number
     setSuggestions: (run: SuggestionRun, moments: ScoredMoment[]) => void
     /** Keep adds the event; changing a kept decision removes the old event first (each is its own undo step). */
-    decideSuggestion: (id: string, decision: { kind: 'reject' } | { kind: 'keep'; type: KeepType; team?: string; atSec?: number }) => void
+    decideSuggestion: (id: string, decision: { kind: 'reject' } | { kind: 'keep'; type: KeepType; team?: string; atSec?: number; scorer?: string; assist?: string }) => void
+    /** The last Discard, undoable with ⌘Z / the toast's Undo while no event change has happened since (not persisted). */
+    discardStack: DiscardEntry[]
+    /** Undo the last Discard (same result as ⌘Z, including a discarded kept card's event) while it is still the latest step; false otherwise. */
+    undoDiscard: (id?: string) => boolean
+    /** Undo once, only while `top` is still the latest undo step (a toast's Undo must not undo something later). */
+    undoIfTop: (top: MatchEvent[] | undefined) => boolean
+    /** A discarded suggestion goes back to pending. */
+    restoreSuggestion: (id: string) => void
+    /** Where closing the open panel goes back to: the review, when another panel replaced it (not persisted). */
+    returnTo: 'review' | null
+    /** An event tagged during the review counts for the suggestion it lands in (kept, like Confirm). */
+    linkSuggestionEvent: (suggestionId: string, eventId: string) => void
     clearSuggestions: () => void
     setReviewIndex: (i: number) => void
     openReviewAt: (id: string) => void
@@ -163,6 +180,13 @@ type AppState = {
     setSuggestionBall: (id: string, ball: Suggestion['ball'] | null) => void
 }
 
+/** Opening a panel over the review remembers to come back; opening one from nothing forgets; the review itself clears it. */
+function nextReturnTo(current: Panel | null, returnTo: 'review' | null, next: Panel): 'review' | null {
+    if (next === 'review') return null
+    if (current === 'review') return 'review'
+    return current === null ? null : returnTo
+}
+
 /** Kick-off on the whole timeline (0 when not marked): match clocks, Home, chapters and the full match start there. */
 export function selectMatchStartSec(s: Pick<AppState, 'events' | 'cumulativeOffsets'>): number {
     return kickOffSec(s.events, s.cumulativeOffsets)
@@ -182,6 +206,14 @@ export const useAppState = create<AppState>()(
     persist(
         (set, get) => {
             const MAX_UNDO_DEPTH = 50
+            /** Put a discarded suggestion back as it was, and return the review to it. */
+            const restoreDiscarded = (d: DiscardEntry): void => {
+                const st = get()
+                const at = st.suggestions.findIndex((x) => x.id === d.prev.id)
+                const rest = st.discardStack.slice(0, -1)
+                if (at < 0) { set({ discardStack: rest }); return }
+                set({ suggestions: st.suggestions.map((x, i) => (i === at ? d.prev : x)), discardStack: rest, reviewIndex: at })
+            }
             // The picker and the edit sheet each edit one event; they close when that event is gone (undo, delete, import).
             const follow = (events: MatchEvent[]): Pick<AppState, 'picker' | 'panel'> => {
                 const { picker: p, panel, editingEventId } = get()
@@ -223,7 +255,7 @@ export const useAppState = create<AppState>()(
             // Undo/redo stacks
             undoStack: [],
             redoStack: [],
-            suggestions: [],
+            suggestions: [], discardStack: [], returnTo: null,
             suggestionRun: null,
             reviewIndex: 0,
             // Preview mode state
@@ -364,6 +396,8 @@ export const useAppState = create<AppState>()(
                     undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), state.events],
                     redoStack: [],
                 })
+                const placed = next.find((e) => e.id === id)
+                if (placed) showToast(markerSetCopy(type, matchClock((state.cumulativeOffsets[placed.sourceFileIndex ?? 0] ?? 0) + placed.matchTimeSec, 0, selectClockLong(state))))
             },
             setMarkerAt: (type, fileIndex, timeInFileSec) => {
                 const state = get()
@@ -380,6 +414,7 @@ export const useAppState = create<AppState>()(
                     undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), state.events],
                     redoStack: [],
                 })
+                showToast(markerSetCopy(type, matchClock((state.cumulativeOffsets[fileIndex] ?? 0) + added.matchTimeSec, 0, selectClockLong(state))))
             },
             sortEvents: () => {
                 const state = get()
@@ -395,6 +430,11 @@ export const useAppState = create<AppState>()(
                 })
             },
             undo: () => {
+                const last = get().discardStack[get().discardStack.length - 1]
+                if (last && last.top === get().undoStack[get().undoStack.length - 1]) {
+                    restoreDiscarded(last)
+                    if (!last.hadEvent) return // a plain discard: that was the whole step
+                }
                 const state = get()
                 if (state.undoStack.length === 0) return
                 const previous = relinkEvents(state.undoStack[state.undoStack.length - 1], state.files)
@@ -450,20 +490,20 @@ export const useAppState = create<AppState>()(
                 const matchTimeSec = Math.floor(timeInFileSec)
                 const sourceFileIndex = get().currentFileIndex
                 if (opts?.deferred) {
-                    set({ picker: { eventId: id, pending: { matchTimeSec, sourceFileIndex } }, panel: null })
+                    set({ picker: { eventId: id, pending: { matchTimeSec, sourceFileIndex }, fresh: true }, panel: get().panel === 'review' ? 'review' : null })
                     return
                 }
                 get().addEvent({ id, matchTimeSec, sourceFileIndex, type: 'goal' })
-                set({ picker: { eventId: id }, panel: null })
+                set({ picker: { eventId: id, fresh: true }, panel: get().panel === 'review' ? 'review' : null })
             },
             commitPending: () => {
                 const pending = get().picker?.pending
                 const picker = get().picker
                 if (!picker || !pending) return
                 get().addEvent({ id: picker.eventId, ...pending, type: 'goal' })
-                set({ picker: { eventId: picker.eventId } })
+                set({ picker: { eventId: picker.eventId, ...(picker.fresh ? { fresh: true } : {}) } })
             },
-            openPicker: (eventId) => set({ picker: { eventId }, panel: null }),
+            openPicker: (eventId) => set({ picker: { eventId }, panel: get().panel === 'review' ? 'review' : null }),
             closePicker: () => set({ picker: null }),
             setGraphics: (partial) => set({ graphics: normaliseGraphics({ ...get().graphics, ...partial }, get().graphics) }),
             fullMatch: { cards: true, scoreBug: 'goals', intervalMin: 5, captions: true },
@@ -507,9 +547,9 @@ export const useAppState = create<AppState>()(
             setPlayerFullscreen: (on) => { if (get().playerFullscreen !== on) set({ playerFullscreen: on }) },
             setBarCollapsed: (collapsed) => set({ barCollapsed: collapsed }),
             editEvent: (id) => {
-                if (get().events.some((e) => e.id === id)) set({ panel: 'event', editingEventId: id, picker: null })
+                if (get().events.some((e) => e.id === id)) set({ panel: 'event', editingEventId: id, picker: null, returnTo: nextReturnTo(get().panel, get().returnTo, 'event') })
             },
-            openPanel: (panel) => set({ panel, picker: null }),
+            openPanel: (panel) => set({ panel, picker: null, returnTo: nextReturnTo(get().panel, get().returnTo, panel) }),
             setSuggestions: (run, moments) => {
                 const id = (): string => `sug-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
                 const ids = new Set(get().events.map((e) => e.id))
@@ -528,22 +568,49 @@ export const useAppState = create<AppState>()(
                 const live = s.eventId && st.events.some((e) => e.id === s.eventId) ? s.eventId : undefined
                 if (live) get().removeEvent(live)
                 if (decision.kind === 'reject') {
-                    set({ suggestions: get().suggestions.map((x) => (x.id === id ? { ...x, status: 'rejected', keptAs: live ? x.keptAs : undefined, eventId: live } : x)) })
+                    set({
+                        suggestions: get().suggestions.map((x) => (x.id === id ? { ...x, status: 'rejected', keptAs: live ? x.keptAs : undefined, eventId: live } : x)),
+                        discardStack: [...get().discardStack.slice(-(MAX_UNDO_DEPTH - 1)), { prev: s, top: get().undoStack[get().undoStack.length - 1], hadEvent: !!live }],
+                    })
                     return
                 }
                 const durations = st.files.map((f) => f.durationSec ?? 0)
                 const at = globalToFileTime(st.cumulativeOffsets, durations, Math.max(0, decision.atSec ?? s.globalTimeSec + AUDIO_DETECT.eventOffsetSec))
                 const eventId = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-                get().addEvent({ id: eventId, matchTimeSec: decision.atSec !== undefined ? Math.round(at.timeSec * 10) / 10 : Math.floor(at.timeSec), sourceFileIndex: at.fileIndex, type: decision.type, ...(decision.team ? { team: decision.team } : {}) })
+                get().addEvent({ id: eventId, matchTimeSec: decision.atSec !== undefined ? Math.round(at.timeSec * 10) / 10 : Math.floor(at.timeSec), sourceFileIndex: at.fileIndex, type: decision.type, ...(decision.team ? { team: decision.team } : {}), ...(decision.scorer ? { scorer: decision.scorer } : {}), ...(decision.assist ? { assist: decision.assist } : {}) })
                 set({ suggestions: get().suggestions.map((x) => (x.id === id ? { ...x, status: 'kept', keptAs: decision.type, eventId } : x)) })
             },
-            clearSuggestions: () => set({ suggestions: [], suggestionRun: null, reviewIndex: 0 }),
+            undoDiscard: (id) => {
+                const st = get()
+                const last = st.discardStack[st.discardStack.length - 1]
+                if (!last || last.top !== st.undoStack[st.undoStack.length - 1] || (id !== undefined && last.prev.id !== id)) return false
+                get().undo()
+                return true
+            },
+            undoIfTop: (top) => {
+                const st = get()
+                if (st.undoStack.length === 0 || st.undoStack[st.undoStack.length - 1] !== top) return false
+                get().undo()
+                return true
+            },
+            restoreSuggestion: (id) => set({ suggestions: get().suggestions.map((x) => (x.id === id ? { ...x, status: 'pending', keptAs: undefined, eventId: undefined } : x)), discardStack: get().discardStack.filter((d) => d.prev.id !== id) }),
+            clearSuggestions: () => set({ discardStack: [], suggestions: [], suggestionRun: null, reviewIndex: 0 }),
             setReviewIndex: (i) => set({ reviewIndex: Math.max(0, i) }),
             openReviewAt: (id) => {
                 const i = get().suggestions.findIndex((x) => x.id === id)
-                set({ reviewIndex: Math.max(0, i), panel: 'review', picker: null })
+                set({ reviewIndex: Math.max(0, i), panel: 'review', picker: null, returnTo: null })
             },
-            closePanel: () => set({ panel: null }),
+            closePanel: () => {
+                const st = get()
+                if (st.panel !== 'review' && st.returnTo === 'review' && st.suggestions.length > 0) set({ panel: 'review', returnTo: null })
+                else set({ panel: null, returnTo: null })
+            },
+            linkSuggestionEvent: (suggestionId, eventId) => {
+                const e = get().events.find((x) => x.id === eventId)
+                if (!e || (e.type !== 'goal' && e.type !== 'own_goal' && e.type !== 'save' && e.type !== 'highlight')) return
+                const type = e.type
+                set({ suggestions: get().suggestions.map((x) => (x.id === suggestionId ? { ...x, status: 'kept', keptAs: type, eventId } : x)) })
+            },
             // Preview mode actions
             startPreview: () => {
                 const state = get()

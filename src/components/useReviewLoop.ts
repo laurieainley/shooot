@@ -1,3 +1,4 @@
+import { setReviewWindow } from './reviewWindowState'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppState } from '../state'
 import { globalToFileTime } from '../utils/matchStrip'
@@ -12,7 +13,7 @@ export interface ReviewLoop {
 }
 
 /**
- * Plays the review window around the suggestion at `timeSec` (whole timeline; default −5 s → +2 s) and jumps back to
+ * Plays the review window around the suggestion at `timeSec` (whole timeline; default −5 s → +4 s) and jumps back to
  * its start at the end, until the user seeks elsewhere. `earlier` / `later` extend the window by 2 s per press; it
  * resets when the suggestion changes.
  */
@@ -28,6 +29,10 @@ export function useReviewLoop(timeSec: number | null): ReviewLoop {
     const winRef = useRef(win)
     winRef.current = win
     const startAbs = win?.startAbs ?? null
+    useEffect(() => {
+        setReviewWindow(win)
+        return () => setReviewWindow(null)
+    }, [win])
 
     const earlier = useCallback((): void => {
         if (timeSec === null) return

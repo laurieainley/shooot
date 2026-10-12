@@ -84,7 +84,7 @@ describe('teams and picker', () => {
         s().markEvent(42.9)
         const [e] = s().events
         expect(e).toMatchObject({ matchTimeSec: 42, sourceFileIndex: 0, type: 'goal' })
-        expect(s().picker).toEqual({ eventId: e.id })
+        expect(s().picker).toEqual({ eventId: e.id, fresh: true })
         s().closePicker()
         expect(s().picker).toBeNull()
     })
@@ -99,7 +99,7 @@ describe('teams and picker', () => {
             s().commitPending()
             expect(s().events).toHaveLength(1)
             expect(s().events[0]).toMatchObject({ id: picker.eventId, matchTimeSec: 42, sourceFileIndex: 0, type: 'goal' })
-            expect(s().picker).toEqual({ eventId: picker.eventId })
+            expect(s().picker).toEqual({ eventId: picker.eventId, fresh: true })
             expect(s().undoStack).toHaveLength(1)
         })
 
@@ -592,6 +592,122 @@ describe('suggestions', () => {
         expect(st.events[0]).toMatchObject({ type: 'goal', team: 'Whites', matchTimeSec: 98, sourceFileIndex: 0 })
         expect(st.suggestions[0]).toMatchObject({ status: 'kept', keptAs: 'goal', eventId: st.events[0].id })
         expect(st.undoStack).toHaveLength(1)
+    })
+    it('should undo a discard with undo() (back to pending, review returns to it) without touching events', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }, { timeSec: 300, score: 4 }])
+        const [a, b] = useAppState.getState().suggestions
+        useAppState.getState().decideSuggestion(a.id, { kind: 'reject' })
+        useAppState.getState().setReviewIndex(1)
+        useAppState.getState().undo()
+        const st = useAppState.getState()
+        expect(st.suggestions.map((x) => x.status)).toEqual(['pending', 'pending'])
+        expect(st.reviewIndex).toBe(0)
+        expect(b.status).toBe('pending')
+    })
+    it('should fall back to the event undo once something else changed after the discard', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }, { timeSec: 300, score: 4 }])
+        const [a, b] = useAppState.getState().suggestions
+        useAppState.getState().decideSuggestion(a.id, { kind: 'reject' })
+        useAppState.getState().decideSuggestion(b.id, { kind: 'keep', type: 'goal', team: 'Whites' })
+        useAppState.getState().undo()
+        const st = useAppState.getState()
+        expect(st.events).toHaveLength(0)
+        expect(st.suggestions[0].status).toBe('rejected')
+    })
+    it('should undo two discards in order with two undos, leaving earlier events alone', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }, { timeSec: 300, score: 4 }])
+        useAppState.getState().addEvent({ id: 'e0', matchTimeSec: 5, sourceFileIndex: 0, type: 'goal' })
+        const [a, b] = useAppState.getState().suggestions
+        useAppState.getState().decideSuggestion(a.id, { kind: 'reject' })
+        useAppState.getState().decideSuggestion(b.id, { kind: 'reject' })
+        useAppState.getState().undo()
+        expect(useAppState.getState().suggestions.map((x) => x.status)).toEqual(['rejected', 'pending'])
+        useAppState.getState().undo()
+        expect(useAppState.getState().suggestions.map((x) => x.status)).toEqual(['pending', 'pending'])
+        expect(useAppState.getState().events.map((e) => e.id)).toEqual(['e0'])
+    })
+    it('should undo a confirm made after a discard first, then the discard', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }, { timeSec: 300, score: 4 }])
+        const [a, b] = useAppState.getState().suggestions
+        useAppState.getState().decideSuggestion(a.id, { kind: 'reject' })
+        useAppState.getState().decideSuggestion(b.id, { kind: 'keep', type: 'goal', team: 'Whites' })
+        useAppState.getState().undo()
+        expect(useAppState.getState().events).toHaveLength(0)
+        expect(useAppState.getState().suggestions[0].status).toBe('rejected')
+        useAppState.getState().undo()
+        expect(useAppState.getState().suggestions[0].status).toBe('pending')
+    })
+    it('should keep the order right when the undo stack is full (50 entries)', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }, { timeSec: 300, score: 4 }])
+        const [a, b] = useAppState.getState().suggestions
+        for (let i = 0; i < 50; i++) useAppState.getState().addEvent({ id: `f${i}`, matchTimeSec: i, sourceFileIndex: 0, type: 'highlight' })
+        expect(useAppState.getState().undoStack).toHaveLength(50)
+        useAppState.getState().decideSuggestion(a.id, { kind: 'reject' })
+        useAppState.getState().decideSuggestion(b.id, { kind: 'keep', type: 'goal', team: 'Whites' })
+        expect(useAppState.getState().undoStack).toHaveLength(50)
+        useAppState.getState().undo()
+        expect(useAppState.getState().events.some((e) => e.type === 'goal')).toBe(false) // the confirm, not the stale discard
+        expect(useAppState.getState().suggestions[0].status).toBe('rejected')
+    })
+    it('should bring a discarded kept card\'s event back with undoDiscard, like undo()', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        const id = useAppState.getState().suggestions[0].id
+        useAppState.getState().decideSuggestion(id, { kind: 'keep', type: 'goal', team: 'Whites' })
+        useAppState.getState().decideSuggestion(id, { kind: 'reject' })
+        expect(useAppState.getState().events).toHaveLength(0)
+        expect(useAppState.getState().undoDiscard(id)).toBe(true)
+        expect(useAppState.getState().events).toHaveLength(1)
+        expect(useAppState.getState().suggestions[0].status).toBe('kept')
+    })
+    it('should not let a stale undoDiscard or undoIfTop undo something later', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }, { timeSec: 300, score: 4 }])
+        const [a, b] = useAppState.getState().suggestions
+        useAppState.getState().decideSuggestion(a.id, { kind: 'reject' })
+        const top = useAppState.getState().undoStack.at(-1)
+        useAppState.getState().decideSuggestion(b.id, { kind: 'keep', type: 'goal', team: 'Whites' })
+        expect(useAppState.getState().undoDiscard(a.id)).toBe(false)
+        expect(useAppState.getState().undoIfTop(top)).toBe(false)
+        expect(useAppState.getState().events).toHaveLength(1)
+    })
+    it('should restore a discarded suggestion to pending', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        const id = useAppState.getState().suggestions[0].id
+        useAppState.getState().decideSuggestion(id, { kind: 'reject' })
+        useAppState.getState().restoreSuggestion(id)
+        expect(useAppState.getState().suggestions[0]).toMatchObject({ status: 'pending' })
+        expect(useAppState.getState().suggestions[0].eventId).toBeUndefined()
+    })
+    it('should keep the review panel open while tagging, and come back to it after another panel closes', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        useAppState.setState({ panel: 'review', picker: null })
+        useAppState.getState().markEvent(50)
+        expect(useAppState.getState().panel).toBe('review')
+        expect(useAppState.getState().picker).not.toBeNull()
+        useAppState.getState().closePicker()
+        useAppState.getState().openPanel('match')
+        expect(useAppState.getState().panel).toBe('match')
+        useAppState.getState().closePanel()
+        expect(useAppState.getState().panel).toBe('review')
+        useAppState.getState().closePanel() // explicit close of the review
+        expect(useAppState.getState().panel).toBeNull()
+        useAppState.getState().openPanel('match'); useAppState.getState().closePanel()
+        expect(useAppState.getState().panel).toBeNull() // nothing to return to
+    })
+    it('should return to the review after the event sheet closes, not after an explicit review close', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        useAppState.getState().addEvent({ id: 'e1', matchTimeSec: 10, sourceFileIndex: 0, type: 'goal' })
+        useAppState.setState({ panel: 'review' })
+        useAppState.getState().editEvent('e1')
+        expect(useAppState.getState().panel).toBe('event')
+        useAppState.getState().closePanel()
+        expect(useAppState.getState().panel).toBe('review')
+    })
+    it('should link an existing event to a suggestion as kept', () => {
+        useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])
+        const id = useAppState.getState().suggestions[0].id
+        useAppState.getState().addEvent({ id: 'e1', matchTimeSec: 99, sourceFileIndex: 0, type: 'goal' })
+        useAppState.getState().linkSuggestionEvent(id, 'e1')
+        expect(useAppState.getState().suggestions[0]).toMatchObject({ status: 'kept', keptAs: 'goal', eventId: 'e1' })
     })
     it('should use atSec (to 0.1 s) instead of the estimate when given', () => {
         useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }])

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Suggestion } from '../types'
-import { firstToReviewInLane, laneCounts, laneNeighbour, laneSwitchVisible, positionInLane, topPicksLine } from './reviewLanes'
+import { defaultLane, openingIndex, reviewRailLabel, firstToReviewInLane, laneCounts, laneNeighbour, laneSwitchVisible, positionInLane, topPicksLine } from './reviewLanes'
 
 const ball = { goal: 'team1' as const, frames: 2 }
 const mk = (id: string, over: Partial<Suggestion> = {}): Suggestion => ({ id, globalTimeSec: 0, score: 1, status: 'pending', ...over } as Suggestion)
@@ -10,8 +10,18 @@ const ids = new Set<string>()
 
 describe('laneCounts', () => {
     it('should count every suggestion in All and those with a ball tag in Top picks', () => {
-        expect(laneCounts(list)).toEqual({ all: 5, top: 3 })
-        expect(laneCounts([])).toEqual({ all: 0, top: 0 })
+        expect(laneCounts(list)).toEqual({ all: 5, top: 3, other: 2 })
+        expect(laneCounts([])).toEqual({ all: 0, top: 0, other: 0 })
+    })
+})
+
+describe('disjoint lanes', () => {
+    it('should keep Other moments to the suggestions without a ball tag', () => {
+        expect(positionInLane(list, 'other', 2)).toBe(1)
+        expect(positionInLane(list, 'other', 1)).toBe(-1)
+        expect(laneNeighbour(list, 'other', 0, 1)).toBe(2)
+        expect(laneNeighbour(list, 'other', 2, 1)).toBeNull()
+        expect(firstToReviewInLane(list, 'other', ids)).toBe(0)
     })
 })
 
@@ -72,5 +82,25 @@ describe('topPicksLine', () => {
         expect(topPicksLine(0)).toBe('')
         expect(topPicksLine(1)).toBe('1 top pick so far')
         expect(topPicksLine(3)).toBe('3 top picks so far')
+    })
+})
+
+describe('default lane, opening index and rail label', () => {
+    it('should default to Top picks while one is still to review, else Other moments', () => {
+        expect(defaultLane(list, ids)).toBe('top')
+        expect(defaultLane([mk('a'), mk('d', { ball, status: 'rejected' })], ids)).toBe('other')
+        expect(defaultLane([mk('a')], ids)).toBe('other')
+    })
+    it('should open at the first suggestion to review in that lane, or past the end when none is left', () => {
+        expect(openingIndex(list, ids)).toBe(1)
+        expect(openingIndex([mk('a'), mk('b', { status: 'rejected' })], ids)).toBe(0)
+        expect(openingIndex([mk('a', { status: 'rejected' })], ids)).toBe(1)
+        expect(openingIndex([], ids)).toBe(0)
+    })
+    it('should word the rail button with the number left and top picks only when there are some', () => {
+        expect(reviewRailLabel(list, ids)).toBe('Review suggestions (4 left · 2 top picks)')
+        expect(reviewRailLabel([mk('a'), mk('b', { ball })], ids)).toBe('Review suggestions (2 left · 1 top pick)')
+        expect(reviewRailLabel([mk('a'), mk('b')], ids)).toBe('Review suggestions (2 left)')
+        expect(reviewRailLabel([mk('a', { status: 'rejected' })], ids)).toBeNull()
     })
 })
