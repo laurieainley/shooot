@@ -4,13 +4,17 @@ import { eventIconKey, eventIconLabel, isGoalIcon, type EventIconKey } from '../
 
 const STROKE = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.75, strokeLinecap: 'round', strokeLinejoin: 'round' } as const
 
-/** The football, centre (12,12): outline, a filled centre pentagon and five seams. */
+/**
+ * The football, centre (12,12): a classic Telstar ball. A filled centre pentagon, five seams to five rim pentagons
+ * (clipped to the outline by hand, so no clip-path id is needed) and the outline. Kept coarse so it reads at 12 px.
+ */
 function Football(): ReactElement {
     return (
         <>
             <circle cx="12" cy="12" r="9.25" {...STROKE} />
-            <path d="M12 8.4l3.42 2.49-1.3 4.02H9.88l-1.3-4.02z" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" />
-            <path d="M12 8.4V2.9M15.42 10.89l5.2-1.75M14.12 14.91l3.3 4.4M9.88 14.91l-3.3 4.4M8.58 10.89l-5.2-1.75" {...STROKE} />
+            <path d="M12 8.7L15.14 10.98L13.94 14.67L10.06 14.67L8.86 10.98z" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" />
+            <path d="M12 8.7V5.4M15.14 10.98L18.28 9.96M13.94 14.67L15.88 17.34M10.06 14.67L8.12 17.34M8.86 10.98L5.72 9.96" {...STROKE} strokeWidth="1.4" />
+            <path d="M12 5.4L9.03 3.24A9.25 9.25 0 0 1 14.97 3.24zM18.28 9.96L19.41 6.47A9.25 9.25 0 0 1 21.25 12.12zM15.88 17.34L19.55 17.34A9.25 9.25 0 0 1 14.74 20.83zM8.12 17.34L9.26 20.83A9.25 9.25 0 0 1 4.45 17.34zM5.72 9.96L2.75 12.12A9.25 9.25 0 0 1 4.59 6.47z" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" />
         </>
     )
 }

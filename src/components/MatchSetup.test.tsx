@@ -65,3 +65,12 @@ describe('MatchSetup', () => {
         expect(screen.getByText('Teams and rosters are remembered for next time.')).toBeInTheDocument()
     })
 })
+
+describe('MatchSetup Done', () => {
+    it('should close the sheet from the Done button', async () => {
+        const onClose = vi.fn()
+        render(<MatchSetup onClose={onClose} />)
+        await userEvent.click(screen.getByRole('button', { name: 'Done' }))
+        expect(onClose).toHaveBeenCalled()
+    })
+})

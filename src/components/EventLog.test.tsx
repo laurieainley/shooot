@@ -431,6 +431,7 @@ describe('EventLog empty state', () => {
 })
 
 describe('EventLog find goals', () => {
+    beforeEach(() => { useAppState.setState({ suggestions: [], suggestionRun: null, panel: null }) })
     it('should offer Find goals in the empty state when videos are loaded', () => {
         setup([])
         render(<EventLog />)
@@ -652,5 +653,28 @@ describe('EventLog with the clip popover open', () => {
         await userEvent.keyboard('r')
         expect(byId('a')).toBeDefined()
         expect(byId('a')?.replay).toBe(before)
+    })
+})
+
+describe('EventLog find goals prompt', () => {
+    beforeEach(() => { useAppState.setState({ suggestions: [], suggestionRun: null, panel: null }) })
+    const marker = (id: string, type: 'kick_off' | 'half_time'): MatchEvent => ({ id, matchTimeSec: 1, sourceFileIndex: 0, type })
+
+    it('should offer Find goals when only markers exist', () => {
+        setup([marker('k', 'kick_off'), marker('h', 'half_time')])
+        render(<EventLog />)
+        expect(screen.getByRole('button', { name: /Find goals/ })).toHaveTextContent('Beta')
+    })
+
+    it('should hide once a goal exists', () => {
+        setup([marker('k', 'kick_off'), { id: 'g', matchTimeSec: 5, sourceFileIndex: 0, type: 'goal', team: 'Whites' }])
+        render(<EventLog />)
+        expect(screen.queryByTestId('find-prompt')).toBeNull()
+    })
+
+    it('should hide without videos', () => {
+        setup([marker('k', 'kick_off')], { files: [], cumulativeOffsets: [] })
+        render(<EventLog />)
+        expect(screen.queryByTestId('find-prompt')).toBeNull()
     })
 })
