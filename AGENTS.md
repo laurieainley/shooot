@@ -276,6 +276,11 @@ npm run lint       # baseline: 12 known problems — add none
   testing), optionally a plan in `docs/superpowers/plans/`. Record user decisions in the spec. Audits and the idea
   backlog live in `docs/superpowers/notes/`.
 
+### Decisions log
+- Record every product/technical decision in `DECISIONS.md` (repo root) in the same commit that acts on it: date, who
+  decided (user / agent), the decision, **why**, and where the detail lives (spec section or commit). Newest first; when a
+  decision changes, add a new entry naming the one it supersedes — never rewrite old entries. Specs keep the full design.
+
 ### Worktrees
 - Every parallel or delegated piece of work gets its own worktree **inside this repo** under
   `.claude/worktrees/<short-name>` on its own branch — never sibling folders next to the repo.
