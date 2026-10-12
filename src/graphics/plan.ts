@@ -34,7 +34,7 @@ export function wantsLowerThird(e: Pick<MatchEvent, 'type' | 'notes' | 'pen'>): 
 const upper = (s: string | undefined): string | undefined => (s?.trim() ? s.trim().toUpperCase() : undefined)
 
 /** Team initials and colours for the score bug, with the given score. */
-function bugFor(teams: Team[], score: Score): BugSpec {
+export function bugFor(teams: Team[], score: Score): BugSpec {
     const a = teamBadge(teams[0])
     const b = teamBadge(teams[1])
     return { left: a.initials, right: b.initials, leftColour: a.colour, rightColour: b.colour, text: formatScore(score) }

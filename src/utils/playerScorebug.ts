@@ -1,4 +1,6 @@
 import type { MatchEvent, Team } from '../types'
+import { bugFor } from '../graphics/plan'
+import type { BugSpec } from '../graphics/types'
 import { teamBadge } from '../graphics/teamStyle'
 import { formatClock } from './timeline'
 import { finalScore, formatScore, scoreAt } from './score'
@@ -12,6 +14,8 @@ export interface ScorebugModel {
     left: ScorebugSide
     right: ScorebugSide
     score: string
+    /** The same data the rendered graphics' score bug is painted from. */
+    bug: BugSpec
     /** Time since Kick off (mm:ss), or null before it / without one. */
     clock: string | null
     /** Full team names and the score (with the final when goals are still to come), for the tooltip and screen readers. */
@@ -41,6 +45,7 @@ export function scorebugModel({ teams, events, offsets, playheadSec, clockLong }
         left: side(a),
         right: side(b),
         score: formatScore(now),
+        bug: bugFor(teams, now),
         clock: since >= 0 ? formatClock(since, clockLong) : null,
         label: `${a.name} ${formatScore(now)} ${b.name}${differs ? ` (final ${formatScore(final)})` : ''}`,
     }
