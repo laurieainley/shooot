@@ -39,6 +39,11 @@ describe('shouldHandleShortcut', () => {
         expect(shouldHandleShortcut(make('<input type="checkbox">'), open)).toBe(true)
         expect(shouldHandleShortcut(null, open)).toBe(true)
     })
+    it('should not run on controls inside an open dialog (the clip download popover)', () => {
+        const d = make('<div role="dialog"><label><input type="checkbox" id="c"> Score</label><button id="b">Download</button></div>')
+        expect(shouldHandleShortcut(d.querySelector('#c'), open)).toBe(false)
+        expect(shouldHandleShortcut(d.querySelector('#b'), open)).toBe(false)
+    })
     it('should not run in text fields, textareas, selects or contenteditable', () => {
         expect(shouldHandleShortcut(make('<input type="text">'), open)).toBe(false)
         expect(shouldHandleShortcut(make('<input>'), open)).toBe(false)

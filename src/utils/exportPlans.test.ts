@@ -96,6 +96,14 @@ describe('clipExport', () => {
     const cs = (extra: Partial<ExportState> = {}): ExportState =>
         state({ files: [long('a.mp4'), long('b.mp4')], events: clipEvents, cumulativeOffsets: [0, 600], ...extra })
     const both = { replay: true, score: true }
+    it('should only list the proxy-only files the clip reads as missing', () => {
+        const s = cs({ files: [long('a.mp4'), long('b.mp4'), file('GL030001.LRV', 'proxy')], cumulativeOffsets: [0, 600, 1200] })
+        expect(clipExport(s, 'G1', both, 'full')!.missing).toEqual([])
+        const t = cs({ files: [long('a.mp4'), { ...long('b.mp4'), kind: 'proxy' }, file('GL030001.LRV', 'proxy')], cumulativeOffsets: [0, 600, 1200] })
+        expect(clipExport(t, 'G3', both, 'full')!.missing).toContain('b.mp4')
+        expect(clipExport(t, 'G3', both, 'full')!.missing).not.toContain('GL030001.LRV')
+        expect(clipExport(t, 'G1', both, 'full')!.missing).not.toContain('b.mp4')
+    })
     const captions = (p: NonNullable<ReturnType<typeof clipExport>>) => p.spec!.overlays.filter((o) => o.kind === 'caption')
 
     it('should cut only that event with its padding, then its replay', () => {

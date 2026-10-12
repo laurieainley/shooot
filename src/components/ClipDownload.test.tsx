@@ -106,4 +106,18 @@ describe('ClipDownload', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Download' }))
         expect(await screen.findByText(/decoder fell over/)).toBeInTheDocument()
     })
+
+    it('should ignore Space and G window shortcuts on a focused popover checkbox', async () => {
+        const { shortcutFor, shouldHandleShortcut } = await import('../utils/shortcuts')
+        render(<ClipDownload event={goal} />)
+        await open()
+        const box = screen.getByRole('checkbox', { name: 'Score' })
+        box.focus()
+        for (const key of [' ', 'g', 'ArrowRight']) {
+            expect(shortcutFor(new KeyboardEvent('keydown', { key }))).not.toBeNull()
+            expect(shouldHandleShortcut(box, { modalOpen: false })).toBe(false)
+        }
+        await userEvent.keyboard(' ')
+        expect(useAppState.getState().clipOptions.score).toBe(false)
+    })
 })

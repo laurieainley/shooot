@@ -14,7 +14,7 @@ import { jobSignature } from './jobSignature'
 import { outputFileName } from './outputName'
 import { linkedEvents } from './relink'
 import { buildRenderPlan } from './renderPlan'
-import { resolveRenderSources, type RenderQuality } from './renderSources'
+import { resolveRenderSources, usedMissing, type RenderQuality } from './renderSources'
 import { scoreBugWindows, type ScoreBugMode } from './scoreBug'
 
 export type FullMatchSettings = { cards: boolean; scoreBug: ScoreBugMode; intervalMin: number; captions: boolean }
@@ -107,7 +107,9 @@ export function clipExport(s: ExportState, eventId: string, opts: ClipOptions, q
     const kickOff = markerGlobalSec(linked, s.cumulativeOffsets, 'kick_off')
     const abs = (s.cumulativeOffsets[event.sourceFileIndex ?? 0] ?? 0) + event.matchTimeSec
     const person = event.scorer?.trim()
-    return finish('clip', quality, s, cuts, spec, false, {
+    const plan = finish('clip', quality, s, cuts, spec, false, {
         minute: kickOff === null ? null : matchMinute(abs, kickOff), label: eventLabel(event), ...(person ? { person } : {}),
     })
+    // Only the files this clip reads matter for the full/preview choice.
+    return { ...plan, missing: usedMissing(cuts, s.files, plan.missing) }
 }

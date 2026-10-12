@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useAppState } from '../state'
 import type { MatchEvent } from '../types'
 import { useRenderJobs } from '../renderJobs'
@@ -27,8 +27,12 @@ export function ClipDownload({ event }: ClipDownloadProps) {
     const opts = { score: twoTeams && clipOptions.score, replay: canReplay && clipOptions.replay }
     const ownJob = mine && job?.kind === 'clip' ? job : null
 
-    const st = useAppState.getState()
-    const previewOnly = open && !event.unlinked && !!clipExport(st, event.id, opts, 'full')?.missing.length
+    const files = useAppState((s) => s.files)
+    const previewOnly = useMemo(
+        () => open && !event.unlinked && !!clipExport(useAppState.getState(), event.id, { score: opts.score, replay: opts.replay }, 'full')?.missing.length,
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [open, event, files, opts.score, opts.replay],
+    )
 
     const reason = running && !ownJob ? 'A render is in progress' : event.unlinked ? 'Relink the file first' : null
 
@@ -56,7 +60,7 @@ export function ClipDownload({ event }: ClipDownloadProps) {
 
     return (
         <>
-            <button ref={anchorRef} type="button" className="act-btn act-btn--touch-fit" aria-label="Download clip" title="Download this clip"
+            <button ref={anchorRef} type="button" className="act-btn" aria-label="Download clip" title="Download this clip"
                 aria-expanded={open} onClick={toggle}>
                 <DownloadIcon /><span className="event-actions__label">Download</span>
             </button>

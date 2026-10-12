@@ -21,3 +21,9 @@ export function formatRenderProgress(p: RenderProgress): string {
     const pct = `${Math.round(p.fraction * 100)}%`
     return p.stage ? `${p.stage} · ${pct}` : `Clip ${p.cutIndex + 1} of ${p.cutCount} · ${pct}`
 }
+
+/** The files without full quality that these cuts actually read (an unused proxy-only file does not count). */
+export function usedMissing(cuts: { sourceIndex: number }[], files: { name: string }[], missing: string[]): string[] {
+    const used = new Set(cuts.map((c) => files[c.sourceIndex]?.name))
+    return missing.filter((n) => used.has(n))
+}
