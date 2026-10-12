@@ -51,6 +51,7 @@ export function DescriptionCopy({ kind }: DescriptionCopyProps) {
             before: st.lengthBeforeGoalSec, after: st.lengthAfterGoalSec,
             replay: { beforeSec: st.replayBeforeSec, afterSec: st.replayAfterSec, speed: st.replaySpeed },
             durationsSec: st.files.map((f) => f.durationSec),
+            fullMatchReplays: st.fullMatch.replays,
             timeline: exactFor(st),
             introSec: (kind === 'highlights' ? highlightsExport : fullMatchExport)(st, 'full').spec?.intro ? CARD_SEC : 0,
         }

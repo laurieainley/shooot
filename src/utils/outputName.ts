@@ -5,10 +5,10 @@ import { finalScore } from './score'
 const TITLE_MAX = 25
 
 /** Characters file systems refuse (and control characters) become spaces; runs of spaces collapse. */
-const clean = (s: string): string => Array.from(s, (ch) => (ch.charCodeAt(0) < 32 || '\\/:*?"<>|'.includes(ch) ? ' ' : ch)).join('').replace(/\s+/g, ' ').trim()
+export const clean = (s: string): string => Array.from(s, (ch) => (ch.charCodeAt(0) < 32 || '\\/:*?"<>|'.includes(ch) ? ' ' : ch)).join('').replace(/\s+/g, ' ').trim()
 
 /** The title, cut at a word near 25 characters (with …) so the score stays visible in file lists. */
-function shortTitle(title: string): string {
+export function shortTitle(title: string): string {
     const t = clean(title)
     if (t.length <= TITLE_MAX) return t
     const cut = t.slice(0, TITLE_MAX)

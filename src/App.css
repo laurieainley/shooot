@@ -1422,3 +1422,13 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 }
 @keyframes preview-replay-blink { 50% { opacity: 0.35; } }
 @media (prefers-reduced-motion: reduce) { .event-row[data-previewing="replay"] .event-row__icon::after { animation: none; } }
+
+/* Graphics style row in Match setup; style line in Export; thumbnail maker */
+.match-details .graphics-style { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--sh-line); display: grid; gap: 6px; }
+.match-details .graphics-style .theme-picker { margin-bottom: 0; flex-wrap: wrap; }
+.export-style { margin: 0 0 8px; font-size: 13px; color: var(--sh-muted); }
+.export-style b { color: var(--sh-text); }
+.thumb-maker__pick, .thumb-maker__tune { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.thumb-maker__label { flex: 1; text-align: center; font-weight: 600; font-size: 14px; }
+.thumb-maker__canvas { width: 100%; height: auto; aspect-ratio: 16 / 9; background: var(--sh-surface2, #111); border-radius: 8px; display: block; }
+.thumb-maker .btn-quiet, .thumb-maker .btn-primary { min-height: 44px; }

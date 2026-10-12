@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { estimateBytes, formatBytes, fullMatchCuts, fullMatchSpan, recordingGaps } from './fullMatch'
+import { estimateBytes, formatBytes, fullMatchCuts, fullMatchSpan, recordingGaps, withReplays } from './fullMatch'
 import type { MatchEvent } from '../types'
+import type { Cut } from '../render/types'
 
 describe('fullMatchCuts', () => {
     it('should run from kick-off in the first file, through whole middle files, to the final whistle in the last', () => {
@@ -65,5 +66,47 @@ describe('recordingGaps', () => {
     })
     it('should treat every join of non-GoPro files as a gap', () => {
         expect(recordingGaps([{ name: 'first half.mp4' }, { name: 'second half.mp4' }], [0, 2700])).toEqual([2700])
+    })
+})
+
+describe('withReplays', () => {
+    const g = (id: string, t: number, file = 0): MatchEvent => ({ id, type: 'goal', matchTimeSec: t, sourceFileIndex: file })
+    const opts = { beforeSec: 3, afterSec: 1, speed: 0.5 }
+    const view = (cuts: Cut[]): [number, number, number, number | undefined][] => cuts.map((c) => [c.sourceIndex, c.startSec, c.endSec, c.speed])
+
+    it('should leave the cuts alone without replay events', () => {
+        const cuts = fullMatchCuts([100], 10, 90)
+        expect(withReplays(cuts, [{ id: 's', type: 'save', matchTimeSec: 50, sourceFileIndex: 0 }], [0], opts)).toEqual(cuts)
+    })
+
+    it('should split after the replay window, insert the replay and resume with no gap', () => {
+        const out = withReplays(fullMatchCuts([100], 10, 90), [g('a', 40)], [0], opts)
+        expect(view(out)).toEqual([[0, 10, 41, undefined], [0, 37, 41, 0.5], [0, 41, 90, undefined]])
+        expect(out[1]).toMatchObject({ gain: 0.5 })
+    })
+
+    it('should keep each replay inside the file and split across a file boundary', () => {
+        const cuts = fullMatchCuts([100, 100], 50, 150)
+        const out = withReplays(cuts, [g('a', 99), g('b', 1, 1)], [0, 100], opts)
+        expect(view(out)).toEqual([[0, 50, 100, undefined], [0, 96, 100, 0.5], [1, 0, 2, undefined], [1, 0, 2, 0.5], [1, 2, 50, undefined]])
+    })
+
+    it('should clamp replays to kick-off and the final whistle', () => {
+        const out = withReplays(fullMatchCuts([100], 10, 90), [g('a', 11), g('b', 89.5)], [0], opts)
+        expect(view(out)).toEqual([[0, 10, 12, undefined], [0, 10, 12, 0.5], [0, 12, 90, undefined], [0, 86.5, 90, 0.5]])
+    })
+
+    it('should handle two goals close together in order, covering the match once', () => {
+        const out = withReplays(fullMatchCuts([100], 0, 100), [g('b', 42), g('a', 40)], [0], opts)
+        expect(view(out)).toEqual([[0, 0, 41, undefined], [0, 37, 41, 0.5], [0, 41, 43, undefined], [0, 39, 43, 0.5], [0, 43, 100, undefined]])
+        const live = out.filter((c) => c.speed === undefined)
+        expect(live.reduce((s, c) => s + c.endSec - c.startSec, 0)).toBe(100)
+    })
+
+    it('should honour a per-event replay switch and the crop resolver', () => {
+        const events = [{ ...g('a', 40), replay: false }, g('b', 60)]
+        const crop = { x: 0, y: 0, w: 0.5, h: 0.5 }
+        const out = withReplays(fullMatchCuts([100], 0, 100), events, [0], { ...opts, cropFor: () => crop })
+        expect(out.filter((c) => c.speed !== undefined)).toEqual([expect.objectContaining({ startSec: 57, endSec: 61, crop })])
     })
 })

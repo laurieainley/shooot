@@ -188,6 +188,13 @@ describe('teams and picker', () => {
         expect(out.events[1].team).toBeUndefined()
     })
 
+    it('should add the full-match replays switch, off (v21)', () => {
+        const migrate = useAppState.persist.getOptions().migrate!
+        const out = migrate({ fullMatch: { cards: true, scoreBug: 'off', intervalMin: 5, captions: true } }, 20) as { fullMatch: { replays: boolean } }
+        expect(out.fullMatch.replays).toBe(false)
+        expect((migrate({}, 20) as Record<string, unknown>).fullMatch).toBeUndefined()
+    })
+
     it('should switch on full-match event captions once (v15)', () => {
         const migrate = useAppState.persist.getOptions().migrate!
         const out = migrate({ fullMatch: { cards: true, scoreBug: 'off', intervalMin: 5, captions: false } }, 14) as { fullMatch: { captions: boolean } }
@@ -199,7 +206,7 @@ describe('teams and picker', () => {
         const migrate = useAppState.persist.getOptions().migrate!
         const out = migrate({ graphics: { cards: true, lowerThirds: true, replayTag: false, theme: 'shooot' }, fullMatch: { cards: false, scoreBug: 'periodic', intervalMin: 7 } }, 12) as { graphics: { replayTag: boolean }; fullMatch: unknown }
         expect(out.graphics.replayTag).toBe(true)
-        expect(out.fullMatch).toEqual({ cards: false, scoreBug: 'goals', intervalMin: 7, captions: true })
+        expect(out.fullMatch).toEqual({ cards: false, scoreBug: 'goals', intervalMin: 7, captions: true, replays: false })
         const fresh = migrate({}, 12) as Record<string, unknown>
         expect(fresh.graphics).toBeUndefined()
         expect(fresh.fullMatch).toBeUndefined()

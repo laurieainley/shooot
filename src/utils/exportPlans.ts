@@ -5,7 +5,7 @@ import type { Cut, RenderSource } from '../render/types'
 import { buildGraphicsSpec, fullMatchGraphicsSpec, type GraphicsSettings } from '../graphics/plan'
 import { isSting, type GraphicsSpec } from '../graphics/types'
 import { CARD_SEC, STING_SEC } from '../graphics/layout'
-import { estimateBytes, fullMatchCuts, fullMatchSpan, recordingGaps } from './fullMatch'
+import { estimateBytes, fullMatchCuts, fullMatchSpan, recordingGaps, withReplays } from './fullMatch'
 import { mergeOverlappingGoalSegments } from './highlights'
 import { eventLabel, isMarker } from './eventTypes'
 import { markerGlobalSec, matchMinute } from './matchClock'
@@ -17,7 +17,7 @@ import { buildRenderPlan } from './renderPlan'
 import { resolveRenderSources, usedMissing, type RenderQuality } from './renderSources'
 import { scoreBugWindows, type ScoreBugMode } from './scoreBug'
 
-export type FullMatchSettings = { cards: boolean; scoreBug: ScoreBugMode; intervalMin: number; captions: boolean }
+export type FullMatchSettings = { cards: boolean; scoreBug: ScoreBugMode; intervalMin: number; captions: boolean; /** Slow-mo replays after each event that has one, as in the highlights. */ replays: boolean }
 
 export type ExportState = {
     files: VideoSourceFile[]
@@ -80,12 +80,13 @@ export function fullMatchExport(s: ExportState, quality: RenderQuality): ExportP
     const linked = linkedEvents(s.events)
     const durations = s.files.map((f) => f.durationSec ?? 0)
     const span = fullMatchSpan(linked, s.cumulativeOffsets, durations)
-    const cuts = fullMatchCuts(durations, span.startSec, span.endSec)
+    const matchCuts = fullMatchCuts(durations, span.startSec, span.endSec)
+    const cuts = s.fullMatch.replays ? withReplays(matchCuts, linked, s.cumulativeOffsets, replayOptionsFor({ ...s, events: linked })) : matchCuts
     const windows = scoreBugWindows({
         events: linked, teams: s.teams, cumulativeOffsets: s.cumulativeOffsets, kickOffSec: span.startSec, finalWhistleSec: span.endSec,
         mode: s.fullMatch.scoreBug, intervalMin: s.fullMatch.intervalMin, gapsSec: recordingGaps(s.files, s.cumulativeOffsets),
     })
-    const spec = nonEmpty(fullMatchGraphicsSpec({ events: linked, teams: s.teams, cuts, cumulativeOffsets: s.cumulativeOffsets, cards: s.fullMatch.cards, captions: s.fullMatch.captions, theme: s.graphics.theme, matchday: matchday(s), windows }))
+    const spec = nonEmpty(fullMatchGraphicsSpec({ events: linked, teams: s.teams, cuts, cumulativeOffsets: s.cumulativeOffsets, cards: s.fullMatch.cards, captions: s.fullMatch.captions, theme: s.graphics.theme, matchday: matchday(s), windows, replayTag: s.graphics.replayTag }))
     return finish('fullMatch', quality, s, cuts, spec, true)
 }
 

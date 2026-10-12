@@ -8,6 +8,7 @@ import { GraphicsSettings } from './GraphicsSettings'
 import { PreviewControls } from './PreviewControls'
 import { RenderHighlights } from './RenderHighlights'
 import { ReelSummary } from './ReelSummary'
+import { ThumbnailMaker } from './ThumbnailMaker'
 import { exportButtonStatus, SHOW_DONE_MS, type ExportButtonStatus } from '../utils/exportButton'
 
 interface SectionProps {
@@ -103,6 +104,9 @@ export function ExportPanel() {
                             <Section title="Share" hint="YouTube description with chapters">
                                 <DescriptionCopy kind="highlights" />
                             </Section>
+                            <Section title="YouTube thumbnail" hint="a goal frame with the teams">
+                                <ThumbnailMaker kind="highlights" />
+                            </Section>
                         </div>
                     ) : (
                         <div role="tabpanel" id="export-panel-fullMatch" aria-labelledby="export-tab-fullMatch">
@@ -111,6 +115,9 @@ export function ExportPanel() {
                             </Section>
                             <Section title="Share" hint="YouTube description, chapters from kick-off">
                                 <DescriptionCopy kind="fullMatch" />
+                            </Section>
+                            <Section title="YouTube thumbnail" hint="a goal frame with the teams">
+                                <ThumbnailMaker kind="fullMatch" />
                             </Section>
                         </div>
                     )}

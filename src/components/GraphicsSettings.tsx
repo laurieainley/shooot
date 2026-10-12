@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useAppState } from '../state'
-import { THEMES, getTheme } from '../graphics/themes'
+import { getTheme } from '../graphics/themes'
 import { graphicsSupport } from '../utils/capabilities'
 
 const OPTIONS: { key: 'cards' | 'lowerThirds' | 'replayTag'; label: string; hint: string }[] = [
@@ -18,19 +18,10 @@ export function GraphicsSettings() {
     return (
         <div className="flex flex-col">
             {!support.ok && <p role="note" className="export-note">{support.message}</p>}
-            <div role="radiogroup" aria-label="Graphics look" className="theme-picker">
-                {THEMES.map((th) => (
-                    <button
-                        key={th.id} type="button" role="radio" aria-checked={getTheme(graphics.theme).id === th.id} disabled={!support.ok}
-                        className="theme-chip" onClick={() => setGraphics({ theme: th.id })}
-                    >
-                        <span className="theme-chip__swatch" aria-hidden="true" style={{ background: th.swatch.ground, color: th.swatch.accent }}>
-                            <span style={{ background: th.swatch.accent, color: th.swatch.ground }}>1–0</span>
-                        </span>
-                        <span className="theme-chip__name">{th.name}</span>
-                    </button>
-                ))}
-            </div>
+            <p className="export-style">
+                Style: <b>{getTheme(graphics.theme).name}</b> ·{' '}
+                <button type="button" className="link-btn" onClick={() => useAppState.getState().openPanel('match')}>change in Match setup</button>
+            </p>
             {OPTIONS.map((o) => (
                 <label key={o.key} className="toggle-row">
                     <input type="checkbox" disabled={!support.ok} checked={support.ok && !!graphics[o.key]} onChange={(e) => setGraphics({ [o.key]: e.target.checked })} />

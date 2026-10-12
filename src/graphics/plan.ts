@@ -213,6 +213,8 @@ export function fullMatchGraphicsSpec(args: {
     /** Event captions (same content and timing as the highlights); they replace the score bug where they overlap it. */
     captions?: boolean
     theme?: ThemeId
+    /** The REPLAY tag over the slow-mo replay cuts (cuts with a speed), when the full match includes replays. */
+    replayTag?: boolean
 }): GraphicsSpec {
     const { teams, cuts, cumulativeOffsets } = args
     const events = linkedEvents(args.events)
@@ -229,6 +231,7 @@ export function fullMatchGraphicsSpec(args: {
         const b = a + c.durationSec
         const label = `Caption: ${eventSummary(e)}`
         cuts.forEach((cut, cutIndex) => {
+            if (cut.speed !== undefined) return // an inserted replay shows nothing but its tag
             const off = cumulativeOffsets[cut.sourceIndex] ?? 0
             const s0 = Math.max(a, off + cut.startSec)
             const s1 = Math.min(b, off + cut.endSec)
@@ -244,6 +247,7 @@ export function fullMatchGraphicsSpec(args: {
         const a = w.startSec
         const b = w.startSec + w.durationSec
         cuts.forEach((c, cutIndex) => {
+            if (c.speed !== undefined) return
             const off = cumulativeOffsets[c.sourceIndex] ?? 0
             const s0 = Math.max(a, off + c.startSec)
             const s1 = Math.min(b, off + c.endSec)
@@ -253,6 +257,11 @@ export function fullMatchGraphicsSpec(args: {
                 scores: [{ fromSec: s0 - off, bug: bugFor(teams, w.score) }],
                 fadeIn: s0 - a < 0.05, fadeOut: b - s1 < 0.05, label: 'Score bug',
             })
+        })
+    }
+    if (args.replayTag) {
+        cuts.forEach((c, cutIndex) => {
+            if ((c.speed ?? 1) < 1) spec.overlays.push({ kind: 'replayTag', cutIndex, startSec: c.startSec, durationSec: c.endSec - c.startSec, speed: c.speed ?? 1, label: 'Replay tag' })
         })
     }
     spec.overlays.sort((x, y) => x.cutIndex - y.cutIndex || x.startSec - y.startSec)

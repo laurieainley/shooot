@@ -4,6 +4,7 @@ import {
     type InputAudioTrack, type InputVideoTrack, type StreamTargetChunk, type Target,
 } from 'mediabunny'
 import { RenderDiagnostics, describeParams, errorInfo, publishReport } from './diagnostics'
+import { clearOldOutputs, isStorageFull } from './storage'
 import { cropLabels, cropOverlayFor } from './cropOverlay'
 import { fileSource } from './fileSource'
 import { openGraphicsSession, type GraphicsSession, type OutItem } from './graphicsSession'
@@ -60,6 +61,7 @@ type OutputTarget = { target: Target; result: () => Promise<File | Blob>; discar
 async function makeTarget(name: string): Promise<OutputTarget> {
     try {
         const root = await navigator.storage.getDirectory()
+        await clearOldOutputs() // earlier renders (other names included) would otherwise fill the site's storage
         await root.removeEntry(name).catch(() => undefined)
         const handle = await root.getFileHandle(name, { create: true })
         const writable = await handle.createWritable()
@@ -170,6 +172,8 @@ async function renderGraphicsFirst(cuts: Cut[], sources: RenderSource[], opts: R
         return out
     } catch (e) {
         if (isAbort(e)) throw e
+        // Out of storage is not a graphics problem: rendering again without them would fail the same way.
+        if (isStorageFull(e)) throw e
         // Graphics (and crops) must never cost the reel: render it again without them and say why.
         console.warn('Graphics failed, rendering without them', e)
         diag.note('Graphics failed: the reel was rendered again without them')
