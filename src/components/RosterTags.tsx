@@ -166,6 +166,7 @@ export function RosterTags({ label, names: unsorted, onChange: emit, known = [],
                 </div>
                 {suggestions.length > 0 && (
                     <div ref={suggestRef} role="group" aria-label="Previous players" data-owns-escape className="roster-suggest" onKeyDown={onSuggestKeyDown}>
+                        <span className="roster-suggest__title" aria-hidden="true">Previous players</span>
                         {suggestions.map((name) => (
                             <span key={name.toLowerCase()} className="roster-tag roster-suggest__chip">
                                 <button
