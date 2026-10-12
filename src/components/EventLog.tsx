@@ -92,6 +92,7 @@ export function EventLog() {
     const watch = (e: MatchEvent): void => {
         if (e.unlinked) return
         const st = useAppState.getState()
+        if (st.jumpToPreviewEvent(e.id)) return // during the preview: jump to that clip, stay in the preview
         st.seekToGoal(e.sourceFileIndex ?? 0, watchFromSec(e, st.lengthBeforeGoalSec))
     }
     const toggleReplay = (e: MatchEvent): void => { if (!isMarker(e)) useAppState.getState().updateEvent(e.id, { replay: !wantsReplay(e) }) }

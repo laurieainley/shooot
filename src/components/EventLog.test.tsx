@@ -106,6 +106,29 @@ describe('EventLog selection and keys', () => {
         expect(rows()[1]).toHaveAttribute('aria-selected', 'true')
     })
 
+    it('should keep the preview running and jump to the clip when watching a row during it', async () => {
+        setup([{ id: 'a', matchTimeSec: 50, sourceFileIndex: 0, type: 'goal' }, { id: 'b', matchTimeSec: 300, sourceFileIndex: 0, type: 'goal' }, kickOff(0)])
+        useAppState.getState().startPreview()
+        const second = useAppState.getState().previewSteps.findIndex((s) => !s.replay && s.eventIds.includes('b'))
+        expect(second).toBeGreaterThan(0)
+        render(<EventLog />)
+        const row = rows().find((r) => r.textContent?.includes('05:00')) ?? rows()[2]
+        await userEvent.click(within(row).getByRole('button', { name: 'Watch' }))
+        expect(useAppState.getState().isPreviewMode).toBe(true)
+        expect(useAppState.getState().currentPreviewSegment).toBe(second)
+        expect(seekToGoal).not.toHaveBeenCalled()
+        useAppState.getState().exitPreview()
+    })
+
+    it('should leave the preview and seek when watching a marker during it', async () => {
+        setup([{ id: 'a', matchTimeSec: 50, sourceFileIndex: 0, type: 'goal' }, kickOff(0)])
+        useAppState.getState().startPreview()
+        render(<EventLog />)
+        await userEvent.click(within(rows().find((r) => r.textContent?.includes('Kick off')) as HTMLElement).getByRole('button', { name: 'Watch' }))
+        expect(seekToGoal).toHaveBeenCalled()
+        useAppState.getState().exitPreview()
+    })
+
     it('should move the selection with ArrowDown / ArrowUp while the log is focused', () => {
         render(<EventLog />)
         log().focus()

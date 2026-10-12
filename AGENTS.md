@@ -148,6 +148,10 @@ npm run lint       # baseline: 12 known problems — add none
   stays up (`enterKeyHint="enter"`, key or keyCode 13, `beforeinput` `insertLineBreak`). `knownPlayers` (persist v26,
   `utils/knownPlayers.ts`) are this device's remembered names: recorded by `setTeams` / `addToRoster`, forgotten only via
   the × on a suggestion, capped at 200, not in project files or transfer links, kept by `newMatch()`.
+- **Highlights preview:** plays the render plan's steps (`utils/preview.ts`). Zoom is locked (Z/0, wheel, pinch and drag
+  do nothing; 1× on entry and exit); ▶ / Enter on a row or a strip event dot jumps to that clip inside the preview
+  (`jumpToPreviewEvent`, `previewStepForEvent`) — events not in the reel leave the preview and seek as before; no
+  playback-speed overlay during the preview.
 - **Projects:** export/import JSON, and transfer links (`#p=`, deflate + base64url in the URL fragment — never sent
   to a server). Files are relinked by key on the receiving device.
 

@@ -17,7 +17,7 @@ import { RenderChip } from './RenderChip'
 import { PlayIndicator } from './PlayIndicator'
 import { formatClock } from '../utils/timeline'
 import { playerOptions } from '../utils/playerOptions'
-import { previewVolume, shouldAdvance } from '../utils/preview'
+import { previewVolume, shouldAdvance, shouldShowSpeedIndicator } from '../utils/preview'
 import { setGraphGain } from './previewGain'
 import { playQuietly } from '../utils/playQuietly'
 import { reportedTime, seekNow, type PendingSeek } from './pendingSeek'
@@ -36,11 +36,13 @@ export function Player() {
     const [paused, setPaused] = useState(true)
     const [speedIndicator, setSpeedIndicator] = useState<number | null>(null)
     const speedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const quietRateUntilRef = useRef(0) // the preview's own rate changes (restoring the rate when it ends) don't flash the overlay
     // Preview mode state
     const isPreviewMode = useAppState((s) => s.isPreviewMode)
     const previewSteps = useAppState((s) => s.previewSteps)
     const currentPreviewSegment = useAppState((s) => s.currentPreviewSegment)
     const nextPreviewSegment = useAppState((s) => s.nextPreviewSegment)
+    const previewJumpTick = useAppState((s) => s.previewJumpTick)
     // Zoom / pan of the picture only (Z, 0, drag, wheel, pinch)
     const getViewport = useCallback(() => {
         const el = containerRef.current
@@ -49,6 +51,9 @@ export function Player() {
     const zoomPan = useZoomPan(getViewport)
     const zoomRef = useRef<ZoomPan>(zoomPan)
     zoomRef.current = zoomPan
+    // Zoom is locked in the preview and starts from 1× (clips show the whole picture, as rendered); 1× again afterwards.
+    const resetZoom = zoomPan.reset
+    useEffect(() => { resetZoom() }, [isPreviewMode, resetZoom])
 
     // Every player shortcut, wherever focus is (see utils/shortcuts.ts); the event log's own keys stop propagation first.
     useEffect(() => {
@@ -102,6 +107,7 @@ export function Player() {
         })
         p.on('error', () => { pendingSeekRef.current = null })
         p.on('ratechange', () => {
+            if (!shouldShowSpeedIndicator(useAppState.getState().isPreviewMode, performance.now(), quietRateUntilRef.current)) return
             const rate = p.playbackRate() ?? 1
             setSpeedIndicator(rate)
             if (speedTimerRef.current) clearTimeout(speedTimerRef.current)
@@ -203,7 +209,7 @@ export function Player() {
         if (!isPreviewMode) {
             p.controls(true)
             const before = beforePreviewRef.current
-            if (before) { p.playbackRate(before.rate); p.volume(before.volume) }
+            if (before) { quietRateUntilRef.current = performance.now() + 500; p.playbackRate(before.rate); p.volume(before.volume) }
             if (before && tech) setGraphGain(tech, 1)
             beforePreviewRef.current = null
             return
@@ -233,7 +239,7 @@ export function Player() {
             go()
         }
         return () => { cancelled = true; p.off('loadedmetadata', go) }
-    }, [isPreviewMode, currentPreviewSegment, previewSteps, setCurrentFileIndex])
+    }, [isPreviewMode, currentPreviewSegment, previewJumpTick, previewSteps, setCurrentFileIndex])
 
     useEffect(() => {
         const p = playerRef.current
@@ -276,7 +282,7 @@ export function Player() {
     useEffect(() => {
         const el = containerRef.current
         if (!el) return
-        return attachPictureGestures(el, () => zoomRef.current)
+        return attachPictureGestures(el, () => zoomRef.current, () => useAppState.getState().isPreviewMode)
     }, [])
 
     // Immersive (CSS) fullscreen: Esc leaves it, as it would real fullscreen; unloading the player ends it.
