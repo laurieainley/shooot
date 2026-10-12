@@ -63,7 +63,8 @@ describe('known final score on load', () => {
         const base = buildTransferPayload({ ...useAppState.getState(), events: [] })
         applyTransferPayload({ ...base, knownFinalScore: [13, 9] })
         expect(useAppState.getState().knownFinalScore).toEqual([13, 9])
-        const { knownFinalScore: _omit, ...older } = base
+        const older: Record<string, unknown> = { ...base }
+        delete older.knownFinalScore
         applyTransferPayload(older as never)
         expect(useAppState.getState().knownFinalScore).toBeNull()
         applyTransferPayload({ ...base, knownFinalScore: 'x' as never })
