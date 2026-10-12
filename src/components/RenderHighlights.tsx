@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useAppState } from '../state'
 import { highlightsExport } from '../utils/exportPlans'
 import { startExport } from './renderRequest'
@@ -22,7 +22,14 @@ export function RenderHighlights() {
     const hasProxies = files.some((f) => f.kind === 'proxy')
     const disabled = files.length === 0 || !hasEvents
     const room = useStorageRoom(busy)
-    const roomWarning = useAppState((s) => (!room || s.files.length === 0 ? null : highlightsRoomWarning(highlightsExport(s, 'full').bytes, room)))
+    const events = useAppState((s) => s.events)
+    const before = useAppState((s) => s.lengthBeforeGoalSec)
+    const after = useAppState((s) => s.lengthAfterGoalSec)
+    // Not a store selector: the playhead lives in the store and would re-plan the reel on every tick.
+    const roomWarning = useMemo(
+        () => (!room || files.length === 0 ? null : highlightsRoomWarning(highlightsExport(useAppState.getState(), 'full').bytes, room)),
+        [room, files, events, before, after],
+    )
 
     const run = (quality: RenderQuality): void => {
         const plan = highlightsExport(useAppState.getState(), quality)
