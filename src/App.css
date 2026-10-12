@@ -61,6 +61,7 @@
 }
 .field:focus { outline: none; border-color: var(--sh-text); }
 .field.tc { font-family: var(--sh-font-mono); }
+.field:disabled { color: var(--sh-muted); cursor: default; }
 .field::placeholder { color: var(--sh-muted); opacity: 1; }
 
 .tag {
@@ -421,6 +422,8 @@
 .export-section__hint {
   margin-left: 8px; font-family: var(--sh-font); font-weight: 400; font-size: 12px; text-transform: none; letter-spacing: 0;
 }
+.export-hint { margin: 0; font-size: 12px; color: var(--sh-muted); line-height: 1.4; }
+.export-body { font-size: 13px; }
 .settings-group { display: grid; gap: 6px; border: 0; margin: 0; padding: 0; }
 .settings-group legend { margin-bottom: 6px; }
 .settings-field { display: grid; grid-template-columns: 1fr 72px 1.2em; gap: 8px; align-items: center; font-size: 13px; }
@@ -800,7 +803,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
      Tailwind sizes used in components (unlayered CSS beats the utilities layer) and the small UI classes. */
   .text-\[10px\], .text-\[11px\], .text-\[12px\], .text-\[13px\],
   .btn-quiet, .btn-primary, .file-add, .field, .tag, .row-score, .menu > button, .menu-item,
-  .reel-summary, .shortcuts-row, .link-btn, .export-section__title, .settings-group legend, .export-section__hint, .toggle-row__hint, .settings-field, .settings-field .unit,
+  .reel-summary, .export-hint, .export-body, .shortcuts-row, .link-btn, .export-section__title, .settings-group legend, .export-section__hint, .toggle-row__hint, .settings-field, .settings-field .unit,
   .strip-label, .strip-file__num, .graphics-setup__field, .opening-status, .event-picker__hint, .event-picker__title, .event-picker__warn,
   .control-btn, .file-pill__dur,
   .player-container .video-js .vjs-time-control { font-size: 14px; }
@@ -874,7 +877,6 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .resume-offer { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid color-mix(in srgb, var(--sh-text) 50%, var(--sh-line)); border-radius: var(--sh-radius-sm); font-size: 13px; }
 .resume-offer p { margin: 0; }
 @media (pointer: coarse) { .resume-offer { font-size: 14px; } }
-.full-match-summary { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
 .segmented-field { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 4px 0 0; padding: 0; border: 0; }
 .segmented-field legend { padding: 0; margin-bottom: 6px; font-size: 13px; }
 .segmented { display: inline-flex; border: 1px solid var(--sh-line); border-radius: var(--sh-radius-sm); overflow: hidden; }
@@ -888,7 +890,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .segmented-field__interval .field { width: auto; }
 .segmented-field .toggle-row__hint { flex-basis: 100%; }
 @media (pointer: coarse) {
-  .full-match-summary, .segmented-field legend, .segmented-field__interval { font-size: 14px; }
+  .segmented-field legend, .segmented-field__interval { font-size: 14px; }
   .segmented__option span { min-height: 44px; display: inline-flex; align-items: center; font-size: 14px; padding: 0 14px; }
 }
 /* Export panel: two tabs, highlights / full match. */

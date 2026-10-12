@@ -28,6 +28,21 @@ describe.each(THEMES.map((t) => t.id))('thumbnail layout (%s)', (id) => {
         }
     })
 
+    it('should use a custom headline instead of the team line, wrap it when long, and never show a score', () => {
+        const short = layout({ ...base, headline: 'Cup final' }, measure)
+        expect(texts(short).join(' ')).toContain('CUP FINAL')
+        expect(texts(short).join(' ')).not.toContain('WHITES')
+        const long = layout({ ...base, headline: 'The one where Dave scored from the halfway line again' }, measure)
+        for (const op of long) {
+            const b = opBounds(op, measure)
+            if (!b) continue
+            expect(intersects(b, BADGE_ZONE)).toBe(false)
+            expect(b.x + b.w).toBeLessThanOrEqual(THUMB_W)
+            expect(b.y).toBeGreaterThanOrEqual(0)
+        }
+        expect(texts(layout({ ...base, headline: '   ' }, measure)).join(' ')).toContain('WHITES')
+    })
+
     it('should keep everything out of the bottom-right corner and inside the frame', () => {
         for (const spec of [base, { ...base, team1: 'The Mighty Wanderers United', team2: 'Brothers In Arms Athletic Club' }, { ...base, title: 'A very long matchday title indeed' }]) {
             const ops = layout(spec, measure)

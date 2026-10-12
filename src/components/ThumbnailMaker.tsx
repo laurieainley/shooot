@@ -15,6 +15,12 @@ interface ThumbnailMakerProps {
     kind: 'highlights' | 'fullMatch'
 }
 
+/** The default headline as the field shows it: "Whites v Colours". */
+function teamLine(a?: string, b?: string): string {
+    return `${a?.trim() || 'Team 1'} v ${b?.trim() || 'Team 2'}`
+}
+
+const CUSTOM_MAX_CHARS = 60
 const MAX_BYTES = 1_900_000
 
 /** The thumbnail as a JPEG under YouTube's 2 MB limit (quality steps down until it fits). */
@@ -43,6 +49,8 @@ export function ThumbnailMaker({ kind }: ThumbnailMakerProps) {
     const [zoom, setZoom] = useState(false)
     const [busy, setBusy] = useState(false)
     const [note, setNote] = useState('')
+    const [customOn, setCustomOn] = useState(false)
+    const [customText, setCustomText] = useState('')
     const [ready, setReady] = useState(false)
     const canvasRef = useRef<HTMLCanvasElement | null>(null)
     const logoRef = useRef<{ done: boolean; bitmap: ImageBitmap | null }>({ done: false, bitmap: null })
@@ -69,8 +77,10 @@ export function ThumbnailMaker({ kind }: ThumbnailMakerProps) {
 
     const frame = useThumbFrame(open ? urls : [], open ? atSec : null, zoomed ? 3840 : 1920)
 
+    const defaultLine = teamLine(st.teams[0]?.name, st.teams[1]?.name)
     const spec: ThumbSpec = {
         kind, team1: st.teams[0]?.name ?? '', team2: st.teams[1]?.name ?? '', title: st.matchdayLabel?.trim() || null, hasLogo: true,
+        headline: customOn && customText.trim() ? customText.trim() : null,
     }
     const specKey = JSON.stringify(spec)
 
@@ -99,7 +109,7 @@ export function ThumbnailMaker({ kind }: ThumbnailMakerProps) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, frame.image, specKey, st.themeId, zoomed, crop])
 
-    if (st.files.length === 0) return <p className="m-0 text-[13px] text-muted">Load the match videos first.</p>
+    if (st.files.length === 0) return <p className="export-body text-muted m-0">Load the match videos first.</p>
 
     const go = (d: number): void => { setIndex((i) => (i + d + picks.length) % picks.length); setFine(0) }
     const onKey = (e: KeyboardEvent<HTMLDivElement>): void => {
@@ -155,22 +165,32 @@ export function ThumbnailMaker({ kind }: ThumbnailMakerProps) {
             <canvas ref={canvasRef} width={THUMB_W} height={THUMB_H} className="thumb-maker__canvas" role="img"
                 aria-label={`${kind === 'fullMatch' ? 'Full match' : 'Highlights'} thumbnail preview`} />
             {frame.status === 'error' && <p role="alert" className="export-note">This browser cannot show that frame. Try the other file or a different moment.</p>}
-            {frame.status === 'loading' && <p className="m-0 text-[12px] text-muted" role="status">Grabbing the frame…</p>}
+            {frame.status === 'loading' && <p className="export-hint" role="status">Grabbing the frame…</p>}
             <div className="thumb-maker__tune" role="group" aria-label="Fine-tune the frame">
                 <button type="button" className="btn-quiet" aria-label="Earlier by a quarter second" disabled={fine <= -THUMB_FINE_MAX_SEC} onClick={() => nudge(-THUMB_FINE_STEP_SEC)}>−0.25 s</button>
-                <span className="tc text-[13px]" aria-live="polite">{fine === 0 ? 'at the shot' : `${fine > 0 ? '+' : '−'}${Math.abs(fine).toFixed(2)} s`}</span>
+                <span className="tc export-body" aria-live="polite">{fine === 0 ? 'at the shot' : `${fine > 0 ? '+' : '−'}${Math.abs(fine).toFixed(2)} s`}</span>
                 <button type="button" className="btn-quiet" aria-label="Later by a quarter second" disabled={fine >= THUMB_FINE_MAX_SEC} onClick={() => nudge(THUMB_FINE_STEP_SEC)}>+0.25 s</button>
             </div>
             <label className="toggle-row">
                 <input type="checkbox" checked={zoomed} disabled={crop === null} onChange={(e) => setZoom(e.target.checked)} />
                 <span className="toggle-row__text">Zoom to the goal<span className="toggle-row__hint">{crop === null ? 'Draw the goal areas in Match setup to use this' : 'Crops to the replay framing'}</span></span>
             </label>
+            <label className="toggle-row">
+                <input type="checkbox" checked={customOn} onChange={(e) => {
+                    setCustomOn(e.target.checked)
+                    if (e.target.checked && !customText) setCustomText(defaultLine)
+                }} />
+                <span className="toggle-row__text">Custom text<span className="toggle-row__hint">Replaces the team names on the thumbnail</span></span>
+            </label>
+            <input type="text" className="field" aria-label="Thumbnail text" maxLength={CUSTOM_MAX_CHARS}
+                disabled={!customOn} readOnly={!customOn}
+                value={customOn ? customText : defaultLine} onChange={(e) => setCustomText(e.target.value)} />
             <div className="flex flex-wrap gap-2">
                 <button type="button" className="btn-quiet" disabled={!ready || busy} onClick={() => void download(false)}>Download thumbnail</button>
                 {canShare && <button type="button" className="btn-quiet" disabled={!ready || busy} onClick={() => void download(true)}>Share</button>}
             </div>
-            <p className="m-0 text-[12px] text-muted">1280×720 JPEG, ready for YouTube. Never shows the score.</p>
-            {note && <p role="alert" className="m-0 text-[12px] msg-warn">{note}</p>}
+            <p className="export-hint">1280×720 JPEG, ready for YouTube. Never shows the score.</p>
+            {note && <p role="alert" className="export-hint msg-warn">{note}</p>}
         </div>
     )
 }

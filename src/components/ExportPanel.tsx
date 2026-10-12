@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useAppState } from '../state'
 import { useRenderJobs } from '../renderJobs'
 import { DescriptionCopy } from './DescriptionCopy'
+import { ExportSection as Section } from './ExportSection'
 import { FloatingPanel } from './FloatingPanel'
 import { FullMatchExport } from './FullMatchExport'
 import { GraphicsSettings } from './GraphicsSettings'
@@ -10,21 +11,6 @@ import { RenderHighlights } from './RenderHighlights'
 import { ReelSummary } from './ReelSummary'
 import { ThumbnailMaker } from './ThumbnailMaker'
 import { exportButtonStatus, SHOW_DONE_MS, type ExportButtonStatus } from '../utils/exportButton'
-
-interface SectionProps {
-    title: string
-    hint?: string
-    children: ReactNode
-}
-
-function Section({ title, hint, children }: SectionProps) {
-    return (
-        <section className="export-section">
-            <h3 className="export-section__title">{title}{hint && <span className="export-section__hint">{hint}</span>}</h3>
-            {children}
-        </section>
-    )
-}
 
 const TABS = [
     { id: 'highlights', label: 'Export highlights' },
@@ -110,9 +96,7 @@ export function ExportPanel() {
                         </div>
                     ) : (
                         <div role="tabpanel" id="export-panel-fullMatch" aria-labelledby="export-tab-fullMatch">
-                            <Section title="Full match" hint="kick-off to final whistle, one MP4">
-                                <FullMatchExport />
-                            </Section>
+                            <FullMatchExport />
                             <Section title="Share" hint="YouTube description, chapters from kick-off">
                                 <DescriptionCopy kind="fullMatch" />
                             </Section>

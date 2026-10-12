@@ -69,8 +69,8 @@ export function DescriptionCopy({ kind }: DescriptionCopyProps) {
                 className="btn-quiet">
                 Copy goalscorers
             </button>
-            {estimated && <span className="text-[12px] text-muted">Times are estimates until you render.</span>}
-            {copied && <span role="status" className="text-[12px] text-muted">{copied} copied</span>}
+            {estimated && <span className="export-hint">Times are estimates until you render.</span>}
+            {copied && <span role="status" className="export-hint">{copied} copied</span>}
         </div>
     )
 }

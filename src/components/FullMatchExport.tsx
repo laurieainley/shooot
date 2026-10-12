@@ -8,6 +8,7 @@ import { formatReelLength } from '../utils/reel'
 import { linkedEvents } from '../utils/relink'
 import type { RenderQuality } from '../utils/renderSources'
 import { MAX_INTERVAL_MIN, MIN_INTERVAL_MIN, type ScoreBugMode } from '../utils/scoreBug'
+import { ExportSection as Section } from './ExportSection'
 import { MissingFullFiles } from './MissingFullFiles'
 import { RenderStatus } from './RenderStatus'
 import { ResumeOffer } from './ResumeOffer'
@@ -52,13 +53,17 @@ export function FullMatchExport() {
     const job = saved.job
     const matchingQuality = job ? (['full', 'preview'] as const).find((q) => fullMatchExport(useAppState.getState(), q).signature === job.signature) : undefined
 
-    if (files.length === 0) return <p className="m-0 text-[13px] text-muted">Load the match videos first.</p>
+    if (files.length === 0) return <Section title="Full match" hint="kick-off to final whistle, one MP4"><p className="export-body text-muted m-0">Load the match videos first.</p></Section>
 
     return (
-        <div className="flex flex-col gap-2">
-            <div className="full-match-summary">
-                <p className="m-0"><b className="tc">{formatReelLength(plan.seconds)}</b> <span className="text-muted">· about {formatBytes(plan.bytes)}</span></p>
-                {(!hasKickOff || !hasWhistle) && <p className="m-0 text-muted">Tag Kick off (K) and Final whistle (W) to trim the warm-up and the end.</p>}
+        <>
+        <Section title="Full match" hint="kick-off to final whistle, one MP4">
+            <div role="group" aria-label="Full match summary" className="reel-summary">
+                <p className="reel-summary__length m-0">
+                    <b className="tc">{formatReelLength(plan.seconds)}</b>
+                    <span> · about {formatBytes(plan.bytes)}</span>
+                </p>
+                {(!hasKickOff || !hasWhistle) && <p className="reel-summary__settings m-0">Tag Kick off (K) and Final whistle (W) to trim the warm-up and the end.</p>}
             </div>
             {phone && plan.bytes > PHONE_SIZE_WARNING && (
                 <p role="alert" className="export-note">This file will be over 2 GB ({formatBytes(plan.bytes)}): make sure the phone has room, or render the preview from the proxies.</p>
@@ -100,7 +105,10 @@ export function FullMatchExport() {
                         : 'After each goal, at kick-off and half time, and every few minutes.'}
                 </span>
             </fieldset>
+        </Section>
 
+        <Section title="Render" hint="one MP4, kick-off to final whistle">
+          <div className="flex flex-col gap-2">
             {job && (
                 <ResumeOffer job={job} matches={!!matchingQuality} filesLoaded={files.length > 0} busy={busy}
                     onResume={() => run(matchingQuality!)} onDiscard={() => void saved.discard()} />
@@ -112,8 +120,10 @@ export function FullMatchExport() {
                 {hasProxies ? 'Render full match (full quality)' : 'Render full match'}
             </button>
             <MissingFullFiles missing={missing} onChange={(m, msg) => { setMissing(m); setNote(msg) }} onPreviewInstead={() => run('preview')} />
-            {note && <p role="note" className="m-0 text-[12px] text-muted">{note}</p>}
+            {note && <p role="note" className="export-hint">{note}</p>}
             <RenderStatus kind="fullMatch" />
-        </div>
+          </div>
+        </Section>
+        </>
     )
 }
