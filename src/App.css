@@ -463,6 +463,14 @@
 .team-card__id { display: grid; grid-template-columns: minmax(0, 1fr) 84px; gap: 10px; align-items: end; }
 .match-details { display: grid; gap: 4px; padding-top: 8px; }
 .match-details__title .field { font-size: 15px; }
+/* Final score row: names flank two mono digit boxes; wraps on narrow screens rather than clipping. */
+.final-score { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--sh-line); display: grid; gap: 6px; }
+.final-score__label { font-size: 12px; color: var(--sh-muted); }
+.final-score__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.final-score__team { font-size: 14px; color: var(--sh-text); min-width: 0; overflow-wrap: anywhere; }
+.final-score .final-score__box { width: 4.25rem; min-height: 44px; box-sizing: border-box; text-align: center; font-family: var(--sh-font-mono); font-weight: 700; font-size: 18px; }
+.final-score__dash { color: var(--sh-muted); font-family: var(--sh-font-mono); }
+.final-score__clear { min-height: 44px; }
 .match-details .graphics-setup__logo { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--sh-line); }
 /* Roster as tags: name chips you can click to fix, × to remove, with the add field at the end. */
 .roster-tags {

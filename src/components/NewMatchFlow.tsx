@@ -54,7 +54,7 @@ export function NewMatchFlow({ onClose }: NewMatchFlowProps) {
                         {message && <p className="m-0 text-[12px] msg-warn">{message}</p>}
                     </section>
                 )}
-                {steps[step] === 'Match' && <MatchDetails />}
+                {steps[step] === 'Match' && <MatchDetails compact />}
                 {steps[step] === 'Goals' && <GoalAreasSetup />}
             </div>
             <div className="steps__nav">
