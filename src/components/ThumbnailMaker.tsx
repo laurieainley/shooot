@@ -166,10 +166,10 @@ export function ThumbnailMaker({ kind }: ThumbnailMakerProps) {
                 <span className="toggle-row__text">Zoom to the goal<span className="toggle-row__hint">{crop === null ? 'Draw the goal areas in Match setup to use this' : 'Crops to the replay framing'}</span></span>
             </label>
             <div className="flex flex-wrap gap-2">
-                <button type="button" className="btn-primary" disabled={!ready || busy} onClick={() => void download(false)}>Download thumbnail</button>
+                <button type="button" className="btn-quiet" disabled={!ready || busy} onClick={() => void download(false)}>Download thumbnail</button>
                 {canShare && <button type="button" className="btn-quiet" disabled={!ready || busy} onClick={() => void download(true)}>Share</button>}
             </div>
-            <p className="m-0 text-[12px] text-muted">1280×720 JPEG, under 2 MB. Teams only, never the score. The bottom-right corner stays clear for YouTube’s time badge.</p>
+            <p className="m-0 text-[12px] text-muted">1280×720 JPEG, ready for YouTube. Never shows the score.</p>
             {note && <p role="alert" className="m-0 text-[12px] msg-warn">{note}</p>}
         </div>
     )
