@@ -147,15 +147,15 @@ describe('captionLayout', () => {
         for (const o of texts(ops)) if (o.align === 'left') expect(o.x + (o.maxWidth ?? estimateTextWidth(o.text, o.size))).toBeLessThan(tag.x)
     })
 
-    it('should be legible on a 768×432 reel: event line ≥ 22 px, score ≥ 19 px, note ≥ 15 px (25 % smaller than the 1.4x design)', () => {
+    it('should be legible on a 768×432 reel: event line ≥ 18 px, score ≥ 15 px, note ≥ 11 px (20 % smaller again)', () => {
         const scale = 432 / 1080
         const ops = texts(captionLayout({ ...goal, note: 'TOP CORNER' }, 2.5, true))
         const size = (t: string): number => ops.find((o) => o.text === t)!.size * scale
-        expect(size('GOAL')).toBeGreaterThanOrEqual(22)
-        expect(size('SAM')).toBeGreaterThanOrEqual(22)
-        expect(size('1–0')).toBeGreaterThanOrEqual(19)
-        expect(size('RR')).toBeGreaterThanOrEqual(18)
-        expect(size('TOP CORNER')).toBeGreaterThanOrEqual(15)
+        expect(size('GOAL')).toBeGreaterThanOrEqual(18)
+        expect(size('SAM')).toBeGreaterThanOrEqual(18)
+        expect(size('1–0')).toBeGreaterThanOrEqual(15)
+        expect(size('RR')).toBeGreaterThanOrEqual(14)
+        expect(size('TOP CORNER')).toBeGreaterThanOrEqual(11)
     })
 
     it('should size the event panel from the measured text', () => {
@@ -201,7 +201,7 @@ describe('text centring in panels', () => {
         const ops = captionLayout({ label: 'GOAL', person: 'SAM', note: 'TOP BINS', stripe: '#fff', bug }, 2.5, true)
         const top = 54 + Math.round(64 * OVERLAY_SCALE)
         const eventH = Math.round(72 * OVERLAY_SCALE)
-        const noteH = Math.round(50 * OVERLAY_SCALE)
+        const noteH = Math.round(46 * OVERLAY_SCALE)
         expect(texts(ops).find((o) => o.text === 'GOAL')!.y).toBe(top + eventH / 2)
         expect(texts(ops).find((o) => o.text === 'SAM')!.y).toBe(top + eventH / 2)
         expect(texts(ops).find((o) => o.text === 'TOP BINS')!.y).toBe(top + eventH + noteH / 2)
@@ -237,8 +237,8 @@ describe('captionLayout with an assist', () => {
         for (const o of t) expect(o.y + o.size / 2).toBeLessThanOrEqual(panelBottom)
     })
 
-    it('should be legible on a 768×432 reel (assist ≥ 15 px)', () => {
-        expect(texts(captionLayout(goal, 2.5, true)).find((o) => o.text === 'ASSIST: JO')!.size * (432 / 1080)).toBeGreaterThanOrEqual(15)
+    it('should be legible on a 768×432 reel (assist ≥ 11 px)', () => {
+        expect(texts(captionLayout(goal, 2.5, true)).find((o) => o.text === 'ASSIST: JO')!.size * (432 / 1080)).toBeGreaterThanOrEqual(11)
     })
 
     it('should not grow the caption without an assist', () => {
@@ -311,15 +311,15 @@ describe('replayTagLayout', () => {
         expect(box.w).toBeGreaterThanOrEqual(wide('REPLAY', 50))
     })
 
-    it('should be scaled like the captions (≥ 19 px text on a 768×432 reel)', () => {
+    it('should be scaled like the captions (≥ 15 px text on a 768×432 reel)', () => {
         const text = replayTagLayout(1, 6).find((o): o is TextOp => o.kind === 'text')!
-        expect(text.size * 432 / 1080).toBeGreaterThanOrEqual(19)
+        expect(text.size * 432 / 1080).toBeGreaterThanOrEqual(15)
     })
 })
 
 describe('overlay size', () => {
-    it('should draw captions, score bug and REPLAY tag 25 % smaller than the 1.4x design', () => {
-        expect(OVERLAY_SCALE).toBeCloseTo(1.4 * 0.75, 5)
+    it('should draw captions, score bug and REPLAY tag 20 % smaller again than the previous design', () => {
+        expect(OVERLAY_SCALE).toBeCloseTo(1.4 * 0.75 * 0.8, 5)
         const [tag] = replayTagLayout(0, 5).filter((o): o is RectOp => o.kind === 'rect')
         expect(tag.h).toBe(Math.round(64 * OVERLAY_SCALE))
         expect(tag.h).toBeLessThan(Math.round(64 * 1.4))

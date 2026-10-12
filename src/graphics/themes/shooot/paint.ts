@@ -5,10 +5,30 @@ import type { DrawOp, MeasureText } from './layout'
 import { C, SKEW } from './brandColors'
 import { VOICES, fontCss, type FontVoice } from './fonts'
 
+/**
+ * How a theme dresses the shared draw ops: which font each voice is drawn in and the card ground and pitch colours.
+ * Other themes reuse this painter (the TNF theme draws the same shapes in its own fonts and colours).
+ */
+export type PaintLook = {
+    font: (voice: FontVoice, size: number) => string
+    letterSpacing: (voice: FontVoice) => string
+    groundFrom: string
+    groundTo: string
+    pitch: string
+}
+
+export const DEFAULT_LOOK: PaintLook = {
+    font: fontCss,
+    letterSpacing: (v) => VOICES[v].letterSpacing,
+    groundFrom: C.ground,
+    groundTo: C.surface,
+    pitch: C.pitch,
+}
+
 /** Sets a voice's font (and its letter spacing, where the canvas supports it) on the context. */
-function setVoice(ctx: Ctx, voice: FontVoice, size: number): void {
-    ctx.font = fontCss(voice, size)
-    if ('letterSpacing' in ctx) ctx.letterSpacing = VOICES[voice].letterSpacing
+function setVoice(ctx: Ctx, voice: FontVoice, size: number, look: PaintLook): void {
+    ctx.font = look.font(voice, size)
+    if ('letterSpacing' in ctx) ctx.letterSpacing = look.letterSpacing(voice)
 }
 
 /** Reference glyphs: capitals and digits, which is all the graphics draw (no descenders to skew the centring). */
@@ -18,9 +38,9 @@ const INK_REFERENCE = 'H0'
  * Ascent / descent of the display font's capitals at `size`, measured by the platform rather than guessed, so text
  * centres the same with the brand font as with a fallback (font metrics and 'middle' baselines differ per platform).
  */
-export function textInkMetrics(ctx: Ctx, size: number, voice: FontVoice = 'stadium'): { ascent: number; descent: number } {
+export function textInkMetrics(ctx: Ctx, size: number, voice: FontVoice = 'stadium', look: PaintLook = DEFAULT_LOOK): { ascent: number; descent: number } {
     ctx.save()
-    setVoice(ctx, voice, size)
+    setVoice(ctx, voice, size, look)
     ctx.textBaseline = 'alphabetic'
     const m = ctx.measureText(INK_REFERENCE)
     ctx.restore()
@@ -36,19 +56,19 @@ function polyPath(ctx: Ctx, points: [number, number][]): void {
     ctx.closePath()
 }
 
-function background(ctx: Ctx, x0: number, y0: number, x1: number, y1: number): void {
+function background(ctx: Ctx, x0: number, y0: number, x1: number, y1: number, look: PaintLook): void {
     const g = ctx.createLinearGradient(0, y0, 0, y1)
-    g.addColorStop(0, C.ground)
-    g.addColorStop(1, C.surface)
+    g.addColorStop(0, look.groundFrom)
+    g.addColorStop(1, look.groundTo)
     ctx.fillStyle = g
     ctx.fillRect(x0, y0, x1 - x0, y1 - y0)
 }
 
 /** Faint pitch markings (no mowing stripes): touchlines, halfway line, centre circle, both penalty and six-yard boxes. */
-function pitch(ctx: Ctx): void {
+function pitch(ctx: Ctx, look: PaintLook): void {
     ctx.save()
-    ctx.strokeStyle = C.pitch
-    ctx.fillStyle = C.pitch
+    ctx.strokeStyle = look.pitch
+    ctx.fillStyle = look.pitch
     ctx.lineWidth = 6
     const L = 64, T = 64, R = DESIGN_W - 64, B = DESIGN_H - 64, mx = DESIGN_W / 2, my = DESIGN_H / 2
     ctx.strokeRect(L, T, R - L, B - T)
@@ -63,29 +83,29 @@ function pitch(ctx: Ctx): void {
 }
 
 /** Real text widths for layouts, from the canvas's font metrics. */
-export function measureWith(ctx: Ctx): MeasureText {
+export function measureWith(ctx: Ctx, look: PaintLook = DEFAULT_LOOK): MeasureText {
     return (text, size, voice = 'shirt') => {
         ctx.save()
-        setVoice(ctx, voice, size)
+        setVoice(ctx, voice, size, look)
         const w = ctx.measureText(text).width
         ctx.restore()
         return w
     }
 }
 
-export function paintOps(ctx: Ctx, ops: DrawOp[], assets: PaintAssets): void {
+export function paintOps(ctx: Ctx, ops: DrawOp[], assets: PaintAssets, look: PaintLook = DEFAULT_LOOK): void {
     const { width, height } = ctx.canvas
     const { s, ox, oy } = designFit(width, height)
     ctx.save()
     ctx.setTransform(s, 0, 0, s, ox, oy)
     for (const op of ops) {
         if (op.kind === 'cardBackground') {
-            background(ctx, -ox / s, -oy / s, (width - ox) / s, (height - oy) / s)
+            background(ctx, -ox / s, -oy / s, (width - ox) / s, (height - oy) / s, look)
             continue
         }
         if (op.kind === 'pitch') {
             ctx.globalAlpha = 1
-            pitch(ctx)
+            pitch(ctx, look)
             continue
         }
         ctx.globalAlpha = op.alpha ?? 1
@@ -121,12 +141,12 @@ export function paintOps(ctx: Ctx, ops: DrawOp[], assets: PaintAssets): void {
                 break
             case 'text': {
                 ctx.fillStyle = op.color
-                setVoice(ctx, op.voice, op.size)
+                setVoice(ctx, op.voice, op.size, look)
                 ctx.textAlign = op.align
                 ctx.textBaseline = 'alphabetic'
                 let y = op.y
                 if (op.baseline === 'middle') {
-                    const m = textInkMetrics(ctx, op.size, op.voice)
+                    const m = textInkMetrics(ctx, op.size, op.voice, look)
                     y = centredBaseline(op.y, m.ascent, m.descent)
                 }
                 if (op.outline) {

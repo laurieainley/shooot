@@ -161,8 +161,8 @@ function motion(t: number, duration: number): { alpha: number; dx: number } {
     return { alpha: p, dx: -60 * (1 - p) }
 }
 
-/** Captions, the score bug and the REPLAY tag are drawn 1.05× the original design (1.4×, then 25 % smaller). */
-export const OVERLAY_SCALE = 1.05
+/** Captions, the score bug and the REPLAY tag are drawn 0.84× the original design (1.4×, then 25 % smaller, then another 20 % so they cover less of the frame). */
+export const OVERLAY_SCALE = 0.84
 const k = (v: number): number => Math.round(v * OVERLAY_SCALE)
 
 const BUG_H = k(64)
@@ -170,7 +170,8 @@ const BUG_PAD = k(16)
 /** The 5 px kit-colour bars at the outer edges of the score bug. */
 const BUG_BAR = 5
 const EVENT_H = k(72)
-const NOTE_H = k(50)
+/** The assist / note bands are about 60 % of the event line's text size. */
+const NOTE_H = k(46)
 const KIT_BAR = k(6)
 /** Captions stay left of the REPLAY tag (top right), with room for the lean. */
 const CAPTION_MAX_RIGHT = 1360
@@ -235,7 +236,7 @@ export function captionLayout(spec: CaptionSpec, t: number, hasLogo: boolean, du
 
     const labelSize = k(54)
     const nameSize = k(58)
-    const subSize = k(40)
+    const subSize = k(36)
     const minuteSize = k(34)
     const pad = k(22)
     const gap = k(18)
