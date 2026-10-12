@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
@@ -110,8 +110,8 @@ describe('FullMatchExport', () => {
             expect(screen.getByRole('radio', { name: 'Original' })).toBeChecked()
             const list = screen.getByRole('list', { name: /output quality sizes/i })
             expect(list).toHaveTextContent(/Original about 2\.3 GB, quickest/)
-            expect(list).toHaveTextContent(/4K about .* GB, about .* the match length/)
-            expect(list).toHaveTextContent(/1080p about .* GB, about .* the match length/)
+            expect(list).toHaveTextContent(/4K about .* GB, roughly .* min for a 18 min match, depending on the device/)
+            expect(list).toHaveTextContent(/1080p about .* GB, roughly .* min for a 18 min match, depending on the device/)
         })
 
         it('should grey out 4K, saying why, when the footage is 1080p', () => {
@@ -145,6 +145,52 @@ describe('FullMatchExport', () => {
             await userEvent.click(screen.getByRole('button', { name: /render full match/i }))
             await waitFor(() => expect(renderReel).toHaveBeenCalled())
             expect(renderReel.mock.calls[0][2].output).toBeUndefined()
+        })
+
+        describe('storage fit', () => {
+            const stubStorage = (estimate: unknown) => Object.defineProperty(navigator, 'storage', { value: { estimate, getDirectory: async () => { throw new Error('no opfs') } }, configurable: true })
+            afterEach(() => { Reflect.deleteProperty(navigator, 'storage') })
+            // Footage big enough that Original (about 30 GB of it used) needs more than a 10.8 GB quota.
+            const bigFootage = () => { useAppState.setState({ files: [big('GX010001.MP4', 40), big('GX020001.MP4', 40)] }); withSize(3840, 2160) }
+
+            it('should grey out Original and select 4K when the quota is small', async () => {
+                bigFootage()
+                stubStorage(async () => ({ quota: 10.8e9, usage: 0 }))
+                render(<FullMatchExport />)
+                await waitFor(() => expect(screen.getByRole('radio', { name: 'Original' })).toBeDisabled())
+                expect(screen.getByRole('list', { name: /output quality sizes/i })).toHaveTextContent(/Too big for this browser’s storage \(about .* GB needed, 10\.8 GB available\)/)
+                expect(screen.getByRole('radio', { name: '4K' })).toBeChecked()
+                expect(screen.getByRole('note')).toHaveTextContent(/Original would not fit.*4K is selected/)
+            })
+
+            it('should block nothing when estimate() is missing', async () => {
+                bigFootage()
+                render(<FullMatchExport />)
+                expect(screen.getByRole('radio', { name: 'Original' })).toBeEnabled()
+                expect(screen.getByRole('radio', { name: 'Original' })).toBeChecked()
+            })
+
+            it('should block nothing when estimate() throws', async () => {
+                bigFootage()
+                stubStorage(async () => { throw new Error('nope') })
+                render(<FullMatchExport />)
+                await new Promise((r) => setTimeout(r, 20))
+                expect(screen.getByRole('radio', { name: 'Original' })).toBeEnabled()
+            })
+
+            it('should say private windows have little storage under 2 GB', async () => {
+                stubStorage(async () => ({ quota: 1e9, usage: 0 }))
+                render(<FullMatchExport />)
+                expect(await screen.findByText(/Private windows have very little storage/)).toBeInTheDocument()
+            })
+
+            it('should add the keep-awake note for a re-encode on a phone only', async () => {
+                setCoarsePointer(true)
+                withSize(3840, 2160)
+                useAppState.setState({ fullMatch: { ...useAppState.getState().fullMatch, quality: '1080p' } })
+                render(<FullMatchExport />)
+                expect(screen.getByText('Keep the screen on, the tab open and the device plugged in.')).toBeInTheDocument()
+            })
         })
     })
 })

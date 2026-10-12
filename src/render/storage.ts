@@ -38,3 +38,28 @@ export async function storageFullMessage(): Promise<string> {
     return `Not enough browser storage for this render (this is the browser's limit for the site, not your disk).${room}`
         + ' Free up disk space, use a normal (not private) window on a computer, or render the preview.'
 }
+
+export type StorageRoom = {
+    quota: number
+    /** Space a new render could use: quota minus usage, plus the old renders `clearOldOutputs()` deletes first. */
+    free: number
+}
+
+/** The browser's size of this site's storage, and how much of it a render could use; null when the browser will not say. */
+export async function storageRoom(): Promise<StorageRoom | null> {
+    try {
+        if (typeof navigator === 'undefined' || typeof navigator.storage?.estimate !== 'function') return null
+        const { quota, usage } = await navigator.storage.estimate()
+        if (!quota) return null
+        let reclaimable = 0
+        try {
+            const root = await navigator.storage.getDirectory() as FileSystemDirectoryHandle & { entries?: () => AsyncIterable<[string, FileSystemHandle]> }
+            if (root.entries) {
+                for await (const [, handle] of root.entries()) {
+                    if (handle.kind === 'file') reclaimable += (await (handle as FileSystemFileHandle).getFile()).size
+                }
+            }
+        } catch { /* cannot list: count nothing as reclaimable */ }
+        return { quota, free: Math.max(0, quota - (usage ?? 0) + reclaimable) }
+    } catch { return null }
+}

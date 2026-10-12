@@ -7,7 +7,7 @@ import { finalWhistleSec } from '../utils/matchClock'
 import { formatReelLength } from '../utils/reel'
 import { linkedEvents } from '../utils/relink'
 import type { RenderQuality } from '../utils/renderSources'
-import { QUALITY_LABEL, VIDEO_BITRATE, qualityOptions, timeHint, type OutputQuality } from '../utils/outputQuality'
+import { QUALITY_LABEL, VIDEO_BITRATE, applyStorageFit, qualityOptions, timeHint, type OutputQuality } from '../utils/outputQuality'
 import { MAX_INTERVAL_MIN, MIN_INTERVAL_MIN, type ScoreBugMode } from '../utils/scoreBug'
 import { ExportSection as Section } from './ExportSection'
 import { MissingFullFiles } from './MissingFullFiles'
@@ -18,6 +18,7 @@ import { useRenderJobs } from '../renderJobs'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 import { useSavedJob } from './useSavedJob'
 import { useReencodeSupport } from './useReencodeSupport'
+import { useStorageRoom } from './useStorageRoom'
 
 const BUG_MODES: [ScoreBugMode, string][] = [['off', 'Off'], ['goals', 'After goals'], ['periodic', 'Periodic']]
 const INTERVALS = Array.from({ length: MAX_INTERVAL_MIN - MIN_INTERVAL_MIN + 1 }, (_, i) => i + MIN_INTERVAL_MIN)
@@ -45,10 +46,11 @@ export function FullMatchExport() {
     }, [st])
     const known = files[0]?.width && files[0]?.height ? { width: files[0].width, height: files[0].height } : null
     const { source, support } = useReencodeSupport(firstSource.file, known)
-    const options = qualityOptions({ source, support, seconds: firstSource.seconds, originalBytes: firstSource.bytes })
-    // A choice that is not available here (e.g. 4K chosen in a saved project, now on 1080p footage) renders as Original.
-    const chosen = options.find((o) => o.id === fullMatch.quality)
-    const effective: OutputQuality = chosen && !chosen.disabled ? chosen.id : 'original'
+    const room = useStorageRoom(busy)
+    // A choice that is not available here (e.g. 4K chosen in a saved project, now on 1080p footage) renders as Original;
+    // one that will not fit in the browser's storage gives way to the largest that does.
+    const { options, effective, note: fitNote, privateHint } = applyStorageFit(
+        qualityOptions({ source, support, seconds: firstSource.seconds, originalBytes: firstSource.bytes }), room, fullMatch.quality)
     const outputFor = (q: OutputQuality): PlanOutput | undefined => (q === 'original' ? undefined : { quality: q, videoBitrate: VIDEO_BITRATE[q] })
     const plan = useMemo(() => fullMatchExport(st, 'full', outputFor(effective)), [st, effective])
     const linked = linkedEvents(events)
@@ -97,15 +99,18 @@ export function FullMatchExport() {
                     <ul className="m-0 pl-0 list-none flex flex-col gap-1" aria-label="Output quality sizes">
                         {options.map((o) => (
                             <li key={o.id} className={`toggle-row__hint${o.disabled ? ' opacity-60' : ''}`}>
-                                <b>{QUALITY_LABEL[o.id]}</b>{o.disabled ? ` unavailable: ${o.reason}` : ` about ${formatBytes(o.bytes)}, ${timeHint(o.timeFactor)}`}
+                                <b>{QUALITY_LABEL[o.id]}</b>{o.disabled ? (o.noRoom ? ` ${o.reason}` : ` unavailable: ${o.reason}`) : ` about ${formatBytes(o.bytes)}, ${timeHint(o.timeRange, firstSource.seconds)}`}
                             </li>
                         ))}
                     </ul>
                     <span className="toggle-row__hint">
                         {effective === 'original'
                             ? 'Copies the camera’s video as it is: quickest, but the file is as large as the footage.'
-                            : `Re-encodes to H.264 ${effective === '4k' ? '4K' : '1080p'} so the file is much smaller. Cards, captions and the score bug are drawn as it encodes; keep this tab open and the screen on.`}
+                            : `Re-encodes to H.264 ${effective === '4k' ? '4K' : '1080p'} so the file is much smaller. Cards, captions and the score bug are drawn as it encodes.`}
                     </span>
+                    {fitNote && <span role="note" className="export-hint">{fitNote}</span>}
+                    {privateHint && <span className="toggle-row__hint">Private windows have very little storage; use a normal window for a full match.</span>}
+                    {phone && effective !== 'original' && <span className="toggle-row__hint">Keep the screen on, the tab open and the device plugged in.</span>}
                 </fieldset>
                 <label className="toggle-row">
                     <input type="checkbox" checked={fullMatch.cards} onChange={(e) => setFullMatch({ cards: e.target.checked })} />
