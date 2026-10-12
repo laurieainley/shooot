@@ -100,6 +100,8 @@ export function EventLog() {
     }
 
     const onKeyDown = (ev: ReactKeyboardEvent<HTMLElement>): void => {
+        // Portalled children (the clip popover) bubble through React; their keys are not the log's.
+        if (!(ev.currentTarget as Node).contains(ev.target as Node)) return
         if (isTyping(ev.target as Element) || ev.metaKey || ev.ctrlKey || ev.altKey) return
         // A focused button (action row, Watch) owns Enter/Space and the row shortcuts; only Esc collapses and returns focus to the log.
         if ((ev.target as Element).closest('button')) {
