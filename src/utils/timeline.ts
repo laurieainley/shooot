@@ -60,5 +60,5 @@ export function clockWidthCh(long: boolean, signed: boolean): number {
 export function formatEventClock(absSec: number, fileSec: number, matchStartSec: number, long = false): string {
     if (matchStartSec <= 0) return formatClock(fileSec, long)
     const rel = absSec - matchStartSec
-    return rel < 0 ? `−${formatClock(-rel, long)}` : formatClock(rel, long)
+    return rel <= -1 ? `−${formatClock(-rel, long)}` : formatClock(Math.max(0, rel), long)
 }
