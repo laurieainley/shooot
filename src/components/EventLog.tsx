@@ -149,6 +149,7 @@ export function EventLog() {
     return (
         <section
             ref={rootRef}
+            id="rail-panel"
             aria-label="Events"
             tabIndex={0}
             onKeyDown={onKeyDown}

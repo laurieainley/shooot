@@ -5,6 +5,9 @@ import { shortcutFor, shouldHandleShortcut } from '../utils/shortcuts'
 import { EmptyPlayer } from './EmptyPlayer'
 import { EventLog } from './EventLog'
 import { Fab } from './Fab'
+import { MatchList } from './MatchList'
+import { RailTabs } from './RailTabs'
+import { useRailTab } from './railTab'
 import { MatchStrip } from './MatchStrip'
 import { Panels } from './Panels'
 import { Toast } from './Toast'
@@ -29,6 +32,7 @@ import { useMatchAutosave } from './useMatchAutosave'
  */
 export function AppShell() {
     const layout = useLayout()
+    const railTab = useRailTab()
     const setSlot = usePanelSlot((s) => s.setEl)
     useKeyboardInset()
     const hasFiles = useAppState((s) => s.files.length > 0)
@@ -95,8 +99,11 @@ export function AppShell() {
                     <MatchStrip />
                 </div>
                 <aside className="rail" aria-label={sideBySide ? 'Event rail' : undefined}>
-                    <EventLog />
-                    {showFab && <Fab />}
+                    <div className="rail__main">
+                        <RailTabs />
+                        {railTab === 'events' ? <EventLog /> : <MatchList />}
+                    </div>
+                    {showFab && railTab === 'events' && <Fab />}
                     <div ref={setSlot} className="panel-slot" />
                 </aside>
             </main>
