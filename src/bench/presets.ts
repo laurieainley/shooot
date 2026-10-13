@@ -27,15 +27,15 @@ const MOBILE_EXPERIMENTS = ALL_EXPERIMENTS.filter((e) => e !== 'directSave')
 export const PRESETS: Record<PresetId, Preset> = {
     ipad: {
         id: 'ipad', label: 'iPad', stages: ['reencode1080'], experiments: MOBILE_EXPERIMENTS, deliver: true, highlight: [],
-        instruction: `Pick ${BENCH_FILE}, then Start. About 25-35 minutes; keep the screen on. (Direct save is not supported here: only the save-step cost is reported.)`,
+        instruction: `Pick ${BENCH_FILE}, then Start. About 30-40 minutes; keep the screen on. (Direct save is not supported here: only the save-step cost is reported.)`,
     },
     pixel: {
         id: 'pixel', label: 'Pixel', stages: ['reencode1080'], experiments: MOBILE_EXPERIMENTS, deliver: true, highlight: ['overlayCache', 'tightSpans'],
-        instruction: `Pick ${BENCH_FILE}, then Start. About 20-30 minutes; keep the screen on. (Direct save is not supported here: only the save-step cost is reported.)`,
+        instruction: `Pick ${BENCH_FILE}, then Start. About 30-40 minutes; keep the screen on. (Direct save is not supported here: only the save-step cost is reported.)`,
     },
     mac: {
         id: 'mac', label: 'Mac', stages: ['reencode1080', 'reencode4k'], experiments: ALL_EXPERIMENTS, deliver: true, highlight: [],
-        instruction: `Pick ${BENCH_FILE}, then Start. About 15-20 minutes; you will be asked where to save a file first (experiment 4).`,
+        instruction: `Pick ${BENCH_FILE}, then Start. About 20-25 minutes; you will be asked where to save a file first (experiment 4).`,
     },
 }
 

@@ -6,7 +6,7 @@ import { prepareSpec } from '../../graphics/prepare'
 import type { GraphicsSpec } from '../../graphics/types'
 import type { Cut } from '../../render/types'
 import { highlightsExport, planOutput } from '../../utils/exportPlans'
-import { CACHE_DIR, bitrateFor, excerptLen, excerptState, hash64, pair, run, verifyOutput, type ExpCtx } from '../expCommon'
+import { CACHE_DIR, bitrateFor, journalAvailable, excerptLen, excerptState, hash64, pair, run, verifyOutput, type ExpCtx } from '../expCommon'
 import type { ExperimentRow } from '../results'
 
 const UNIT_SEC = 10
@@ -70,7 +70,8 @@ function unitKeyOf(ctx: ExpCtx, cuts: Cut[], spec: GraphicsSpec | undefined, W: 
     }
 }
 
-export async function segmentCacheRows(ctx: ExpCtx): Promise<{ rows: ExperimentRow[]; notes: string[]; detail: Record<string, unknown> }> {
+export async function segmentCacheRows(ctx: ExpCtx): Promise<{ rows: ExperimentRow[]; notes: string[]; detail: Record<string, unknown>; unsupported?: string }> {
+    if (!(await journalAvailable())) return { rows: [], notes: [], detail: {}, unsupported: 'not supported here: the unit cache needs OPFS writable files (this browser renders in memory)' }
     const len = excerptLen(ctx)
     const quality = '1080p'
     const out = planOutput(quality)!

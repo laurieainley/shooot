@@ -2,7 +2,7 @@
 import { EncodedPacketSink, VideoSampleSink } from 'mediabunny'
 import { openSource } from '../render/sourceInput'
 import { errorInfo } from '../render/diagnostics'
-import { discardJob } from '../render/renderJob'
+import { canJournal, discardJob } from '../render/renderJob'
 import { clearOldOutputs } from '../render/storage'
 import type { Cut, RenderGraphics, RenderOptions, RenderTimeline } from '../render/types'
 import { fullMatchExport, highlightsExport, planOutput, type ExportPlan, type ExportState } from '../utils/exportPlans'
@@ -110,6 +110,11 @@ export async function clearKept(): Promise<void> {
 
 /** Copies a finished output to a folder the output cleaning leaves alone, so the page can offer it for download. */
 export async function keepCopy(file: Blob, name: string): Promise<File> {
+    // A browser without OPFS writable files rendered in memory: that Blob is the output, keep it as it is.
+    try { return await copyToKeep(file, name) } catch { return file instanceof File ? file : new File([file], name, { type: 'video/mp4' }) }
+}
+
+async function copyToKeep(file: Blob, name: string): Promise<File> {
     const root = await navigator.storage.getDirectory()
     const dir = await root.getDirectoryHandle(KEEP_DIR, { create: true })
     const h = await dir.getFileHandle(name, { create: true })
@@ -141,6 +146,11 @@ export async function pair(label: string, names: [string, string], baseline: () 
     if (Object.keys(detail).length) row.detail = detail
     if (notes.length) row.note = notes.join('; ')
     return row
+}
+
+/** Whether this browser can keep render progress in OPFS (resumable renders, which parallel units and the unit cache need). */
+export async function journalAvailable(): Promise<boolean> {
+    return canJournal()
 }
 
 export type OutputCheck = { ok: boolean; frames: number; frameSec: number; maxGapErrMs: number; firstSec: number; lastEndSec: number; probes: { atSec: number; frames: number }[]; problems: string[] }

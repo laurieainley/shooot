@@ -232,7 +232,7 @@ export function BenchPage() {
                 {hasSavePicker() && exps.directSave && <p className="small">Experiment 4 will ask where to save a file when you press Start.</p>}
                 <video ref={video} muted playsInline controls={false} style={{ width: 320, maxWidth: '100%', background: '#000', borderRadius: 6, display: exps.playback || running ? 'block' : 'none' }} />
                 <div className="buttons">
-                    <button type="button" className="btn-quiet" disabled={running || total === 0} onClick={() => { setExps(Object.fromEntries(ALL_EXPERIMENTS.map((e) => [e, true])) as Record<ExperimentId, boolean>); void run({ stages: false, experiments: ALL_EXPERIMENTS }) }}>Run all experiments (about {EXPERIMENT_MINUTES} min)</button>
+                    <button type="button" className="btn-quiet" disabled={running || total === 0} onClick={() => { setExps(Object.fromEntries(ALL_EXPERIMENTS.map((e) => [e, true])) as Record<ExperimentId, boolean>); void run({ stages: false, experiments: ALL_EXPERIMENTS }) }}>Run all experiments (about {EXPERIMENT_MINUTES} min on a computer, longer on a phone)</button>
                 </div>
             </section>
 

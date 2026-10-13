@@ -25,6 +25,12 @@ export class OverlayBitmapCache {
     /** Time spent in cached painters, ms (paint on a miss, draw on a hit). */
     ms = 0
     private readonly bitmaps = new Map<string, { bm: ImageBitmap; y0: number }>()
+    private full: OffscreenCanvas | null = null
+
+    private scratch(w: number, h: number): OffscreenCanvas {
+        if (!this.full || this.full.width !== w || this.full.height !== h) this.full = new OffscreenCanvas(w, h)
+        return this.full
+    }
 
     painter(spec: CachedPaintSpec): (ctx: Ctx, t: number) => void {
         return (ctx, t) => {
@@ -43,11 +49,17 @@ export class OverlayBitmapCache {
                 const [r0, r1] = spec.rows(W, H)
                 const y0 = Math.max(0, Math.floor(r0) - 4)
                 const y1 = Math.min(H, Math.ceil(r1) + 4)
+                // Painters fit their design to the canvas they are given, so paint on a full-size canvas and keep only the band.
+                const full = this.scratch(W, H)
+                const fctx = full.getContext('2d')!
+                fctx.clearRect(0, 0, W, H)
+                fctx.save()
+                spec.draw(fctx, paintAt)
+                fctx.restore()
                 const band = new OffscreenCanvas(W, Math.max(1, y1 - y0))
                 const bctx = band.getContext('2d')
                 if (!bctx) throw new Error('no 2D canvas for the overlay cache')
-                bctx.translate(0, -y0)
-                spec.draw(bctx, paintAt)
+                bctx.drawImage(full, 0, y0, W, band.height, 0, 0, W, band.height)
                 e = { bm: band.transferToImageBitmap(), y0 }
                 this.bitmaps.set(key, e)
             }
@@ -63,5 +75,6 @@ export class OverlayBitmapCache {
     dispose(): void {
         for (const { bm } of this.bitmaps.values()) bm.close()
         this.bitmaps.clear()
+        this.full = null
     }
 }

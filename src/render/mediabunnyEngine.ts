@@ -160,6 +160,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
         const spanReport = (): void => opts.onStats?.({
             overlaySpans: spanStats.length, reencodedSourceSec: +spanStats.reduce((a, x) => a + x.outEnd - x.outStart, 0).toFixed(3),
             overlayWindowSec: +spanStats.reduce((a, x) => a + x.windowSec, 0).toFixed(3),
+            spans: spanStats.map((x) => ({ fromSec: +x.outStart.toFixed(2), toSec: +x.outEnd.toFixed(2), windowSec: +x.windowSec.toFixed(2) })),
         })
 
         // Cards are encoded before anything is written, so a failure just leaves the card out.

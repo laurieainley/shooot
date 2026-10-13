@@ -1,12 +1,13 @@
 // Experiment 1: several units encoded at the same time (each with its own decoder and encoder), joined exactly as the journaled path joins them.
 import { prepareSpec } from '../../graphics/prepare'
-import { bitrateFor, excerptLen, matchPlan, overlapOf, pair, run, verifyOutput, type ExpCtx } from '../expCommon'
+import { bitrateFor, excerptLen, journalAvailable, matchPlan, overlapOf, pair, run, verifyOutput, type ExpCtx } from '../expCommon'
 import type { ExperimentRow } from '../results'
 
 /** Seconds of output per unit in this experiment (so a 45 s excerpt has about six units to run side by side). */
 const UNIT_SEC = 8
 
-export async function parallelRows(ctx: ExpCtx): Promise<{ rows: ExperimentRow[]; notes: string[] }> {
+export async function parallelRows(ctx: ExpCtx): Promise<{ rows: ExperimentRow[]; notes: string[]; unsupported?: string }> {
+    if (!(await journalAvailable())) return { rows: [], notes: [], unsupported: 'not supported here: parallel units are joined from OPFS saved-progress files and this browser has no OPFS writable files (renders stay in memory)' }
     const len = excerptLen(ctx)
     const plan = matchPlan(ctx, len, false)
     const graphics = await prepareSpec(plan.spec)

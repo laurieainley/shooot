@@ -16,7 +16,7 @@ import type { ExperimentRow } from '../results'
 
 export async function tightSpansRows(ctx: ExpCtx): Promise<{ rows: ExperimentRow[]; notes: string[]; detail: Record<string, unknown> }> {
     const len = excerptLen(ctx)
-    const plan = highlightsPlan(ctx, len, 2, true)
+    const plan = highlightsPlan(ctx, len, 1, false)
     const graphics = await prepareSpec(plan.spec)
     if (!graphics) throw new Error('the plan has no graphics')
     const runs: Record<'baseline' | 'variant', { file: File | Blob; timeline: RenderTimeline | null; stats: Record<string, unknown> | null } | null> = { baseline: null, variant: null }
@@ -28,7 +28,7 @@ export async function tightSpansRows(ctx: ExpCtx): Promise<{ rows: ExperimentRow
         const s = r.rendering.stats as { reencodedSourceSec?: number; overlayWindowSec?: number; overlaySpans?: number } | null
         return { wallMs: r.wallMs, bytes: r.bytes, detail: { ...(s ?? {}) }, notes: s ? [`re-encoded ${s.reencodedSourceSec} s of footage for ${s.overlayWindowSec} s of overlay windows in ${s.overlaySpans} spans`] : [] }
     }
-    const row = await pair('Original highlights with captions, replay tag and cards', ['whole windows', 'visible part only'], go(false), go(true))
+    const row = await pair('Original highlights (one goal: caption, replay, REPLAY tag)', ['whole windows', 'visible part only'], go(false), go(true))
     const detail: Record<string, unknown> = {}
     // Does the caption still appear at the right time? Compare pictures of both outputs at, before and during each caption.
     try {

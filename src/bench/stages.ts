@@ -123,14 +123,15 @@ async function stage(id: StageId, label: string, ctx: StageCtx, mediaSeconds: nu
         const wallMs = performance.now() - t0
         // After the clock stopped: the save step must not change the stage's own numbers.
         let deliver: StageResult['deliver']
+        let deliverError: string | undefined
         if (ctx.deliver && r.deliverFile) {
-            try { deliver = await measureDeliver(r.deliverFile, `bench-${id}.mp4`, !!ctx.realDownload) } catch { /* the stage itself succeeded */ }
+            try { deliver = await measureDeliver(r.deliverFile, `bench-${id}.mp4`, !!ctx.realDownload) } catch (e) { deliverError = errorInfo(e).message /* the stage itself succeeded */ }
         }
         return {
             ...base, status: 'ok', wallMs, mediaSeconds, timesRealtime: wallMs / 1000 / mediaSeconds,
             ...(fps ? { fps: (mediaSeconds * fps) / (wallMs / 1000) } : {}), peakHeapMB: peak,
             ...(r.outputBytes !== undefined ? { outputBytes: r.outputBytes } : {}), ...(r.encoder ? { encoder: r.encoder } : {}),
-            ...(r.detail ? { detail: r.detail } : {}), ...(r.notes ? { notes: r.notes } : {}), ...(deliver ? { deliver } : {}),
+            ...(r.detail ? { detail: r.detail } : {}), ...(r.notes ? { notes: r.notes } : {}), ...(deliver ? { deliver } : {}), ...(deliverError ? { deliverError } : {}),
         }
     } catch (e) {
         return { ...base, status: 'failed', wallMs: performance.now() - t0, peakHeapMB: peak, error: errorInfo(e) }

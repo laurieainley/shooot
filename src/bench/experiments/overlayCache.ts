@@ -14,7 +14,7 @@ function sampleOverlays(g: RenderGraphics): { name: string; index: number; o: Re
         return index >= 0 ? { name, index, o: g.overlays[index] } : null
     }
     return [
-        pick('caption', (o) => o.label.startsWith('Caption') && o.durationSec >= 4),
+        pick('caption', (o) => o.label.startsWith('Caption') && o.durationSec >= 2),
         pick('replayTag', (o) => o.label === 'Replay tag'),
         pick('scoreBug', (o) => o.label === 'Score bug' && o.durationSec >= 3),
     ].filter((x): x is { name: string; index: number; o: RenderOverlay } => !!x)
@@ -70,9 +70,18 @@ async function visualCompare(ctx: ExpCtx, plain: RenderGraphics, cached: RenderG
     const out: Record<string, unknown> = {}
     for (let k = 0; k < a.length; k++) {
         const cases: [string, number][] = a[k].name === 'caption'
-            ? [['hold', 2.5], ['fadeIn', 0.12], ['fadeOut', a[k].o.durationSec - 0.12]]
+            ? [['hold', Math.min(2, a[k].o.durationSec * 0.6)], ['fadeIn', 0.12], ['fadeOut (last caption part)', -1]]
             : a[k].name === 'scoreBug' ? [['hold', Math.min(2, a[k].o.durationSec / 2)]] : [['hold', 1]]
-        for (const [phase, t] of cases) {
+        for (const [phase, t0] of cases) {
+            let t = t0
+            let oa = a[k].o
+            let ob = b[k].o
+            if (t0 < 0) {
+                // The last caption part is the one that fades out.
+                const lastA = [...plain.overlays].reverse().find((o) => o.label.startsWith('Caption'))!
+                const lastB = [...cached.overlays].reverse().find((o) => o.label.startsWith('Caption'))!
+                oa = lastA; ob = lastB; t = Math.max(0.05, lastA.durationSec - 0.12)
+            }
             const draw = (o: RenderOverlay, twice: boolean): ImageData => {
                 const c = new OffscreenCanvas(W, H)
                 const x = c.getContext('2d', { willReadFrequently: true })!
@@ -81,8 +90,8 @@ async function visualCompare(ctx: ExpCtx, plain: RenderGraphics, cached: RenderG
                 if (twice) { x.putImageData(bg, 0, 0); x.save(); o.paint(x, t); x.restore() } // the second call is the one that comes from the cache
                 return x.getImageData(0, 0, W, H)
             }
-            const plainImg = draw(a[k].o, false)
-            const cachedImg = draw(b[k].o, true)
+            const plainImg = draw(oa, false)
+            const cachedImg = draw(ob, true)
             const { diff, amplified } = diffOf(plainImg, cachedImg)
             out[`${a[k].name} ${phase}`] = diff
             if (a[k].name === 'caption' && phase === 'hold') {
@@ -105,7 +114,7 @@ export async function overlayCacheRows(ctx: ExpCtx): Promise<{ rows: ExperimentR
     const rows: ExperimentRow[] = []
     const detail: Record<string, unknown> = {}
     const match = matchPlan(ctx, len, true)
-    const high = highlightsPlan(ctx, len, 2, true)
+    const high = highlightsPlan(ctx, len, 1, false)
     const plain = await prepareSpec(match.spec)
     const cache = new OverlayBitmapCache()
     const cachedG = await prepareSpec(match.spec, cache)
@@ -127,8 +136,8 @@ export async function overlayCacheRows(ctx: ExpCtx): Promise<{ rows: ExperimentR
             rows.push(row)
         }
         // 2. Whole renders.
+        // (4K is covered by the paint micro-benchmark above: a 4K render per variant would add minutes for little extra information.)
         const renders: [string, '1080p' | '4k' | null, typeof match][] = [['1080p re-encode with graphics', '1080p', match]]
-        if (sizes.length > 1) renders.push(['4K re-encode with graphics', '4k', match])
         renders.push(['Original highlights', null, high])
         for (const [label, quality, plan] of renders) {
             const c = new OverlayBitmapCache()

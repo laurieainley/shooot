@@ -2,7 +2,7 @@
 // Every experiment is OFF in the normal stages (the engine switches live in RenderOptions.experiments and default to off), each runs
 // inside a wrapper that records failures with their stack, and one failing never stops the rest.
 import { errorInfo } from '../render/diagnostics'
-import { bitrateFor, cleanOutputs, clearKept, plainPlan, run, type ExpCtx } from './expCommon'
+import { bitrateFor, cleanOutputs, plainPlan, run, type ExpCtx } from './expCommon'
 import { directSaveRows } from './experiments/directSave'
 import { latencyRows, pipelineRows } from './experiments/encoder'
 import { overlayCacheRows } from './experiments/overlayCache'
@@ -39,7 +39,8 @@ export const EXPERIMENTS: ExperimentDef[] = [
     { id: 'worker', number: 10, name: 'Render in a Web Worker', reencodes: true, hint: '1080p on the main thread vs in a dedicated worker, with and without graphics.', run: workerRows },
 ]
 
-export const EXPERIMENT_MINUTES = 22
+/** Rough minutes for all experiments on a computer with the default 45 s excerpt (phones: allow 1.5-2x). */
+export const EXPERIMENT_MINUTES = 17
 
 /** A short throwaway render before the first experiment: codec start-up and the first read of the file would otherwise land on the first baseline. */
 export async function warmUp(ctx: ExpCtx): Promise<void> {
@@ -69,6 +70,5 @@ export async function runExperiment(def: ExperimentDef, ctx: ExpCtx): Promise<Ex
         return { ...base, status: 'failed', rows: [], error: errorInfo(e) }
     } finally {
         await cleanOutputs()
-        if (def.id !== 'latency') await clearKept()
     }
 }

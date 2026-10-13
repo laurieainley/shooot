@@ -20,6 +20,8 @@ export type StageResult = {
     peakHeapMB?: number | null
     /** Time to hand the finished file to the device (see DeliverTiming); measured after wallMs, so it is not part of it. */
     deliver?: DeliverTiming
+    /** Why the save-step timing could not be taken (the stage itself succeeded). */
+    deliverError?: string
     notes?: string[]
     detail?: Record<string, unknown>
     error?: { message: string; name?: string; stack?: string }
