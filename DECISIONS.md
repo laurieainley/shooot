@@ -10,6 +10,16 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 ---
 
 ## 2026-10-13
+- **UX round 2 (user approved the layout and wording proposals):** the desktop action row fits one line, with the
+  Slow-mo replay switch as a ↻ icon instead of text (user preferred an icon to widening the rail); on a tablet on its side
+  the match strip sits right under the picture; on a phone on its side the + moves onto the picture; Match setup is two
+  columns from 1024px and team names are no longer uppercase in its inputs; "Kick off" everywhere in copy; Export lengths
+  in one format (m:ss / h:mm:ss); Files only in the top bar (out of ⋯); the double-tap warning names the earlier tag
+  ("You tagged Goal 2 s before this…"). Agent fixes from the mocked review of the remaining flows: no key names on the
+  touch Find goals card, Download clip disabled until videos are loaded, the phone top bar no longer overflows while a
+  render runs. Bug: events of an unknown type are dropped/mapped on load instead of blanking the page (no persist
+  version bump: a `merge` sanitises at any version). *Why:* the round-1 reviewers' proposals and the user's answers.
+  *Where:* merges of feat/layout-wide, feat/copy-crash, feat/review-mocked.
 - **Match history: a Matches tab next to Events, autosaved to IndexedDB on this device** (user). The open match saves
   itself (no save/discard prompt; only a running render or Find goals asks before switching); Events | Matches are equal
   tabs in the rail; + New match keeps the old match in the list, so the Clear match confirmation goes; rows have Delete
