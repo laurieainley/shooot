@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildPreviewPlan, clipStep, shouldAdvance, previewVolume, type PreviewStep } from './preview'
+import { buildPreviewPlan, clipStep, previewStepForEvent, shouldShowSpeedIndicator, shouldAdvance, previewVolume, type PreviewStep } from './preview'
 import type { HighlightSegment } from './highlights'
 import type { MatchEvent } from '../types'
 
@@ -90,5 +90,38 @@ describe('clipStep', () => {
     it('should list each clip\'s events on its steps', () => {
         const plan = buildPreviewPlan([seg(0, 90, 104, [g('a', 100), g('b', 102)])], [600], REPLAY)
         expect(plan.every((s) => s.eventIds.join() === 'a,b')).toBe(true)
+    })
+})
+
+describe('previewStepForEvent', () => {
+    const mk = (clipIndex: number, replay: boolean, eventIds: string[]): PreviewStep =>
+        ({ sourceIndex: 0, startSec: 0, endSec: 5, speed: 1, gain: 1, replay, clipIndex, eventIds })
+    const steps = [mk(0, false, ['a']), mk(0, true, ['a']), mk(1, false, ['b', 'c']), mk(1, true, ['b', 'c'])]
+
+    it('should find the first normal-speed step of the clip holding the event', () => {
+        expect(previewStepForEvent(steps, 'a')).toBe(0)
+        expect(previewStepForEvent(steps, 'c')).toBe(2)
+    })
+
+    it('should return null for an event that is not in the reel', () => {
+        expect(previewStepForEvent(steps, 'zz')).toBeNull()
+        expect(previewStepForEvent([], 'a')).toBeNull()
+    })
+
+    it('should skip replay-only matches', () => {
+        expect(previewStepForEvent([mk(0, true, ['r'])], 'r')).toBeNull()
+    })
+})
+
+describe('shouldShowSpeedIndicator', () => {
+    it('should show it for the viewer\'s own speed changes', () => {
+        expect(shouldShowSpeedIndicator(false, 1000, 0)).toBe(true)
+    })
+    it('should hide it during the preview', () => {
+        expect(shouldShowSpeedIndicator(true, 1000, 0)).toBe(false)
+    })
+    it('should hide it while the preview\'s own rate change settles', () => {
+        expect(shouldShowSpeedIndicator(false, 1000, 1200)).toBe(false)
+        expect(shouldShowSpeedIndicator(false, 1300, 1200)).toBe(true)
     })
 })

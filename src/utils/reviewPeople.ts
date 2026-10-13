@@ -28,7 +28,7 @@ export function peopleOpen(p: PeopleState): boolean {
 }
 
 export function peopleCandidates(p: PeopleState, teams: Team[]): string[] {
-    return p.pk ? scorerCandidates(p.pk, { teams }) : []
+    return p.pk ? scorerCandidates(p.pk, { teams, touch: false }) : []
 }
 
 /** The scorer in the assist list: shown, dimmed, not selectable. */
@@ -45,7 +45,7 @@ export function stepPeople(p: PeopleState, input: PickerInput, teams: Team[]): P
     if (!p.pk) return p
     // On the card every person step is optional: Tab, or Enter on an empty field, ends them (the picker's Enter would pick the first name).
     if (input.kind === 'key' && (input.key === 'Tab' || (input.key === 'Enter' && !p.pk.query.trim()))) return { ...p, pk: { ...p.pk, step: 'text' } }
-    const r = pickerReducer(p.pk, input, { teams })
+    const r = pickerReducer(p.pk, input, { teams, touch: false })
     let next: PeopleState = { ...p, pk: r.state }
     for (const fx of r.effects) {
         if (fx.kind === 'update') {

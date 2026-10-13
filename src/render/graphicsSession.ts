@@ -139,7 +139,7 @@ export class GraphicsSession {
      * key already dropped), `cutEnd` the end of its last frame. GOPs under an overlay are decoded, painted and
      * re-encoded; the rest are passed through. A span that fails is passed through unchanged and reported.
      */
-    async overlayCut(src: GraphicsSource, packets: EncodedPacket[], cutEnd: number, overlays: RenderOverlay[]): Promise<OverlayResult> {
+    async overlayCut(src: GraphicsSource, packets: EncodedPacket[], cutEnd: number, overlays: RenderOverlay[], onSpan?: (s: { outStart: number; outEnd: number; windowSec: number }) => void): Promise<OverlayResult> {
         const keyIdx: number[] = []
         packets.forEach((p, i) => { if (p.type === 'key') keyIdx.push(i) })
         const gops: Gop[] = keyIdx.map((k, g) => {
@@ -152,6 +152,7 @@ export class GraphicsSession {
         const result: OverlayResult = { items: [], applied: [], skipped: [] }
         const replaced = new Map<number, { span: ReencodeSpan; packets: EncodedPacket[] }>()
         for (const span of spans) {
+            onSpan?.({ outStart: span.outStart, outEnd: span.outEnd, windowSec: span.windows.reduce((a, [x, y]) => a + (y - x), 0) })
             const mine = overlays.filter((o) => span.windows.some(([a, b]) => o.startSec < b && o.startSec + o.durationSec > a))
             try {
                 const out = await this.reencodeSpan(src, packets, keyIdx, span, mine)

@@ -18,7 +18,7 @@ import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/hig
 import { relinkEvents as relinkByKey, linkedEvents } from './utils/relink'
 import { kickOffSec, resolveGlobalEvents, withMigratedKickOff } from './utils/matchClock'
 import { parseGoProName } from './utils/gopro'
-import { buildPreviewPlan, clipStep, type PreviewStep } from './utils/preview'
+import { buildPreviewPlan, clipStep, previewStepForEvent, type PreviewStep } from './utils/preview'
 import { normaliseGraphics, type GraphicsSettings } from './graphics/plan'
 
 const DEFAULT_GRAPHICS: GraphicsSettings = { cards: true, lowerThirds: true, replayTag: true, theme: 'shooot' }
@@ -55,6 +55,8 @@ type AppState = {
     /** Clips and their replays, in reel order; `currentPreviewSegment` indexes these. */
     previewSteps: PreviewStep[]
     currentPreviewSegment: number
+    /** Bumped by every jump, so jumping to the step already playing restarts it. Not persisted. */
+    previewJumpTick: number
     setFiles: (files: VideoSourceFile[]) => void
     addFiles: (files: VideoSourceFile[]) => void
     moveFile: (from: number, to: number) => void
@@ -100,6 +102,10 @@ type AppState = {
     exitPreview: () => void
     nextPreviewSegment: () => void
     prevPreviewSegment: () => void
+    /** Play the given preview step from its start (also when it is the one already playing). */
+    jumpToPreviewStep: (index: number) => void
+    /** During the preview: jump to the clip of an event. False (nothing done) when not previewing or the event isn't in the reel. */
+    jumpToPreviewEvent: (eventId: string) => boolean
     /** Previous / next clip of the preview (its first step). */
     stepPreviewClip: (dir: 1 | -1) => void
     // Teams, rosters and the event picker
@@ -133,8 +139,10 @@ type AppState = {
     editingEventId: string | null
     /** Which part of the edit sheet is open: the event's details, or only its slow-mo replay framing. Not persisted. */
     editingView: 'details' | 'framing'
+    /** Set by editEvent(…, { focus: 'note' }); the sheet focuses that field once and clears it. Not persisted. */
+    editingFocus: 'note' | null
     /** Open the edit sheet for an event (touch: tapping a row in the event log); the Framing action opens only the framing view. */
-    editEvent: (id: string, view?: 'details' | 'framing') => void
+    editEvent: (id: string, view?: 'details' | 'framing', opts?: { focus?: 'note' }) => void
     openPanel: (panel: Panel) => void
     /** Suggested moments from Find goals (Beta), with the user's decisions. */
     suggestions: Suggestion[]
@@ -250,6 +258,7 @@ export const useAppState = create<AppState>()(
             panel: null,
             editingEventId: null,
             editingView: 'details',
+            editingFocus: null,
             immersive: false,
             playerFullscreen: false,
             barCollapsed: false,
@@ -282,6 +291,7 @@ export const useAppState = create<AppState>()(
             previewSegments: [],
             previewSteps: [],
             currentPreviewSegment: 0,
+            previewJumpTick: 0,
             setFiles: (files) => set({
                 files,
                 cumulativeOffsets: computeCumulativeOffsets(files),
@@ -573,8 +583,8 @@ export const useAppState = create<AppState>()(
             setImmersive: (on) => set({ immersive: on }),
             setPlayerFullscreen: (on) => { if (get().playerFullscreen !== on) set({ playerFullscreen: on }) },
             setBarCollapsed: (collapsed) => set({ barCollapsed: collapsed }),
-            editEvent: (id, view = 'details') => {
-                if (get().events.some((e) => e.id === id)) set({ panel: 'event', editingEventId: id, editingView: view, picker: null, returnTo: nextReturnTo(get().panel, get().returnTo, 'event') })
+            editEvent: (id, view = 'details', opts) => {
+                if (get().events.some((e) => e.id === id)) set({ panel: 'event', editingEventId: id, editingView: view, editingFocus: opts?.focus ?? null, picker: null, returnTo: nextReturnTo(get().panel, get().returnTo, 'event') })
             },
             openPanel: (panel) => set({ panel, picker: null, returnTo: nextReturnTo(get().panel, get().returnTo, panel) }),
             setSuggestions: (run, moments) => {
@@ -670,6 +680,19 @@ export const useAppState = create<AppState>()(
             stepPreviewClip: (dir) => {
                 const state = get()
                 if (state.isPreviewMode) set({ currentPreviewSegment: clipStep(state.previewSteps, state.currentPreviewSegment, dir) })
+            },
+            jumpToPreviewStep: (index) => {
+                const state = get()
+                if (!state.isPreviewMode || !state.previewSteps[index]) return
+                set({ currentPreviewSegment: index, previewJumpTick: state.previewJumpTick + 1 })
+            },
+            jumpToPreviewEvent: (eventId) => {
+                const state = get()
+                if (!state.isPreviewMode) return false
+                const i = previewStepForEvent(state.previewSteps, eventId)
+                if (i === null) return false
+                state.jumpToPreviewStep(i)
+                return true
             },
             prevPreviewSegment: () => {
                 const state = get()

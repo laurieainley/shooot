@@ -14,6 +14,11 @@ export function laneCounts(suggestions: readonly Suggestion[]): { all: number; t
     return { all: suggestions.length, top, other: suggestions.length - top }
 }
 
+/** Like `laneCounts`, but only suggestions still to review: the lane buttons show what is left. */
+export function remainingCounts(suggestions: readonly Suggestion[], eventIds: ReadonlySet<string>): { all: number; top: number; other: number } {
+    return laneCounts(suggestions.filter((s) => effectiveStatus(s, eventIds) === 'pending'))
+}
+
 /** 0-based position of a suggestion within the lane; -1 when it is not in it. */
 export function positionInLane(suggestions: readonly Suggestion[], lane: Lane, index: number): number {
     const s = suggestions[index]

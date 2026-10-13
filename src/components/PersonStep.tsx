@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from 'react'
+import { useState, type KeyboardEvent } from 'react'
 
 interface PersonStepProps {
     /** Accessible name of the field: "Scorer", "Assist", "Own goal by"… */
@@ -18,10 +18,47 @@ interface PersonStepProps {
     isDisabled?: (name: string) => boolean
     /** Only for hosts that handle keys on the field itself (the event picker listens on the window instead). */
     onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void
+    /** Touch: tappable name chips instead of a typed field (the field opens only for "+ New name"). */
+    chips?: boolean
+    /** Chips only: the skip button ("Skip", "No assist"); without `onSkip` there is none. */
+    skipLabel?: string
+    onSkip?: () => void
+    /** Chips only: show the step's name ("Scorer", "Assist") above the chips, for hosts with no header of their own. */
+    showLabel?: boolean
 }
 
 /** The optional person step shared by the event picker and the review card: a field that filters the team roster, plus the matching names. */
-export function PersonStep({ label, placeholder, query, candidates, highlighted, showHighlight, autoFocus, onQuery, onChoose, isDisabled, onKeyDown }: PersonStepProps) {
+export function PersonStep(props: PersonStepProps) {
+    return props.chips ? <PersonChips {...props} /> : <PersonTyped {...props} />
+}
+
+/** Touch: the team's roster as chips (44 px targets), + New name for a typed one, and a skip button. */
+function PersonChips({ label, placeholder, query, candidates, onQuery, onChoose, isDisabled, onKeyDown, skipLabel = 'Skip', onSkip, showLabel }: PersonStepProps) {
+    const [typing, setTyping] = useState(false)
+    const names = [...candidates].sort((a, b) => a.localeCompare(b))
+    const typed = query.trim()
+    return (
+        <div className="person-chips">
+            {showLabel && <p className="person-chips__label" aria-hidden="true">{label}</p>}
+            <div className="person-chips__list" role="group" aria-label={label}>
+                {names.map((n) => (
+                    <button key={n} type="button" className="person-chip" disabled={isDisabled?.(n) ?? false} onClick={() => onChoose(n)}>{n}</button>
+                ))}
+                {!typing && <button type="button" className="person-chip person-chip--new" onClick={() => setTyping(true)}>+ New name</button>}
+                {onSkip && <button type="button" className="person-chip person-chip--skip" onClick={onSkip}>{skipLabel}</button>}
+            </div>
+            {typing && (
+                <div className="person-chips__new">
+                    <input autoFocus aria-label={label} className="event-picker__input" placeholder={placeholder} value={query} enterKeyHint="done" autoComplete="off"
+                        onChange={(e) => onQuery(e.target.value)} onKeyDown={onKeyDown} />
+                    <button type="button" className="btn-primary person-chips__add" disabled={!typed} onClick={() => onChoose(typed)}>Add</button>
+                </div>
+            )}
+        </div>
+    )
+}
+
+function PersonTyped({ label, placeholder, query, candidates, highlighted, showHighlight, autoFocus, onQuery, onChoose, isDisabled, onKeyDown }: PersonStepProps) {
     return (
         <div className="event-picker__person">
             <input

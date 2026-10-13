@@ -458,6 +458,30 @@ describe('preview', () => {
         expect(s().previewSteps.map((p) => [p.clipIndex, p.replay, p.speed])).toEqual([[0, false, 1], [0, true, 0.5], [1, false, 1]])
     })
 
+    it('should jump to a step, and to the clip of an event, without leaving the preview', () => {
+        s().startPreview()
+        s().jumpToPreviewStep(2)
+        expect(s().isPreviewMode).toBe(true)
+        expect(s().currentPreviewSegment).toBe(2)
+        s().jumpToPreviewStep(99)
+        expect(s().currentPreviewSegment).toBe(2)
+        expect(s().jumpToPreviewEvent('g')).toBe(true)
+        expect(s().currentPreviewSegment).toBe(0)
+        expect(s().jumpToPreviewEvent('nope')).toBe(false)
+        expect(s().isPreviewMode).toBe(true)
+    })
+
+    it('should not jump when not previewing', () => {
+        expect(s().jumpToPreviewEvent('g')).toBe(false)
+    })
+
+    it('should restart the step when jumping to the one already playing', () => {
+        s().startPreview()
+        const before = s().previewJumpTick
+        s().jumpToPreviewStep(0)
+        expect(s().previewJumpTick).toBe(before + 1)
+    })
+
     it('should start again from the first clip every time', () => {
         s().startPreview()
         s().nextPreviewSegment()

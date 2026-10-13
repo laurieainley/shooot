@@ -1,5 +1,6 @@
 import type { DiagnosticsReport } from './diagnostics'
 import type { ReencodeQuality } from './transcodePlan'
+import type { PipelineStats, RenderExperiments } from './experiments'
 export type Cut = {
     sourceIndex: number
     startSec: number
@@ -103,6 +104,10 @@ export type RenderOptions = {
      * identifies the render (plan, sources, graphics): a saved job with another signature is discarded.
      */
     resumable?: { signature: string; kind: 'highlights' | 'fullMatch' }
+    /** Benchmarks only: opt-in speed-up experiments (see experiments.ts). Omitted = production behaviour. */
+    experiments?: RenderExperiments
+    /** Benchmarks: called at the end of a render with cheap counters (re-encode time breakdown, re-encoded spans). */
+    onStats?: (stats: PipelineStats | Record<string, unknown>) => void
     /**
      * Re-encode the whole render to H.264 at this quality instead of stream copying (Full match "4K" / "1080p"): graphics are
      * drawn into the frames as they are encoded. Omitted = stream copy ("Original").

@@ -169,6 +169,63 @@ describe('MatchStrip', () => {
         expect(useAppState.getState().panel).toBe('review')
     })
 
+    describe('touch scrubbing over event icons', () => {
+        // Track mocked at 0..1000 x 0..40; the goal 'a' (file 2, 100 s of 1000 s) sits at x = 700, lane 0, icon 16 px (no coarse query in tests):
+        // the icon box is 692..708 x 40-11-18 .. 40-11-2 = 11..27.
+        const dot = (): HTMLElement => screen.getByRole('button', { name: /Goal – Colours/ })
+        it('should not let an icon capture a touch press: a drag that starts on it scrubs', () => {
+            render(<MatchStrip />)
+            mockRect(track())
+            fireEvent.pointerDown(dot(), { clientX: 700, clientY: 20, pointerId: 1, pointerType: 'touch' })
+            fireEvent.pointerMove(track(), { clientX: 300, clientY: 20, pointerId: 1, pointerType: 'touch' })
+            fireEvent.pointerUp(track(), { clientX: 300, clientY: 20, pointerId: 1, pointerType: 'touch' })
+            expect(seekToGoal).toHaveBeenCalledTimes(1)
+            expect(seekToGoal).toHaveBeenLastCalledWith(0, 300)
+        })
+        it('should jump to the event on a short touch tap that lands on the icon itself', () => {
+            render(<MatchStrip />)
+            mockRect(track())
+            fireEvent.pointerDown(dot(), { clientX: 701, clientY: 20, pointerId: 1, pointerType: 'touch' })
+            fireEvent.pointerUp(track(), { clientX: 701, clientY: 20, pointerId: 1, pointerType: 'touch' })
+            expect(seekToGoal).toHaveBeenCalledTimes(1)
+            expect(seekToGoal).toHaveBeenLastCalledWith(1, 90) // the clip start, as a click does
+        })
+        it('should seek to the tapped point when the tap is beside the icon, not in its box', () => {
+            render(<MatchStrip />)
+            mockRect(track())
+            fireEvent.pointerDown(track(), { clientX: 716, clientY: 20, pointerId: 1, pointerType: 'touch' })
+            fireEvent.pointerUp(track(), { clientX: 716, clientY: 20, pointerId: 1, pointerType: 'touch' })
+            expect(seekToGoal).toHaveBeenLastCalledWith(1, 116)
+            seekToGoal.mockClear()
+            fireEvent.pointerDown(track(), { clientX: 700, clientY: 33, pointerId: 1, pointerType: 'touch' }) // below the icon box
+            fireEvent.pointerUp(track(), { clientX: 700, clientY: 33, pointerId: 1, pointerType: 'touch' })
+            expect(seekToGoal).toHaveBeenLastCalledWith(1, 100)
+        })
+        it('should treat a pen like touch', () => {
+            render(<MatchStrip />)
+            mockRect(track())
+            fireEvent.pointerDown(dot(), { clientX: 700, clientY: 20, pointerId: 1, pointerType: 'pen' })
+            fireEvent.pointerUp(track(), { clientX: 700, clientY: 20, pointerId: 1, pointerType: 'pen' })
+            expect(seekToGoal).toHaveBeenLastCalledWith(1, 90)
+        })
+        it('should not double-seek from the click that follows a touch tap on the icon', () => {
+            render(<MatchStrip />)
+            mockRect(track())
+            fireEvent.pointerDown(dot(), { clientX: 700, clientY: 20, pointerId: 1, pointerType: 'touch' })
+            fireEvent.pointerUp(track(), { clientX: 700, clientY: 20, pointerId: 1, pointerType: 'touch' })
+            fireEvent.click(dot())
+            expect(seekToGoal).toHaveBeenCalledTimes(1)
+        })
+        it('should keep the mouse as it was: pressing an icon clicks it', () => {
+            render(<MatchStrip />)
+            mockRect(track())
+            fireEvent.pointerDown(dot(), { clientX: 700, clientY: 20, pointerId: 1, pointerType: 'mouse' })
+            expect(seekToGoal).not.toHaveBeenCalled() // the press on a button is left to its click
+            fireEvent.click(dot())
+            expect(seekToGoal).toHaveBeenCalledWith(1, 90)
+        })
+    })
+
     describe('suggestion rings and scrubbing', () => {
         beforeEach(() => {
             useAppState.setState({ panel: null, reviewIndex: 5, suggestionRun: null, suggestions: [{ id: 's1', globalTimeSec: 120, score: 1, source: 'audio', status: 'pending' }] })

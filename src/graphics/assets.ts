@@ -5,6 +5,9 @@ export const DEFAULT_LOGO_URLS = ['/brand/tnf-logo.webp', '/brand/tnf-logo.png']
 
 export const WORDMARK_URL = '/brand/shooot-wordmark.svg'
 
+/** The page's font set, or a worker's (the bench renders in a worker too). */
+const fontSet = (): FontFaceSet => (typeof document !== 'undefined' ? document.fonts : (globalThis as unknown as { fonts: FontFaceSet }).fonts)
+
 const fontLoads = new Map<ThemeId, Promise<boolean>>()
 
 /** Loads the theme's bundled fonts (only that theme's); resolves false if any could not be loaded (fallbacks are used). */
@@ -14,7 +17,7 @@ export function loadGraphicsFont(theme: GraphicsTheme = getTheme(DEFAULT_THEME_I
         load = (async () => {
             try {
                 const faces = theme.fonts.map((f) => new FontFace(f.family, `url(${f.url}) format('woff2')`, f.unicodeRange ? { unicodeRange: f.unicodeRange } : {}))
-                for (const f of faces) document.fonts.add(f)
+                for (const f of faces) fontSet().add(f)
                 await Promise.all(faces.map((f) => f.load()))
                 return true
             } catch (e) {
@@ -44,7 +47,7 @@ export function settleWithin(work: Promise<unknown>, ms: number): Promise<boolea
 export async function ensureGraphicsFonts(theme: GraphicsTheme = getTheme(DEFAULT_THEME_ID), timeoutMs = 8000): Promise<boolean> {
     const ok = await settleWithin((async () => {
         if (!(await loadGraphicsFont(theme))) throw new Error('graphics fonts unavailable')
-        await Promise.all(theme.fontChecks.map((spec) => document.fonts.load(spec, theme.glyphs)))
+        await Promise.all(theme.fontChecks.map((spec) => fontSet().load(spec, theme.glyphs)))
     })(), timeoutMs)
     if (!ok) fontLoads.delete(theme.id)
     return ok

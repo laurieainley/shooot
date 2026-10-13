@@ -42,6 +42,16 @@ describe('attachPictureGestures', () => {
         expect(click.defaultPrevented).toBe(false)
     })
 
+    it('should not pan or pinch from inside a column panel shown over the picture (fullscreen review)', () => {
+        z.zoom = 2
+        const panel = document.createElement('div')
+        panel.className = 'column-panel'
+        el.appendChild(panel)
+        fire(panel, 'pointerdown', 1, 100, 100)
+        fire(window, 'pointermove', 1, 160, 100)
+        expect(z.panBy).not.toHaveBeenCalled()
+    })
+
     it('should not pan with one finger when not zoomed in', () => {
         fire(el, 'pointerdown', 1, 100, 100)
         fire(window, 'pointermove', 1, 160, 100)
@@ -59,5 +69,25 @@ describe('attachPictureGestures', () => {
         vi.mocked(z.panBy).mockClear()
         fire(window, 'pointermove', 1, 90, 95)
         expect(z.panBy).toHaveBeenLastCalledWith(-10, -5)
+    })
+
+    it('should ignore wheel, pinch and drag while locked', () => {
+        detach()
+        let locked = true
+        detach = attachPictureGestures(el, () => z, () => locked)
+        z.zoom = 2
+        const wheel = new WheelEvent('wheel', { deltaY: -50, bubbles: true, cancelable: true })
+        el.dispatchEvent(wheel)
+        expect(z.panBy).not.toHaveBeenCalled()
+        expect(wheel.defaultPrevented).toBe(false)
+        fire(el, 'pointerdown', 1, 100, 100)
+        fire(el, 'pointerdown', 2, 200, 100)
+        fire(window, 'pointermove', 2, 300, 100)
+        fire(window, 'pointermove', 1, 90, 95)
+        expect(z.pinchTo).not.toHaveBeenCalled()
+        expect(z.panBy).not.toHaveBeenCalled()
+        locked = false
+        el.dispatchEvent(new WheelEvent('wheel', { deltaY: -50, bubbles: true, cancelable: true }))
+        expect(z.panBy).toHaveBeenCalled()
     })
 })

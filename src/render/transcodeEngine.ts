@@ -6,14 +6,16 @@
 // SEGMENT_SEC of output, full-time card); each finished unit is a packet log in OPFS and the job is saved in IndexedDB.
 // Every unit starts with a key frame from its own encoder, so units join anywhere. An interrupted render loses at
 // most the unit in progress (about two minutes of output).
+import { emptyStats, type UnitDescriptor } from './experiments'
 import { EncodedAudioPacketSource, EncodedPacket, EncodedPacketSink, EncodedVideoPacketSource, Mp4OutputFormat, Output, VideoSampleSink, type VideoSample } from 'mediabunny'
 import { RenderDiagnostics, errorInfo } from './diagnostics'
+import type { LogRecord } from './packetLog'
 import { clipPartSeconds, replayPartAfter } from './captionJoin'
 import { planAudio } from './audioPlan'
 import { nominalFrameRate } from './frameGrid'
 import { muxUnits } from './muxUnits'
 import { coverRect } from './outputSize'
-import { canJournal, discardJob, loadJob, openUnit, saveJob, type JobState, type UnitWriter } from './renderJob'
+import { canJournal, discardJob, loadJob, openUnit, readUnit, saveJob, type JobState, type UnitWriter } from './renderJob'
 import { GlScaler, isDownscale, probeDirectScale } from './downscale'
 import { encodeReplayAudio } from './replayAudio'
 import { makeSilentAudio, type SilentAudio } from './silentAudio'
@@ -32,6 +34,9 @@ const OUTPUT_NAME = 'highlights.mp4'
 const errorText = (e: unknown): string => (e instanceof Error ? e.message : String(e))
 const isAbort = (e: unknown): boolean => e instanceof DOMException && e.name === 'AbortError'
 
+/** What one unit draws on: normally the engine's single canvas and WebGL scaler; parallel units (experiment) each get their own. */
+type UnitEnv = { canvas: OffscreenCanvas; ctx: OffscreenCanvasRenderingContext2D; gl: GlScaler | null; writer: UnitWriter | null; cancelled: boolean }
+
 type Unit = { kind: 'intro' } | { kind: 'outro' } | { kind: 'segment'; segment: Segment }
 
 /** Frame bookkeeping for the diagnostics: every VideoFrame the engine made must be closed again. */
@@ -44,6 +49,10 @@ class FrameCount {
 
 export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opts: RenderOptions, diag: RenderDiagnostics): Promise<File | Blob> {
     const out = opts.output!
+    const exp = opts.experiments
+    const stats = emptyStats()
+    const perfStart = performance.now()
+    const now = (): number => performance.now()
     const { onProgress, signal } = opts
     const outputName = opts.outputName ?? OUTPUT_NAME
     if (cuts.length === 0) throw new Error('Nothing to render')
@@ -56,7 +65,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         diag.graphicSkipped(label, reason, error)
     }
     const frames = new FrameCount()
-    let gl: GlScaler | null = null
+    let gl0: GlScaler | null = null
     const used = new Set(cuts.map((c) => c.sourceIndex))
     const opened: OpenSource[] = []
     try {
@@ -81,10 +90,18 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         const keyFrames = keyEvery(frameSec, 2)
         diag.outputSize(W, H)
         diag.note(`Re-encode ${out.quality}: ${W}x${H} at ${fps.toFixed(3)} fps (source ~${nominal.toFixed(2)} fps), ${(out.videoBitrate / 1e6).toFixed(1)} Mbps, key frame every ${keyFrames} frames`)
-        let encoder: H264Encoder | null = await pickH264Encoder(W, H, out.videoBitrate, fps)
+        /** Experiment 7: the encoder's latency mode (the default config says 'quality'). */
+        const tuned = async (e: H264Encoder | null): Promise<H264Encoder | null> => {
+            if (!e || !exp?.latencyMode || e.config.latencyMode === exp.latencyMode) return e
+            const config = { ...e.config, latencyMode: exp.latencyMode }
+            const r = await VideoEncoder.isConfigSupported(config).catch(() => ({ supported: false }))
+            if (!r.supported) throw new Error(`this browser's encoder does not support latencyMode '${exp.latencyMode}'`)
+            return { ...e, config }
+        }
+        let encoder: H264Encoder | null = await tuned(await pickH264Encoder(W, H, out.videoBitrate, fps))
         if (!encoder) throw new Error(`this browser cannot encode H.264 at ${W}×${H}`)
         diag.finalEncoder(encoder.config)
-        diag.note(`Video encoder: ${encoder.config.codec}, hardwareAcceleration ${encoder.hardware}`)
+        diag.note(`Video encoder: ${encoder.config.codec}, hardwareAcceleration ${encoder.hardware}, latencyMode ${encoder.config.latencyMode}`)
 
         // Scaling a 4K frame down: the 2D canvas is very slow in WebKit, so prefer the encoder (frames without graphics) and WebGL (with).
         const srcW = first.video.displayWidth
@@ -97,8 +114,8 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         else {
             const p = await probeDirectScale(encoder.config, srcW, srcH)
             directScale = p.ok
-            gl = GlScaler.create(W, H)
-            diag.note(`Scale path: ${p.ok ? 'encoder scales plain frames' : `${gl ? 'WebGL' : '2D canvas'} for plain frames (encoder scaling unusable: ${p.reason})`}; ${gl ? 'WebGL for frames with graphics' : '2D canvas for frames with graphics (no WebGL2)'}`)
+            gl0 = GlScaler.create(W, H)
+            diag.note(`Scale path: ${p.ok ? 'encoder scales plain frames' : `${gl0 ? 'WebGL' : '2D canvas'} for plain frames (encoder scaling unusable: ${p.reason})`}; ${gl0 ? 'WebGL for frames with graphics' : '2D canvas for frames with graphics (no WebGL2)'}`)
         }
 
         // Which cuts exist (a cut outside its file is dropped), and where graphics attach.
@@ -111,7 +128,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         })
         if (valid.length === 0) throw new Error('Nothing to render: every cut is outside its file')
         const planCuts = valid.map((v) => v.cut)
-        const segments = planSegments(planCuts, frameSec, Math.round(SEGMENT_SEC / frameSec))
+        const segments = planSegments(planCuts, frameSec, Math.round((exp?.segmentSec ?? SEGMENT_SEC) / frameSec))
         const units: Unit[] = [{ kind: 'intro' }, ...segments.map((segment): Unit => ({ kind: 'segment', segment })), { kind: 'outro' }]
         const cardFrames = (c: RenderCard | undefined): number => (c ? Math.max(1, Math.round(c.durationSec / frameSec)) : 0)
 
@@ -225,7 +242,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         }
         let direct: { output: Output; vOut: EncodedVideoPacketSource; aOut: EncodedAudioPacketSource | null; result: () => Promise<File | Blob>; discard: () => Promise<void> } | null = null
         if (!journal) {
-            const { target, result, discard } = await makeTarget(outputName)
+            const { target, result, discard } = await makeTarget(outputName, exp?.targetFile)
             const output = new Output({ format: new Mp4OutputFormat({ fastStart: false }), target })
             const vOut = new EncodedVideoPacketSource('avc')
             output.addVideoTrack(vOut)
@@ -234,28 +251,31 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             await output.start()
             direct = { output, vOut, aOut, result, discard }
         }
-        let unitWriter: UnitWriter | null = null
         let vFirst = true
         let aFirst = true
-        const emitVideo = async (p: EncodedPacket): Promise<void> => {
-            if (unitWriter) await unitWriter.write({ track: 0, key: p.type === 'key', timestamp: p.timestamp, duration: p.duration, data: p.data })
+        const emitVideo = async (env: UnitEnv, p: EncodedPacket): Promise<void> => {
+            if (env.writer) await env.writer.write({ track: 0, key: p.type === 'key', timestamp: p.timestamp, duration: p.duration, data: p.data })
             else { await direct!.vOut.add(p, vFirst ? { decoderConfig: vConfig! } : undefined); vFirst = false }
         }
-        const emitAudio = async (p: EncodedPacket): Promise<void> => {
-            if (unitWriter) await unitWriter.write({ track: 1, key: true, timestamp: p.timestamp, duration: p.duration, data: p.data })
+        const emitAudio = async (env: UnitEnv, p: EncodedPacket): Promise<void> => {
+            if (env.writer) await env.writer.write({ track: 1, key: true, timestamp: p.timestamp, duration: p.duration, data: p.data })
             else { await direct!.aOut!.add(p, aFirst ? { decoderConfig: aConfig! } : undefined); aFirst = false }
         }
 
-        const canvas = new OffscreenCanvas(W, H)
-        const ctx = canvas.getContext('2d')
-        if (!ctx) throw new Error('no 2D canvas')
-        ctx.imageSmoothingEnabled = true
-        ctx.imageSmoothingQuality = 'high'
+        const makeEnv = (scaler: GlScaler | null): UnitEnv => {
+            const canvas = new OffscreenCanvas(W, H)
+            const ctx = canvas.getContext('2d')
+            if (!ctx) throw new Error('no 2D canvas')
+            ctx.imageSmoothingEnabled = true
+            ctx.imageSmoothingQuality = 'high'
+            return { canvas, ctx, gl: scaler, writer: null, cancelled: false }
+        }
+        const mainEnv = makeEnv(gl0)
         const durUs = Math.round(frameSec * 1e6)
         const tsUs = (frame: number): number => Math.round(frame * frameSec * 1e6)
 
         /** One encoder session for a unit: `produce` hands over frames; finished packets go to the writer in order. */
-        const encodeUnit = async (produce: (encode: (frame: VideoFrame, key: boolean) => Promise<void>) => Promise<void>): Promise<void> => {
+        const encodeUnit = async (env: UnitEnv, produce: (encode: (frame: VideoFrame, key: boolean) => Promise<void>) => Promise<void>): Promise<void> => {
             const pending: EncodedPacket[] = []
             let failure: unknown = null
             const failed = new AbortController()
@@ -281,16 +301,21 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 } else if (description && !sameBytes(vConfig.description as Uint8Array | undefined, description)) {
                     throw new Error('the encoder changed its profile or level since the render was saved: discard the saved render and start again')
                 }
-                while (pending.length) await emitVideo(pending.shift()!)
+                while (pending.length) await emitVideo(env, pending.shift()!)
             }
             try {
                 enc.configure(encoder!.config)
                 await produce(async (frame, key) => {
                     if (failure) { frames.close(frame); throw failure }
+                    const t1 = now()
                     try { enc.encode(frame, { keyFrame: key }) } finally { frames.close(frame) }
-                    await waitForQueue(enc, 3, failed.signal)
+                    const t2 = now()
+                    await waitForQueue(enc, exp?.encodeQueue ?? 3, failed.signal)
+                    const t3 = now()
                     if (failure) throw failure
                     await drain()
+                    const t4 = now()
+                    stats.frames++; stats.encodeCallMs += t2 - t1; stats.backpressureMs += t3 - t2; stats.drainMs += t4 - t3
                 })
                 await enc.flush()
                 if (failure) throw failure
@@ -302,7 +327,8 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
 
         const reportProgress = (stage?: string): void => onProgress({ cutIndex: 0, cutCount: cuts.length, fraction: (meter.set(done), meter.fraction()), ...(stage ? { stage } : {}) })
         const failedOverlays = new Set<RenderOverlay>()
-        const paintOverlays = (active: RenderOverlay[], tSrc: number): void => {
+        const paintOverlays = (env: UnitEnv, active: RenderOverlay[], tSrc: number): void => {
+            const ctx = env.ctx
             for (const o of active) {
                 if (failedOverlays.has(o)) continue
                 ctx.save()
@@ -311,7 +337,8 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         }
 
         // ---- cards ----
-        const runCard = async (card: RenderCard, stage: string): Promise<void> => {
+        const runCard = async (env: UnitEnv, card: RenderCard, stage: string): Promise<void> => {
+            const { canvas, ctx } = env
             const n = cardFrames(card)
             const paintAt = (t: number): void => {
                 ctx.save()
@@ -327,7 +354,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             const startFrame = cursorFrames
             const frameW = (card === g?.intro ? work.sections[0] : work.sections[work.sections.length - 1]).seconds / n
             try {
-                await encodeUnit(async (encode) => {
+                await encodeUnit(env, async (encode) => {
                     for (let i = 0; i < n; i++) {
                         if (signal?.aborted) throw new DOMException('Render cancelled', 'AbortError')
                         if (still && card.fade) {
@@ -347,17 +374,17 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             }
             report.applied.push(card.label)
             diag.graphicApplied(card.label)
-            if (hasAudio) for (const p of (await silencePackets(n * frameSec)) ?? []) await emitAudio(p.clone({ timestamp: startFrame * frameSec + p.timestamp }))
+            if (hasAudio) for (const p of (await silencePackets(n * frameSec)) ?? []) await emitAudio(env, p.clone({ timestamp: startFrame * frameSec + p.timestamp }))
             cursorFrames += n
         }
 
         // ---- footage segments ----
-        const runSegment = async (seg: Segment): Promise<void> => {
+        const runSegment = async (env: UnitEnv, seg: Segment, startFrame: number, parallel = false): Promise<void> => {
+            const { canvas, ctx } = env
             const v = valid[seg.cutIndex]
             const cut = v.cut
             const src = opened[cut.sourceIndex]
             const speed = cut.speed ?? 1
-            const startFrame = cursorFrames
             const a = sourceTimeOf(cut, seg.firstFrame, frameSec)
             const b = sourceTimeOf(cut, seg.firstFrame + seg.frames, frameSec)
             const overlays = resolved.get(v.ci) ?? []
@@ -369,7 +396,9 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             const baseFrameW = (sec.seconds - paintW) / cutFrames(cut, frameSec)
             const paintFrameW = paintW / Math.max(1, sec.units.paintSec / frameSec)
             const sink = new VideoSampleSink(src.video)
-            const iterator = sink.samples(a)[Symbol.asyncIterator]()
+            const plainIterator = sink.samples(a)[Symbol.asyncIterator]()
+            // Experiment 9: read decoded pictures ahead of the painting/encoding loop.
+            const iterator = (exp?.decodeAhead ?? 0) > 0 ? readAhead(plainIterator, exp!.decodeAhead!) : plainIterator
             let cur: VideoSample | null = null
             let next: VideoSample | null = null
             let ended = false
@@ -385,11 +414,14 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 }
             }
             try {
-                await encodeUnit(async (encode) => {
+                await encodeUnit(env, async (encode) => {
                     for (let j = 0; j < seg.frames; j++) {
-                        if (signal?.aborted) throw new DOMException('Render cancelled', 'AbortError')
+                        if (signal?.aborted || env.cancelled) throw new DOMException('Render cancelled', 'AbortError')
                         const tSrc = a + j * frameSec * speed
+                        const tDec = now()
                         await advance(tSrc)
+                        const tPaint = now()
+                        stats.decodeWaitMs += tPaint - tDec
                         const s = cur as VideoSample | null
                         if (!s) throw new Error(`${sources[cut.sourceIndex].name}: no picture at ${a.toFixed(1)} s`)
                         const active = overlays.filter((o) => !failedOverlays.has(o) && tSrc >= o.startSec - 1e-6 && tSrc < o.startSec + o.durationSec)
@@ -407,11 +439,11 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                         } else {
                             const r = coverRect(dw, dh, W, H, cut.crop)
                             let viaGl = false
-                            if (gl && s.rotation === 0 && dw >= W * 1.4 && dh >= H * 1.4) {
+                            if (env.gl && s.rotation === 0 && dw >= W * 1.4 && dh >= H * 1.4) {
                                 const f = s.toVideoFrame()
-                                try { gl.draw(f, r.sx, r.sy, r.sw, r.sh); ctx.drawImage(gl.canvas, 0, 0); viaGl = true } catch (e) {
+                                try { env.gl.draw(f, r.sx, r.sy, r.sw, r.sh); ctx.drawImage(env.gl.canvas, 0, 0); viaGl = true } catch (e) {
                                     diag.note(`WebGL scaling failed (${errorText(e)}); using the 2D canvas from here`)
-                                    gl.dispose(); gl = null
+                                    env.gl.dispose(); env.gl = null
                                 } finally { f.close() }
                             }
                             if (viaGl) scaled.webgl++
@@ -420,10 +452,11 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                                 if (r.sx === 0 && r.sy === 0 && Math.abs(r.sw - dw) < 1e-6 && Math.abs(r.sh - dh) < 1e-6) s.draw(ctx, 0, 0, W, H)
                                 else s.draw(ctx, r.sx, r.sy, r.sw, r.sh, 0, 0, W, H)
                             }
-                            paintOverlays(active, tSrc)
+                            paintOverlays(env, active, tSrc)
                             for (const o of active) if (!failedOverlays.has(o) && o.label && !report.applied.includes(o.label)) { report.applied.push(o.label); diag.graphicApplied(o.label) }
                             frame = frames.make(new VideoFrame(canvas, { timestamp: tsUs(startFrame + j), duration: durUs }))
                         }
+                        stats.paintMs += now() - tPaint
                         await encode(frame, j === 0 || (seg.firstFrame + j) % keyFrames === 0)
                         done += baseFrameW + (plain ? 0 : paintFrameW)
                         if (j % 30 === 0) reportProgress()
@@ -448,7 +481,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                         packets = await silencePackets(outSec)
                     }
                 }
-                if (packets) for (const p of packets) await emitAudio(p.clone({ timestamp: startSec + p.timestamp }))
+                if (packets) for (const p of packets) await emitAudio(env, p.clone({ timestamp: startSec + p.timestamp }))
                 else {
                     const aSink = new EncodedPacketSink(src.audio!)
                     // (The first audio packet can start after the cut does, e.g. at 0.02 s when the cut starts at 0.)
@@ -457,44 +490,143 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                         for await (const p of aSink.packets(a0)) {
                             if (p.timestamp >= b - 1e-6) break
                             if (p.timestamp < a - 1e-6) continue
-                            await emitAudio(p.clone({ timestamp: startSec + (p.timestamp - a) }))
+                            await emitAudio(env, p.clone({ timestamp: startSec + (p.timestamp - a) }))
                         }
                     }
                 }
             }
             if (seg.firstFrame === 0) timings[v.ci] = cutTiming(startFrame * frameSec, cut.startSec, cut.endSec, speed)
-            cursorFrames += seg.frames
+            if (!parallel) cursorFrames += seg.frames
             copied = true
         }
 
         const runUnit = async (u: number): Promise<void> => {
             const unit = units[u]
-            if (unit.kind === 'intro') { if (g?.intro) await runCard(g.intro, 'Title card') }
+            if (unit.kind === 'intro') { if (g?.intro) await runCard(mainEnv, g.intro, 'Title card') }
             else if (unit.kind === 'outro') {
                 if (!copied) throw new Error('Nothing to render: every cut is outside its file')
-                if (g?.outro) await runCard(g.outro, g.outro.label || 'Full-time card')
+                if (g?.outro) await runCard(mainEnv, g.outro, g.outro.label || 'Full-time card')
             } else {
                 const endCut = diag.begin('cuts')
-                try { await runSegment(unit.segment) } finally { endCut() }
+                try { await runSegment(mainEnv, unit.segment, cursorFrames) } finally { endCut() }
             }
         }
 
+        // ---- experiment 2: units restored from / saved to a bench-only cache ----
+        const describeUnit = (u: number): UnitDescriptor | null => {
+            const unit = units[u]
+            if (unit.kind === 'intro') return g?.intro ? { kind: 'intro', frames: cardFrames(g.intro), startFrame: cursorFrames } : null
+            if (unit.kind === 'outro') return g?.outro ? { kind: 'outro', frames: cardFrames(g.outro), startFrame: cursorFrames } : null
+            const sg = unit.segment
+            const cut = valid[sg.cutIndex].cut
+            return {
+                kind: 'segment', cutIndex: valid[sg.cutIndex].ci, firstFrame: sg.firstFrame, frames: sg.frames, startFrame: cursorFrames,
+                sourceStartSec: sourceTimeOf(cut, sg.firstFrame, frameSec), sourceEndSec: sourceTimeOf(cut, sg.firstFrame + sg.frames, frameSec),
+            }
+        }
+        const restoreUnit = async (u: number, d: UnitDescriptor, key: string): Promise<boolean> => {
+            const hit = await exp!.unitCache!.load(key)
+            if (!hit) return false
+            const startSec = d.startFrame * frameSec
+            for await (const r of hit.records) await mainEnv.writer!.write({ ...r, timestamp: r.timestamp + startSec })
+            for (const l of hit.applied) if (!report.applied.includes(l)) { report.applied.push(l); diag.graphicApplied(l) }
+            const unit = units[u]
+            if (unit.kind === 'segment') {
+                const v = valid[unit.segment.cutIndex]
+                if (unit.segment.firstFrame === 0) timings[v.ci] = cutTiming(startSec, v.cut.startSec, v.cut.endSec, v.cut.speed ?? 1)
+                copied = true
+            }
+            // Experiment-only path: credit the reused unit's share of the work by its frame count.
+            const allFrames = units.reduce((a, x) => a + (x.kind === 'segment' ? x.segment.frames : x.kind === 'intro' ? (g?.intro ? cardFrames(g.intro) : 0) : (g?.outro ? cardFrames(g.outro) : 0)), 0)
+            done += totalWork * d.frames / Math.max(1, allFrames)
+            cursorFrames += d.frames
+            return true
+        }
+        const saveUnit = async (u: number, d: UnitDescriptor, key: string, appliedBefore: number): Promise<void> => {
+            const startSec = d.startFrame * frameSec
+            async function* rel(): AsyncGenerator<LogRecord> { for await (const r of readUnit(u)) yield { ...r, timestamp: r.timestamp - startSec } }
+            await exp!.unitCache!.save(key, rel(), report.applied.slice(appliedBefore))
+        }
+
+        // ---- experiment 1: segments encoded concurrently, each with its own decoder, encoder, canvas and WebGL scaler ----
+        const parallelN = journal && exp?.parallelUnits && exp.parallelUnits > 1 ? Math.floor(exp.parallelUnits) : 1
+        if (exp?.parallelUnits && exp.parallelUnits > 1 && !journal) diag.note('Parallel units need a resumable (journaled) render: running one unit at a time')
+        const runParallel = async (first: number, last: number): Promise<void> => {
+            let startAt = cursorFrames
+            const jobs: { u: number; start: number }[] = []
+            for (let u = first; u <= last; u++) {
+                jobs.push({ u, start: startAt })
+                startAt += (units[u] as { segment: Segment }).segment.frames
+            }
+            let next = 0
+            let failure: unknown = null
+            const envs: UnitEnv[] = []
+            const worker = async (): Promise<void> => {
+                for (;;) {
+                    const job = jobs[next++]
+                    if (!job || failure) return
+                    const env = makeEnv(mainEnv.gl ? GlScaler.create(W, H) : null)
+                    envs.push(env)
+                    const t1 = now()
+                    try {
+                        env.writer = await openUnit(job.u)
+                        const endCut = diag.begin('cuts')
+                        try { await runSegment(env, (units[job.u] as { segment: Segment }).segment, job.start, true) } finally { endCut() }
+                        await env.writer.close()
+                        env.writer = null
+                        stats.unitSpans.push({ unit: job.u, startMs: t1 - perfStart, endMs: now() - perfStart })
+                        reportProgress()
+                    } catch (e) {
+                        failure ??= e
+                        for (const o of envs) o.cancelled = true
+                        await env.writer?.abort()
+                        env.writer = null
+                    } finally {
+                        env.gl?.dispose()
+                    }
+                }
+            }
+            diag.note(`Running up to ${parallelN} units at a time`)
+            await Promise.all(Array.from({ length: Math.min(parallelN, jobs.length) }, worker))
+            if (failure) throw failure
+            cursorFrames = startAt
+        }
+
+        let pendingSave: (() => Promise<void>) | null = null
         const t0 = Date.now()
         try {
             for (let u = startUnit; u < units.length; u++) {
                 if (signal?.aborted) throw new DOMException('Render cancelled', 'AbortError')
+                if (parallelN > 1 && units[u].kind === 'segment') {
+                    let last = u
+                    while (last + 1 < units.length && units[last + 1].kind === 'segment') last++
+                    await runParallel(u, last)
+                    if (journal) await saveJob({ ...journal.state, unitsDone: last + 1, cursor: cursorFrames * frameSec, done, total: totalWork, copied, timings, report: structuredClone(report), video: vConfig })
+                    u = last
+                    reportProgress()
+                    continue
+                }
                 const snapshot = { cursorFrames, done }
+                const desc = exp?.unitCache && journal ? describeUnit(u) : null
+                const key = desc ? exp!.unitCache!.keyOf(desc) : null
+                const uStart = now()
                 for (let attempt = 0; ; attempt++) {
-                    if (journal) unitWriter = await openUnit(u)
+                    if (journal) mainEnv.writer = await openUnit(u)
                     try {
+                        if (key && desc && await restoreUnit(u, desc, key)) break
+                        const appliedBefore = report.applied.length
                         await runUnit(u)
+                        if (key && desc && journal) {
+                            // Saved after the unit's log is closed (below), only when the unit really drew all its frames.
+                            pendingSave = cursorFrames - desc.startFrame === desc.frames ? () => saveUnit(u, desc, key, appliedBefore) : null
+                        }
                         break
                     } catch (e) {
-                        await unitWriter?.abort()
-                        unitWriter = null
+                        await mainEnv.writer?.abort()
+                        mainEnv.writer = null
                         // A hardware encoder that fails mid-way is retried once in software (journaled renders only: nothing was written yet).
                         if (journal && attempt === 0 && !isAbort(e) && encoder!.hardware !== 'prefer-software') {
-                            const soft = await pickH264Encoder(W, H, out.videoBitrate, fps, ['prefer-software'])
+                            const soft = await tuned(await pickH264Encoder(W, H, out.videoBitrate, fps, ['prefer-software']))
                             if (soft) {
                                 diag.note(`Unit ${u}: ${errorText(e)}; retrying with a software encoder`)
                                 encoder = soft
@@ -506,13 +638,16 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                         throw e
                     }
                 }
-                if (journal && unitWriter) {
-                    await unitWriter.close()
-                    unitWriter = null
+                if (journal && mainEnv.writer) {
+                    await mainEnv.writer.close()
+                    mainEnv.writer = null
+                    if (pendingSave) { const save = pendingSave; pendingSave = null; await save() }
                     await saveJob({ ...journal.state, unitsDone: u + 1, cursor: cursorFrames * frameSec, done, total: totalWork, copied, timings, report: structuredClone(report), video: vConfig })
                 }
+                stats.unitSpans.push({ unit: u, startMs: uStart - perfStart, endMs: now() - perfStart })
                 reportProgress()
             }
+            diag.note(`Time breakdown (ms): decode wait ${Math.round(stats.decodeWaitMs)}, paint/scale ${Math.round(stats.paintMs)}, encode call ${Math.round(stats.encodeCallMs)}, encoder back-pressure ${Math.round(stats.backpressureMs)}, packet writes ${Math.round(stats.drainMs)} over ${stats.frames} frames`)
             if (shrinks) diag.note(`Scale path frames: ${scaled.direct} by the encoder, ${scaled.webgl} by WebGL, ${scaled.canvas} by the 2D canvas`)
             diag.note(`Re-encode took ${((Date.now() - t0) / 1000).toFixed(1)} s for ${cursorFrames} frames; VideoFrames made ${frames.made}, closed ${frames.closed}`)
             if (!vConfig) throw new Error('the encoder produced no video')
@@ -521,7 +656,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             if (journal) {
                 onProgress({ cutIndex: cuts.length - 1, cutCount: cuts.length, fraction: 1, stage: 'Saving' })
                 const endMux = diag.begin('finalize')
-                file = await muxUnits(journal.state.outputName, units.length, 'avc', hasAudio ? 'aac' : null, finalVideo, aConfig, signal)
+                file = await muxUnits(journal.state.outputName, units.length, 'avc', hasAudio ? 'aac' : null, finalVideo, aConfig, signal, exp?.targetFile)
                 await discardJob()
                 endMux()
             } else {
@@ -532,9 +667,12 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             }
             if (timingsKnown) opts.onTimeline?.(timings)
             opts.onGraphics?.(report)
+            stats.units = units.length
+            if (shrinks) stats.scalePath = `${scaled.direct} by the encoder, ${scaled.webgl} by WebGL, ${scaled.canvas} by the 2D canvas`
+            opts.onStats?.(stats)
             return file
         } catch (e) {
-            await unitWriter?.abort()
+            await mainEnv.writer?.abort()
             if (direct) {
                 await direct.output.cancel().catch(() => undefined)
                 await direct.discard()
@@ -546,11 +684,57 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         }
     } finally {
         for (const s of opened) s?.input.dispose()
-        gl?.dispose()
+        gl0?.dispose()
     }
 }
 
 /** Same H.264 profile and level in two avcC records (the SPS may differ in its colour signalling between key frames). */
 function sameBytes(a: Uint8Array | undefined, b: Uint8Array): boolean {
     return !!a && a.length >= 4 && b.length >= 4 && a[1] === b[1] && a[3] === b[3]
+}
+
+/** Experiment 9: pulls up to `depth` pictures ahead of the consumer from a sample iterator (so decoding overlaps painting and encoding). */
+export function readAhead(source: AsyncIterator<VideoSample>, depth: number): AsyncIterator<VideoSample> {
+    const queue: VideoSample[] = []
+    let ended = false
+    let failure: unknown = null
+    let pump: Promise<void> | null = null
+    let closed = false
+    let wake: (() => void) | null = null
+    const notify = (): void => { const w = wake; wake = null; w?.() }
+    const fill = (): Promise<void> => {
+        if (!pump) {
+            pump = (async () => {
+                try {
+                    while (!ended && !closed && queue.length < depth) {
+                        const r = await source.next()
+                        if (r.done) ended = true
+                        else if (closed) r.value.close()
+                        else { queue.push(r.value); notify() }
+                    }
+                } catch (e) { failure = e; ended = true }
+                pump = null
+                notify()
+            })()
+        }
+        return pump
+    }
+    return {
+        async next(): Promise<IteratorResult<VideoSample>> {
+            for (;;) {
+                const v = queue.shift()
+                if (v) { void fill(); return { done: false, value: v } }
+                if (failure) throw failure
+                if (ended) return { done: true, value: undefined }
+                await new Promise<void>((resolve) => { wake = resolve; void fill() })
+            }
+        },
+        async return(): Promise<IteratorResult<VideoSample>> {
+            closed = true
+            await pump
+            for (const v of queue.splice(0)) v.close()
+            await source.return?.(undefined)
+            return { done: true, value: undefined }
+        },
+    }
 }

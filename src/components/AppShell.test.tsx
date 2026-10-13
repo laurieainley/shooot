@@ -171,6 +171,17 @@ describe('AppShell', () => {
         })
     })
 
+    it('should leave toasts to the player while it is fullscreen, so there is only one status region', () => {
+        setWidth(true)
+        const { rerender } = render(<AppShell />)
+        const before = document.querySelectorAll('.toast-slot').length
+        expect(before).toBe(1)
+        act(() => useAppState.setState({ immersive: true }))
+        rerender(<AppShell />)
+        expect(document.querySelectorAll('.toast-slot').length).toBe(0) // the mocked player shows none; the real one renders its own
+        act(() => useAppState.setState({ immersive: false }))
+    })
+
     it('should offer a slot in the rail / stack for the touch add and edit panels', () => {
         setWidth(true)
         const { container } = render(<AppShell />)

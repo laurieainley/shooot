@@ -87,4 +87,17 @@ describe('runShortcut', () => {
         runShortcut('prevFile', p, zoom)
         expect(useAppState.getState().currentFileIndex).toBe(0)
     })
+
+    it('should leave zoom alone in the preview', () => {
+        const z = { cycle: vi.fn(), reset: vi.fn() } as unknown as ZoomPan
+        const { p } = fake()
+        useAppState.setState({ isPreviewMode: true })
+        runShortcut('zoomCycle', p, z)
+        runShortcut('zoomReset', p, z)
+        expect(z.cycle).not.toHaveBeenCalled()
+        expect(z.reset).not.toHaveBeenCalled()
+        useAppState.setState({ isPreviewMode: false })
+        runShortcut('zoomCycle', p, z)
+        expect(z.cycle).toHaveBeenCalledTimes(1)
+    })
 })

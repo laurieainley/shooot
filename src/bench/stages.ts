@@ -13,6 +13,7 @@ import { VIDEO_BITRATE } from '../utils/outputQuality'
 import { prepareSpec } from '../graphics/prepare'
 import type { MatchEvent } from '../types'
 import type { StageId, StageResult } from './results'
+import { measureDeliver } from './deliver'
 
 export type BenchSource = { name: string; file: File }
 
@@ -22,11 +23,15 @@ export type StageCtx = {
     bitrates?: { '4k'?: number; '1080p'?: number }
     includeGraphics: boolean
     forceCanvas: boolean
+    /** Time the save step after the stage (default off). */
+    deliver?: boolean
+    /** ...and really start a download of the output. */
+    realDownload?: boolean
     signal: AbortSignal
     onProgress: (fraction: number, text: string) => void
 }
 
-type Probe = { width: number; height: number; durationSec: number; codec: string | null; fps: number | null; audioCodec: string | null; description?: AllowSharedBufferSource }
+export type Probe = { width: number; height: number; durationSec: number; codec: string | null; fps: number | null; audioCodec: string | null; description?: AllowSharedBufferSource }
 
 const heapMB = (): number | null => {
     const m = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory
@@ -71,10 +76,11 @@ export function demoState(file: File, durationSec: number, width: number, height
     }
 }
 
-type Rendering = { file: File | Blob; diagnostics: DiagnosticsReport | null }
+export type Rendering = { file: File | Blob; diagnostics: DiagnosticsReport | null; stats: Record<string, unknown> | null }
 
-async function render(cuts: Cut[], ctx: StageCtx, extra: Partial<RenderOptions>, graphics?: RenderGraphics): Promise<Rendering> {
+export async function render(cuts: Cut[], ctx: StageCtx, extra: Partial<RenderOptions>, graphics?: RenderGraphics): Promise<Rendering> {
     let diagnostics: DiagnosticsReport | null = null
+    let stats: Record<string, unknown> | null = null
     const signature = `bench-${Date.now()}-${Math.random().toString(36).slice(2)}`
     await discardJob()
     try {
@@ -85,10 +91,11 @@ async function render(cuts: Cut[], ctx: StageCtx, extra: Partial<RenderOptions>,
             outputName: 'bench-output.mp4',
             resumable: { signature, kind: 'fullMatch' },
             onDiagnostics: (d) => { diagnostics = d },
+            onStats: (s) => { stats = { ...s } },
             ...(graphics ? { graphics } : {}),
             ...extra,
         })
-        return { file, diagnostics }
+        return { file, diagnostics, stats }
     } finally {
         await discardJob()
     }
@@ -99,13 +106,13 @@ const encoderInfo = (d: DiagnosticsReport | null): Record<string, unknown> | und
     const cfg = d.finalEncoderConfig as { codec?: string; hardwareAcceleration?: string; bitrate?: number; width?: number; height?: number } | null
     return {
         codec: cfg?.codec, hardwareAcceleration: cfg?.hardwareAcceleration, bitrate: cfg?.bitrate, size: cfg ? `${cfg.width}x${cfg.height}` : undefined,
-        timingsMs: d.timingsMs, graphicsSkipped: d.graphics.skipped.map((s) => `${s.label}: ${s.reason}`),
+        timingsMs: d.timingsMs, scalePath: d.notes.find((n) => n.startsWith('Scale path:')), graphicsSkipped: d.graphics.skipped.map((s) => `${s.label}: ${s.reason}`),
         notes: d.notes,
     }
 }
 
 /** Runs `body` as a stage: timing, heap peak, error capture. `mediaSeconds` is what the realtime multiple is measured against. */
-async function stage(id: StageId, label: string, ctx: StageCtx, mediaSeconds: number, fps: number | null, body: (sampleHeap: () => void) => Promise<{ outputBytes?: number; encoder?: Record<string, unknown>; detail?: Record<string, unknown>; notes?: string[] }>): Promise<StageResult> {
+async function stage(id: StageId, label: string, ctx: StageCtx, mediaSeconds: number, fps: number | null, body: (sampleHeap: () => void) => Promise<{ outputBytes?: number; encoder?: Record<string, unknown>; detail?: Record<string, unknown>; notes?: string[]; deliverFile?: Blob }>): Promise<StageResult> {
     const base = { stage: id, label, source: ctx.source.name }
     let peak: number | null = heapMB()
     const sample = (): void => { const h = heapMB(); if (h !== null && (peak === null || h > peak)) peak = h }
@@ -114,11 +121,17 @@ async function stage(id: StageId, label: string, ctx: StageCtx, mediaSeconds: nu
         const r = await body(sample)
         sample()
         const wallMs = performance.now() - t0
+        // After the clock stopped: the save step must not change the stage's own numbers.
+        let deliver: StageResult['deliver']
+        let deliverError: string | undefined
+        if (ctx.deliver && r.deliverFile) {
+            try { deliver = await measureDeliver(r.deliverFile, `bench-${id}.mp4`, !!ctx.realDownload) } catch (e) { deliverError = errorInfo(e).message /* the stage itself succeeded */ }
+        }
         return {
             ...base, status: 'ok', wallMs, mediaSeconds, timesRealtime: wallMs / 1000 / mediaSeconds,
             ...(fps ? { fps: (mediaSeconds * fps) / (wallMs / 1000) } : {}), peakHeapMB: peak,
             ...(r.outputBytes !== undefined ? { outputBytes: r.outputBytes } : {}), ...(r.encoder ? { encoder: r.encoder } : {}),
-            ...(r.detail ? { detail: r.detail } : {}), ...(r.notes ? { notes: r.notes } : {}),
+            ...(r.detail ? { detail: r.detail } : {}), ...(r.notes ? { notes: r.notes } : {}), ...(deliver ? { deliver } : {}), ...(deliverError ? { deliverError } : {}),
         }
     } catch (e) {
         return { ...base, status: 'failed', wallMs: performance.now() - t0, peakHeapMB: peak, error: errorInfo(e) }
@@ -148,7 +161,7 @@ function encodeStage(id: 'reencode1080' | 'reencode4k', quality: '1080p' | '4k')
         const outSeconds = plan.seconds
         return stage(id, `${label} (${(bitrate / 1e6).toFixed(0)} Mbps${ctx.includeGraphics ? ', with graphics' : ', no graphics'})`, ctx, outSeconds, p.fps, async (sample) => {
             const r = await render(plan.cuts, { ...ctx, onProgress: (f, t) => { sample(); ctx.onProgress(f, t) } }, { output: { quality, videoBitrate: bitrate, forceCanvas: ctx.forceCanvas } }, graphics)
-            return { outputBytes: r.file.size, encoder: encoderInfo(r.diagnostics), detail: { outputSeconds: outSeconds, graphicsApplied: r.diagnostics?.graphics.applied } }
+            return { outputBytes: r.file.size, encoder: encoderInfo(r.diagnostics), deliverFile: r.file, detail: { outputSeconds: outSeconds, graphicsApplied: r.diagnostics?.graphics.applied, ...(r.stats ? { pipeline: r.stats } : {}) } }
         })
     }
 }
@@ -167,7 +180,7 @@ export const STAGES: StageDef[] = [
             const cuts = fullMatchCuts([p.durationSec], 0, null)
             return stage('copy', 'Stream copy (Original)', ctx, p.durationSec, p.fps, async (sample) => {
                 const r = await render(cuts, { ...ctx, onProgress: (f, t) => { sample(); ctx.onProgress(f, t) } }, {})
-                return { outputBytes: r.file.size, encoder: encoderInfo(r.diagnostics) }
+                return { outputBytes: r.file.size, encoder: encoderInfo(r.diagnostics), deliverFile: r.file }
             })
         },
     },
@@ -179,7 +192,7 @@ export const STAGES: StageDef[] = [
             const graphics = await prepareSpec(plan.spec)
             return stage('highlights', 'Highlights-style render', ctx, plan.seconds, p.fps, async (sample) => {
                 const r = await render(plan.cuts, { ...ctx, onProgress: (f, t) => { sample(); ctx.onProgress(f, t) } }, {}, graphics)
-                return { outputBytes: r.file.size, encoder: encoderInfo(r.diagnostics), detail: { clips: plan.cuts.length, graphicsApplied: r.diagnostics?.graphics.applied } }
+                return { outputBytes: r.file.size, encoder: encoderInfo(r.diagnostics), deliverFile: r.file, detail: { clips: plan.cuts.length, graphicsApplied: r.diagnostics?.graphics.applied, ...(r.stats ? { overlaySpans: r.stats } : {}) } }
             })
         },
     },

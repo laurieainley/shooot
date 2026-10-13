@@ -64,8 +64,10 @@ export function EventPicker() {
                 return
             }
         }
+        // No note yet: the toast offers to add one (the optional note step is skipped on touch). Does nothing if the event is gone.
+        const addNote = e.notes ? undefined : { label: 'Add note', run: () => { const s2 = useAppState.getState(); if (s2.events.some((x) => x.id === id)) s2.editEvent(id, 'details', { focus: 'note' }) } }
         showToast(taggedCopy(e.type, e.team, matchClock(eventGlobalSec(e, st.cumulativeOffsets), kick, selectClockLong(st))),
-            { label: 'Undo', run: () => { const s2 = useAppState.getState(); if (s2.events.some((x) => x.id === id)) s2.removeEvent(id) } })
+            { label: 'Undo', run: () => { const s2 = useAppState.getState(); if (s2.events.some((x) => x.id === id)) s2.removeEvent(id) } }, addNote)
     }
 
     const dispatch = (input: PickerInput): void => {
@@ -73,7 +75,7 @@ export function EventPicker() {
         const current = store.picker
         if (!current) return
         const id = current.eventId
-        const { state: next, effects } = pickerReducer(stateRef.current, input, { teams: store.teams })
+        const { state: next, effects } = pickerReducer(stateRef.current, input, { teams: store.teams, touch: coarse })
         stateRef.current = next
         setState(next)
         // The first real choice creates the event (one undo step); closing without one creates nothing.
@@ -135,7 +137,7 @@ export function EventPicker() {
 
     const names = teams.map((t) => t.name)
     const shortcuts = teamShortcuts(names)
-    const candidates = scorerCandidates(state, { teams })
+    const candidates = scorerCandidates(state, { teams, touch: coarse })
     const title = formatClock(event.matchTimeSec, clockLong)
     const { option } = state
     const canSkip = (state.step === 'team' && option.teamOptional) || (state.step === 'scorer' && option.personOptional) || state.step === 'assist'
@@ -149,7 +151,7 @@ export function EventPicker() {
     const highlightedId = state.highlighted >= 0 ? PICKER_OPTIONS[state.highlighted]?.id : undefined
 
     const ui = (
-        <div className={`event-picker event-picker--${placement}`} role="dialog" aria-label="Event details">
+        <div className={`event-picker event-picker--${placement}`} role="dialog" aria-label={picker.fresh || pending ? 'Tag event' : 'Edit event'}>
             <div className="event-picker__head">
                 <div className="event-picker__title">{title}{state.team ? ` · ${state.team}` : ''}{event.scorer ? ` · ${event.scorer}` : ''}{assistOf(event) ? ` (assist ${assistOf(event)})` : ''}</div>
                 {coarse && <div className="event-picker__prompt">{prompt}</div>}
@@ -208,7 +210,10 @@ export function EventPicker() {
                 <PersonStep
                     label={personLabel}
                     autoFocus={!coarse}
-                    placeholder={coarse ? `Search or type ${personLabel.toLowerCase()}` : state.step === 'assist' ? 'Assist (optional) — type to filter, Enter to pick, Tab to skip' : `${personLabel} — type to filter, Enter to pick`}
+                    chips={coarse}
+                    skipLabel={state.step === 'assist' ? 'No assist' : 'Skip'}
+                    onSkip={canSkip ? () => dispatch({ kind: 'choose', value: SKIP }) : undefined}
+                    placeholder={coarse ? `Type a new ${personLabel.toLowerCase()}` : state.step === 'assist' ? 'Assist (optional) — type to filter, Enter to pick, Tab to skip' : `${personLabel} — type to filter, Enter to pick`}
                     query={state.query}
                     candidates={candidates}
                     highlighted={state.highlighted}
@@ -220,19 +225,22 @@ export function EventPicker() {
             )}
 
             {state.step === 'text' && (
-                <input
-                    autoFocus
-                    aria-label={textLabel}
-                    className="event-picker__input"
-                    placeholder={textPlaceholder}
-                    enterKeyHint="done"
-                    maxLength={200}
-                    value={state.query}
-                    onChange={(e) => dispatch({ kind: 'text', value: e.target.value })}
-                />
+                <div className="event-picker__text">
+                    <input
+                        autoFocus={!coarse}
+                        aria-label={textLabel}
+                        className="event-picker__input"
+                        placeholder={textPlaceholder}
+                        enterKeyHint="done"
+                        maxLength={200}
+                        value={state.query}
+                        onChange={(e) => dispatch({ kind: 'text', value: e.target.value })}
+                    />
+                    {coarse && <button type="button" className="btn-primary" onClick={() => dispatch({ kind: 'key', key: 'Escape' })}>Done</button>}
+                </div>
             )}
 
-            {canSkip && (
+            {canSkip && !(coarse && (state.step === 'scorer' || state.step === 'assist')) && (
                 <button type="button" className="event-picker__skip" onClick={() => dispatch({ kind: 'choose', value: SKIP })}>
                     Skip{!coarse && <kbd>Tab</kbd>}
                 </button>
@@ -242,7 +250,7 @@ export function EventPicker() {
             {coarse ? (
                 <div className="event-picker__actions">
                     <button type="button" className="btn-quiet" onClick={cancel}>Cancel</button>
-                    {!(pending && state.step === 'type') && (
+                    {!(pending && state.step === 'type') && state.step !== 'text' && (
                         <button type="button" className="btn-primary" onClick={() => dispatch({ kind: 'key', key: 'Escape' })}>Done</button>
                     )}
                 </div>
