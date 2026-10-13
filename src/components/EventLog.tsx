@@ -351,7 +351,8 @@ interface FileSlotProps {
 /** The "file missing" warning when the event's file is not linked; nothing otherwise. */
 function FileSlot({ unlinked, fileKey }: FileSlotProps) {
     if (!unlinked) return null
-    return <span className="tag tag-warn" title={fileKey}>file missing</span>
+    // The label hides in narrow rails (icon only), where it would squeeze the event's name out of the row.
+    return <span className="tag tag-warn" title={fileKey ? `File missing: ${fileKey}` : 'File missing'}><span className="tag-warn__label">file missing</span></span>
 }
 
 interface WatchButtonProps {

@@ -71,6 +71,7 @@
 /* Warnings are chalk text with an icon, never red (red is the REC dot only). */
 .tag-warn { color: var(--sh-text); border-color: var(--sh-muted); }
 .tag-warn::before { content: '\26A0\FE0E'; margin-right: 3px; }
+@container event-log (max-width: 360px) { .tag-warn::before { margin-right: 0; } }
 
 .team-dot {
   display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 50%;
@@ -1136,7 +1137,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .act-btn--delete:hover { color: var(--sh-text); border-color: var(--sh-text); }
 /* Narrow rails, under 360px: icons only. */
 @container event-log (max-width: 360px) {
-  .event-actions__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .event-actions__label, .tag-warn__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .act-switch__glyph { display: inline; }
   .act-btn { min-width: 36px; padding: 0 6px; }
   .act-btn--touch { min-width: 44px; }

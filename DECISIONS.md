@@ -10,6 +10,9 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 ---
 
 ## 2026-10-13
+- **"file missing" is a ⚠ alone in narrow rails (≤ 360 px)** (Claude). *Why:* in the phone-landscape rail the label and
+  ▶ took 194 px and squeezed the event name to 0 px; reopened matches show it on every row. The label stays for screen
+  readers and in the tooltip. *Where:* `EventLog.tsx` `FileSlot`, App.css `@container event-log`.
 - **Match history: a Matches tab next to Events, autosaved to IndexedDB on this device** (user). The open match saves
   itself (no save/discard prompt; only a running render or Find goals asks before switching); Events | Matches are equal
   tabs in the rail; + New match keeps the old match in the list, so the Clear match confirmation goes; rows have Delete
