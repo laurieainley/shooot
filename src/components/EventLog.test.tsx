@@ -216,6 +216,15 @@ describe('EventLog replay toggle', () => {
         expect(screen.getByRole('switch', { name: 'Slow-mo replay' })).not.toBeChecked()
     })
 
+    it('should show the replay switch as the replay icon beside the track, with no text label', async () => {
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        const sw = screen.getByRole('switch', { name: 'Slow-mo replay' })
+        expect(sw).toHaveAttribute('title', 'Slow-mo replay (R)')
+        expect(sw.textContent).toBe('\u21BB')
+        expect(sw.querySelector('.act-switch__glyph')).not.toBeNull()
+    })
+
     it('should show a passive replay glyph in the row, not a button, only while the replay is on', async () => {
         render(<EventLog />)
         const glyph = (i: number): Element | null => rows()[i].querySelector('.event-row__replay')

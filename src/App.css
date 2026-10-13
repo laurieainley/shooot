@@ -233,8 +233,10 @@
 .shell--landscape .rail { padding-right: env(safe-area-inset-right, 0px); }
 .shell--landscape .match-strip { grid-template-columns: 84px minmax(0, 1fr); }
 .shell--landscape .strip-label { padding: 0 8px; }
-.shell--landscape .event-log ol { padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)); } /* the last row can scroll clear of the ＋ */
-.shell--landscape .fab { bottom: calc(6px + env(safe-area-inset-bottom, 0px)); right: calc(10px + env(safe-area-inset-right, 0px)); width: 56px; height: 56px; }
+.shell--landscape .event-log ol { padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); } /* the ＋ is on the picture here, so the rail needs no room for it */
+/* Phone on its side: the ＋ sits on the picture's bottom-right corner (above the 44px control bar, which sits above the 52px strip),
+   so it never covers a row's ▶ or score in the rail. */
+.shell--landscape .fab { bottom: calc(52px + 44px + 10px + env(safe-area-inset-bottom, 0px)); right: calc(var(--rail-w) + 10px); width: 56px; height: 56px; }
 
 /* ---------- desktop bay ---------- */
 .bay { display: grid; grid-template-columns: minmax(0, 1fr) clamp(340px, 31vw, 440px); min-height: 0; }
@@ -470,6 +472,17 @@
 .team-card { display: flex; flex-direction: column; gap: 10px; border-top: 4px solid; padding-top: 10px; min-width: 0; }
 .team-card__id { display: grid; grid-template-columns: minmax(0, 1fr) 84px; gap: 10px; align-items: end; }
 .match-details { display: grid; gap: 4px; padding-top: 8px; }
+.match-details__main, .match-details__side { display: grid; gap: 4px; align-content: start; min-width: 0; }
+/* Laptop and wider: teams and final score on the left, goal set-up first on the right (then logo and graphics style), so the
+   main things show at 1280x800 without scrolling. Phones and tablets keep one column (goal areas last). */
+@media (min-width: 1024px) {
+  .sheet.sheet--setup { width: min(1140px, 94vw); }
+  .match-details--split { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); column-gap: 28px; align-items: start; }
+  .match-details--split .match-details__main .team-grid { gap: 14px; }
+  .match-details__side { padding-top: 8px; }
+  .match-details__side > .goal-areas { order: -1; margin-top: 0; padding-top: 0; border-top: 0; }
+  .match-details__side:not(:has(.goal-areas)) > .graphics-setup__logo:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+}
 .match-details__title .field { font-size: 15px; }
 /* Final score row: names flank two mono digit boxes; wraps on narrow screens rather than clipping. */
 .final-score { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--sh-line); display: grid; gap: 6px; }
@@ -957,6 +970,13 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .shell--tablet .event-log ol { padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
 .shell--tablet .top-bar { padding-inline: max(14px, env(safe-area-inset-left, 0px)) max(14px, env(safe-area-inset-right, 0px)); }
 
+/* Touch tablet on its side (desktop bay): the 16:9 picture sits at the top with the match strip directly under it, so the spare
+   height ends up below the strip, not as black bands above and below the picture. Mouse layouts keep the strip pinned to the bottom. */
+@media (pointer: coarse) {
+  .shell--desktop .bay__left { grid-template-rows: minmax(0, auto) 64px; align-content: start; background: var(--sh-surface); }
+  .shell--desktop .bay__left > .stage { aspect-ratio: 16 / 9; width: 100%; }
+}
+
 /* Paused: a big play icon over the picture (video.js's own big-play button only shows before the first play). */
 .player-container .video-js .vjs-big-play-button { display: none !important; }
 .play-indicator {
@@ -1101,12 +1121,14 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .event-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0 2px 12px; white-space: nowrap; cursor: default; }
 .event-actions .act-btn { flex: 1 1 auto; padding: 0 8px; }
 .event-actions__download { display: inline-flex; flex: 1 1 auto; }
-/* Mouse: the rail never fits all five labelled buttons on one line, so wrap on purpose: 3 + 2 (or 2 + 2), never a lone
-   full-width button on the second line. */
-@media (pointer: fine) {
-  .event-actions { padding-right: 12px; }
-  .event-actions > * { flex-basis: 30%; }
-  .event-actions:has(> :nth-child(4):last-child) > * { flex-basis: 40%; }
+/* Mouse: the replay switch is an icon, so all five buttons share one line at every desktop rail width (wrap stays as the safety net). */
+@media (pointer: fine) { .event-actions { padding: 4px 8px 2px 10px; } .event-actions .act-btn { padding: 0 6px; } }
+/* Touch (44px buttons): where the labelled five do not fit one line, wrap 3 + 2 (or 2 + 2), never a lone button on the second line. */
+@media (pointer: coarse) {
+  @container event-log (min-width: 361px) and (max-width: 440px) {
+    .event-actions > .act-btn, .event-actions > .event-actions__download { flex-basis: 30%; }
+    .event-actions:has(> :nth-child(4):last-child) > .act-btn, .event-actions:has(> :nth-child(4):last-child) > .event-actions__download { flex-basis: 40%; }
+  }
 }
 @media (pointer: coarse) { .event-actions__download > .act-btn { min-height: 44px; min-width: 44px; font-size: 14px; } }
 .floating.clip-download { min-width: 240px; }
@@ -1129,7 +1151,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .act-switch[aria-checked="true"] .act-switch__track { background: var(--sh-text); border-color: var(--sh-text); }
 .act-switch[aria-checked="true"] .act-switch__knob { left: calc(100% - 11px); background: var(--sh-ground); }
 .act-switch[aria-checked="false"] { color: var(--sh-muted); }
-.act-switch__glyph { display: none; }
+.act-switch__glyph { font-size: 15px; line-height: 1; }
 @media (prefers-reduced-motion: reduce) { .act-switch__knob { transition: none; } }
 /* The row's passive replay mark (never a button). */
 .event-row__replay { flex: none; color: var(--sh-muted); font-size: 13px; line-height: 1; }
@@ -1137,7 +1159,6 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 /* Narrow rails, under 360px: icons only. */
 @container event-log (max-width: 360px) {
   .event-actions__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .act-switch__glyph { display: inline; }
   .act-btn { min-width: 36px; padding: 0 6px; }
   .act-btn--touch { min-width: 44px; }
 }

@@ -1,7 +1,7 @@
 import { MULTI_COLOR, isMultiColor, solidTeamColor, teamBackground } from '../utils/teamColor'
 import { deriveInitials } from '../utils/initials'
 import { RosterTags } from './RosterTags'
-import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useId, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { useAppState } from '../state'
 import { parseKnownScore } from '../utils/scoreGap'
 import type { Team } from '../types'
@@ -95,7 +95,7 @@ function TeamCard({ index: i }: TeamCardProps) {
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         onBlur={() => { if (name.trim() && name !== team.name) renameTeam(i, name.trim()) }}
-                        className="field voice-scoreboard text-[18px]"
+                        className="field text-[18px]"
                     />
                 </label>
                 <label className="graphics-setup__field team-card__initials">
@@ -213,37 +213,47 @@ function FinalScoreField() {
 interface MatchDetailsProps {
     /** Leave out the league logo and graphics style (the New match steps; Match setup keeps them). */
     compact?: boolean
+    /** Rendered with the logo and graphics style in the side column (Match setup: the goal areas). */
+    aside?: ReactNode
 }
 
 /**
  * The match itself: Title (the matchday heading on the graphics), both teams (name, initials, colour, roster) and
  * the final score if known, and (unless compact) the league logo and graphics style. Shared by the Match setup panel and the New match steps.
  */
-export function MatchDetails({ compact = false }: MatchDetailsProps = {}) {
+export function MatchDetails({ compact = false, aside }: MatchDetailsProps = {}) {
     const teamCount = useAppState((s) => Math.min(2, s.teams.length))
     const matchdayLabel = useAppState((s) => s.matchdayLabel)
     const setMatchdayLabel = useAppState((s) => s.setMatchdayLabel)
     const [title, setTitle] = useState(matchdayLabel ?? '')
 
     return (
-        <section className="match-details" aria-label="Match">
-            <label className="graphics-setup__field match-details__title">
-                <span>Title</span>
-                <input
-                    aria-label="Title"
-                    value={title}
-                    placeholder="Matchday 3"
-                    onChange={(e) => setTitle(e.target.value)}
-                    onBlur={() => setMatchdayLabel(title)}
-                    className="field"
-                />
-            </label>
-            <div className="team-grid">
-                {Array.from({ length: teamCount }, (_, i) => <TeamCard key={i} index={i} />)}
+        <section className={`match-details${compact ? '' : ' match-details--split'}`} aria-label="Match">
+            <div className="match-details__main">
+                <label className="graphics-setup__field match-details__title">
+                    <span>Title</span>
+                    <input
+                        aria-label="Title"
+                        value={title}
+                        placeholder="Matchday 3"
+                        onChange={(e) => setTitle(e.target.value)}
+                        onBlur={() => setMatchdayLabel(title)}
+                        className="field"
+                    />
+                </label>
+                <div className="team-grid">
+                    {Array.from({ length: teamCount }, (_, i) => <TeamCard key={i} index={i} />)}
+                </div>
+                <FinalScoreField />
+                {!compact && <p className="goal-areas__hint mt-2">Teams and rosters are remembered for next time.</p>}
             </div>
-            <FinalScoreField />
-            {!compact && <LogoField />}
-            {!compact && <GraphicsStylePicker />}
+            {!compact && (
+                <div className="match-details__side">
+                    <LogoField />
+                    <GraphicsStylePicker />
+                    {aside}
+                </div>
+            )}
         </section>
     )
 }
