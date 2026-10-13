@@ -10,6 +10,10 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 ---
 
 ## 2026-10-13
+- **Storage fit ignores a browser usage figure far above what the site stores** (Claude). *Why:* an iPad (Chrome = WebKit)
+  reported 129 GB used of 154 GB while the site's file area held 0 GB and the whole Chrome app took 19 GB; believing it greys out 4K and
+  Original for a full match. When `estimate().usage` exceeds the site's own files by more than 1 GB, the files are counted instead. If
+  WebKit really enforced that figure, the render's storage-full message still explains it. *Where:* `src/render/storage.ts` (`USAGE_SLACK`).
 - **UX review pass (desktop, phone, tablet) — polish only, no behaviour changes** (user asked for the review; agent
   decided the individual fixes). Export is quiet until a video is loaded (one lime per screen); Match setup's "Set up
   goals" is quiet so Done stays the one primary; touch text is restated at 14px at the end of App.css because later

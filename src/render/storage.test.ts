@@ -45,4 +45,20 @@ describe('storage room and the unit cache', () => {
         const room = await storageRoom()
         expect(room).toEqual({ quota: 1000, free: 500 + 100 + 310, cache: 310 })
     })
+
+    it('should not believe a reported usage far above what the site stores (WebKit miscounting)', async () => {
+        const file = (size: number) => ({ kind: 'file', getFile: async () => ({ size }) })
+        const job = { kind: 'directory', entries: async function* () { yield ['u1.bin', file(2e9)] } }
+        const root = { entries: async function* () { yield ['out.mp4', file(1e9)]; yield ['render-job-fullMatch', job] }, getDirectoryHandle: async () => { throw new Error('none') } }
+        vi.stubGlobal('navigator', { storage: { estimate: async () => ({ quota: 154e9, usage: 129e9 }), getDirectory: async () => root } })
+        // The site holds 3 GB (1 GB finished render, deleted before the next render, + 2 GB saved progress), not 129 GB.
+        expect(await storageRoom()).toEqual({ quota: 154e9, free: 154e9 - 3e9 + 1e9 })
+    })
+
+    it('should believe a usage close to what the site stores', async () => {
+        const file = (size: number) => ({ kind: 'file', getFile: async () => ({ size }) })
+        const root = { entries: async function* () { yield ['out.mp4', file(5e9)] }, getDirectoryHandle: async () => { throw new Error('none') } }
+        vi.stubGlobal('navigator', { storage: { estimate: async () => ({ quota: 20e9, usage: 5.5e9 }), getDirectory: async () => root } })
+        expect(await storageRoom()).toEqual({ quota: 20e9, free: 20e9 - 5.5e9 + 5e9 })
+    })
 })
