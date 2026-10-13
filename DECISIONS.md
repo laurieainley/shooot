@@ -10,6 +10,12 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 ---
 
 ## 2026-10-13
+- **Match history: a Matches tab next to Events, autosaved to IndexedDB on this device** (user). The open match saves
+  itself (no save/discard prompt; only a running render or Find goals asks before switching); Events | Matches are equal
+  tabs in the rail; + New match keeps the old match in the list, so the Clear match confirmation goes; rows have Delete
+  only (undoable). *Why:* the user wants to return to previous matches; autosave means switching never loses work, and
+  a device-only store needs no server (the Postgres history in the 2026-10-08 draft stays parked). The open match id lives
+  outside `vhm-state`, so no persist version is taken. *Where:* `docs/superpowers/specs/2026-10-13-match-history-design.md`.
 - **Storage fit ignores a browser usage figure far above what the site stores** (Claude). *Why:* an iPad (Chrome = WebKit)
   reported 129 GB used of 154 GB while the site's file area held 0 GB and the whole Chrome app took 19 GB; believing it greys out 4K and
   Original for a full match. When `estimate().usage` exceeds the site's own files by more than 1 GB, the files are counted instead. If
