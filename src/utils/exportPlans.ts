@@ -16,7 +16,8 @@ import { linkedEvents } from './relink'
 import { buildRenderPlan } from './renderPlan'
 import { resolveRenderSources, usedMissing, type RenderQuality } from './renderSources'
 import { scoreBugWindows, type ScoreBugMode } from './scoreBug'
-import { VIDEO_BITRATE, estimateEncodedBytes, type OutputQuality, type ReencodeQuality } from './outputQuality'
+import { VIDEO_BITRATE, estimateEncodedBytes, type OutputQuality, type ReencodeQuality, type SourceInfo } from './outputQuality'
+import { DEFAULT_FACTS, estimateRenderSeconds, type SourceFacts, type TimeEstimate } from './renderTime'
 
 export type FullMatchSettings = {
     cards: boolean; scoreBug: ScoreBugMode; intervalMin: number; captions: boolean
@@ -135,4 +136,32 @@ export function clipExport(s: ExportState, eventId: string, opts: ClipOptions, q
     })
     // Only the files this clip reads matter for the full/preview choice.
     return { ...plan, missing: usedMissing(cuts, s.files, plan.missing) }
+}
+
+/**
+ * How long this plan takes at an output quality on this device, from what the render does (cards, caption and score-bug windows,
+ * replays and their slow-mo, the replay tag), the footage and the rates learned here. Changes whenever the plan does. The Export
+ * panels call this for Original, 4K and 1080p.
+ */
+export function estimatePlanTime(plan: Pick<ExportPlan, 'cuts' | 'spec'>, output: OutputQuality, facts: SourceFacts | null): TimeEstimate {
+    return estimateRenderSeconds(plan, output, facts)
+}
+
+/** The footage facts the estimate needs: size and codec (from the file once read, else what the app knows), frame rate, and bytes per second of the full-quality files. */
+export function sourceFactsFor(files: VideoSourceFile[], probed: SourceInfo | null): SourceFacts | null {
+    const first = files[0]
+    if (!first) return null
+    const width = probed?.width ?? first.width
+    const height = probed?.height ?? first.height
+    let bytes = 0
+    let seconds = 0
+    for (const f of files) {
+        const full = f.fullFile ?? (f.kind === 'full' ? f.file : undefined)
+        if (full && f.durationSec) { bytes += full.size; seconds += f.durationSec }
+    }
+    return {
+        width: width ?? DEFAULT_FACTS.width, height: height ?? DEFAULT_FACTS.height,
+        codec: probed?.codec ?? first.codec ?? DEFAULT_FACTS.codec, fps: probed?.fps ?? DEFAULT_FACTS.fps,
+        bytesPerSec: seconds > 0 ? bytes / seconds : DEFAULT_FACTS.bytesPerSec,
+    }
 }

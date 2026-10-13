@@ -10,6 +10,8 @@ import { saveTimeline } from './renderTimelines'
 import { isStorageFull, storageFullMessage } from './render/storage'
 import type { JobKind } from './render/renderJob'
 import type { RenderQuality } from './utils/renderSources'
+import type { OutputQuality } from './render/transcodePlan'
+import { recordRender } from './utils/renderTime'
 import { formatRenderProgress } from './utils/renderSources'
 import { createRenderWakeLock, type RenderWakeLock } from './renderWakeLock'
 import { recoverFromStaleChunk } from './staleBuildRecovery'
@@ -27,12 +29,19 @@ export type RenderRequest = {
     output?: { quality: '4k' | '1080p'; videoBitrate: number }
 }
 
+/** A first progress reading above this share means the render resumed a saved one. */
+const RESUMED_AT = 0.05
+
 export type JobPhase = 'running' | 'done' | 'failed'
 
 export type RenderJob = {
     id: number
     kind: JobKind
     quality: RenderQuality
+    /** What the render outputs: Original (stream copy), or a 4K / 1080p re-encode. */
+    output?: OutputQuality
+    /** The cost model's estimate of the whole render in seconds (typical device of this class), once the engine has priced the work. */
+    estimateSec?: number
     phase: JobPhase
     startedAt: number
     fraction: number
@@ -69,7 +78,7 @@ export type RenderJobsState = {
     /** A render was asked for while the previous one is stopping; it starts when the stop completes. */
     queued: boolean
     running: () => boolean
-    start: (what: { kind: JobKind; quality: RenderQuality }, prepare: () => Promise<RenderRequest>) => Promise<'started' | 'busy'>
+    start: (what: { kind: JobKind; quality: RenderQuality; output?: OutputQuality }, prepare: () => Promise<RenderRequest>) => Promise<'started' | 'busy'>
     cancel: () => void
     /** Answers the pending notice: true carries on, false cancels the render. */
     answerNotice: (ok: boolean) => void
@@ -97,7 +106,7 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
             stopping: false,
             queued: false,
             running: () => get().job?.phase === 'running',
-            start: async ({ kind, quality }, prepare) => {
+            start: async ({ kind, quality, output = 'original' }, prepare) => {
                 if (stopWait) {
                     if (get().queued) return 'busy'
                     set({ queued: true })
@@ -116,13 +125,20 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                 let end!: () => void
                 const ended = new Promise<void>((r) => { end = r })
                 current = { id, ended, end }
-                set({ conflict: false, job: { id, kind, quality, phase: 'running', startedAt, fraction: 0, status: 'Preparing…', report: null, diagnostics: null, result: null, error: null, notice: null, finishedAt: null } })
+                set({ conflict: false, job: { id, kind, quality, output, phase: 'running', startedAt, fraction: 0, status: 'Preparing…', report: null, diagnostics: null, result: null, error: null, notice: null, finishedAt: null } })
                 try {
                     const req = await prepare()
                     if (signal.aborted) throw new DOMException('Render cancelled', 'AbortError')
                     let timeline: RenderTimeline | null = null
+                    // The engine's own clock, for the learned device rates: from the moment it has priced the work to the end.
+                    const engine = { at: 0, resumed: null as boolean | null, started: false }
                     const out = await deps.render(req.cuts, req.sources, {
-                        onProgress: (p) => patch(id, { fraction: p.fraction, status: formatRenderProgress(p) }),
+                        onProgress: (p) => {
+                            if (p.estimateSec) { engine.at = deps.now(); engine.resumed = null; engine.started = true; patch(id, { estimateSec: p.estimateSec }) }
+                            // A render picked up from a saved one starts part way in: its wall time says nothing about the whole.
+                            else if (engine.started && engine.resumed === null) engine.resumed = p.fraction > RESUMED_AT
+                            patch(id, { fraction: p.fraction, status: formatRenderProgress(p) })
+                        },
                         signal,
                         kind,
                         ...(lock ? { wakeLockStatus: () => lock.status() } : {}),
@@ -145,6 +161,8 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                     const file = out instanceof File && out.name === req.outputName ? out : new File([out], req.outputName, { type: 'video/mp4' })
                     const url = deps.createUrl(file)
                     const elapsed = deps.now() - startedAt
+                    const priced = get().job?.id === id ? get().job!.estimateSec : undefined
+                    if (priced && engine.started && engine.resumed === false) recordRender(output, priced, (deps.now() - engine.at) / 1000)
                     const downloaded = deps.download(url, file.name)
                     patch(id, { phase: 'done', fraction: 1, status: `Done in ${Math.max(1, Math.round(elapsed / 1000))} s`, result: { file, url, downloaded }, finishedAt: deps.now() })
                     deps.notify(get().job!, elapsed)

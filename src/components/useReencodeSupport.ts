@@ -19,7 +19,8 @@ export function useReencodeSupport(file: File | undefined, fallback: SourceInfo 
                 const [{ openSource }, { probeSupport }] = await Promise.all([import('../render/sourceInput'), import('../render/transcodeSupport')])
                 const o = await openSource({ name: file.name, file })
                 try {
-                    const source = { width: o.video.displayWidth, height: o.video.displayHeight }
+                    const fps = await o.video.computePacketStats(60).then((st) => st.averagePacketRate).catch(() => undefined)
+                    const source: SourceInfo = { width: o.video.displayWidth, height: o.video.displayHeight, codec: o.video.codec === 'hevc' ? 'hevc' : 'h264', ...(fps ? { fps } : {}) }
                     const support = await probeSupport({ codec: o.config.codec, ...(o.config.description ? { description: o.config.description } : {}), width: source.width, height: source.height })
                     if (live) setProbed({ file, source, support })
                 } finally {

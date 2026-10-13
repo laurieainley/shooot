@@ -134,7 +134,10 @@ describe('resolveHighlightsQuality', () => {
 describe('highlights time hints', () => {
     it('should name the reel and give Original a time when it is not a plain copy', () => {
         expect(timeHint([0.4, 0.6], 6 * 60, 'reel')).toBe('roughly 2–4 min for a 6 min reel, depending on the device')
-        const o = qualityOptions({ source: { width: 3840, height: 2160 }, support: { decode: true, encode: { '4k': true, '1080p': true } }, seconds: 360, originalBytes: 1e9, originalTimeRange: [1.8, 2.4] })
+        const o = qualityOptions({ source: { width: 3840, height: 2160 }, support: { decode: true, encode: { '4k': true, '1080p': true } }, seconds: 360, originalBytes: 1e9, time: (q) => ({ seconds: q === 'original' ? 720 : 400, low: q === 'original' ? 648 : 360, high: q === 'original' ? 864 : 460, basis: 'typical' }) })
         expect(o[0].timeRange).toEqual([1.8, 2.4])
+        expect(o[0].timeBasis).toBe('typical')
+        expect(qualityOptions({ source: null, support: { decode: true, encode: { '4k': true, '1080p': true } }, seconds: 360, originalBytes: 1e9 })[0].timeRange).toBeNull()
+        expect(timeHint([1, 1.2], 600, 'reel', 'this device')).toBe('roughly 10–12 min for a 10 min reel, going by your last renders')
     })
 })

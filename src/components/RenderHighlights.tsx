@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppState } from '../state'
-import { highlightsExport, planOutput, type ExportState, type PlanOutput } from '../utils/exportPlans'
+import { estimatePlanTime, highlightsExport, planOutput, sourceFactsFor, type ExportState, type PlanOutput } from '../utils/exportPlans'
 import { startExport } from './renderRequest'
 import { useRenderJobs } from '../renderJobs'
 import type { RenderQuality } from '../utils/renderSources'
-import { HIGHLIGHTS_ORIGINAL_TIME, QUALITY_LABEL, applyStorageFit, qualityOptions, resolveHighlightsQuality } from '../utils/outputQuality'
+import { QUALITY_LABEL, applyStorageFit, qualityOptions, resolveHighlightsQuality } from '../utils/outputQuality'
 import { MissingFullFiles } from './MissingFullFiles'
 import { OutputQualityField } from './OutputQualityField'
 import { RenderStatus } from './RenderStatus'
@@ -40,15 +40,17 @@ export function RenderHighlights() {
     const disabled = files.length === 0 || !hasEvents
     const base = useMemo(() => {
         const p = highlightsExport(st, 'full')
-        return { file: p.sources[p.cuts[0]?.sourceIndex ?? 0]?.file, seconds: p.seconds, bytes: p.bytes }
+        return { file: p.sources[p.cuts[0]?.sourceIndex ?? 0]?.file, seconds: p.seconds, bytes: p.bytes, plan: p }
     }, [st])
     const known = files[0]?.width && files[0]?.height ? { width: files[0].width, height: files[0].height } : null
     const { source, support } = useReencodeSupport(base.file, known)
+    // The time hints follow the plan (ticked cards, captions, replays) and the footage, not a fixed multiple of the reel length.
+    const facts = useMemo(() => sourceFactsFor(files, source), [files, source])
     const room = useStorageRoom(busy)
     // A choice that is not available here (4K on 1080p footage, a codec this browser cannot handle) renders as Original;
     // one that will not fit in the browser's storage gives way to the largest that does.
     const { options, effective, note: fitNote, privateHint } = applyStorageFit(
-        qualityOptions({ source, support, seconds: base.seconds, originalBytes: base.bytes, originalTimeRange: phone ? HIGHLIGHTS_ORIGINAL_TIME.phone : HIGHLIGHTS_ORIGINAL_TIME.desktop }),
+        qualityOptions({ source, support, seconds: base.seconds, originalBytes: base.bytes, time: (q) => estimatePlanTime(base.plan, q, facts) }),
         room, resolveHighlightsQuality(choice, phone))
 
     const run = (quality: RenderQuality, output?: PlanOutput): void => {

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useAppState } from '../state'
 import { useShallow } from 'zustand/react/shallow'
-import { fullMatchExport, planOutput, type ExportState, type PlanOutput } from '../utils/exportPlans'
+import { estimatePlanTime, fullMatchExport, planOutput, sourceFactsFor, type ExportState, type PlanOutput } from '../utils/exportPlans'
 import { formatBytes, PHONE_SIZE_WARNING } from '../utils/fullMatch'
 import { finalWhistleSec } from '../utils/matchClock'
 import { formatReelLength } from '../utils/reel'
@@ -43,15 +43,16 @@ export function FullMatchExport() {
 
     const firstSource = useMemo(() => {
         const base = fullMatchExport(st, 'full')
-        return { file: base.sources[base.cuts[0]?.sourceIndex ?? 0]?.file, seconds: base.seconds, bytes: base.bytes }
+        return { file: base.sources[base.cuts[0]?.sourceIndex ?? 0]?.file, seconds: base.seconds, bytes: base.bytes, plan: base }
     }, [st])
     const known = files[0]?.width && files[0]?.height ? { width: files[0].width, height: files[0].height } : null
     const { source, support } = useReencodeSupport(firstSource.file, known)
+    const facts = useMemo(() => sourceFactsFor(files, source), [files, source])
     const room = useStorageRoom(busy)
     // A choice that is not available here (e.g. 4K chosen in a saved project, now on 1080p footage) renders as Original;
     // one that will not fit in the browser's storage gives way to the largest that does.
     const { options, effective, note: fitNote, privateHint } = applyStorageFit(
-        qualityOptions({ source, support, seconds: firstSource.seconds, originalBytes: firstSource.bytes }), room, fullMatch.quality)
+        qualityOptions({ source, support, seconds: firstSource.seconds, originalBytes: firstSource.bytes, time: (q) => estimatePlanTime(firstSource.plan, q, facts) }), room, fullMatch.quality)
     const plan = useMemo(() => fullMatchExport(st, 'full', planOutput(effective)), [st, effective])
     const linked = linkedEvents(events)
     const hasKickOff = linked.some((e) => e.type === 'kick_off')

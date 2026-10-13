@@ -31,6 +31,8 @@ export type RenderProgress = {
     cutCount: number
     fraction: number   // 0..1 overall
     stage?: string     // e.g. "Title card" while a graphic is being made
+    /** Sent once at the start: the cost model's estimate of the whole render in seconds on a typical device of this class (see utils/renderTime). */
+    estimateSec?: number
 }
 
 /** Draws one frame of a graphic at `tSec` into a context the size of the output video (cleared beforehand). */

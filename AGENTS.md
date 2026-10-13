@@ -113,8 +113,8 @@ npm run lint       # baseline: 12 known problems — add none
   start (an interruption loses at most the unit in progress); the output quality is part of the job signature.
   **Storage fit and time:** `applyStorageFit()` (utils/outputQuality.ts) greys out options bigger than the site's free
   storage (`storageRoom()` in render/storage.ts: quota − usage + old outputs `clearOldOutputs()` frees, 10% margin) and
-  auto-picks the largest that fits; no `estimate()` means no blocking. Time hints are device-range ranges; the running
-  render shows a live ETA (`utils/renderEta.ts`, moving average of progress per second) in `RenderStatus`.
+  auto-picks the largest that fits; no `estimate()` means no blocking. Time hints and the live ETA come from the render time
+  model (see **Render time model** below), not fixed multipliers.
 - **Highlights output quality** (`highlightsQuality` in the store, persist v24; `'auto'` = the device default, any other value is the
   user's explicit choice and sticks): the same Original / 4K / 1080p choice as Full match, via the shared `OutputQualityField`
   (segmented control) in `RenderHighlights`, the same option list (`qualityOptions`), availability rules (`useReencodeSupport`), size and
@@ -123,9 +123,26 @@ npm run lint       # baseline: 12 known problems — add none
   cards, captions, score bug, replay tag, sting) through `transcodeEngine` in one pass. Re-encoded cuts are frame-exact (no GOP snapping),
   so `onTimeline` chapters are exact; estimates for re-encoded reels have no key-frame slack (`DescriptionArgs.reencoded`). Defaults:
   Original on desktop/tablet; 1080p on a phone layout (`phone` or landscape phone; `resolveHighlightsQuality`) because on a Pixel Original
-  is slowest (2.2x the reel: its replays/graphics are re-encoded HEVC 4K) vs 1080p ~1.0x, 4K ~1.25x; iPad Original 0.4x, 4K 0.84x; Mac
-  Chrome Original ~0.5x, 1080p 0.7x, 4K 0.9x (`HIGHLIGHTS_ORIGINAL_TIME`). Time hints are "for a N min reel". Highlights are not resumable.
+  is slowest (2.2x the reel on raw GoPro 4K: its replays/graphics are re-encoded HEVC 4K) vs 1080p ~1.0x, 4K ~1.25x; iPad Original 0.4x, 4K 0.84x; Mac
+  Chrome Original ~0.5x, 1080p 0.7x, 4K 0.9x. Time hints are "for a N min reel" and follow the ticked options and the footage
+  (`estimatePlanTime`). Highlights are not resumable.
   The plan is memoised from a shallow selector without the playhead, so the panel does not re-plan while the video plays.
+- **Render time model** (`utils/renderTime.ts`; one model for the hint, the progress weights and the learned rates). A render is priced as
+  units: copied source seconds (x source Mbps), decoded seconds (x source MP/s x fps, H.264 0.8x HEVC, + a per-Mbps read term), encoded
+  seconds (x output MP/s x fps; Original re-encodes in the source codec: x `ko`), painted frame seconds (ms/frame, 1080p..4K interpolated).
+  `cutUnits()`: **Original** copies the cut (+1 GOP) and re-encodes only the key-frame regions around overlay windows (window +-1.5 GOP) and
+  whole cuts that carry a crop or the replay tag; **4K/1080p** decode and encode every frame and paint cards, crop cuts and overlay windows.
+  `DEFAULT_COEF` per device class (`detectDeviceClass`: Android / iPad+iPhone / desktop by UA; unknown = Android, the slowest) is fitted to the
+  benchmarks in `utils/renderTime.bench.ts`; `renderTime.test.ts` keeps every measurement within 25% (two Pixel outliers within 40%). Call
+  `estimatePlanTime(plan, output, facts)` (exportPlans.ts) for `{ seconds, low, high, basis: 'typical' | 'this device' }`; `sourceFactsFor()`
+  builds the footage facts (size/codec/fps from `useReencodeSupport`, bytes/s from the full files; defaults GoPro 4K HEVC 90 Mbps).
+  **Learned rates:** a finished (not resumed) render records wall / model seconds per output path (`original`/`4k`/`1080p`) in localStorage
+  (`shooot.renderRates.v1`, smoothed 0.5); the next estimate scales by it and says "going by your last renders" with a narrower range.
+  **Progress** is the share of estimated work (`WorkMeter`, monotonic, 1 only at the end): `mediabunnyEngine` weights each cut/card by
+  `planWork` and places the position inside a cut with `cutShare` (copy vs region cost); `transcodeEngine` adds per-frame work (plain vs
+  painted). The first `onProgress` carries `estimateSec` (model total) which lands on `RenderJob.estimateSec`; `RenderJob.output` records the
+  quality. **ETA** (`utils/renderEta.ts`): EMA of work-fraction per second blended with the model's expected total (x learned ratio),
+  observation weight p/(p+0.1). Saved jobs' `done/total` are shares of work; older saved jobs are rescaled on resume.
 - **Chapters:** YouTube chapter times come from the real render timeline (engine `onTimeline` → `renderTimelines.ts`,
   matched by plan signature); until then an estimate from the render plan, flagged in the UI.
 - **Render storage:** outputs are written to OPFS first; `clearOldOutputs()` deletes earlier renders before each

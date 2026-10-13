@@ -22,6 +22,7 @@ import { aacConfig, cutFrames, keyEvery, outputDimensions, outputFrameSec, planS
 import { pickH264Encoder, type H264Encoder } from './transcodeSupport'
 import type { Cut, CutTiming, GraphicsReport, RenderCard, RenderGraphics, RenderOptions, RenderOverlay, RenderSource } from './types'
 import { waitForQueue } from './yield'
+import { DEFAULT_COEF, WorkMeter, detectDeviceClass, factsOfSource, planWork, priceUnits, ZERO_UNITS } from '../utils/renderTime'
 import { cutTiming } from '../utils/chapterTimes'
 import { AUDIO_BITRATE } from '../utils/outputQuality'
 
@@ -113,7 +114,6 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         const segments = planSegments(planCuts, frameSec, Math.round(SEGMENT_SEC / frameSec))
         const units: Unit[] = [{ kind: 'intro' }, ...segments.map((segment): Unit => ({ kind: 'segment', segment })), { kind: 'outro' }]
         const cardFrames = (c: RenderCard | undefined): number => (c ? Math.max(1, Math.round(c.durationSec / frameSec)) : 0)
-        const totalFrames = (planCuts.reduce((a, c) => a + cutFrames(c, frameSec), 0) + cardFrames(g?.intro) + cardFrames(g?.outro)) || 1
 
         const overlaysByCut = new Map<number, RenderOverlay[]>()
         for (const o of g?.overlays ?? []) {
@@ -151,6 +151,17 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             }
             resolved.set(v.ci, list)
         }
+        // Progress is the share of estimated WORK done, not frames: frames drawn on the canvas (cards, replay crops, graphics) cost more
+        // than plain ones (utils/renderTime prices every cut and card with the same model the Export panel's hint uses).
+        const pricing = { facts: factsOfSource({ width: srcW, height: srcH, codec: first.video.codec, fps: nominal, bytes: sources[cuts[0].sourceIndex].file.size, seconds: first.endSec }), output: out.quality, coef: DEFAULT_COEF[detectDeviceClass()] }
+        const work = planWork({
+            cuts: planCuts,
+            overlays: valid.flatMap((v, vi) => (resolved.get(v.ci) ?? []).map((o) => ({ cutIndex: vi, startSec: o.startSec, durationSec: o.durationSec, ...(o.anchor === 'wholeCut' || o.anchor === 'stretchToCut' ? { whole: true } : {}) }))),
+            introSec: g?.intro ? cardFrames(g.intro) * frameSec : 0, outroSec: g?.outro ? cardFrames(g.outro) * frameSec : 0,
+        }, pricing)
+        const totalWork = work.seconds || 1
+        const meter = new WorkMeter(totalWork)
+        onProgress({ cutIndex: 0, cutCount: cuts.length, fraction: 0, stage: 'Starting', estimateSec: totalWork })
         // Replay crops are done with the picture itself; only a failure to draw can lose them.
         for (const c of cuts) if (c.crop) diag.graphicApplied(c.cropLabel ?? 'Replay zoom')
 
@@ -191,7 +202,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 startUnit = prev.unitsDone
                 vConfig = prev.video
                 cursorFrames = Math.round(prev.cursor / frameSec)
-                done = prev.done
+                done = (prev.done / (prev.total || 1)) * totalWork // saved as a share of the work, whatever the units
                 copied = prev.copied
                 if (prev.timings?.length === cuts.length) timings = prev.timings
                 else timingsKnown = false
@@ -205,7 +216,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 await discardJob()
                 const state: JobState = {
                     kind: opts.resumable.kind, signature: opts.resumable.signature, outputName, graphics: !!g,
-                    unitsDone: 0, unitCount: units.length, cursor: 0, done: 0, total: totalFrames, copied: false, report: null,
+                    unitsDone: 0, unitCount: units.length, cursor: 0, done: 0, total: totalWork, copied: false, report: null,
                     video: null, audio: aConfig, updatedAt: Date.now(),
                 }
                 await saveJob(state)
@@ -289,7 +300,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             }
         }
 
-        const reportProgress = (stage?: string): void => onProgress({ cutIndex: 0, cutCount: cuts.length, fraction: Math.min(1, done / totalFrames), ...(stage ? { stage } : {}) })
+        const reportProgress = (stage?: string): void => onProgress({ cutIndex: 0, cutCount: cuts.length, fraction: (meter.set(done), meter.fraction()), ...(stage ? { stage } : {}) })
         const failedOverlays = new Set<RenderOverlay>()
         const paintOverlays = (active: RenderOverlay[], tSrc: number): void => {
             for (const o of active) {
@@ -314,6 +325,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             let still: ImageBitmap | null = null
             if (card.fade) { paintAt(card.durationSec / 2); still = await createImageBitmap(canvas) }
             const startFrame = cursorFrames
+            const frameW = (card === g?.intro ? work.sections[0] : work.sections[work.sections.length - 1]).seconds / n
             try {
                 await encodeUnit(async (encode) => {
                     for (let i = 0; i < n; i++) {
@@ -326,7 +338,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                             ctx.globalAlpha = 1
                         } else paintAt(i * frameSec)
                         await encode(frames.make(new VideoFrame(canvas, { timestamp: tsUs(startFrame + i), duration: durUs })), i % keyFrames === 0)
-                        done++
+                        done += frameW
                         if (i % 30 === 0) reportProgress(stage)
                     }
                 })
@@ -351,6 +363,11 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             const overlays = resolved.get(v.ci) ?? []
             // The picture nearest in time: a source whose frames sit between output ticks (edit-list offsets, VFR) is at most half a frame off.
             const eps = frameSec * 0.5
+            // Work per output frame of this cut: the plain share, plus the painting for frames drawn on the canvas.
+            const sec = work.sections[seg.cutIndex + 1]
+            const paintW = priceUnits({ ...ZERO_UNITS, paintSec: sec.units.paintSec }, pricing)
+            const baseFrameW = (sec.seconds - paintW) / cutFrames(cut, frameSec)
+            const paintFrameW = paintW / Math.max(1, sec.units.paintSec / frameSec)
             const sink = new VideoSampleSink(src.video)
             const iterator = sink.samples(a)[Symbol.asyncIterator]()
             let cur: VideoSample | null = null
@@ -408,7 +425,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                             frame = frames.make(new VideoFrame(canvas, { timestamp: tsUs(startFrame + j), duration: durUs }))
                         }
                         await encode(frame, j === 0 || (seg.firstFrame + j) % keyFrames === 0)
-                        done++
+                        done += baseFrameW + (plain ? 0 : paintFrameW)
                         if (j % 30 === 0) reportProgress()
                     }
                 })
@@ -492,7 +509,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 if (journal && unitWriter) {
                     await unitWriter.close()
                     unitWriter = null
-                    await saveJob({ ...journal.state, unitsDone: u + 1, cursor: cursorFrames * frameSec, done, total: totalFrames, copied, timings, report: structuredClone(report), video: vConfig })
+                    await saveJob({ ...journal.state, unitsDone: u + 1, cursor: cursorFrames * frameSec, done, total: totalWork, copied, timings, report: structuredClone(report), video: vConfig })
                 }
                 reportProgress()
             }

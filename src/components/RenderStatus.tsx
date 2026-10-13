@@ -9,6 +9,7 @@ import { keepOpenNotice } from '../utils/renderNotice'
 import { dedupeSkipped } from '../utils/dedupeSkipped'
 import { SkippedList } from './SkippedList'
 import { etaSeconds, formatEta, stepEta, type EtaState } from '../utils/renderEta'
+import { expectedWallSeconds } from '../utils/renderTime'
 
 interface RenderStatusProps {
     /** Which export this panel section belongs to: it shows that render, and notes when the other one is running. */
@@ -53,7 +54,7 @@ function RenderStatusBody({ kind, onStopped }: RenderStatusProps & { onStopped: 
             const j = renderJobs().getState().job
             if (j) {
                 if (eta.current.id !== j.id) eta.current = { id: j.id, state: null }
-                eta.current.state = stepEta(eta.current.state, Date.now(), j.fraction)
+                eta.current.state = stepEta(eta.current.state, Date.now(), j.fraction, j.estimateSec ? expectedWallSeconds(j.estimateSec, j.output ?? 'original') : null)
             }
             tick((n) => n + 1)
         }, 1000)

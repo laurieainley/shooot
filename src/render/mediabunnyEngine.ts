@@ -16,6 +16,7 @@ import { planAudio } from './audioPlan'
 import { cutTiming } from '../utils/chapterTimes'
 import { mixedSizeNotice } from './outputSize'
 import { overlayRegions } from './overlayRegions'
+import { DEFAULT_COEF, WorkMeter, cutShare, detectDeviceClass, factsOfSource, planWork, priceUnits, ZERO_UNITS } from '../utils/renderTime'
 import { encodeReplayAudio } from './replayAudio'
 import { makeSilentAudio, type SilentAudio } from './silentAudio'
 import { canJournal, discardJob, loadJob, openUnit, saveJob, type JobState, type UnitWriter } from './renderJob'
@@ -151,17 +152,34 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             overlaysByCut.set(o.cutIndex, [...(overlaysByCut.get(o.cutIndex) ?? []), o])
         }
 
-        const span = (c: Cut): number => Math.max(0, Math.min(c.endSec, opened[c.sourceIndex].endSec) - c.startSec)
         const cardSec = (c: RenderCard | undefined): number => (session && c ? c.durationSec : 0)
-        const total = (cuts.reduce((acc, c) => acc + span(c), 0) + cardSec(run?.graphics.intro) + cardSec(run?.graphics.outro)) || 1
+        // Progress is the share of estimated WORK done, not media time: a copied second and a re-encoded one differ 10-50x in cost
+        // (utils/renderTime prices every cut and card with the same model the Export panel's hint uses).
+        const fps = await first.video.computePacketStats(120).then((st) => st.averagePacketRate).catch(() => 30)
+        const pricing = { facts: factsOfSource({ width: first.video.displayWidth, height: first.video.displayHeight, codec: first.video.codec, fps, bytes: sources[cuts[0].sourceIndex].file.size, seconds: first.endSec }), output: 'original' as const, coef: DEFAULT_COEF[detectDeviceClass()] }
+        const work = planWork({
+            cuts: cuts.map((c) => ({ ...c, endSec: Math.min(c.endSec, opened[c.sourceIndex].endSec) })),
+            overlays: [...overlaysByCut.values()].flat().map((o) => ({ cutIndex: o.cutIndex, startSec: o.startSec, durationSec: o.durationSec, ...(o.anchor === 'wholeCut' || o.anchor === 'stretchToCut' ? { whole: true } : {}) })),
+            introSec: cardSec(run?.graphics.intro), outroSec: cardSec(run?.graphics.outro),
+        }, pricing)
+        const total = work.seconds || 1
+        const introWork = work.sections[0].seconds
+        const cutWork = (ci: number): number => work.sections[ci + 1]?.seconds ?? 0
+        const copyRate = priceUnits({ ...ZERO_UNITS, copySec: 1 }, pricing)
+        const regionRate = priceUnits({ ...ZERO_UNITS, decSec: 1, encSec: 1, paintSec: 1 }, pricing)
+        const meter = new WorkMeter(total)
+        /** Fraction for `workDone` (model seconds), never going backwards. */
+        const fractionAt = (workDone: number): number => { meter.set(workDone); return meter.fraction() }
         let done = 0
+        onProgress({ cutIndex: 0, cutCount: cuts.length, fraction: 0, stage: 'Starting', estimateSec: total })
 
         // Cards are encoded before anything is written, so a failure just leaves the card out.
         const encodeCard = async (card: RenderCard | undefined, stage: string): Promise<EncodedPacket[] | null> => {
             if (!session || !card) return null
             const endCard = diag.begin('cards')
             try {
-                const packets = await session.card(card, (f) => onProgress({ cutIndex: 0, cutCount: cuts.length, fraction: Math.min(1, (done + f * card.durationSec) / total), stage }))
+                const cardW = card === run?.graphics.intro ? introWork : work.sections[work.sections.length - 1].seconds
+                const packets = await session.card(card, (f) => onProgress({ cutIndex: 0, cutCount: cuts.length, fraction: fractionAt(done + f * cardW), stage }))
                 run!.report.applied.push(card.label)
                 diag.graphicApplied(card.label)
                 return packets
@@ -217,7 +235,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
 
         // Cards are encoded before anything is written, so a failure just leaves the card out.
         const directIntro = journal ? null : await encodeCard(run?.graphics.intro, 'Title card')
-        if (directIntro) done += cardSec(run?.graphics.intro)
+        if (directIntro) done += introWork
 
         let direct: { output: Output; vOut: EncodedVideoPacketSource; aOut: EncodedAudioPacketSource | null; result: () => Promise<File | Blob>; discard: () => Promise<void> } | null = null
         if (!journal) {
@@ -249,7 +267,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
         }
         let cursor = journal?.state.cursor ?? 0
         if (journal && startUnit > 0) {
-            done = journal.state.done
+            done = (journal.state.done / (journal.state.total || 1)) * total // saved as a share of the work, whatever the units
             if (run && journal.state.report) {
                 run.report.applied.push(...journal.state.report.applied); run.report.skipped.push(...journal.state.report.skipped)
                 for (const l of journal.state.report.applied) diag.graphicApplied(l)
@@ -329,6 +347,9 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             let items: AsyncIterable<OutItem> | OutItem[]
             // Overlays tied to the cut follow its real extent (key frame before the requested start, whole GOPs).
             const realEnd = kStop ? kStop.timestamp : src.endSec
+            // Where this cut is in its work: copying is cheap, the re-encoded regions around graphics are not.
+            let workRegions: [number, number][] = []
+            const share = (t: number): number => cutShare(t, cutStart, realEnd, workRegions, copyRate, regionRate)
             const planned = overlaysByCut.get(ci)
             let overlays: RenderOverlay[] | undefined
             if (planned) {
@@ -367,6 +388,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                     keyTimes.push(k.timestamp)
                 }
                 const regions = overlayRegions(keyTimes, overlays.map((o): [number, number] => [o.startSec, o.startSec + o.durationSec]))
+                workRegions = regions
                 const sess = session
                 const report = run!.report
                 async function* drawn(buf: EncodedPacket[]): AsyncGenerator<OutItem> {
@@ -374,7 +396,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                     const end = buf.reduce((m, p) => Math.max(m, p.timestamp + p.duration), cutStart)
                     const mine = overlays!.filter((o) => o.startSec < end && o.startSec + o.durationSec > start)
                     if (mine.length === 0) { for (const p of buf) yield { packet: p, generated: false, splice: false }; return }
-                    onProgress({ cutIndex: ci, cutCount: cuts.length, fraction: Math.min(1, (done + Math.max(0, start - cut.startSec)) / total), stage: 'Graphics' })
+                    onProgress({ cutIndex: ci, cutCount: cuts.length, fraction: fractionAt(done + cutWork(ci) * share(start)), stage: 'Graphics' })
                     const r = await sess.overlayCut(src, buf, end, mine)
                     // Scaled footage must not be copied unscaled into a file of another size: that is a failure.
                     if (rescale && r.skipped.length > 0) throw new Error(`${sources[cut.sourceIndex].name}: ${r.skipped[0].reason}`)
@@ -426,8 +448,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                 await addVideo(q.clone({ timestamp: cursor + rel, duration: p.duration / speed }))
                 copied = true
                 videoEnd = Math.max(videoEnd, p.timestamp + p.duration)
-                const within = Math.min(span(cut), Math.max(0, p.timestamp - cut.startSec))
-                onProgress({ cutIndex: ci, cutCount: cuts.length, fraction: Math.min(1, (done + within) / total) })
+                onProgress({ cutIndex: ci, cutCount: cuts.length, fraction: fractionAt(done + cutWork(ci) * share(p.timestamp)) })
             }
 
             // End at the last copied frame (equals kStop for closed GOPs; open GOPs lose
@@ -461,8 +482,8 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             }
             timings[ci] = cutTiming(cursor, cutStart, cutEnd, speed)
             cursor += outSpan
-            done += span(cut)
-            onProgress({ cutIndex: ci, cutCount: cuts.length, fraction: Math.min(1, done / total) })
+            done += cutWork(ci)
+            onProgress({ cutIndex: ci, cutCount: cuts.length, fraction: fractionAt(done) })
         }
 
         try {
@@ -474,7 +495,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                 if (u === 0) {
                     const intro = journal ? await encodeCard(run?.graphics.intro, 'Title card') : directIntro
                     if (intro) {
-                        if (journal) done += cardSec(run?.graphics.intro)
+                        if (journal) done += introWork
                         await addCard(intro)
                     }
                 } else if (u <= cuts.length) {

@@ -2,6 +2,7 @@
 // size and time estimates. The numbers come from the encode benchmark (docs/superpowers/notes/2026-10-12-encode-benchmark.md).
 import { LONG_SIDE, type OutputQuality, type ReencodeQuality } from '../render/transcodePlan'
 import type { CodecSupport } from '../render/transcodeSupport'
+import type { TimeEstimate } from './renderTime'
 
 export type { OutputQuality, ReencodeQuality }
 
@@ -13,16 +14,11 @@ export const AUDIO_BITRATE = 160_000
 const COPIED_AUDIO_BITRATE = 192_000
 
 /**
- * Re-encode time as a range of multiples of the match length, from real-device runs on raw GoPro 4K (wall time ÷ output
- * length): 4K 0.85× (Mac) to 1.25× (Pixel), 1080p 0.68× (Mac) to 1.02× (Pixel). Rounded outwards: a phone is slower.
+ * Fallback re-encode time as a range of multiples of the match length, for when nothing is known about the footage or the
+ * plan (the real estimate is utils/renderTime, which prices what the render actually does). From real-device runs on raw
+ * GoPro 4K (wall ÷ output length): 4K 0.85× (Mac) to 1.25× (Pixel), 1080p 0.68× (Mac) to 1.02× (Pixel).
  */
 export const ENCODE_TIME_RANGE: Record<ReencodeQuality, [number, number]> = { '4k': [0.8, 1.3], '1080p': [0.65, 1.1] }
-
-/**
- * Highlights "Original" time as a multiple of the reel length. Its replay and graphics sections are re-encoded (HEVC 4K),
- * which is cheap on a Mac (0.5x) or iPad (0.4x) but the slowest option on an Android phone (2.2x on a Pixel).
- */
-export const HIGHLIGHTS_ORIGINAL_TIME: { desktop: [number, number]; phone: [number, number] } = { desktop: [0.4, 0.6], phone: [1.8, 2.4] }
 
 /** The Highlights choice as saved: 'auto' = the device's default until the user picks something. */
 export type HighlightsQualityChoice = 'auto' | OutputQuality
@@ -35,7 +31,8 @@ export function resolveHighlightsQuality(choice: HighlightsQualityChoice | undef
 
 export const QUALITY_LABEL: Record<OutputQuality, string> = { original: 'Original', '4k': '4K', '1080p': '1080p' }
 
-export type SourceInfo = { width: number; height: number }
+/** The footage's size, and (once the file has been read) its codec and frame rate, for the time estimate. */
+export type SourceInfo = { width: number; height: number; codec?: 'h264' | 'hevc'; fps?: number }
 
 /** Estimated size of a re-encoded export of `seconds` of output. */
 export function estimateEncodedBytes(quality: ReencodeQuality, seconds: number, bitrate: number = VIDEO_BITRATE[quality]): number {
@@ -49,14 +46,16 @@ export type QualityOption = {
     /** Why it is disabled (or a note when it is checked still). */
     reason: string | null
     bytes: number
-    /** Roughly how long it takes as a range of multiples of the match length; null for a stream copy. */
+    /** Roughly how long it takes as a range of multiples of the match length; null when unknown. */
     timeRange: [number, number] | null
+    /** 'this device' when the range comes from renders measured here (narrower); else typical for the device class. */
+    timeBasis?: 'typical' | 'this device'
     /** Disabled because the browser's storage for this site is too small for the file (not because of the footage or codec). */
     noRoom?: boolean
 }
 
 /** The three choices for this footage and browser. `originalBytes` is the stream-copy estimate. */
-export function qualityOptions(o: { source: SourceInfo | null; support: CodecSupport; seconds: number; originalBytes: number; /** Original is not a plain copy (Highlights): how long it takes. */ originalTimeRange?: [number, number] }): QualityOption[] {
+export function qualityOptions(o: { source: SourceInfo | null; support: CodecSupport; seconds: number; originalBytes: number; /** How long each choice takes for this plan (utils/exportPlans estimatePlanTime); omitted = the fixed fallback ranges. */ time?: (q: OutputQuality) => TimeEstimate | null }): QualityOption[] {
     const long = o.source ? Math.max(o.source.width, o.source.height) : 0
     const reasonFor = (q: ReencodeQuality): string | null => {
         if (!o.source) return 'Load the match videos first.'
@@ -65,12 +64,17 @@ export function qualityOptions(o: { source: SourceInfo | null; support: CodecSup
         if (o.support.encode[q] === false) return `This browser cannot encode ${q === '4k' ? '4K' : '1080p'} H.264.`
         return null
     }
+    const timed = (q: OutputQuality): Pick<QualityOption, 'timeRange' | 'timeBasis'> => {
+        const e = o.time?.(q)
+        if (!e || !(o.seconds > 0)) return { timeRange: q === 'original' ? null : ENCODE_TIME_RANGE[q] }
+        return { timeRange: [e.low / o.seconds, e.high / o.seconds], timeBasis: e.basis }
+    }
     const re = (q: ReencodeQuality): QualityOption => {
         const reason = reasonFor(q)
-        return { id: q, label: QUALITY_LABEL[q], disabled: reason !== null, reason, bytes: estimateEncodedBytes(q, o.seconds), timeRange: ENCODE_TIME_RANGE[q] }
+        return { id: q, label: QUALITY_LABEL[q], disabled: reason !== null, reason, bytes: estimateEncodedBytes(q, o.seconds), ...timed(q) }
     }
     return [
-        { id: 'original', label: 'Original', disabled: false, reason: null, bytes: o.originalBytes, timeRange: o.originalTimeRange ?? null },
+        { id: 'original', label: 'Original', disabled: false, reason: null, bytes: o.originalBytes, ...timed('original') },
         re('4k'),
         re('1080p'),
     ]
@@ -82,13 +86,13 @@ const minutes = (sec: number): number => {
 }
 
 /** "roughly 30–60 min for a 49 min match, depending on the device" / "quickest" for a stream copy. `noun` names what the length is of (match, reel). */
-export function timeHint(range: [number, number] | null, seconds: number, noun = 'match'): string {
+export function timeHint(range: [number, number] | null, seconds: number, noun = 'match', basis: 'typical' | 'this device' = 'typical'): string {
     if (range === null) return 'quickest'
     if (seconds < 60) return 'under a minute'
     const lo = minutes(seconds * range[0])
     const hi = Math.max(lo, minutes(seconds * range[1]))
     const span = lo === hi ? `${lo} min` : `${lo}–${hi} min`
-    return `roughly ${span} for a ${Math.round(seconds / 60)} min ${noun}, depending on the device`
+    return `roughly ${span} for a ${Math.round(seconds / 60)} min ${noun}${basis === 'this device' ? ', going by your last renders' : ', depending on the device'}`
 }
 
 // ---- Storage fit ----

@@ -37,7 +37,7 @@ export function OutputQualityField({ name, options, effective, onChange, seconds
             <ul className="m-0 pl-0 list-none flex flex-col gap-1" aria-label="Output quality sizes">
                 {options.map((o) => (
                     <li key={o.id} className={`toggle-row__hint${o.disabled ? ' opacity-60' : ''}`}>
-                        <b>{QUALITY_LABEL[o.id]}</b>{o.disabled ? (o.noRoom ? ` ${o.reason}` : ` unavailable: ${o.reason}`) : ` about ${formatBytes(o.bytes)}, ${timeHint(o.timeRange, seconds, noun)}`}
+                        <b>{QUALITY_LABEL[o.id]}</b>{o.disabled ? (o.noRoom ? ` ${o.reason}` : ` unavailable: ${o.reason}`) : ` about ${formatBytes(o.bytes)}, ${timeHint(o.timeRange, seconds, noun, o.timeBasis)}`}
                     </li>
                 ))}
             </ul>

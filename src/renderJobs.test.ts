@@ -180,3 +180,33 @@ describe('render job timeline', () => {
         expect(savedTimeline('highlights')).toBeNull()
     })
 })
+
+describe('learned render rates', () => {
+    const run = async (steps: { fraction: number; estimateSec?: number }[], output?: '4k') => {
+        const data: Record<string, string> = {}
+        vi.stubGlobal('localStorage', { getItem: (k: string) => data[k] ?? null, setItem: (k: string, v: string) => { data[k] = v } })
+        let t = 0
+        const deps: RenderJobDeps = {
+            render: async (_c, _s, o) => { for (const s of steps) { t += 100_000; o.onProgress({ cutIndex: 0, cutCount: 1, ...s }) } return new Blob(['x']) },
+            download: vi.fn(() => true), notify: vi.fn(), now: () => t, createUrl: () => 'blob:x', revokeUrl: vi.fn(),
+        }
+        const store = createRenderJobs(deps)
+        await store.getState().start({ kind: 'highlights', quality: 'full', ...(output ? { output } : {}) }, async () => req())
+        return { job: store.getState().job!, rates: data['shooot.renderRates.v1'] ? JSON.parse(data['shooot.renderRates.v1']) : null }
+    }
+    it('should keep the output and the engine estimate on the job and record wall time against the estimate', async () => {
+        const { job, rates } = await run([{ fraction: 0, estimateSec: 100 }, { fraction: 0.01 }, { fraction: 0.9 }], '4k')
+        expect(job.output).toBe('4k')
+        expect(job.estimateSec).toBe(100)
+        // The clock moves 100 s per report: the estimate report starts the engine's clock, two more reports follow = 200 s for 100 s modelled.
+        expect(rates['4k'].ratio).toBeCloseTo(2)
+    })
+    it('should default the job to Original', async () => {
+        const { job } = await run([{ fraction: 0, estimateSec: 100 }, { fraction: 0.01 }])
+        expect(job.output).toBe('original')
+    })
+    it('should not learn from a render that resumed a saved one', async () => {
+        const { rates } = await run([{ fraction: 0, estimateSec: 100 }, { fraction: 0.6 }, { fraction: 0.9 }])
+        expect(rates).toBeNull()
+    })
+})

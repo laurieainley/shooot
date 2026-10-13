@@ -109,7 +109,7 @@ describe('FullMatchExport', () => {
             render(<FullMatchExport />)
             expect(screen.getByRole('radio', { name: 'Original' })).toBeChecked()
             const list = screen.getByRole('list', { name: /output quality sizes/i })
-            expect(list).toHaveTextContent(/Original about 2\.3 GB, quickest/)
+            expect(list).toHaveTextContent(/Original about 2\.3 GB, roughly/)
             expect(list).toHaveTextContent(/4K about .* GB, roughly .* min for a 18 min match, depending on the device/)
             expect(list).toHaveTextContent(/1080p about .* GB, roughly .* min for a 18 min match, depending on the device/)
         })

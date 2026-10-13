@@ -9,6 +9,16 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ---
 
+## 2026-10-13
+
+- **Render time comes from a cost model of what the render does, and the live ETA from work-weighted progress** (user bug:
+  a phone said Original ~10-13 min for a 6 min reel and "about 2 min left" after 2 minutes). Fixed multipliers measured on raw GoPro
+  4K ignored the ticked options, the footage and the device, and media-time progress counted a copied second like a re-encoded one.
+  Now: per-device-class coefficients fitted to the benchmarks (every measurement within 25%, two Pixel outliers within 40%);
+  engines report progress as a share of estimated work; the ETA blends the model total with observation; finished renders teach the
+  model this device's ratio per path (localStorage). Unknown devices use the slowest set. *Where:* `src/utils/renderTime.ts`,
+  `renderEta.ts`, `render/mediabunnyEngine.ts`, `render/transcodeEngine.ts`, branch `feat/render-time`.
+
 ## 2026-10-12
 
 - **Roster entry: Enter adds the name and stays in the field; names sit below the field; this device remembers

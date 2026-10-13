@@ -26,5 +26,5 @@ export async function requestFor(plan: ExportPlan, onGraphicsError: (reason: str
 export function startExport(kind: JobKind, quality: 'full' | 'preview', plan: ExportPlan, long: boolean): void {
     if (long) askNotifyPermission() // inside the click
     const jobs = renderJobs().getState()
-    void jobs.start({ kind, quality }, () => requestFor(plan, (reason) => jobs.setReport({ applied: [], skipped: [{ label: 'Graphics', reason }] })))
+    void jobs.start({ kind, quality, output: plan.output?.quality ?? 'original' }, () => requestFor(plan, (reason) => jobs.setReport({ applied: [], skipped: [{ label: 'Graphics', reason }] })))
 }
