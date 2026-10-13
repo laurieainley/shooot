@@ -1,3 +1,4 @@
+import { solidTeamColor } from '../utils/teamColor'
 import { useAppState } from '../state'
 import type { CropRect, GoalTeam } from '../types'
 import { teamGoalLabel } from '../utils/attack'
@@ -49,7 +50,7 @@ export function GoalSetupSummary({ frame, onEdit, onSetup, compact }: GoalSetupS
                     const label = teamGoalLabel(teams, team)
                     const set = !!marks?.[team]
                     return (
-                        <div key={team} className={`gs-card gs-card--${team}`} role="group" aria-label={label}>
+                        <div key={team} className={`gs-card gs-card--${team}`} role="group" aria-label={label} style={{ borderTopColor: solidTeamColor(teams[team === 'team1' ? 0 : 1]?.color ?? '', 'var(--sh-muted)') }}>
                             <div className="gs-card__thumb" style={{ aspectRatio: String(frame?.aspect ?? 16 / 9) }}>
                                 {frame && rect && <img src={frame.src} alt="" draggable={false} style={cropImageStyle(rect)} />}
                                 {!rect && <span className="gs-card__none">No replay zoom yet</span>}

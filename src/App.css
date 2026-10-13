@@ -1628,7 +1628,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .gs-zoomview { position: relative; width: min(100cqw - 24px, (100cqh - 100px) * var(--aspect, 1.7778)); aspect-ratio: var(--aspect, 1.7778); max-width: 100%; align-self: center; overflow: hidden; background: var(--sh-video); border-radius: var(--sh-radius-sm); touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; }
 .gs-zoomview:focus-visible { outline: 3px solid var(--sh-on-video); outline-offset: 2px; }
 .gs-zoomview__img { position: absolute; max-width: none; pointer-events: none; }
-.gs-map { position: absolute; right: 8px; bottom: 8px; width: 28%; max-width: 140px; min-width: 72px; overflow: hidden; border: 2px solid var(--sh-on-video); border-radius: 3px; background: var(--sh-video); cursor: pointer; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.7); }
+.gs-map { position: relative; flex: none; width: 96px; overflow: hidden; border: 2px solid var(--sh-on-video); border-radius: 3px; background: var(--sh-video); cursor: pointer; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.7); }
 .gs-map img { display: block; width: 100%; height: 100%; opacity: 0.8; pointer-events: none; }
 .gs-map__box { position: absolute; box-sizing: border-box; border: 2px solid var(--sh-on-video); box-shadow: 0 0 0 1px rgb(0 0 0 / 0.8); pointer-events: none; }
 .gs-zoombar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
@@ -1641,8 +1641,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .gs-summary--compact .gs-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .gs-summary--compact .gs-card { padding: 8px; }
 .gs-summary--compact .gs-card__actions .btn-quiet { flex: 1 1 auto; padding-inline: 8px; }
-.gs-card--team1 { border-top: 3px solid var(--sh-kit-sky); }
-.gs-card--team2 { border-top: 3px solid var(--sh-kit-yellow); }
+.gs-card { border-top-width: 3px; }
 .gs-card__thumb { position: relative; overflow: hidden; background: var(--sh-video); border-radius: var(--sh-radius-sm); }
 .gs-card__thumb img { position: absolute; max-width: none; }
 .gs-card__none { position: absolute; inset: 0; display: grid; place-items: center; font-size: 14px; color: var(--sh-on-video); }

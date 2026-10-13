@@ -107,12 +107,12 @@ export function ZoomFramer({ frame, rect, home, onChange }: ZoomFramerProps) {
                 onKeyDown={key}
             >
                 <img className="gs-zoomview__img" src={frame.src} alt="" draggable={false} style={cropImageStyle(rect)} />
-                <div className="gs-map" data-testid="goal-setup-map" role="button" aria-label="Where this view sits in the whole picture. Tap to move it." onPointerDown={(e) => e.stopPropagation()} onClick={tapMap} style={{ aspectRatio: String(aspect) }}>
+            </div>
+            <div className="gs-zoombar" role="group" aria-label="Zoom">
+                <div className="gs-map" data-testid="goal-setup-map" role="button" aria-label="Where this view sits in the whole picture. Tap to move it." onClick={tapMap} style={{ aspectRatio: String(aspect) }}>
                     <img src={frame.src} alt="" draggable={false} />
                     <span className="gs-map__box" style={{ left: `${rect.x * 100}%`, top: `${rect.y * 100}%`, width: `${rect.w * 100}%`, height: `${rect.h * 100}%` }} />
                 </div>
-            </div>
-            <div className="gs-zoombar" role="group" aria-label="Zoom">
                 <button type="button" className="btn-quiet" disabled={atMin} onClick={() => onChange(stepBox(rect, 'closer'))}>Closer</button>
                 <button type="button" className="btn-quiet" disabled={atMax} onClick={() => onChange(stepBox(rect, 'wider'))}>Wider</button>
                 <button type="button" className="btn-text" onClick={() => onChange(home)}>Reset</button>
