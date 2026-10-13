@@ -820,6 +820,8 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .swatch { box-sizing: border-box; width: 44px; height: 44px; border: 6px solid transparent; background-clip: padding-box !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sh-text) 25%, transparent); } /* the ring keeps a white kit visible on the light theme */
   .swatch[aria-pressed="true"] { outline-offset: -4px; }
   .swatches { gap: 0; }
+  /* 9 x 44 = 396px does not fit a phone card (about 328-358px; landscape phones would wrap 8 + 1): split 5 + 4 rather than shrink the targets */
+  @media (max-width: 480px), (max-height: 480px) { .swatches { max-width: 220px; } }
   .field { min-height: 44px; font-size: 16px; } /* 16px: no zoom-on-focus in mobile Safari */
   .graphics-setup .btn-quiet, .graphics-setup__field .field { min-height: 44px; }
   .btn-quiet, .btn-primary, .file-add { min-height: 44px; }
@@ -1136,6 +1138,9 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 @media (pointer: coarse) { .event-actions__download > .act-btn { min-height: 44px; min-width: 44px; font-size: 14px; } }
 .floating.clip-download { min-width: 240px; }
 .clip-download__body { display: flex; flex-direction: column; gap: 10px; }
+.clip-download__file { display: flex; gap: 4px; min-width: 0; }
+.clip-download__file-label { flex: none; }
+.clip-download__file .truncate { min-width: 0; color: var(--sh-text); }
 .clip-download__opt { display: flex; align-items: center; gap: 8px; min-height: 32px; font: 600 14px var(--sh-font); color: var(--sh-text); cursor: pointer; }
 .clip-download__opt input { width: 18px; height: 18px; accent-color: var(--sh-text); }
 .clip-download__note { margin: 0; font-size: 14px; color: var(--sh-muted); overflow-wrap: anywhere; }
