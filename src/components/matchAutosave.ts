@@ -2,7 +2,7 @@
 import { useAppState, type AppState } from '../state'
 import { adoptLegacyHandles } from '../files/handleStore'
 import { getMatch, putMatch } from '../files/matchStore'
-import { buildRecord, isWorthSaving, newMatchId, sameRecordData, type RecordSource } from '../utils/matchRecord'
+import { buildRecord, isWorthSaving, newMatchId, isEdit, sameRecordData, type RecordSource } from '../utils/matchRecord'
 import { openMatchStore, setOpenMatch } from './openMatch'
 
 export interface Autosaver { schedule(): void; flush(): Promise<void>; stop(): void }
@@ -45,9 +45,10 @@ export function createAutosaver(deps: { now?: () => number; rand?: () => number;
         try {
             const id = openMatchStore.getState().id ?? newMatchId(now(), rand)
             const prev = await getMatch(id)
-            const rec = buildRecord(recordSource(state), id, now(), prev)
+            let rec = buildRecord(recordSource(state), id, now(), prev)
             if (openMatchStore.getState().id !== id) setOpenMatch(id, rec.files)
             if (prev && sameRecordData(prev, rec)) { openMatchStore.setState({ saveError: false }); return }
+            if (prev && !isEdit(prev, rec)) rec = { ...rec, updatedAt: prev.updatedAt } // refreshed file details are not an edit
             await putMatch(rec)
             openMatchStore.setState({ files: rec.files, saveError: false })
         } catch {

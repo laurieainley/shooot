@@ -4,6 +4,7 @@ import { nextBarVisible } from '../utils/barScroll'
 import { BetaTag } from './BetaTag'
 import { ExportPanel } from './ExportPanel'
 import { FilesButton } from './FilesButton'
+import { NewMatchButton } from './NewMatchButton'
 import { OverflowMenu } from './OverflowMenu'
 import { Wordmark } from './Wordmark'
 import type { Layout } from './useMediaQuery'
@@ -41,9 +42,10 @@ export function TopBar({ layout }: TopBarProps) {
             <span className="brand"><Wordmark /><BetaTag /></span>
             {layout === 'desktop' || layout === 'tablet' ? (
                 <>
-                    <FilesButton />
+                    <NewMatchButton />
                     <span className="flex-1" />
                     <span className="top-bar__actions">
+                        <FilesButton />
                         <button type="button" onClick={() => useAppState.getState().openPanel('match')} className="top-btn top-btn--quiet">Match setup</button>
                         <ExportPanel />
                         <OverflowMenu layout={layout} />

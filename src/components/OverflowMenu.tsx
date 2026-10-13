@@ -76,7 +76,9 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
 
     return (
         <div role="menu" aria-label="Menu" className="menu-list">
-            <button type="button" role="menuitem" onClick={() => { const b = switchBlocker(); if (b) setBlocker(b); else void startNewMatch() }}>New match…</button>
+            {setupInMenu && ( // desktop and tablet have New match in the top bar
+                <button type="button" role="menuitem" onClick={() => { const b = switchBlocker(); if (b) setBlocker(b); else void startNewMatch() }}>New match…</button>
+            )}
             {hasFiles && (
                 <button type="button" role="menuitem" onClick={() => openFindGoals()}>
                     {running ? `Find goals — ${running.percent}%` : hasSuggestions ? 'Review moments' : 'Find goals'} <AiTag />
