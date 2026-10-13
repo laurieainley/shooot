@@ -428,6 +428,7 @@
   background: transparent; color: var(--sh-text); padding: 6px 10px; font-size: 14px; cursor: pointer;
 }
 .menu-list > button:hover:not(:disabled) { background: var(--sh-surface-2); }
+@media (pointer: coarse) { .menu-confirm { font-size: 14px; } .menu-confirm .btn-quiet { min-height: 44px; } }
 .menu-list > button:disabled { opacity: 0.4; cursor: not-allowed; }
 .menu-list > button:nth-child(1) { border-bottom: 1px solid var(--sh-line); border-radius: var(--sh-radius-sm) 3px 0 0; margin-bottom: 4px; }
 .menu-list > button:last-of-type { border-top: 1px solid var(--sh-line); border-radius: 0 0 3px 3px; margin-top: 4px; }

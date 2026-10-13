@@ -66,9 +66,11 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
 
     if (confirmNew) {
         return (
-            <div role="alertdialog" aria-label="New match" className="flex flex-col gap-3 py-3 text-[13px]">
+            <div role="alertdialog" aria-label="New match" className="menu-confirm flex flex-col gap-3 py-3 text-[13px]">
                 <p className="m-0">
-                    Clear {events.length} {events.length === 1 ? 'event' : 'events'} and unload the videos? Teams, rosters and clip settings stay. ⌘Z brings the events back.
+                    {events.length > 0
+                        ? `Clear ${events.length} ${events.length === 1 ? 'event' : 'events'} and unload the videos? Teams, rosters and clip settings stay. Undo brings the events back.`
+                        : 'Unload the videos and start a new match? Teams, rosters and clip settings stay.'}
                 </p>
                 <div className="flex flex-wrap gap-2">
                     <button type="button" onClick={() => { cancelDetection(); const st = useAppState.getState(); st.newMatch(); st.openPanel('newmatch'); void clearHandles() }} className="btn-quiet btn-danger">Clear match</button>
