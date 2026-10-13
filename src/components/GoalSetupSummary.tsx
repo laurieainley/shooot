@@ -12,6 +12,8 @@ interface GoalSetupSummaryProps {
     onEdit: (step: SetupStep) => void
     /** Shown when nothing is set yet. */
     onSetup: () => void
+    /** The small version inside New match / Match setup. */
+    compact?: boolean
 }
 
 const GOALS: { team: GoalTeam; posts: SetupStep; zoom: SetupStep }[] = [
@@ -20,7 +22,7 @@ const GOALS: { team: GoalTeam; posts: SetupStep; zoom: SetupStep }[] = [
 ]
 
 /** Two cards, one per goal: the replay view, whether the posts are identified, and a way back into each step. */
-export function GoalSetupSummary({ frame, onEdit, onSetup }: GoalSetupSummaryProps) {
+export function GoalSetupSummary({ frame, onEdit, onSetup, compact }: GoalSetupSummaryProps) {
     const areas = useAppState((s) => s.goalAreas)
     const marks = useAppState((s) => s.goalMarks)
     const teams = useAppState((s) => s.teams)
@@ -40,7 +42,7 @@ export function GoalSetupSummary({ frame, onEdit, onSetup }: GoalSetupSummaryPro
         if (marks) setAllMarks(swapGoalMarks(marks))
     }
     return (
-        <section className="gs-summary" aria-label="Goal set-up">
+        <section className={compact ? 'gs-summary gs-summary--compact' : 'gs-summary'} aria-label="Goal set-up">
             <div className="gs-cards">
                 {GOALS.map(({ team, posts, zoom }) => {
                     const rect: CropRect | undefined = areas?.[team]

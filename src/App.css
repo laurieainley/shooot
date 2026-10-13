@@ -1624,7 +1624,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .gs-zoom__btn { background: color-mix(in srgb, var(--sh-surface) 88%, transparent); }
 
 /* replay zoom */
-.gs-zoomwrap { display: grid; grid-template-rows: minmax(0, 1fr) auto auto; justify-items: center; align-content: start; gap: 8px; padding: 8px 12px; min-height: 0; }
+.gs-zoomwrap { display: grid; justify-items: center; align-content: center; gap: 8px; padding: 8px 12px; min-height: 0; }
 .gs-zoomview { position: relative; width: min(100cqw - 24px, (100cqh - 100px) * var(--aspect, 1.7778)); aspect-ratio: var(--aspect, 1.7778); max-width: 100%; align-self: center; overflow: hidden; background: var(--sh-video); border-radius: var(--sh-radius-sm); touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; }
 .gs-zoomview:focus-visible { outline: 3px solid var(--sh-on-video); outline-offset: 2px; }
 .gs-zoomview__img { position: absolute; max-width: none; pointer-events: none; }
@@ -1638,6 +1638,9 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .gs-summary { display: grid; gap: 10px; }
 .gs-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
 .gs-card { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--sh-line); border-radius: var(--sh-radius-sm); background: var(--sh-surface); align-content: start; }
+.gs-summary--compact .gs-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.gs-summary--compact .gs-card { padding: 8px; }
+.gs-summary--compact .gs-card__actions .btn-quiet { flex: 1 1 auto; padding-inline: 8px; }
 .gs-card--team1 { border-top: 3px solid var(--sh-kit-sky); }
 .gs-card--team2 { border-top: 3px solid var(--sh-kit-yellow); }
 .gs-card__thumb { position: relative; overflow: hidden; background: var(--sh-video); border-radius: var(--sh-radius-sm); }
