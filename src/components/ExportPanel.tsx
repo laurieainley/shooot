@@ -45,6 +45,8 @@ export function ExportPanel() {
     const after = useAppState((s) => s.lengthAfterGoalSec)
     const replaySpeed = useAppState((s) => s.replaySpeed)
     const graphics = useAppState((s) => s.graphics)
+    // Before any video is loaded, Choose files is the one primary action on screen; Export stays quiet.
+    const hasFiles = useAppState((s) => s.files.length > 0)
     const state = rendering ? (open ? 'rendering-open' : 'rendering') : open ? 'open' : 'idle'
     const setOpen = (next: boolean): void => { const st = useAppState.getState(); if (next) st.openPanel('export'); else st.closePanel() }
     const anchorRef = useRef<HTMLButtonElement | null>(null)
@@ -63,7 +65,7 @@ export function ExportPanel() {
         <>
             <button ref={anchorRef} type="button" aria-label="Export" aria-expanded={open} aria-haspopup="dialog" data-state={state}
                 aria-describedby={status.kind === 'running' ? 'export-btn-status' : undefined}
-                title={rendering ? 'A render is running — open to see it' : undefined} onClick={() => setOpen(!open)} className="top-btn top-btn--primary export-btn">
+                title={rendering ? 'A render is running — open to see it' : undefined} onClick={() => setOpen(!open)} className={`top-btn ${hasFiles ? 'top-btn--primary' : 'top-btn--quiet'} export-btn`}>
                 <span aria-hidden="true">Export</span>
                 {status.kind === 'running' && <span className="export-btn__live tc" aria-hidden="true"><i className="export-btn__dot" />{status.percent}%</span>}
                 {status.kind === 'done' && <span className="export-btn__live" aria-hidden="true">Ready</span>}

@@ -1086,8 +1086,17 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .event-row .clock, .event-row .row-score { font-size: 12px; }
 @media (pointer: coarse) { .event-row .clock, .event-row .row-score, .event-row .event-row__note, .event-row__type, .event-row .tag { font-size: 14px; } }
 /* Selected row: a second line of actions under the icon column (labels hide when the rail is narrow). */
-.event-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0 2px calc(var(--clock-ch, 5) * 1ch + 8px); white-space: nowrap; cursor: default; }
-.event-actions__download { display: inline-flex; }
+/* Buttons share the line and wrap (never clip) when the labels do not fit; the same filled layout at every rail width. */
+.event-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0 2px 12px; white-space: nowrap; cursor: default; }
+.event-actions .act-btn { flex: 1 1 auto; padding: 0 8px; }
+.event-actions__download { display: inline-flex; flex: 1 1 auto; }
+/* Mouse: the rail never fits all five labelled buttons on one line, so wrap on purpose: 3 + 2 (or 2 + 2), never a lone
+   full-width button on the second line. */
+@media (pointer: fine) {
+  .event-actions { padding-right: 12px; }
+  .event-actions > * { flex-basis: 30%; }
+  .event-actions:has(> :nth-child(4):last-child) > * { flex-basis: 40%; }
+}
 @media (pointer: coarse) { .event-actions__download > .act-btn { min-height: 44px; min-width: 44px; font-size: 14px; } }
 .floating.clip-download { min-width: 240px; }
 .clip-download__body { display: flex; flex-direction: column; gap: 10px; }
@@ -1114,17 +1123,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 /* The row's passive replay mark (never a button). */
 .event-row__replay { flex: none; color: var(--sh-muted); font-size: 13px; line-height: 1; }
 .act-btn--delete:hover { color: var(--sh-text); border-color: var(--sh-text); }
-/* Touch and narrow rails: no clock-column indent; buttons share the line and wrap (never clip) when the labels do not fit. Under 360px: icons only. */
-@media (pointer: coarse) {
-  .event-actions { padding-left: 12px; }
-  .event-actions .act-btn { flex: 1 1 auto; padding: 0 8px; }
-  .event-actions__download { flex: 1 1 auto; }
-}
-@container event-log (max-width: 420px) {
-  .event-actions { padding-left: 12px; }
-  .event-actions .act-btn { flex: 1 1 auto; padding: 0 8px; }
-  .event-actions__download { flex: 1 1 auto; }
-}
+/* Narrow rails, under 360px: icons only. */
 @container event-log (max-width: 360px) {
   .event-actions__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .act-switch__glyph { display: inline; }
@@ -1217,6 +1216,11 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .shortcuts-row { display: grid; grid-template-columns: minmax(92px, 36%) minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 4px 0; font-size: 13px; border-bottom: 1px solid var(--sh-line); }
 .shortcuts-row dt { display: flex; flex-wrap: wrap; gap: 4px; }
 .shortcuts-row dd { margin: 0; }
+/* Desktop: room for each description on one line, keys in a column only as wide as the longest set. */
+@media (min-width: 900px) and (pointer: fine) {
+  .sheet--narrow.shortcuts-sheet { width: min(600px, 100%); }
+  .shortcuts-row { grid-template-columns: 12em minmax(0, 1fr); }
+}
 .shortcuts-btn {
   flex: none; width: 28px; height: 28px; margin-left: 2px; padding: 0; border: 1px solid var(--sh-line); border-radius: 50%;
   background: transparent; color: var(--sh-muted); font: 700 14px var(--sh-font); cursor: pointer;
@@ -1396,7 +1400,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .range__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .range__label { font-size: 16px; }
 .range .btn-primary:disabled { opacity: .45; }
-.range__row .review__btn { flex: 0 0 10.5rem; }
+.range__row .review__btn { flex: 0 0 auto; min-width: 11.5rem; } /* both "… is here" buttons the same width */
 
 /* Toasts: one calm confirmation at a time. Top-right of the video (the scorebug is top-left); phone portrait: one line under the video. */
 .toast-host--video { position: absolute; top: 10px; right: 10px; z-index: 6; max-width: min(380px, calc(100% - 20px)); pointer-events: none; }
