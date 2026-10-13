@@ -1,12 +1,12 @@
 import { useRef, useState } from 'react'
 import { useAppState, type Panel } from '../state'
 import { AiTag } from './AiTag'
-import { cancelDetection, useDetectJob } from '../detectJobs'
+import { useDetectJob } from '../detectJobs'
 import { findGoalsProgress } from '../utils/findGoalsProgress'
 import { openFindGoals, useSuggestionsCurrent } from './findGoals'
 import { FloatingPanel } from './FloatingPanel'
 import { ProjectIO } from './ProjectIO'
-import { clearHandles } from '../files/handleStore'
+import { blockerText, startNewMatch, stopBlocker, switchBlocker, type SwitchBlocker } from './matchSwitch'
 import type { Layout } from './useMediaQuery'
 
 interface OverflowMenuProps {
@@ -49,7 +49,6 @@ interface MenuBodyProps {
 }
 
 function MenuBody({ setupInMenu }: MenuBodyProps) {
-    const events = useAppState((s) => s.events)
     const anySuggestions = useAppState((s) => s.suggestions.length > 0)
     const suggestionsCurrent = useSuggestionsCurrent()
     const running = findGoalsProgress(useDetectJob((j) => j))
@@ -57,24 +56,20 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
     const hasFiles = useAppState((s) => s.files.length > 0)
     const labs = useAppState((s) => s.labs)
     const labsSeen = useAppState((s) => s.labsSeen)
-    const [confirmNew, setConfirmNew] = useState(false)
+    const [blocker, setBlocker] = useState<SwitchBlocker>(null)
     const items: MenuItem[] = [
         { label: 'Files', panel: 'files' },
         ...(setupInMenu ? [{ label: 'Match setup', panel: 'match' as const }] : []),
         { label: 'Advanced settings', panel: 'settings' },
     ]
 
-    if (confirmNew) {
+    if (blocker) {
         return (
             <div role="alertdialog" aria-label="New match" className="menu-confirm flex flex-col gap-3 py-3 text-[13px]">
-                <p className="m-0">
-                    {events.length > 0
-                        ? `Clear ${events.length} ${events.length === 1 ? 'event' : 'events'} and unload the videos? Teams, rosters and clip settings stay. Undo brings the events back.`
-                        : 'Unload the videos and start a new match? Teams, rosters and clip settings stay.'}
-                </p>
+                <p className="m-0">{blockerText(blocker)}</p>
                 <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => { cancelDetection(); const st = useAppState.getState(); st.newMatch(); st.openPanel('newmatch'); void clearHandles() }} className="btn-quiet btn-danger">Clear match</button>
-                    <button type="button" onClick={() => setConfirmNew(false)} className="btn-quiet">Keep</button>
+                    <button type="button" onClick={() => { stopBlocker(); void startNewMatch() }} className="btn-quiet btn-danger">Stop and switch</button>
+                    <button type="button" onClick={() => setBlocker(null)} className="btn-quiet">Cancel</button>
                 </div>
             </div>
         )
@@ -82,7 +77,7 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
 
     return (
         <div role="menu" aria-label="Menu" className="menu-list">
-            <button type="button" role="menuitem" onClick={() => setConfirmNew(true)}>New match…</button>
+            <button type="button" role="menuitem" onClick={() => { const b = switchBlocker(); if (b) setBlocker(b); else void startNewMatch() }}>New match…</button>
             {hasFiles && (
                 <button type="button" role="menuitem" onClick={() => openFindGoals()}>
                     {running ? `Find goals — ${running.percent}%` : hasSuggestions ? 'Review moments' : 'Find goals'} <AiTag />

@@ -23,6 +23,8 @@ import { normaliseGraphics, type GraphicsSettings } from './graphics/plan'
 
 const DEFAULT_GRAPHICS: GraphicsSettings = { cards: true, lowerThirds: true, replayTag: true, theme: 'shooot' }
 import type { ClipOptions, FullMatchSettings } from './utils/exportPlans'
+import type { MatchData } from './utils/matchRecord'
+import { parseKnownScore } from './utils/scoreGap'
 import { forgetPlayer, rememberPlayers, type KnownPlayer } from './utils/knownPlayers'
 
 /** Links events to the loaded files: migrated whole-timeline times are placed first, then file keys matched. */
@@ -92,6 +94,8 @@ export type AppState = {
     sortEvents: () => void
     clear: () => void
     newMatch: () => void
+    /** Replaces the whole match with a saved one (no videos; undo/redo reset). Missing fields keep the current values. */
+    loadMatch: (data: MatchData) => void
     // Undo/redo
     undoStack: MatchEvent[][]
     redoStack: MatchEvent[][]
@@ -497,6 +501,36 @@ export const useAppState = create<AppState>()(
                     undoStack: [...state.undoStack.slice(-49), state.events], redoStack: [],
                     matchdayLabel: null, knownFinalScore: null, goalAreas: null, goalMarks: null,
                     suggestions: [], suggestionRun: null, reviewIndex: 0,
+                })
+            },
+            loadMatch: (d) => {
+                const st = get()
+                for (const f of st.files) if (f.url) URL.revokeObjectURL(f.url)
+                const num = (v: unknown, fallback: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : fallback)
+                const left = d.whitesAttackLeft ?? true
+                const teams = Array.isArray(d.teams) && d.teams.length === 2 ? d.teams : st.teams
+                const events = relinkEvents((Array.isArray(d.events) ? d.events : []).map((e) => migrateEvent(e, left, teams)), [])
+                set({
+                    files: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0,
+                    isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, picker: null, panel: null,
+                    undoStack: [], redoStack: [], discardStack: [], reviewIndex: 0,
+                    events,
+                    teams,
+                    knownPlayers: rememberPlayers(st.knownPlayers, teams.flatMap((t) => t.roster), Date.now()),
+                    lengthBeforeGoalSec: Math.max(0, num(d.lengthBeforeGoalSec, st.lengthBeforeGoalSec)),
+                    lengthAfterGoalSec: Math.max(0, num(d.lengthAfterGoalSec, st.lengthAfterGoalSec)),
+                    replayBeforeSec: Math.min(15, Math.max(0, num(d.replayBeforeSec, st.replayBeforeSec))),
+                    replayAfterSec: Math.min(15, Math.max(0, num(d.replayAfterSec, st.replayAfterSec))),
+                    replaySpeed: d.replaySpeed === undefined ? st.replaySpeed : (num(d.replaySpeed, st.replaySpeed) <= 0.375 ? 0.25 : 0.5),
+                    graphics: d.graphics ? normaliseGraphics({ ...st.graphics, ...d.graphics }, st.graphics) : st.graphics,
+                    fullMatch: d.fullMatch ? { ...st.fullMatch, ...d.fullMatch } : st.fullMatch,
+                    matchdayLabel: typeof d.matchdayLabel === 'string' && d.matchdayLabel.trim() ? d.matchdayLabel : null,
+                    knownFinalScore: parseKnownScore(d.knownFinalScore),
+                    goalAreas: normaliseAreas(d.goalAreas, left),
+                    goalMarks: normaliseGoalMarks(d.goalMarks),
+                    suggestions: Array.isArray(d.suggestions) ? d.suggestions : [],
+                    suggestionRun: d.suggestionRun ?? null,
+                    clipOptions: d.clipOptions ? { ...st.clipOptions, ...d.clipOptions } : st.clipOptions,
                 })
             },
             knownPlayers: [],

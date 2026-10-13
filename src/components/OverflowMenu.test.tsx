@@ -4,6 +4,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import { cancelDetection } from '../detectJobs'
+import { renderJobs } from '../renderJobs'
 import { OverflowMenu } from './OverflowMenu'
 import type { MatchEvent, VideoSourceFile } from '../types'
 
@@ -63,16 +64,14 @@ describe('OverflowMenu', () => {
         render(<OverflowMenu />)
         await open()
         await userEvent.click(screen.getByRole('menuitem', { name: 'New match…' }))
-        await userEvent.click(screen.getByRole('button', { name: /Clear match/ }))
-        expect(cancelDetection).toHaveBeenCalled()
+        await vi.waitFor(() => expect(cancelDetection).toHaveBeenCalled())
     })
 
     it('should open the stepped New match setup after clearing', async () => {
         render(<OverflowMenu />)
         await open()
         await userEvent.click(screen.getByRole('menuitem', { name: 'New match…' }))
-        await userEvent.click(screen.getByRole('button', { name: /Clear match/ }))
-        expect(s().panel).toBe('newmatch')
+        await vi.waitFor(() => expect(s().panel).toBe('newmatch'))
         expect(s().files).toEqual([])
     })
 
@@ -108,25 +107,27 @@ describe('OverflowMenu', () => {
         expect(s().events).toHaveLength(3)
     })
 
-    it('should ask before a new match, and clear on confirm', async () => {
+    it('should start a new match straight away, without a confirm', async () => {
         render(<OverflowMenu />)
         await open()
         await userEvent.click(screen.getByRole('menuitem', { name: /new match/i }))
-        expect(s().events).toHaveLength(2)
-        expect(screen.getByText(/clear 2 events and unload the videos/i)).toBeInTheDocument()
-        await userEvent.click(screen.getByRole('button', { name: /clear match/i }))
-        expect(s().events).toEqual([])
+        await vi.waitFor(() => expect(s().events).toEqual([]))
+        expect(screen.queryByRole('button', { name: /clear match/i })).not.toBeInTheDocument()
         expect(s().files).toEqual([])
         expect(s().panel).toBe('newmatch') // the stepped New match setup opens
     })
 
-    it('should keep everything when the new match is cancelled', async () => {
-        render(<OverflowMenu />)
-        await open()
-        await userEvent.click(screen.getByRole('menuitem', { name: /new match/i }))
-        await userEvent.click(screen.getByRole('button', { name: /keep/i }))
-        expect(s().events).toHaveLength(2)
-        expect(screen.queryByText(/clear 2 events/i)).not.toBeInTheDocument()
+    it('should ask first when an export is running, and keep everything on Cancel', async () => {
+        renderJobs().setState({ job: { phase: 'running' } as never })
+        try {
+            render(<OverflowMenu />)
+            await open()
+            await userEvent.click(screen.getByRole('menuitem', { name: /new match/i }))
+            expect(screen.getByText('Exporting — switching stops it.')).toBeInTheDocument()
+            await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+            expect(s().events).toHaveLength(2)
+            expect(screen.queryByText('Exporting — switching stops it.')).not.toBeInTheDocument()
+        } finally { renderJobs().setState({ job: null }) }
     })
 
     it('should not show a Labs item while labs is off', async () => {
