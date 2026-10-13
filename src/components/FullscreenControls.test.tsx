@@ -146,6 +146,14 @@ describe('FullscreenControls playback lock (touch, fullscreen)', () => {
     afterEach(() => { vi.useRealTimers(); setCoarsePointer(false) })
     const withFs = () => ({ ...fakePlayer(), requestFullscreen: vi.fn(), exitFullscreen: vi.fn() })
 
+    it('should hide the top-right buttons while the tag box is open (its column would cover them)', () => {
+        useAppState.setState({ picker: { kind: 'type' } as never })
+        const { queryByRole } = render(<FullscreenControls playerRef={{ current: withFs() }} isFullscreen />)
+        expect(queryByRole('button', { name: 'Lock playback' })).toBeNull()
+        expect(queryByRole('button', { name: 'Exit fullscreen' })).toBeNull()
+        act(() => useAppState.setState({ picker: null }))
+        expect(queryByRole('button', { name: 'Exit fullscreen' })).not.toBeNull()
+    })
     it('should toggle the lock with a pressed button and the right label', () => {
         const { getByRole } = render(<FullscreenControls playerRef={{ current: withFs() }} isFullscreen />)
         const btn = getByRole('button', { name: 'Lock playback' })

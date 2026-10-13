@@ -41,6 +41,8 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
     const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const coarse = useMediaQuery(COARSE_QUERY)
     const locked = useFullscreenUi((s) => s.playbackLocked)
+    // Touch: the fullscreen tag box is a right-hand column that would cover the top-right buttons (it has its own Cancel).
+    const tagging = useAppState((s) => s.picker !== null)
     const lockedRef = useRef(locked)
     lockedRef.current = locked
     const paused = usePlayerPaused()
@@ -140,7 +142,7 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
 
             {isFullscreen && (
                 <>
-                    <div className="overlay-controls top-right">
+                    {!(coarse && tagging) && <div className="overlay-controls top-right">
                         <button type="button" aria-label="Slower" className="control-btn speed-btn" onClick={() => setRate(Math.max(0.25, currentRate() - 0.25))}>
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 19l-7-7 7-7" /></svg>
                         </button>
@@ -163,7 +165,7 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
                                 <FsIcon exit />
                             </button>
                         )}
-                    </div>
+                    </div>}
                     <Fab />
                 </>
             )}
