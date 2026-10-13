@@ -30,7 +30,9 @@ describe('formatReelLength', () => {
     it('should format as m:ss', () => {
         expect(formatReelLength(72)).toBe('1:12')
         expect(formatReelLength(5.4)).toBe('0:05')
-        expect(formatReelLength(3725)).toBe('62:05')
+        expect(formatReelLength(3599)).toBe('59:59')
+        expect(formatReelLength(3725)).toBe('1:02:05')
+        expect(formatReelLength(1080)).toBe('18:00')
     })
 })
 

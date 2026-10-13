@@ -1,5 +1,5 @@
 import { useAppState } from '../state'
-import { migrateEvent } from '../utils/eventTypes'
+import { sanitiseEvents } from '../utils/eventTypes'
 import { normaliseAreas } from '../utils/crop'
 import { cancelDetection } from '../detectJobs'
 import { normaliseGoalMarks } from '../utils/goalMarks'
@@ -32,7 +32,7 @@ export function applyProjectData(data: ProjectFileData): number {
     const start = typeof data.matchStartTimeSec === 'number' ? data.matchStartTimeSec : 0
     const teams = Array.isArray(data.teams) && data.teams.length === 2 ? (data.teams as typeof st.teams) : null
     // Older projects kept kick-off as a start time: it becomes a Kick off event.
-    if (imported) st.setEvents(withMigratedKickOff(imported.map((e: unknown) => migrateEvent(e as Parameters<typeof migrateEvent>[0], left, teams ?? st.teams)), start))
+    if (imported) st.setEvents(withMigratedKickOff(sanitiseEvents(imported, left, teams ?? st.teams), start))
     else if (start > 0) st.setEvents(withMigratedKickOff(st.events, start))
     cancelDetection()
     st.clearSuggestions() // suggestions belong to the old project

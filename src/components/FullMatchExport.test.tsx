@@ -55,7 +55,7 @@ describe('FullMatchExport', () => {
     it('should summarise the span, length and estimated size', () => {
         render(<FullMatchExport />)
         expect(screen.queryByText(/→/)).not.toBeInTheDocument() // just the length and size
-        expect(screen.getByRole('group', { name: 'Full match summary' })).toHaveTextContent('18 min · kick-off to final whistle')
+        expect(screen.getByRole('group', { name: 'Full match summary' })).toHaveTextContent('18:00 · Kick off to Final whistle')
         expect(screen.getByText(/^About 2\.3 GB · (quick|under a minute|about \d+ min)( on this device)?$/)).toBeInTheDocument()
     })
 

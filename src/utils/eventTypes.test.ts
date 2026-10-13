@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { isMarker } from './eventTypes'
-import { PICKER_GROUPS, PICKER_OPTIONS, controlLabel, eventLabel, eventIcon, isScoring, migrateEvent, optionForKey, EVENT_META, shortNote, eventSummary, assistOf, controlSummary } from './eventTypes'
+import { PICKER_GROUPS, PICKER_OPTIONS, controlLabel, eventLabel, eventIcon, isScoring, migrateEvent, sanitiseEvents, optionForKey, EVENT_META, shortNote, eventSummary, assistOf, controlSummary } from './eventTypes'
 import type { MatchEvent, Team } from '../types'
 
 const ev = (extra: Partial<MatchEvent>): MatchEvent => ({ id: 'e', matchTimeSec: 1, type: 'goal', ...extra })
@@ -199,5 +199,22 @@ describe('assist text', () => {
     })
     it('should ask for an assist on the normal goal option only', () => {
         expect(PICKER_OPTIONS.filter((o) => o.askAssist).map((o) => o.id)).toEqual(['goal'])
+    })
+})
+
+describe('sanitiseEvents', () => {
+    it('should map the kickoff alias to kick_off and drop events of an unknown type, keeping the rest', () => {
+        const raw = [
+            { id: 'a', matchTimeSec: 5, type: 'kickoff' },
+            { id: 'b', matchTimeSec: 6, type: 'banana' },
+            { id: 'c', matchTimeSec: 7, type: 'goal' },
+            { id: 'd', matchTimeSec: 8, type: 'moment' },
+            null,
+            'nope',
+        ]
+        expect(sanitiseEvents(raw).map((e) => [e.id, e.type])).toEqual([['a', 'kick_off'], ['c', 'goal'], ['d', 'highlight']])
+    })
+    it('should return no events for a non-array', () => {
+        expect(sanitiseEvents(undefined)).toEqual([])
     })
 })

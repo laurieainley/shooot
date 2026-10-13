@@ -11,7 +11,7 @@ import { AUDIO_DETECT } from './detect/detectConfig'
 import { replayOptionsFor } from './utils/attack'
 import { normaliseAreas } from './utils/crop'
 import { goalRectFromMarks, normaliseGoalMarks } from './utils/goalMarks'
-import { migrateEvent } from './utils/eventTypes'
+import { sanitiseEvents } from './utils/eventTypes'
 import { computeCumulativeOffsets, isLongTimeline } from './utils/timeline'
 import type { HighlightsQualityChoice } from './utils/outputQuality'
 import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/highlights'
@@ -751,7 +751,7 @@ export const useAppState = create<AppState>()(
 
                 // Ensure every event has a current type (legacy moment/card → highlight/foul) (v9)
                 if (state.events) {
-                    state.events = (state.events as any[]).map((e: any) => migrateEvent(e, state.whitesAttackLeft ?? true, Array.isArray(state.teams) ? state.teams : []))
+                    state.events = sanitiseEvents(state.events, state.whitesAttackLeft ?? true, Array.isArray(state.teams) ? state.teams : [])
                 }
 
                 // Match setup's start time became the Kick off event (v10).
@@ -832,6 +832,11 @@ export const useAppState = create<AppState>()(
                 }
 
                 return state
+            },
+            // migrate only runs when the saved version is older: events of an unknown type must not reach the page at any version.
+            merge: (persistedState, currentState) => {
+                const saved = (persistedState ?? {}) as Partial<AppState>
+                return { ...currentState, ...saved, ...(Array.isArray(saved.events) ? { events: sanitiseEvents(saved.events) } : {}) }
             },
         }
     )

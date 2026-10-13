@@ -127,7 +127,7 @@ export function isMarker<T extends Pick<MatchEvent, 'type'>>(e: T): e is T & { t
     return EVENT_META[e.type].marker === true
 }
 
-const LEGACY_TYPES: Record<string, EventType> = { moment: 'highlight', card: 'foul' }
+const LEGACY_TYPES: Record<string, EventType> = { moment: 'highlight', card: 'foul', kickoff: 'kick_off', kickOff: 'kick_off', halftime: 'half_time', halfTime: 'half_time', finalWhistle: 'final_whistle' }
 
 /** `whitesAttackLeft`: the old direction flag, needed only to turn a stored 'left' / 'right' replay framing into a team's goal. */
 export function migrateEvent(raw: Omit<MatchEvent, 'type' | 'replayCrop'> & { type?: string; replayCrop?: unknown }, whitesAttackLeft = true, teams: Team[] = []): MatchEvent {
@@ -151,4 +151,16 @@ function awardedToConceded<T extends { team?: string; scorer?: string }>(raw: T,
     const person = raw.scorer?.trim().toLowerCase()
     if (person && teams[idx].roster.some((r) => r.trim().toLowerCase() === person)) delete out.scorer
     return out
+}
+
+/**
+ * Events from saved state, a project file or a transfer link: known aliases are mapped (`kickoff` → `kick_off`), anything that
+ * isn't an event or has a type this version doesn't know is dropped, so one odd event never takes the page down.
+ */
+export function sanitiseEvents(raw: unknown, whitesAttackLeft = true, teams: Team[] = []): MatchEvent[] {
+    if (!Array.isArray(raw)) return []
+    const known = (t: unknown): boolean => t === undefined || (typeof t === 'string' && (t in EVENT_META || t in LEGACY_TYPES || t === 'penalty_awarded'))
+    return raw
+        .filter((e): e is Parameters<typeof migrateEvent>[0] => !!e && typeof e === 'object' && known((e as { type?: unknown }).type))
+        .map((e) => migrateEvent(e, whitesAttackLeft, teams))
 }
