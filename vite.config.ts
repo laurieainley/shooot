@@ -4,6 +4,24 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import fs from 'fs'
 import { fileURLToPath } from 'node:url'
+import { createHash } from 'node:crypto'
+import path from 'node:path'
+
+// A fingerprint of everything that decides what a rendered frame looks like (engine, painters, themes, fonts). The unit cache
+// keys on it, so a deploy that changes any of these never reuses parts rendered by the old code.
+function renderHash(): string {
+    const h = createHash('sha256')
+    const walk = (dir: string): void => {
+        if (!fs.existsSync(dir)) return
+        for (const name of fs.readdirSync(dir).sort()) {
+            const p = path.join(dir, name)
+            if (fs.statSync(p).isDirectory()) walk(p)
+            else if (!/\.test\.tsx?$/.test(name)) h.update(p).update(fs.readFileSync(p))
+        }
+    }
+    for (const d of ['src/render', 'src/graphics', 'public/fonts', 'public/brand']) walk(d)
+    return h.digest('hex').slice(0, 16)
+}
 
 // Local HTTPS dev certs (mkcert, gitignored). Absent in CI/Vercel, where only `vite build` runs.
 const CERT_KEY = './localhost+2-key.pem'
@@ -25,6 +43,7 @@ export default defineConfig({
     exclude: ['**/node_modules/**', 'dist', '.claude/**', 'video/**'],
   },
   plugins: [tailwindcss(), react()],
+  define: { __RENDER_HASH__: JSON.stringify(renderHash()) },
   server: {
     port: 5174,
     https: devHttps,

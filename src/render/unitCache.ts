@@ -11,8 +11,11 @@ import { LogParser, encodeRecord, type LogRecord } from './packetLog'
 import { isSting, type GraphicsSpec, type OverlaySpec } from '../graphics/types'
 import type { Cut, RenderSource } from './types'
 
-/** Bump when anything that changes what a unit's pixels or packets look like changes (engine, painters, themes, fonts, logo handling). */
-export const RENDER_VERSION = 1
+/**
+ * Changes whenever the code or assets that draw a unit change: the build fingerprints src/render, src/graphics and the fonts
+ * (vite.config.ts `renderHash`), so a deploy never reuses parts rendered by older code. Bump the number for anything outside those.
+ */
+export const RENDER_VERSION = `1-${typeof __RENDER_HASH__ === 'string' ? __RENDER_HASH__ : 'dev'}`
 export const CACHE_DIR = 'unit-cache'
 /** Overall cap on the cache; also never more than this share of the site's quota. */
 export const CACHE_CAP_BYTES = 6e9
