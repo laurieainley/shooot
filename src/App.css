@@ -472,6 +472,7 @@
 /* Final score row: names flank two mono digit boxes; wraps on narrow screens rather than clipping. */
 .final-score { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--sh-line); display: grid; gap: 6px; }
 .final-score__label { font-size: 12px; color: var(--sh-muted); }
+@media (pointer: coarse) { .final-score__label { font-size: 14px; } .file-card__meta { font-size: 14px; } } /* ≥14px on touch */
 .final-score__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .final-score__team { font-size: 14px; color: var(--sh-text); min-width: 0; overflow-wrap: anywhere; }
 .final-score .final-score__box { width: 4.25rem; min-height: 44px; box-sizing: border-box; text-align: center; font-family: var(--sh-font-mono); font-weight: 700; font-size: 18px; }
