@@ -133,3 +133,39 @@ describe('adoptCurrentMatch', () => {
         expect(await listMatches()).toHaveLength(0)
     })
 })
+
+describe('matchAutosave updatedAt', () => {
+    beforeEach(() => {
+        reset()
+        localStorage.clear()
+        openMatchStore.setState({ id: null, files: [], saveError: false })
+        useAppState.setState({ ...cleanState })
+    })
+
+    it('should not move updatedAt when a saved match is opened and autosaved again', async () => {
+        let t = 1000
+        const a = createAutosaver({ now: () => t })
+        useAppState.setState({ events: [goal('1')] })
+        await a.flush()
+        const id = openMatchStore.getState().id!
+        const first = (await getMatch(id))!.updatedAt
+        // open it: the record is loaded back into the store (events re-created with the same content)
+        const rec = (await getMatch(id))!
+        useAppState.setState({ events: rec.data.events.map((e) => ({ ...Object.fromEntries(Object.entries(e).reverse()) })) as MatchEvent[] })
+        t = 9000
+        await createAutosaver({ now: () => t }).flush()
+        expect((await getMatch(id))!.updatedAt).toBe(first)
+    })
+
+    it('should not count a relink as an edit but should count a change', async () => {
+        let t = 1000
+        const a = createAutosaver({ now: () => t })
+        useAppState.setState({ events: [goal('1')] })
+        await a.flush()
+        const id = openMatchStore.getState().id!
+        t = 5000
+        useAppState.setState({ events: [goal('1'), goal('2')] })
+        await a.flush()
+        expect((await getMatch(id))!.updatedAt).toBe(5000)
+    })
+})

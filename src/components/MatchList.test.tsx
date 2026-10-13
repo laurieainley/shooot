@@ -55,6 +55,18 @@ describe('MatchList', () => {
         expect(within(rows[1]).queryByText('Open')).not.toBeInTheDocument()
     })
 
+    it('should sort by the chosen order and remember it', async () => {
+        localStorage.clear()
+        await putMatch(rec('m-b', 10, 'Bravo', null))
+        await putMatch(rec('m-a', 20, 'Alpha', null))
+        render(<MatchList />)
+        const titles = async (): Promise<string[]> => (await screen.findAllByRole('listitem')).map((r) => within(r).getByText(/Alpha|Bravo/).textContent ?? '')
+        expect(await titles()).toEqual(['Alpha', 'Bravo']) // last edited first
+        await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Sort matches' }), 'za')
+        expect(await titles()).toEqual(['Bravo', 'Alpha'])
+        expect(localStorage.getItem('shooot-match-sort')).toBe('za')
+    })
+
     it('should open a match when its row is chosen', async () => {
         await putMatch(rec('m-a', 10, 'Alpha', null))
         render(<MatchList />)

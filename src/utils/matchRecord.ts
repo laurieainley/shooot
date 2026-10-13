@@ -89,6 +89,24 @@ export function buildRecord(src: RecordSource, id: string, now: number, prev?: M
     return { id, createdAt, updatedAt: now, data, files, summary: summarise(data, files, createdAt) }
 }
 
+/** JSON with object keys sorted, so a reformatted-but-equal value compares equal. */
+function stable(v: unknown): string {
+    return JSON.stringify(v, (_k, x: unknown) => {
+        if (x && typeof x === 'object' && !Array.isArray(x)) {
+            return Object.fromEntries(Object.entries(x as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+        }
+        return x
+    })
+}
+
 export function sameRecordData(a: MatchRecord, b: MatchRecord): boolean {
-    return JSON.stringify([a.data, a.files]) === JSON.stringify([b.data, b.files])
+    return stable([a.data, a.files]) === stable([b.data, b.files])
+}
+
+/**
+ * Did the user change the match? Content and which files are in it (their keys, in order) count; a relink
+ * or a refreshed file size / duration, and key order inside a loaded event, do not.
+ */
+export function isEdit(prev: MatchRecord, next: MatchRecord): boolean {
+    return stable(prev.data) !== stable(next.data) || stable(prev.files.map((f) => f.key)) !== stable(next.files.map((f) => f.key))
 }

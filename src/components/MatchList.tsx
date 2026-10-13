@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { listMatches, type MatchListItem } from '../files/matchStore'
 import { blockerText, openMatch, removeMatch, startNewMatch, stopBlocker, switchBlocker } from './matchSwitch'
+import { SORT_ORDERS, loadSortOrder, saveSortOrder, sortMatches, type SortOrder } from '../utils/matchSort'
 import { setRailTab } from './railTab'
 import { useMatchesVersion, useOpenMatch } from './openMatch'
 
@@ -23,7 +24,7 @@ function DotsIcon() {
 
 const BROKEN = 'Couldn’t open this match'
 
-/** The Matches tab: matches saved on this device, newest first. */
+/** The Matches tab: matches saved on this device, in the order chosen (last edited first by default). */
 export function MatchList() {
     const openId = useOpenMatch((s) => s.id)
     const saveError = useOpenMatch((s) => s.saveError)
@@ -32,6 +33,11 @@ export function MatchList() {
     const [broken, setBroken] = useState<Set<string>>(new Set())
     const [pending, setPending] = useState<Pending | null>(null)
     const [menuFor, setMenuFor] = useState<string | null>(null)
+    const [order, setOrder] = useState<SortOrder>(loadSortOrder)
+    const shown = useMemo(() => {
+        const good = (items ?? []).filter((i): i is Extract<MatchListItem, { summary: unknown }> => !i.broken)
+        return [...sortMatches(good, order), ...(items ?? []).filter((i) => i.broken)]
+    }, [items, order])
 
     useEffect(() => {
         let live = true
@@ -60,6 +66,15 @@ export function MatchList() {
                 <h2 className="m-0 voice-heading text-[15px]">Matches</h2>
                 <button type="button" className="btn-quiet" onClick={() => choose({ kind: 'new' })}>+ New match</button>
             </header>
+            {shown.length > 1 && (
+                <label className="match-list__sort">
+                    <span>Sort</span>
+                    <select className="field" value={order} aria-label="Sort matches"
+                        onChange={(e) => { const o = e.target.value as SortOrder; setOrder(o); saveSortOrder(o) }}>
+                        {SORT_ORDERS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                </label>
+            )}
             {saveError && <p className="match-list__note m-0">Couldn’t save this match on this device</p>}
             {pending && blocker && (
                 <div role="alertdialog" aria-label="Switch match" className="match-list__confirm">
@@ -74,7 +89,7 @@ export function MatchList() {
                 <p className="match-list__empty m-0">No saved matches yet. Add videos or tag a moment and this match is saved here on its own.</p>
             )}
             <ul className="match-list__rows m-0 list-none p-0">
-                {(items ?? []).map((it) => {
+                {shown.map((it) => {
                     if (it.broken || broken.has(it.id)) {
                         return (
                             <li key={it.id} className="match-row match-row--broken">
@@ -91,10 +106,10 @@ export function MatchList() {
                                 <span className="match-row__line">
                                     <span className="match-row__title">{s.title}</span>
                                     {s.score && <span className="match-row__score">{s.score[0]}–{s.score[1]}</span>}
+                                    {isOpen && <span className="match-row__tag">Open</span>}
                                 </span>
                                 <span className="match-row__meta">
                                     {shortDate(s.dateMs)} · {s.fileCount === 0 ? 'no videos' : `${s.fileCount} ${s.fileCount === 1 ? 'file' : 'files'}`}
-                                    {isOpen && <span className="match-row__tag">Open</span>}
                                 </span>
                             </button>
                             <button type="button" className="btn-icon" aria-label={`More for ${s.title}`} aria-haspopup="menu" aria-expanded={menuFor === it.id}
