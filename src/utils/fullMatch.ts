@@ -81,7 +81,7 @@ export function estimateBytes(cuts: Cut[], sizes: number[], durations: number[])
 
 export function formatBytes(bytes: number): string {
     const gb = bytes / 1024 ** 3
-    return gb >= 1 ? `${gb.toFixed(1)} GB` : `${Math.round(bytes / 1024 ** 2)} MB`
+    return gb >= 1 ? `${gb.toFixed(1)} GB` : `${bytes > 0 ? Math.max(1, Math.round(bytes / 1024 ** 2)) : 0} MB`
 }
 
 /** Phones: warn before writing more than this. */

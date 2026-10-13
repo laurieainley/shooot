@@ -5,8 +5,9 @@ import { OpeningStatus } from './OpeningStatus'
 import { rememberHandles, type StoredHandle } from '../files/handleStore'
 
 const HINTS: [string, string][] = [
-    ['G', 'tag an event'], ['⇧← ⇧→', '1 s back / on'], ['↑ ↓', 'frame step'], [', .', 'speed down / up'],
-    ['/', 'normal speed'], ['[ ]', 'previous / next file'], ['Home', 'kick-off'], ['Z', 'zoom'], ['L', 'event log'],
+    ['Space', 'play / pause'], ['G', 'tag an event'], ['← →', '5 s back / forward'],
+    ['↑ ↓', 'frame step'], [', .', 'speed down / up'], ['/', 'normal speed'],
+    ['[ ]', 'previous / next file'], ['Home', 'jump to kick-off'], ['?', 'all shortcuts'],
 ]
 
 /** The player cell before any file is loaded: a drop zone with the shortcuts. */
