@@ -20,11 +20,12 @@ import { GlScaler, isDownscale, probeDirectScale } from './downscale'
 import { encodeReplayAudio } from './replayAudio'
 import { makeSilentAudio, type SilentAudio } from './silentAudio'
 import { makeTarget, openSource, type OpenSource } from './sourceInput'
-import { aacConfig, cutFrames, keyEvery, outputDimensions, outputFrameSec, planSegments, sourceTimeOf, type Segment } from './transcodePlan'
+import { MIN_PARALLEL_UNIT_SEC, PARALLEL_UNITS, aacConfig, cutFrames, keyEvery, outputDimensions, outputFrameSec, planSegments, sourceTimeOf, type Segment } from './transcodePlan'
+import { runPool } from './unitPool'
 import { pickH264Encoder, type H264Encoder } from './transcodeSupport'
 import type { Cut, CutTiming, GraphicsReport, RenderCard, RenderGraphics, RenderOptions, RenderOverlay, RenderSource } from './types'
 import { waitForQueue } from './yield'
-import { DEFAULT_COEF, WorkMeter, detectDeviceClass, factsOfSource, planWork, priceUnits, ZERO_UNITS } from '../utils/renderTime'
+import { DEFAULT_COEF, WorkMeter, detectDeviceClass, factsOfSource, parallelFactor, planWork, priceUnits, ZERO_UNITS } from '../utils/renderTime'
 import { cutTiming } from '../utils/chapterTimes'
 import { AUDIO_BITRATE } from '../utils/outputQuality'
 
@@ -34,8 +35,8 @@ const OUTPUT_NAME = 'highlights.mp4'
 const errorText = (e: unknown): string => (e instanceof Error ? e.message : String(e))
 const isAbort = (e: unknown): boolean => e instanceof DOMException && e.name === 'AbortError'
 
-/** What one unit draws on: normally the engine's single canvas and WebGL scaler; parallel units (experiment) each get their own. */
-type UnitEnv = { canvas: OffscreenCanvas; ctx: OffscreenCanvasRenderingContext2D; gl: GlScaler | null; writer: UnitWriter | null; cancelled: boolean }
+/** What one unit draws on: normally the engine's single canvas and WebGL scaler; parallel units each get their own. `work`: model seconds this unit has credited so far. */
+type UnitEnv = { canvas: OffscreenCanvas; ctx: OffscreenCanvasRenderingContext2D; gl: GlScaler | null; writer: UnitWriter | null; cancelled: boolean; work: number }
 
 type Unit = { kind: 'intro' } | { kind: 'outro' } | { kind: 'segment'; segment: Segment }
 
@@ -128,7 +129,11 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         })
         if (valid.length === 0) throw new Error('Nothing to render: every cut is outside its file')
         const planCuts = valid.map((v) => v.cut)
-        const segments = planSegments(planCuts, frameSec, Math.round((exp?.segmentSec ?? SEGMENT_SEC) / frameSec))
+        // Units run PARALLEL_UNITS at a time when the render is journaled (the bench can force 1, 2 or 3); the plan then makes sure there are enough of them.
+        const journaled = opts.resumable ? await canJournal() : false
+        const parallelN = journaled ? Math.max(1, Math.floor(exp?.parallelUnits ?? PARALLEL_UNITS)) : 1
+        if (!journaled && (exp?.parallelUnits ?? 1) > 1) diag.note('Parallel units need a resumable (journaled) render: running one unit at a time')
+        const segments = planSegments(planCuts, frameSec, Math.round((exp?.segmentSec ?? SEGMENT_SEC) / frameSec), parallelN > 1 ? { units: parallelN, minFrames: Math.round(MIN_PARALLEL_UNIT_SEC / frameSec) } : undefined)
         const units: Unit[] = [{ kind: 'intro' }, ...segments.map((segment): Unit => ({ kind: 'segment', segment })), { kind: 'outro' }]
         const cardFrames = (c: RenderCard | undefined): number => (c ? Math.max(1, Math.round(c.durationSec / frameSec)) : 0)
 
@@ -178,7 +183,8 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         }, pricing)
         const totalWork = work.seconds || 1
         const meter = new WorkMeter(totalWork)
-        onProgress({ cutIndex: 0, cutCount: cuts.length, fraction: 0, stage: 'Starting', estimateSec: totalWork })
+        // The estimate is for the render as it will run: units in parallel finish sooner (the same factor the Export panel's hint uses).
+        onProgress({ cutIndex: 0, cutCount: cuts.length, fraction: 0, stage: 'Starting', estimateSec: totalWork * (parallelN > 1 ? parallelFactor(detectDeviceClass(), out.quality, parallelN) : 1) })
         // Replay crops are done with the picture itself; only a failure to draw can lose them.
         for (const c of cuts) if (c.crop) diag.graphicApplied(c.cropLabel ?? 'Replay zoom')
 
@@ -211,9 +217,9 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         let cursorFrames = 0
         let done = 0
         let copied = false
-        if (opts.resumable && await canJournal()) {
+        if (journaled) {
             const prev = await loadJob()
-            const same = prev && prev.signature === opts.resumable.signature && prev.graphics === !!g && prev.unitCount === units.length
+            const same = prev && prev.signature === opts.resumable!.signature && prev.graphics === !!g && prev.unitCount === units.length
             if (same && prev.unitsDone > 0 && prev.video) {
                 journal = { state: prev }
                 startUnit = prev.unitsDone
@@ -232,7 +238,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             } else {
                 await discardJob()
                 const state: JobState = {
-                    kind: opts.resumable.kind, signature: opts.resumable.signature, outputName, graphics: !!g,
+                    kind: opts.resumable!.kind, signature: opts.resumable!.signature, outputName, graphics: !!g,
                     unitsDone: 0, unitCount: units.length, cursor: 0, done: 0, total: totalWork, copied: false, report: null,
                     video: null, audio: aConfig, updatedAt: Date.now(),
                 }
@@ -268,7 +274,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             if (!ctx) throw new Error('no 2D canvas')
             ctx.imageSmoothingEnabled = true
             ctx.imageSmoothingQuality = 'high'
-            return { canvas, ctx, gl: scaler, writer: null, cancelled: false }
+            return { canvas, ctx, gl: scaler, writer: null, cancelled: false, work: 0 }
         }
         const mainEnv = makeEnv(gl0)
         const durUs = Math.round(frameSec * 1e6)
@@ -458,7 +464,8 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                         }
                         stats.paintMs += now() - tPaint
                         await encode(frame, j === 0 || (seg.firstFrame + j) % keyFrames === 0)
-                        done += baseFrameW + (plain ? 0 : paintFrameW)
+                        const w = baseFrameW + (plain ? 0 : paintFrameW)
+                        done += w; env.work += w
                         if (j % 30 === 0) reportProgress()
                     }
                 })
@@ -548,25 +555,46 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             await exp!.unitCache!.save(key, rel(), report.applied.slice(appliedBefore))
         }
 
-        // ---- experiment 1: segments encoded concurrently, each with its own decoder, encoder, canvas and WebGL scaler ----
-        const parallelN = journal && exp?.parallelUnits && exp.parallelUnits > 1 ? Math.floor(exp.parallelUnits) : 1
-        if (exp?.parallelUnits && exp.parallelUnits > 1 && !journal) diag.note('Parallel units need a resumable (journaled) render: running one unit at a time')
+        // ---- segments encoded concurrently, each with its own decoder, encoder, canvas and WebGL scaler ----
+        /** A hardware encoder that failed is replaced by a software one (once per failure); false when there is nothing to fall back to. */
+        const switchToSoftware = async (u: number, e: unknown): Promise<boolean> => {
+            if (!journal || isAbort(e) || encoder!.hardware === 'prefer-software') return false
+            const soft = await tuned(await pickH264Encoder(W, H, out.videoBitrate, fps, ['prefer-software']))
+            if (!soft) return false
+            diag.note(`Unit ${u}: ${errorText(e)}; retrying with a software encoder`)
+            encoder = soft
+            diag.finalEncoder(soft.config)
+            return true
+        }
         const runParallel = async (first: number, last: number): Promise<void> => {
+            type Job = { u: number; start: number; frames: number; work: number }
             let startAt = cursorFrames
-            const jobs: { u: number; start: number }[] = []
+            const baseDone = done
+            const jobs: Job[] = []
             for (let u = first; u <= last; u++) {
-                jobs.push({ u, start: startAt })
-                startAt += (units[u] as { segment: Segment }).segment.frames
+                const frames = (units[u] as { segment: Segment }).segment.frames
+                jobs.push({ u, start: startAt, frames, work: 0 })
+                startAt += frames
             }
-            let next = 0
-            let failure: unknown = null
-            const envs: UnitEnv[] = []
-            const worker = async (): Promise<void> => {
-                for (;;) {
-                    const job = jobs[next++]
-                    if (!job || failure) return
+            const envs = new Set<UnitEnv>()
+            const finished = new Set<Job>()
+            let prefix = 0 // jobs[0 .. prefix) are all finished: what a reload may keep
+            let saving: Promise<void> = Promise.resolve()
+            const saveProgress = (): void => {
+                const before = prefix
+                while (prefix < jobs.length && finished.has(jobs[prefix])) prefix++
+                if (prefix === before) return
+                const lastDone = jobs[prefix - 1]
+                const credited = baseDone + jobs.slice(0, prefix).reduce((a, j) => a + j.work, 0)
+                const state = { ...journal!.state, unitsDone: lastDone.u + 1, cursor: (lastDone.start + lastDone.frames) * frameSec, done: credited, total: totalWork, copied, timings, report: structuredClone(report), video: vConfig }
+                saving = saving.then(() => saveJob(state))
+            }
+            diag.note(`Running up to ${parallelN} units at a time`)
+            const pool = await runPool<Job>({
+                jobs, width: parallelN, isAbort,
+                run: async (job) => {
                     const env = makeEnv(mainEnv.gl ? GlScaler.create(W, H) : null)
-                    envs.push(env)
+                    envs.add(env)
                     const t1 = now()
                     try {
                         env.writer = await openUnit(job.u)
@@ -574,21 +602,28 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                         try { await runSegment(env, (units[job.u] as { segment: Segment }).segment, job.start, true) } finally { endCut() }
                         await env.writer.close()
                         env.writer = null
+                        job.work = env.work
+                        finished.add(job)
                         stats.unitSpans.push({ unit: job.u, startMs: t1 - perfStart, endMs: now() - perfStart })
+                        saveProgress()
                         reportProgress()
                     } catch (e) {
-                        failure ??= e
-                        for (const o of envs) o.cancelled = true
-                        await env.writer?.abort()
+                        // Whatever this unit credited is taken back (the unit goes again, or the render stops): the shown progress only waits.
+                        done -= env.work
+                        await env.writer?.abort().catch(() => undefined)
                         env.writer = null
+                        throw e
                     } finally {
+                        envs.delete(env)
                         env.gl?.dispose()
                     }
-                }
-            }
-            diag.note(`Running up to ${parallelN} units at a time`)
-            await Promise.all(Array.from({ length: Math.min(parallelN, jobs.length) }, worker))
-            if (failure) throw failure
+                },
+                onFallback: (job, e) => diag.note(`Unit ${job.u} failed while ${parallelN} ran at once (${errorText(e)}): running one unit at a time for the rest of this render`),
+                retrySerial: (job, e) => switchToSoftware(job.u, e),
+                onFatal: () => { for (const env of envs) env.cancelled = true },
+            })
+            await saving
+            if (pool.fellBack) diag.note('Parallel units: fell back to one at a time')
             cursorFrames = startAt
         }
 
@@ -597,7 +632,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         try {
             for (let u = startUnit; u < units.length; u++) {
                 if (signal?.aborted) throw new DOMException('Render cancelled', 'AbortError')
-                if (parallelN > 1 && units[u].kind === 'segment') {
+                if (parallelN > 1 && units[u].kind === 'segment' && journal) {
                     let last = u
                     while (last + 1 < units.length && units[last + 1].kind === 'segment') last++
                     await runParallel(u, last)
@@ -625,15 +660,9 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                         await mainEnv.writer?.abort()
                         mainEnv.writer = null
                         // A hardware encoder that fails mid-way is retried once in software (journaled renders only: nothing was written yet).
-                        if (journal && attempt === 0 && !isAbort(e) && encoder!.hardware !== 'prefer-software') {
-                            const soft = await tuned(await pickH264Encoder(W, H, out.videoBitrate, fps, ['prefer-software']))
-                            if (soft) {
-                                diag.note(`Unit ${u}: ${errorText(e)}; retrying with a software encoder`)
-                                encoder = soft
-                                diag.finalEncoder(soft.config)
-                                cursorFrames = snapshot.cursorFrames; done = snapshot.done
-                                continue
-                            }
+                        if (attempt === 0 && await switchToSoftware(u, e)) {
+                            cursorFrames = snapshot.cursorFrames; done = snapshot.done
+                            continue
                         }
                         throw e
                     }

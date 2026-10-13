@@ -10,6 +10,14 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 ---
 
 ## 2026-10-13
+- **Re-encode exports (Full match and Highlights at 4K / 1080p) run 2 units at a time by default** (user, from /bench
+  experiment #1). *Why:* on raw GoPro 4K, 2 at once was 37-38% faster on a Pixel, 28% (4K) / 6% (1080p) on an iPad and
+  13-30% on Mac Chrome, with frame counts and gaps intact. 3 at once gained little more on the Pixel and grew iPad files
+  36% (18% at 2), so 2 is the cap. Journaled renders only; the stream-copy Original path is untouched. If a unit fails
+  while another is running (e.g. no second hardware encoder) the render drops to one at a time and retries that unit;
+  parallelism never fails an export. Estimates use per-device factors (Android 0.63, iPad 0.94 / 0.72, desktop 0.8);
+  learned rates are measured against that adjusted model and old re-encode rates are ignored so the speed-up is counted
+  once. *Where:* `render/unitPool.ts`, `transcodeEngine.ts`, `utils/renderTime.ts` (`parallelFactor`).
 
 - **Goal set-up is a guided full-screen flow** (user). Choose the picture from 6 frames (avoid a player covering a goal)
   → Identify goal posts per goal (touch: move the picture under a crosshair, Set point) → Replay zoom per goal with the

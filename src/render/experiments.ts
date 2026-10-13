@@ -1,5 +1,5 @@
-// Opt-in engine switches for the /bench "Experiments" section. Every field defaults to off/undefined and nothing here is
-// reachable from the editor: with `RenderOptions.experiments` omitted the engines behave exactly as before.
+// Engine switches for the /bench "Experiments" section. Every field is optional and nothing here is reachable from the editor:
+// with `RenderOptions.experiments` omitted the engines use their defaults (including parallel units, #1).
 import type { LogRecord } from './packetLog'
 
 /** What a cached render unit is, as the engine knows it (the bench turns this into a hash of the unit's inputs). */
@@ -26,7 +26,7 @@ export type UnitCache = {
 }
 
 export type RenderExperiments = {
-    /** #1: units (segments) encoded at the same time, each with its own decoder and encoder. Journaled renders only. Default 1. */
+    /** #1: units encoded at the same time. The engine's default is PARALLEL_UNITS (2) for journaled renders; the bench forces 1, 2 or 3 here. */
     parallelUnits?: number
     /** #1: split cuts into units of this many seconds of output instead of SEGMENT_SEC (so there is something to run in parallel). */
     segmentSec?: number

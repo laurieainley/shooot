@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-    DEFAULT_COEF, RATES_KEY, WorkMeter, cutShare, detectDeviceClass, estimateFromWork, estimateRenderTime, expectedWallSeconds, foldRate, loadRates,
+    DEFAULT_COEF, RATES_KEY, parallelFactor, WorkMeter, cutShare, detectDeviceClass, estimateFromWork, estimateRenderTime, expectedWallSeconds, foldRate, loadRates,
     planWork, priceUnits, recordRender, ZERO_UNITS, type SourceFacts, type WorkInput,
 } from './renderTime'
 import { BENCH_SOURCES, HIGHLIGHTS_PLAN, MEASUREMENTS, PLAIN_PLAN } from './renderTime.bench'
@@ -204,5 +204,41 @@ describe('device class', () => {
         expect(detectDeviceClass({ userAgent: 'Mozilla/5.0 (X11; Linux x86_64)' }, true)).toBe('unknown')
         expect(detectDeviceClass({ userAgent: '' }, false)).toBe('unknown')
         expect(DEFAULT_COEF.unknown).toEqual(DEFAULT_COEF.android)
+    })
+})
+
+describe('parallel units in the estimate', () => {
+    const plan = PLAIN_PLAN
+    const est = (output: 'original' | '4k' | '1080p', device: 'android' | 'ipad' | 'desktop', rates: Parameters<typeof estimateRenderTime>[1]['rates'] = null) =>
+        estimateRenderTime(plan, { output, facts: BENCH_SOURCES.gopro4k, device, rates }).seconds
+    const serial = (output: '4k' | '1080p', device: 'android' | 'ipad' | 'desktop') =>
+        planWork(plan, { facts: BENCH_SOURCES.gopro4k, output, coef: DEFAULT_COEF[device] }).seconds
+
+    it('should scale re-encode estimates by the per-device speed-up and leave Original alone', () => {
+        expect(est('1080p', 'android') / serial('1080p', 'android')).toBeCloseTo(0.63, 6)
+        expect(est('4k', 'android') / serial('4k', 'android')).toBeCloseTo(0.63, 6)
+        expect(est('1080p', 'ipad') / serial('1080p', 'ipad')).toBeCloseTo(0.94, 6)
+        expect(est('4k', 'ipad') / serial('4k', 'ipad')).toBeCloseTo(0.72, 6)
+        expect(est('4k', 'desktop') / serial('4k', 'desktop')).toBeCloseTo(0.8, 6)
+        expect(parallelFactor('android', 'original')).toBe(1)
+        expect(parallelFactor('android', '4k', 1)).toBe(1)
+    })
+    it('should apply a learned ratio to the adjusted model only once', () => {
+        // A render that took exactly what the adjusted model said teaches ratio 1: the estimate stays the adjusted one.
+        const adjusted = est('4k', 'ipad')
+        const learned = foldRate(null, '4k', adjusted, adjusted)
+        expect(est('4k', 'ipad', learned)).toBeCloseTo(adjusted, 6)
+    })
+    it('should ignore learned re-encode rates from before parallel units but keep Original ones', () => {
+        localStorage.setItem(RATES_KEY, JSON.stringify({ original: { ratio: 2, n: 3 }, '4k': { ratio: 1.4, n: 3 }, '1080p': { ratio: 1.1, n: 2, par: true } }))
+        const r = loadRates()!
+        expect(r.original?.ratio).toBe(2)
+        expect(r['4k']).toBeUndefined()
+        expect(r['1080p']?.ratio).toBe(1.1)
+        localStorage.removeItem(RATES_KEY)
+    })
+    it('should mark re-encode rates as parallel-adjusted when folding', () => {
+        expect(foldRate(null, '1080p', 100, 90)['1080p']?.par).toBe(true)
+        expect(foldRate(null, 'original', 100, 90).original?.par).toBeUndefined()
     })
 })

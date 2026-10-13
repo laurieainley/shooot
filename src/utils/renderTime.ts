@@ -12,7 +12,7 @@
 // are painted. The coefficients are fitted to real-device runs (renderTime.test.ts keeps the fit honest).
 import type { Cut } from '../render/types'
 import { CARD_SEC, STING_SEC } from '../graphics/layout'
-import { LONG_SIDE, outputFrameSec, type OutputQuality } from '../render/transcodePlan'
+import { LONG_SIDE, PARALLEL_UNITS, outputFrameSec, type OutputQuality } from '../render/transcodePlan'
 
 export type DeviceClass = 'android' | 'ipad' | 'desktop' | 'unknown'
 export type Codec = 'h264' | 'hevc'
@@ -229,6 +229,24 @@ function hasCoarsePointer(): boolean {
     try { return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches } catch { return false }
 }
 
+// ---- parallel units ----
+
+/**
+ * Wall time of a re-encode that runs PARALLEL_UNITS units at once, as a share of one at a time (real-device /bench runs on raw GoPro 4K:
+ * Pixel 1080p 0.63 and 4K 0.62, iPad 1080p 0.94 and 4K 0.72, Mac Chrome 0.7-0.87). The Original path is not re-encoded unit by unit: 1.
+ * `units` above the default (bench forcing 3) is not modelled and counts as the default; unknown devices get a cautious figure.
+ */
+export const PARALLEL_FACTOR: Record<DeviceClass, { '1080p': number; '4k': number }> = {
+    android: { '1080p': 0.63, '4k': 0.63 },
+    ipad: { '1080p': 0.94, '4k': 0.72 },
+    desktop: { '1080p': 0.8, '4k': 0.8 },
+    unknown: { '1080p': 0.9, '4k': 0.9 },
+}
+export function parallelFactor(device: DeviceClass, output: OutputQuality, units: number = PARALLEL_UNITS): number {
+    if (output === 'original' || units < 2) return 1
+    return PARALLEL_FACTOR[device][output]
+}
+
 // ---- estimates ----
 
 export type TimeEstimate = { seconds: number; low: number; high: number; basis: 'typical' | 'this device' }
@@ -240,7 +258,8 @@ export const LEARNED_SPREAD: [number, number] = [0.9, 1.15]
 /** Which learned rate applies: Original (copy + regions) or a re-encode at 4K / 1080p. */
 export type RatePath = OutputQuality
 
-export type Rates = Partial<Record<RatePath, { ratio: number; n: number }>>
+/** `par`: measured against the parallel-adjusted model (re-encode paths only; older entries were against the one-at-a-time model and are ignored). */
+export type Rates = Partial<Record<RatePath, { ratio: number; n: number; par?: boolean }>>
 
 export function estimateFromWork(modelSeconds: number, path: RatePath, rates: Rates | null): TimeEstimate {
     const learned = rates?.[path]
@@ -273,7 +292,8 @@ export function estimateRenderTime(
 ): TimeEstimate {
     const device = o.device ?? detectDeviceClass()
     const work = planWork(input, { facts: o.facts ?? DEFAULT_FACTS, output: o.output, coef: DEFAULT_COEF[device] })
-    return estimateFromWork(work.seconds, o.output, o.rates === undefined ? loadRates() : o.rates)
+    // Learned ratios are measured against this same (parallel-adjusted) model, so the speed-up is counted once.
+    return estimateFromWork(work.seconds * parallelFactor(device, o.output), o.output, o.rates === undefined ? loadRates() : o.rates)
 }
 
 // ---- learned rates (localStorage) ----
@@ -288,7 +308,9 @@ export function loadRates(): Rates | null {
         const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(RATES_KEY)
         if (!raw) return null
         const v = JSON.parse(raw) as Rates
-        return v && typeof v === 'object' ? v : null
+        if (!v || typeof v !== 'object') return null
+        for (const k of ['4k', '1080p'] as const) if (v[k] && !v[k]!.par) delete v[k]
+        return v
     } catch {
         return null
     }
@@ -300,7 +322,8 @@ export function foldRate(rates: Rates | null, path: RatePath, modelSeconds: numb
     if (!(modelSeconds > 5) || !(wallSeconds > 5)) return next // too short to measure: start-up noise
     const ratio = Math.min(RATIO_MAX, Math.max(RATIO_MIN, wallSeconds / modelSeconds))
     const prev = next[path]
-    next[path] = prev && prev.n > 0 ? { ratio: prev.ratio + SMOOTH * (ratio - prev.ratio), n: prev.n + 1 } : { ratio, n: 1 }
+    const par = path !== 'original' ? { par: true } : {}
+    next[path] = prev && prev.n > 0 ? { ratio: prev.ratio + SMOOTH * (ratio - prev.ratio), n: prev.n + 1, ...par } : { ratio, n: 1, ...par }
     return next
 }
 

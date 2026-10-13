@@ -51,6 +51,32 @@ describe('planSegments', () => {
     })
 })
 
+describe('planSegments (balanced for parallel units)', () => {
+    const frames = (segs: { frames: number }[]): number[] => segs.map((s) => s.frames)
+    it('should cut a cut into equal pieces instead of leaving a short tail', () => {
+        const segs = planSegments([{ startSec: 0, endSec: 130 }], 0.1, 1200, { units: 2, minFrames: 100 })
+        expect(frames(segs)).toEqual([650, 650])
+        expect(segs.map((s) => s.firstFrame)).toEqual([0, 650])
+    })
+    it('should split a lone short cut in two so there is something to run side by side', () => {
+        const segs = planSegments([{ startSec: 0, endSec: 60 }], 0.1, 1200, { units: 2, minFrames: 100 })
+        expect(frames(segs)).toEqual([300, 300])
+    })
+    it('should give a two-cut reel one unit per cut and not split cuts that are short', () => {
+        const segs = planSegments([{ startSec: 0, endSec: 12 }, { startSec: 50, endSec: 58 }], 0.1, 1200, { units: 2, minFrames: 100 })
+        expect(segs.map((s) => [s.cutIndex, s.frames])).toEqual([[0, 120], [1, 80]])
+    })
+    it('should leave a cut shorter than twice the minimum in one piece', () => {
+        expect(frames(planSegments([{ startSec: 0, endSec: 15 }], 0.1, 1200, { units: 2, minFrames: 100 }))).toEqual([150])
+    })
+    it('should give a full match of 90 minutes 45 units of 2 minutes, covering every frame once', () => {
+        const segs = planSegments([{ startSec: 0, endSec: 5400 }], 1 / 30, 3600, { units: 2, minFrames: 300 })
+        expect(segs).toHaveLength(45)
+        expect(segs.reduce((a, s) => a + s.frames, 0)).toBe(162000)
+        segs.forEach((s, i) => expect(s.firstFrame).toBe(i === 0 ? 0 : segs[i - 1].firstFrame + segs[i - 1].frames))
+    })
+})
+
 describe('aacConfig', () => {
     it('should build the AAC-LC AudioSpecificConfig', () => {
         expect([...aacConfig(48000, 2)]).toEqual([0x11, 0x90])
