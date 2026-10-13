@@ -21,9 +21,11 @@ export function reelSummary(args: {
     return { seconds, clips: segments.length }
 }
 
+/** A reel or match length: m:ss under an hour, h:mm:ss from an hour (the Export panel's one length format). */
 export function formatReelLength(seconds: number): string {
     const s = Math.max(0, Math.round(seconds))
-    return `${Math.floor(s / 60)}:${`${s % 60}`.padStart(2, '0')}`
+    const ss = `${s % 60}`.padStart(2, '0')
+    return s < 3600 ? `${Math.floor(s / 60)}:${ss}` : `${Math.floor(s / 3600)}:${`${Math.floor((s % 3600) / 60)}`.padStart(2, '0')}:${ss}`
 }
 
 /** `Clips: 10 s before / 4 s after · Replays: 3 s → 1 s at 0.5×` — the Export panel's one-line recap of the clip settings. */

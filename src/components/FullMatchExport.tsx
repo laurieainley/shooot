@@ -21,6 +21,7 @@ import { useSavedJob } from './useSavedJob'
 import { useReencodeSupport } from './useReencodeSupport'
 import { useReusableParts } from './useReusableParts'
 import { useStorageRoom } from './useStorageRoom'
+import { formatReelLength } from '../utils/reel'
 
 const BUG_MODES: [ScoreBugMode, string][] = [['off', 'Off'], ['goals', 'After goals'], ['periodic', 'Periodic']]
 const INTERVALS = Array.from({ length: MAX_INTERVAL_MIN - MIN_INTERVAL_MIN + 1 }, (_, i) => i + MIN_INTERVAL_MIN)
@@ -81,8 +82,8 @@ export function FullMatchExport() {
         <div className="flex flex-col gap-2">
             <div role="group" aria-label="Full match summary" className="reel-summary">
                 <p className="reel-summary__length m-0">
-                    <b className="tc">{Math.max(1, Math.round(plan.seconds / 60))} min</b>
-                    <span> · kick-off to final whistle</span>
+                    <b className="tc">{formatReelLength(plan.seconds)}</b>
+                    <span> · Kick off to Final whistle</span>
                 </p>
                 {(!hasKickOff || !hasWhistle) && <p className="reel-summary__settings m-0">{phone ? 'Tag Kick off and Final whistle to trim the warm-up and the end.' : 'Tag Kick off (K) and Final whistle (W) to trim the warm-up and the end.'}</p>}
             </div>
@@ -111,7 +112,7 @@ export function FullMatchExport() {
             <ExportDisclosure id="fullMatchIncluded" title="Included" summary={fullMatchSummary(fullMatch)}>
                 <label className="toggle-row">
                     <input type="checkbox" checked={fullMatch.cards} onChange={(e) => setFullMatch({ cards: e.target.checked })} />
-                    <span className="toggle-row__text">Title &amp; full-time cards<span className="toggle-row__hint">VS card before kick-off, final score after the whistle</span></span>
+                    <span className="toggle-row__text">Title &amp; full-time cards<span className="toggle-row__hint">VS card before Kick off, final score after the Final whistle</span></span>
                 </label>
                 <label className="toggle-row">
                     <input type="checkbox" checked={fullMatch.captions} onChange={(e) => setFullMatch({ captions: e.target.checked })} />
@@ -142,7 +143,7 @@ export function FullMatchExport() {
                     <span className="toggle-row__hint">
                         {fullMatch.scoreBug === 'off' ? 'No score on screen.'
                             : fullMatch.scoreBug === 'goals' ? 'Shows the new score just after each goal, as in the highlights.'
-                            : 'After each goal, at kick-off and half time, and every few minutes.'}
+                            : 'After each goal, at Kick off and Half time, and every few minutes.'}
                     </span>
                 </fieldset>
             </ExportDisclosure>
