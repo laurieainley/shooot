@@ -7,6 +7,7 @@ const renderReel = vi.fn()
 vi.mock('../render', () => ({ renderReel: (...a: unknown[]) => renderReel(...a) }))
 
 import { renderJobs, resetRenderJobs } from '../renderJobs'
+import { setMedia } from '../test/pointer'
 import { RenderStatus } from './RenderStatus'
 import { RenderDiagnostics, saveLastReport, type DiagnosticsReport } from '../render/diagnostics'
 
@@ -28,6 +29,20 @@ describe('RenderStatus', () => {
         renderJobs().setState({ job: { ...renderJobs().getState().job!, fraction } })
         return done
     }
+
+    it('should say to keep the screen on, the tab open and the device plugged in while a render runs on a phone, and not on a desktop', async () => {
+        setMedia({ coarse: true, portrait: true })
+        const done = runningAt(0.3)
+        const { unmount } = render(<RenderStatus kind="fullMatch" />)
+        expect(await screen.findByText('Keep the screen on, the tab open and the device plugged in.')).toBeInTheDocument()
+        unmount()
+        setMedia({ desktop: true })
+        render(<RenderStatus kind="fullMatch" />)
+        expect(screen.queryByText('Keep the screen on, the tab open and the device plugged in.')).not.toBeInTheDocument()
+        renderJobs().getState().cancel()
+        await done
+        setMedia({})
+    })
 
     it('should name a running clip job', async () => {
         const done = start('clip')

@@ -4,12 +4,12 @@ import { useShallow } from 'zustand/react/shallow'
 import { estimatePlanTime, fullMatchExport, planOutput, sourceFactsFor, type ExportState, type PlanOutput } from '../utils/exportPlans'
 import { formatBytes, PHONE_SIZE_WARNING } from '../utils/fullMatch'
 import { finalWhistleSec } from '../utils/matchClock'
-import { formatReelLength } from '../utils/reel'
 import { linkedEvents } from '../utils/relink'
 import type { RenderQuality } from '../utils/renderSources'
-import { QUALITY_LABEL, applyStorageFit, qualityOptions } from '../utils/outputQuality'
+import { applyStorageFit, qualityOptions } from '../utils/outputQuality'
+import { fullMatchSummary, renderButtonLabel, renderSummaryLine } from '../utils/renderSummary'
 import { MAX_INTERVAL_MIN, MIN_INTERVAL_MIN, type ScoreBugMode } from '../utils/scoreBug'
-import { ExportSection as Section } from './ExportSection'
+import { ExportDisclosure } from './ExportDisclosure'
 import { OutputQualityField } from './OutputQualityField'
 import { MissingFullFiles } from './MissingFullFiles'
 import { RenderStatus } from './RenderStatus'
@@ -59,6 +59,7 @@ export function FullMatchExport() {
     const hasWhistle = finalWhistleSec(linked, cumulativeOffsets) !== null
     const hasProxies = files.some((f) => f.kind === 'proxy')
     const disabled = plan.cuts.length === 0
+    const chosen = options.find((o) => o.id === effective) ?? options[0]
 
     const run = (quality: RenderQuality, output?: PlanOutput): void => {
         const p = fullMatchExport(useAppState.getState(), quality, quality === 'full' ? output : undefined)
@@ -71,30 +72,40 @@ export function FullMatchExport() {
     const candidates: { quality: RenderQuality; output?: PlanOutput }[] = [{ quality: 'full' }, { quality: 'full', output: planOutput('4k') }, { quality: 'full', output: planOutput('1080p') }, { quality: 'preview' }]
     const matching = job ? candidates.find((c) => fullMatchExport(useAppState.getState(), c.quality, c.output).signature === job.signature) : undefined
 
-    if (files.length === 0) return <Section title="Full match" hint="kick-off to final whistle, one MP4"><p className="export-body text-muted m-0">Load the match videos first.</p></Section>
+    if (files.length === 0) return <p className="export-body text-muted m-0 py-3">Load the match videos first.</p>
 
     return (
-        <>
-            <Section title="Full match" hint="kick-off to final whistle, one MP4">
-                <div role="group" aria-label="Full match summary" className="reel-summary">
-                    <p className="reel-summary__length m-0">
-                        <b className="tc">{formatReelLength(plan.seconds)}</b>
-                        <span> · about {formatBytes(plan.bytes)}</span>
-                    </p>
-                    {(!hasKickOff || !hasWhistle) && <p className="reel-summary__settings m-0">Tag Kick off (K) and Final whistle (W) to trim the warm-up and the end.</p>}
-                </div>
-                {phone && plan.bytes > PHONE_SIZE_WARNING && (
-                    <p role="alert" className="export-note">This file will be over 2 GB ({formatBytes(plan.bytes)}): make sure the phone has room, or render the preview from the proxies.</p>
-                )}
+        <div className="flex flex-col gap-2">
+            <div role="group" aria-label="Full match summary" className="reel-summary">
+                <p className="reel-summary__length m-0">
+                    <b className="tc">{Math.max(1, Math.round(plan.seconds / 60))} min</b>
+                    <span> · kick-off to final whistle</span>
+                </p>
+                {(!hasKickOff || !hasWhistle) && <p className="reel-summary__settings m-0">Tag Kick off (K) and Final whistle (W) to trim the warm-up and the end.</p>}
+            </div>
+            {phone && plan.bytes > PHONE_SIZE_WARNING && (
+                <p role="alert" className="export-note">This file will be over 2 GB ({formatBytes(plan.bytes)}): make sure the phone has room, or render the preview from the proxies.</p>
+            )}
 
-                <OutputQualityField name="full-match-quality" options={options} effective={effective} onChange={(q) => setFullMatch({ quality: q })}
-                    seconds={firstSource.seconds} noun="match" fitNote={fitNote}
-                    description={effective === 'original'
-                        ? 'Copies the camera’s video as it is: quickest, but the file is as large as the footage.'
-                        : `Re-encodes to H.264 ${effective === '4k' ? '4K' : '1080p'} so the file is much smaller. Cards, captions and the score bug are drawn as it encodes.`}>
-                    {privateHint && <span className="toggle-row__hint">Private windows have very little storage; use a normal window for a full match.</span>}
-                    {phone && effective !== 'original' && <span className="toggle-row__hint">Keep the screen on, the tab open and the device plugged in.</span>}
-                </OutputQualityField>
+            <OutputQualityField name="full-match-quality" options={options} effective={effective} onChange={(q) => setFullMatch({ quality: q })} fitNote={fitNote}>
+                {privateHint && <span className="toggle-row__hint">Private windows have very little storage; use a normal window for a full match.</span>}
+            </OutputQualityField>
+            <button type="button" onClick={() => run('full', planOutput(effective))} disabled={disabled} className="btn-primary w-full justify-center">
+                {renderButtonLabel('full match', effective)}
+            </button>
+            <p className="export-hint render-estimate m-0">{renderSummaryLine({ bytes: chosen.bytes, timeRange: chosen.timeRange, basis: chosen.timeBasis, seconds: firstSource.seconds })}</p>
+            {job && (
+                <ResumeOffer job={job} matches={!!matching} filesLoaded={files.length > 0} busy={busy}
+                    onResume={() => run(matching!.quality, matching!.output)} onDiscard={() => void saved.discard()} />
+            )}
+            {hasProxies && (
+                <button type="button" onClick={() => run('preview')} disabled={disabled} className="btn-quiet w-full justify-center">Preview with proxies</button>
+            )}
+            <MissingFullFiles missing={missing} onChange={(m, msg) => { setMissing(m); setNote(msg) }} onPreviewInstead={() => run('preview')} />
+            {note && <p role="note" className="export-hint">{note}</p>}
+            <RenderStatus kind="fullMatch" />
+
+            <ExportDisclosure id="fullMatchIncluded" title="Included" summary={fullMatchSummary(fullMatch)}>
                 <label className="toggle-row">
                     <input type="checkbox" checked={fullMatch.cards} onChange={(e) => setFullMatch({ cards: e.target.checked })} />
                     <span className="toggle-row__text">Title &amp; full-time cards<span className="toggle-row__hint">VS card before kick-off, final score after the whistle</span></span>
@@ -131,25 +142,7 @@ export function FullMatchExport() {
                             : 'After each goal, at kick-off and half time, and every few minutes.'}
                     </span>
                 </fieldset>
-            </Section>
-
-            <Section title="Render" hint="one MP4, kick-off to final whistle">
-                <div className="flex flex-col gap-2">
-                    {job && (
-                        <ResumeOffer job={job} matches={!!matching} filesLoaded={files.length > 0} busy={busy}
-                            onResume={() => run(matching!.quality, matching!.output)} onDiscard={() => void saved.discard()} />
-                    )}
-                    {hasProxies && (
-                        <button type="button" onClick={() => run('preview')} disabled={disabled} className="btn-quiet w-full justify-center">Preview full match (proxies)</button>
-                    )}
-                    <button type="button" onClick={() => run('full', planOutput(effective))} disabled={disabled} className="btn-primary w-full justify-center">
-                        {hasProxies ? 'Render full match (full quality)' : 'Render full match'}{effective === 'original' ? '' : ` as ${QUALITY_LABEL[effective]}`}
-                    </button>
-                    <MissingFullFiles missing={missing} onChange={(m, msg) => { setMissing(m); setNote(msg) }} onPreviewInstead={() => run('preview')} />
-                    {note && <p role="note" className="export-hint">{note}</p>}
-                    <RenderStatus kind="fullMatch" />
-                </div>
-            </Section>
-        </>
+            </ExportDisclosure>
+        </div>
     )
 }

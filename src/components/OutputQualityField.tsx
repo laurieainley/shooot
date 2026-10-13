@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { formatBytes } from '../utils/fullMatch'
-import { QUALITY_LABEL, timeHint, type OutputQuality, type QualityOption } from '../utils/outputQuality'
+import { QUALITY_LABEL, type OutputQuality, type QualityOption } from '../utils/outputQuality'
+import { QUALITY_EXPLANATION, qualityShortReason } from '../utils/renderSummary'
 
 interface OutputQualityFieldProps {
     /** Radio group name (unique per tab). */
@@ -9,39 +10,41 @@ interface OutputQualityFieldProps {
     /** The option in use (after availability and storage fit). */
     effective: OutputQuality
     onChange: (q: OutputQuality) => void
-    /** Output length, for the time hints. */
-    seconds: number
-    /** What `seconds` is the length of in the time hint ("match", "reel"). */
-    noun: string
-    /** Explains the selected option. */
-    description: ReactNode
     /** Said when the choice was changed for lack of storage. */
     fitNote?: string | null
-    /** Extra hint lines (private window, keep the screen on…). */
+    /** Extra hint lines (private window…). */
     children?: ReactNode
 }
 
-/** Output quality: Original / 4K / 1080p as a segmented control, with each option's size and time (or why it is unavailable). Shared by both Export tabs. */
-export function OutputQualityField({ name, options, effective, onChange, seconds, noun, description, fitNote, children }: OutputQualityFieldProps) {
+/** Quality: Original / 4K / 1080p as a segmented control with each option's size under its label (or a short reason when unavailable). Shared by both Export tabs. */
+export function OutputQualityField({ name, options, effective, onChange, fitNote, children }: OutputQualityFieldProps) {
+    const [explaining, setExplaining] = useState(false)
+    const explainId = useId()
     return (
-        <fieldset className="segmented-field">
-            <legend>Output quality</legend>
-            <div className="segmented" role="radiogroup" aria-label="Output quality">
-                {options.map((o) => (
-                    <label key={o.id} className="segmented__option">
-                        <input type="radio" name={name} value={o.id} checked={effective === o.id} disabled={o.disabled} onChange={() => onChange(o.id)} />
-                        <span>{o.label}</span>
-                    </label>
-                ))}
+        <fieldset className="segmented-field quality-field">
+            <legend>Quality</legend>
+            <div className="segmented segmented--quality" role="radiogroup" aria-label="Quality">
+                {options.map((o) => {
+                    const reason = qualityShortReason(o)
+                    return (
+                        <label key={o.id} className="segmented__option" title={o.disabled ? (o.reason ?? undefined) : undefined}>
+                            <input type="radio" name={name} value={o.id} checked={effective === o.id} disabled={o.disabled} onChange={() => onChange(o.id)} />
+                            <span className="segmented__stack">
+                                <b className="segmented__label">{o.label}</b>
+                                <em className="segmented__sub tc">{reason ?? formatBytes(o.bytes)}</em>
+                            </span>
+                        </label>
+                    )
+                })}
             </div>
-            <ul className="m-0 pl-0 list-none flex flex-col gap-1" aria-label="Output quality sizes">
-                {options.map((o) => (
-                    <li key={o.id} className={`toggle-row__hint${o.disabled ? ' opacity-60' : ''}`}>
-                        <b>{QUALITY_LABEL[o.id]}</b>{o.disabled ? (o.noRoom ? ` ${o.reason}` : ` unavailable: ${o.reason}`) : ` about ${formatBytes(o.bytes)}, ${timeHint(o.timeRange, seconds, noun, o.timeBasis)}`}
-                    </li>
-                ))}
-            </ul>
-            <span className="toggle-row__hint">{description}</span>
+            <button type="button" className="link-btn quality-field__help" aria-expanded={explaining} aria-controls={explainId} onClick={() => setExplaining((v) => !v)}>
+                What’s the difference?
+            </button>
+            {explaining && (
+                <ul id={explainId} className="quality-field__explain">
+                    {options.map((o) => <li key={o.id}><b>{QUALITY_LABEL[o.id]}</b> — {QUALITY_EXPLANATION[o.id]}</li>)}
+                </ul>
+            )}
             {fitNote && <span role="note" className="export-hint">{fitNote}</span>}
             {children}
         </fieldset>

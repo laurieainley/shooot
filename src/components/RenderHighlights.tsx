@@ -5,7 +5,7 @@ import { estimatePlanTime, highlightsExport, planOutput, sourceFactsFor, type Ex
 import { startExport } from './renderRequest'
 import { useRenderJobs } from '../renderJobs'
 import type { RenderQuality } from '../utils/renderSources'
-import { QUALITY_LABEL, applyStorageFit, qualityOptions, resolveHighlightsQuality } from '../utils/outputQuality'
+import { applyStorageFit, qualityOptions, resolveHighlightsQuality } from '../utils/outputQuality'
 import { MissingFullFiles } from './MissingFullFiles'
 import { OutputQualityField } from './OutputQualityField'
 import { RenderStatus } from './RenderStatus'
@@ -14,8 +14,9 @@ import { useLayout } from './useMediaQuery'
 import { useReencodeSupport } from './useReencodeSupport'
 import { useSavedJob } from './useSavedJob'
 import { useStorageRoom } from './useStorageRoom'
+import { renderButtonLabel, renderSummaryLine } from '../utils/renderSummary'
 
-/** Export highlights → Render: output quality (Original / 4K / 1080p), then the render buttons. */
+/** Export highlights: quality (Original / 4K / 1080p), the Render button with its size and time, preview with proxies, and the render's progress. */
 export function RenderHighlights() {
     // Only what the plan reads (not the playhead), so the panel does not re-plan the reel while the video plays.
     const st = useAppState(useShallow((s): ExportState => ({
@@ -53,6 +54,8 @@ export function RenderHighlights() {
         qualityOptions({ source, support, seconds: base.seconds, originalBytes: base.bytes, time: (q) => estimatePlanTime(base.plan, q, facts) }),
         room, resolveHighlightsQuality(choice, phone))
 
+    const chosen = options.find((o) => o.id === effective) ?? options[0]
+
     const run = (quality: RenderQuality, output?: PlanOutput): void => {
         const plan = highlightsExport(useAppState.getState(), quality, output)
         if (plan.missing.length > 0) {
@@ -70,26 +73,22 @@ export function RenderHighlights() {
 
     return (
         <div className="flex flex-col gap-2">
-            <OutputQualityField name="highlights-quality" options={options} effective={effective} onChange={setQuality}
-                seconds={base.seconds} noun="reel" fitNote={fitNote}
-                description={effective === 'original'
-                    ? `Copies the camera’s video as it is and re-encodes only the replays and graphics: ${phone ? 'the largest file, and the slowest on a phone' : 'quickest on a computer, but the file is as large as the footage'}.`
-                    : `Re-encodes the whole reel to H.264 ${effective === '4k' ? '4K' : '1080p'}, cut exactly at each clip, so the file is much smaller. Replays, cards and captions are drawn as it encodes.`}>
+            <OutputQualityField name="highlights-quality" options={options} effective={effective} onChange={setQuality} fitNote={fitNote}>
                 {privateHint && <span className="toggle-row__hint">Private windows have very little storage; use a normal window for a long reel.</span>}
-                {phone && effective !== 'original' && <span className="toggle-row__hint">Keep the screen on, the tab open and the device plugged in.</span>}
             </OutputQualityField>
+            <button onClick={() => run('full', planOutput(effective))} disabled={disabled} className="btn-primary w-full justify-center">
+                {renderButtonLabel('highlights', effective)}
+            </button>
+            <p className="export-hint render-estimate m-0">{renderSummaryLine({ bytes: chosen.bytes, timeRange: chosen.timeRange, basis: chosen.timeBasis, seconds: base.seconds })}</p>
             {job && (
                 <ResumeOffer job={job} matches={!!matching} filesLoaded={files.length > 0} busy={busy}
                     onResume={() => run(matching!.quality, matching!.output)} onDiscard={() => void saved.discard()} />
             )}
             {hasProxies && (
                 <button onClick={() => run('preview')} disabled={disabled} className="btn-quiet w-full justify-center">
-                    Preview reel (proxies)
+                    Preview with proxies
                 </button>
             )}
-            <button onClick={() => run('full', planOutput(effective))} disabled={disabled} className="btn-primary w-full justify-center">
-                {hasProxies ? 'Full quality render' : 'Render MP4'}{effective === 'original' ? '' : ` as ${QUALITY_LABEL[effective]}`}
-            </button>
             <MissingFullFiles missing={missing} onChange={(m, msg) => { setMissing(m); setNote(msg) }} onPreviewInstead={() => run('preview')} />
             {note && <p role="note" className="export-hint">{note}</p>}
             <RenderStatus kind="highlights" />

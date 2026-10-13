@@ -35,13 +35,13 @@ describe('RenderHighlights', () => {
 
     it('should show both render buttons when the timeline has proxies', () => {
         render(<RenderHighlights />)
-        expect(screen.getByRole('button', { name: /preview reel/i })).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: /full quality/i })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /preview with proxies/i })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /render highlights/i })).toBeInTheDocument()
     })
 
     it('should list missing full files instead of rendering', async () => {
         render(<RenderHighlights />)
-        await userEvent.click(screen.getByRole('button', { name: /full quality/i }))
+        await userEvent.click(screen.getByRole('button', { name: /render highlights/i }))
         expect(screen.getByText(/GL010226\.LRV/)).toBeInTheDocument()
         expect(screen.getByRole('button', { name: /pick full files/i })).toBeInTheDocument()
         expect(renderReel).not.toHaveBeenCalled()
@@ -53,7 +53,7 @@ describe('RenderHighlights', () => {
             return new Blob(['x'], { type: 'video/mp4' })
         })
         render(<RenderHighlights />)
-        await userEvent.click(screen.getByRole('button', { name: /preview reel/i }))
+        await userEvent.click(screen.getByRole('button', { name: /preview with proxies/i }))
         expect(renderReel).toHaveBeenCalledWith(
             [{ sourceIndex: 0, startSec: 90, endSec: 104 }, { sourceIndex: 0, startSec: 96, endSec: 101, speed: 0.5, gain: 0.5 }],
             [{ name: 'GL010226.LRV', file: proxy.file }],
@@ -71,7 +71,7 @@ describe('RenderHighlights', () => {
         })
         renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
         render(<RenderHighlights />)
-        await userEvent.click(screen.getByRole('button', { name: /preview reel/i }))
+        await userEvent.click(screen.getByRole('button', { name: /preview with proxies/i }))
         expect(renderReel.mock.calls[0][0]).toEqual([
             { sourceIndex: 0, startSec: 90, endSec: 104 },
             { sourceIndex: 0, startSec: 96, endSec: 101, speed: 0.5, gain: 0.5 },
@@ -82,7 +82,7 @@ describe('RenderHighlights', () => {
         useAppState.setState({ replayBeforeSec: 3, replayAfterSec: 1, replaySpeed: 0.5 })
         renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
         render(<RenderHighlights />)
-        await userEvent.click(screen.getByRole('button', { name: /preview reel/i }))
+        await userEvent.click(screen.getByRole('button', { name: /preview with proxies/i }))
         expect(renderReel.mock.calls[0][0]).toEqual([
             { sourceIndex: 0, startSec: 90, endSec: 104 },
             { sourceIndex: 0, startSec: 97, endSec: 101, speed: 0.5, gain: 0.5 },
@@ -92,7 +92,7 @@ describe('RenderHighlights', () => {
     it('should pass title cards and a caption for the goal (carrying on over its replay) to the renderer', async () => {
         renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
         render(<RenderHighlights />)
-        await userEvent.click(screen.getByRole('button', { name: /preview reel/i }))
+        await userEvent.click(screen.getByRole('button', { name: /preview with proxies/i }))
         const g = renderReel.mock.calls[0][2].graphics
         expect(g.intro.label).toBe('Title card')
         expect(g.outro.label).toBe('Full-time card')
@@ -103,7 +103,7 @@ describe('RenderHighlights', () => {
         useAppState.setState({ graphics: { cards: false, lowerThirds: false, replayTag: false, theme: 'shooot' } })
         renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
         render(<RenderHighlights />)
-        await userEvent.click(screen.getByRole('button', { name: /preview reel/i }))
+        await userEvent.click(screen.getByRole('button', { name: /preview with proxies/i }))
         expect(renderReel.mock.calls[0][2].graphics).toBeUndefined()
     })
 
@@ -113,7 +113,7 @@ describe('RenderHighlights', () => {
             return new Blob(['x'], { type: 'video/mp4' })
         })
         render(<RenderHighlights />)
-        await userEvent.click(screen.getByRole('button', { name: /preview reel/i }))
+        await userEvent.click(screen.getByRole('button', { name: /preview with proxies/i }))
         expect(await screen.findByText(/Full-time card/)).toBeInTheDocument()
         expect(screen.getByText(/no encoder/)).toBeInTheDocument()
     })
@@ -123,11 +123,30 @@ describe('RenderHighlights', () => {
         restoreCodecs = stubWebCodecs(false)
         renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
         render(<RenderHighlights />)
-        await userEvent.click(screen.getByRole('button', { name: /preview reel/i }))
+        await userEvent.click(screen.getByRole('button', { name: /preview with proxies/i }))
         await vi.waitFor(() => expect(renderReel).toHaveBeenCalled())
         expect(renderReel.mock.calls[0][0].length).toBeGreaterThan(0) // the cuts are still rendered
         expect(renderReel.mock.calls[0][2].graphics).toBeUndefined() // …without graphics
         expect(await screen.findByText(/does not have/i)).toBeInTheDocument()
+    })
+
+    it('should name the primary button the same with or without proxies, and say Preview with proxies for the quiet one', () => {
+        render(<RenderHighlights />)
+        expect(screen.getByRole('button', { name: 'Render highlights' })).toHaveClass('btn-primary')
+        expect(screen.getByRole('button', { name: 'Preview with proxies' })).toHaveClass('btn-quiet')
+        expect(screen.queryByRole('button', { name: /full quality|mp4/i })).not.toBeInTheDocument()
+    })
+
+    it('should explain the three qualities in one line each behind What’s the difference?', async () => {
+        render(<RenderHighlights />)
+        expect(screen.queryByText(/The camera’s video, untouched/)).not.toBeInTheDocument()
+        const help = screen.getByRole('button', { name: 'What’s the difference?' })
+        expect(help).toHaveAttribute('aria-expanded', 'false')
+        await userEvent.click(help)
+        expect(help).toHaveAttribute('aria-expanded', 'true')
+        expect(screen.getByText(/The camera’s video, untouched; only replays and graphics are re-encoded\. Largest file\./)).toBeInTheDocument()
+        expect(screen.getByText(/Re-encoded to H\.264 4K, cut exactly at each clip\./)).toBeInTheDocument()
+        expect(screen.getByText(/Re-encoded to H\.264 1080p, cut exactly at each clip\. Smallest file\./)).toBeInTheDocument()
     })
 
     describe('output quality', () => {
@@ -137,27 +156,30 @@ describe('RenderHighlights', () => {
         }
         afterEach(() => { setMedia({}); useAppState.setState({ highlightsQuality: 'auto' }) })
 
-        it('should default to Original on a desktop and list size and time for each choice, named for the reel', () => {
+        it('should default to Original on a desktop and show each choice\'s size under its label, and one size and time line for the chosen one', () => {
             setMedia({ desktop: true })
             setup()
             render(<RenderHighlights />)
-            expect(screen.getByRole('radio', { name: 'Original' })).toBeChecked()
-            const list = screen.getByRole('list', { name: /output quality sizes/i })
-            expect(list).toHaveTextContent(/Original about .*, roughly .* for a \d+ min reel|Original about .*, under a minute/)
-            expect(list).toHaveTextContent(/1080p about/)
+            expect(screen.getByRole('radio', { name: /^Original/ })).toBeChecked()
+            expect(screen.getByRole('radio', { name: /^Original \d+ MB$/ })).toBeInTheDocument()
+            expect(screen.getByRole('radio', { name: /^1080p \d+ MB$/ })).toBeInTheDocument()
+            expect(screen.getByRole('radio', { name: /^4K \d+ MB$/ })).toBeInTheDocument()
+            // 10 min reel, desktop Original 0.4-0.6x -> about 5 min
+            expect(screen.getByText(/^About \d+ MB · (about \d+ min|under a minute)( on this device)?$/)).toBeInTheDocument()
+            expect(screen.queryByRole('list', { name: /output quality sizes/i })).not.toBeInTheDocument()
         })
 
         it('should default to 1080p on a phone until the user chooses, and then keep the choice', async () => {
             setMedia({ coarse: true, portrait: true })
             setup()
             const { unmount } = render(<RenderHighlights />)
-            expect(screen.getByRole('radio', { name: '1080p' })).toBeChecked()
+            expect(screen.getByRole('radio', { name: /^1080p/ })).toBeChecked()
             expect(useAppState.getState().highlightsQuality).toBe('auto')
-            await userEvent.click(screen.getByRole('radio', { name: 'Original' }))
+            await userEvent.click(screen.getByRole('radio', { name: /^Original/ }))
             expect(useAppState.getState().highlightsQuality).toBe('original')
             unmount()
             render(<RenderHighlights />)
-            expect(screen.getByRole('radio', { name: 'Original' })).toBeChecked()
+            expect(screen.getByRole('radio', { name: /^Original/ })).toBeChecked()
         })
 
         it('should grey out 4K, saying why, when the footage is 1080p, and fall back to Original for a saved 4K choice', () => {
@@ -165,9 +187,10 @@ describe('RenderHighlights', () => {
             setup(1920, 1080)
             useAppState.setState({ highlightsQuality: '4k' })
             render(<RenderHighlights />)
-            expect(screen.getByRole('radio', { name: '4K' })).toBeDisabled()
-            expect(screen.getByRole('radio', { name: 'Original' })).toBeChecked()
-            expect(screen.getByRole('list', { name: /output quality sizes/i })).toHaveTextContent(/4K unavailable: The footage is 1920×1080, not 4K/)
+            expect(screen.getByRole('radio', { name: /^4K/ })).toBeDisabled()
+            expect(screen.getByRole('radio', { name: /^Original/ })).toBeChecked()
+            expect(screen.getByRole('radio', { name: /^4K/ }).closest('label')).toHaveTextContent('needs 4K footage')
+            expect(screen.getByRole('radio', { name: /^4K/ }).closest('label')).toHaveAttribute('title', 'The footage is 1920×1080, not 4K.')
         })
 
         it('should pass the chosen output to the renderer, under its own signature', async () => {
@@ -175,8 +198,8 @@ describe('RenderHighlights', () => {
             setup()
             renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
             render(<RenderHighlights />)
-            await userEvent.click(screen.getByRole('radio', { name: '4K' }))
-            await userEvent.click(screen.getByRole('button', { name: /render mp4 as 4k/i }))
+            await userEvent.click(screen.getByRole('radio', { name: /^4K/ }))
+            await userEvent.click(screen.getByRole('button', { name: 'Render highlights · 4K' }))
             await waitFor(() => expect(renderReel).toHaveBeenCalled())
             expect(renderReel.mock.calls[0][2].output).toEqual({ quality: '4k', videoBitrate: 20_000_000 })
             const st = useAppState.getState()
@@ -188,7 +211,7 @@ describe('RenderHighlights', () => {
             setup()
             renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
             render(<RenderHighlights />)
-            await userEvent.click(screen.getByRole('button', { name: /render mp4/i }))
+            await userEvent.click(screen.getByRole('button', { name: 'Render highlights' }))
             await waitFor(() => expect(renderReel).toHaveBeenCalled())
             expect(renderReel.mock.calls[0][2].output).toBeUndefined()
         })
@@ -204,9 +227,9 @@ describe('RenderHighlights', () => {
                 Object.defineProperty(useAppState.getState().files[0].file, 'size', { value: 40e9 })
                 stubStorage(async () => ({ quota: 500e6, usage: 0 }))
                 render(<RenderHighlights />)
-                await waitFor(() => expect(screen.getByRole('radio', { name: 'Original' })).toBeDisabled())
-                expect(screen.getByRole('radio', { name: '4K' })).toBeChecked()
-                expect(screen.getByRole('list', { name: /output quality sizes/i })).toHaveTextContent(/Too big for this browser’s storage/)
+                await waitFor(() => expect(screen.getByRole('radio', { name: /^Original/ })).toBeDisabled())
+                expect(screen.getByRole('radio', { name: /^4K/ })).toBeChecked()
+                expect(screen.getByRole('radio', { name: /^Original/ }).closest('label')).toHaveTextContent('too big')
                 expect(screen.getByText(/Original would not fit in this browser’s storage, so 4K is selected/)).toBeInTheDocument()
             })
         })

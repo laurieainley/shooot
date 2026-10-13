@@ -8,6 +8,7 @@ import { NetBulge } from './NetBulge'
 import { keepOpenNotice } from '../utils/renderNotice'
 import { dedupeSkipped } from '../utils/dedupeSkipped'
 import { SkippedList } from './SkippedList'
+import { useLayout } from './useMediaQuery'
 import { etaSeconds, formatEta, stepEta, type EtaState } from '../utils/renderEta'
 import { expectedWallSeconds } from '../utils/renderTime'
 
@@ -42,6 +43,8 @@ export function RenderStatus({ kind }: RenderStatusProps) {
 function RenderStatusBody({ kind, onStopped }: RenderStatusProps & { onStopped: () => void }) {
     const job = useRenderJobs((s) => s.job)
     const conflict = useRenderJobs((s) => s.conflict)
+    const layout = useLayout()
+    const phone = layout === 'phone' || layout === 'landscape'
     const [confirming, setConfirming] = useState(false)
     const [, tick] = useState(0)
     // The last render's report, kept across reloads (the engine saves it when a render ends).
@@ -125,6 +128,7 @@ function RenderStatusBody({ kind, onStopped }: RenderStatusProps & { onStopped: 
     return (
         <>
             {job.phase === 'running' && busyBox(`${keepOpenNotice(navigator)}${conflict ? ' One render at a time.' : ''}`, `${Math.round(job.fraction * 100)}%`)}
+            {job.phase === 'running' && phone && <p className="export-hint m-0">Keep the screen on, the tab open and the device plugged in.</p>}
             {etaText && <p className="export-hint m-0" aria-label="Time left">{etaText}</p>}
             {job.phase === 'running' && <p className="render-voice voice-heading">{POLISHING}</p>}
             <div role="status" className="tc export-hint">{job.phase === 'failed' ? `Render failed: ${job.error}` : job.status}</div>
