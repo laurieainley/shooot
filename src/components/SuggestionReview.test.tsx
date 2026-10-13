@@ -260,7 +260,7 @@ describe('SuggestionReview', () => {
         const at = (sec: number): void => { act(() => { useAppState.setState({ currentTimeInFileSec: sec }) }) }
         it('should tell the user to pause and mark before marking, and show the estimate ring only', () => {
             render(<SuggestionReview onClose={() => {}} />)
-            expect(screen.getByText('Pause when the ball crosses the line or the moment happens, then press M (or tap Mark moment)')).toBeTruthy()
+            expect(screen.getByText('Pause when the ball crosses the line or the moment happens, then press M or click Mark moment')).toBeTruthy()
             expect(screen.getByTestId('rtl-estimate')).toBeTruthy()
             expect(screen.queryByTestId('rtl-marked')).toBeNull()
         })

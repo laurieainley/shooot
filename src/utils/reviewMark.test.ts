@@ -77,7 +77,7 @@ describe('canConfirm', () => {
 describe('instructionText', () => {
     const base = { teamCount: 2, clock: '23:41.6' }
     it('should tell the user to pause and mark before marking', () => {
-        expect(instructionText({ ...base, marked: false, decision: EMPTY_DECISION }).text).toBe('Pause when the ball crosses the line or the moment happens, then press M (or tap Mark moment)')
+        expect(instructionText({ ...base, marked: false, decision: EMPTY_DECISION }).text).toBe('Pause when the ball crosses the line or the moment happens, then press M or click Mark moment')
     })
     it('should confirm the mark and ask what it was', () => {
         expect(instructionText({ ...base, marked: true, decision: EMPTY_DECISION }).text).toBe('Marked at 23:41.6 — now choose what it was')
@@ -86,6 +86,13 @@ describe('instructionText', () => {
         const i = instructionText({ ...base, marked: true, decision: { type: 'goal', team: 'Whites' } })
         expect(i).toEqual({ text: 'Goal · Whites at 23:41.6 — press Enter to confirm', warning: null })
         expect(instructionText({ ...base, marked: false, decision: { type: 'highlight', team: null } }).warning).toBe('Using the playhead time — mark the exact moment for accurate clips')
+    })
+    it('should name the keys only where there is a keyboard', () => {
+        expect(instructionText({ ...base, marked: false, decision: EMPTY_DECISION }).text).toBe('Pause when the ball crosses the line or the moment happens, then press M or click Mark moment')
+        expect(instructionText({ ...base, touch: true, marked: false, decision: EMPTY_DECISION }).text).toBe('Pause when the ball crosses the line or the moment happens, then tap Mark moment')
+        expect(instructionText({ ...base, marked: true, decision: { type: 'goal', team: null } }).text).toBe('Goal at 23:41.6 — choose the team (1 / 2)')
+        expect(instructionText({ ...base, touch: true, marked: true, decision: { type: 'goal', team: null } }).text).toBe('Goal at 23:41.6 — choose the team')
+        expect(instructionText({ ...base, touch: true, marked: true, decision: { type: 'goal', team: 'Whites' } }).text).toBe('Goal · Whites at 23:41.6')
     })
     it('should ask for the team when a goal has none, ', () => {
         expect(instructionText({ ...base, marked: true, decision: { type: 'goal', team: null } }).text).toContain('choose the team')
