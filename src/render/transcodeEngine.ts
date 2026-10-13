@@ -17,6 +17,7 @@ import { muxUnits } from './muxUnits'
 import { coverRect } from './outputSize'
 import { canJournal, discardJob, loadJob, openUnit, readUnit, saveJob, type JobState, type UnitWriter } from './renderJob'
 import { GlScaler, isDownscale, probeDirectScale } from './downscale'
+import { GpuPath } from './gpuScaler'
 import { encodeReplayAudio } from './replayAudio'
 import { makeSilentAudio, type SilentAudio } from './silentAudio'
 import { makeTarget, openSource, type OpenSource } from './sourceInput'
@@ -66,6 +67,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
     }
     const frames = new FrameCount()
     let gl0: GlScaler | null = null
+    let gpu0: GpuPath | null = null
     const used = new Set(cuts.map((c) => c.sourceIndex))
     const opened: OpenSource[] = []
     try {
@@ -117,6 +119,10 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             gl0 = GlScaler.create(W, H)
             diag.note(`Scale path: ${p.ok ? 'encoder scales plain frames' : `${gl0 ? 'WebGL' : '2D canvas'} for plain frames (encoder scaling unusable: ${p.reason})`}; ${gl0 ? 'WebGL for frames with graphics' : '2D canvas for frames with graphics (no WebGL2)'}`)
         }
+
+        // #11 (bench): WebGPU scales every frame that is not already the output size, and composites graphics in the same pass.
+        const gpuPath = exp?.scaler === 'webgpu' ? gpu0 = await GpuPath.open(W, H, (t) => diag.note(t)) : null
+        if (gpuPath) directScale = false
 
         // Which cuts exist (a cut outside its file is dropped), and where graphics attach.
         const valid: { ci: number; cut: Cut }[] = []
@@ -431,11 +437,15 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                         const big = directScale && !cut.crop && s.rotation === 0 && isDownscale(dw, dh, W, H)
                         const plain = !cut.crop && active.length === 0 && s.rotation === 0 && !out.forceCanvas && (sameSize || big)
                         let frame: VideoFrame
+                        let gpuFrame: VideoFrame | null = null
                         if (plain) {
                             const f = s.toVideoFrame()
                             // A larger frame goes to the encoder as it is; the encoder scales it to the configured size.
                             try { frame = frames.make(new VideoFrame(f, { timestamp: tsUs(startFrame + j), duration: durUs })) } finally { f.close() }
                             if (!sameSize) scaled.direct++
+                        } else if (gpuPath && s.rotation === 0 && (gpuFrame = gpuPath.tryFrame(s, coverRect(dw, dh, W, H, cut.crop), active.length ? (c) => paintOverlays({ ...env, ctx: c }, active, tSrc) : null, tsUs(startFrame + j), durUs, (t) => diag.note(t)))) {
+                            frame = frames.make(gpuFrame)
+                            for (const o of active) if (!failedOverlays.has(o) && o.label && !report.applied.includes(o.label)) { report.applied.push(o.label); diag.graphicApplied(o.label) }
                         } else {
                             const r = coverRect(dw, dh, W, H, cut.crop)
                             let viaGl = false
@@ -668,6 +678,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             if (timingsKnown) opts.onTimeline?.(timings)
             opts.onGraphics?.(report)
             stats.units = units.length
+            if (gpuPath) { stats.gpuFrames = gpuPath.frames; diag.note(`WebGPU path: ${gpuPath.frames} frames by WebGPU, ${stats.frames - gpuPath.frames} by the normal path${gpuPath.reason ? ` (stopped: ${gpuPath.reason})` : ''}`) }
             if (shrinks) stats.scalePath = `${scaled.direct} by the encoder, ${scaled.webgl} by WebGL, ${scaled.canvas} by the 2D canvas`
             opts.onStats?.(stats)
             return file
@@ -685,6 +696,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
     } finally {
         for (const s of opened) s?.input.dispose()
         gl0?.dispose()
+        gpu0?.dispose()
     }
 }
 

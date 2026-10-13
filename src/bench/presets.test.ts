@@ -2,25 +2,23 @@ import { describe, expect, it } from 'vitest'
 import { ALL_EXPERIMENTS, PRESETS, detectPreset } from './presets'
 
 describe('bench presets', () => {
-    it('should run the 1080p stage and every experiment but direct save on the iPad and the Pixel', () => {
-        for (const id of ['ipad', 'pixel'] as const) {
-            expect(PRESETS[id].stages).toEqual(['reencode1080'])
-            expect(PRESETS[id].experiments).not.toContain('directSave')
-            expect(PRESETS[id].experiments).toHaveLength(ALL_EXPERIMENTS.length - 1)
-            expect(PRESETS[id].deliver).toBe(true)
+    it('should run only experiment 11 on every preset: no stages, no other experiments, deliver off', () => {
+        for (const p of Object.values(PRESETS)) {
+            expect(p.stages).toEqual([])
+            expect(p.experiments).toEqual(['webgpu'])
+            expect(p.deliver).toBe(false)
         }
     })
-    it('should flag the graphics experiments on the Pixel', () => {
-        expect(PRESETS.pixel.highlight).toEqual(['overlayCache', 'tightSpans'])
-    })
-    it('should run both re-encode stages and all experiments, including direct save, on the Mac', () => {
-        expect(PRESETS.mac.stages).toEqual(['reencode1080', 'reencode4k'])
-        expect(PRESETS.mac.experiments).toEqual(ALL_EXPERIMENTS)
+    it('should keep every experiment, including WebGPU scaling, available to tick', () => {
+        expect(ALL_EXPERIMENTS).toContain('webgpu')
+        expect(ALL_EXPERIMENTS).toHaveLength(10)
     })
     it('should name the bench file and a duration in every instruction', () => {
         for (const p of Object.values(PRESETS)) {
             expect(p.instruction).toContain('bench-gopro-4k.mp4')
-            expect(p.instruction).toMatch(/\d+-\d+ minutes/)
+            expect(p.instruction).toMatch(/5-8 minutes/)
+            expect(p.instruction).toMatch(/screen on/)
+            expect(p.instruction).toMatch(/tab in front/)
         }
     })
     it('should detect the device from the user agent', () => {

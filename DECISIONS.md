@@ -55,6 +55,13 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 - **The fullscreen top-right buttons hide while the tag box is open** (Claude, review). *Why:* the column would cover
   them; the tag box has its own Cancel.
 
+## 2026-10-13
+- **Added `RenderExperiments.scaler: 'webgpu'` (default off) and bench experiment 11; the iPad/Pixel/Mac presets now run only #11.**
+  *Why:* device runs show the re-encode splitting into decode wait, paint/scale (Pixel 29 s of 131 s, iPad 18.5 s of 43 s) and encoder
+  back-pressure; we want to know if one WebGPU pass (zero-copy video import, scale + overlay composite) cuts paint/scale. The other
+  experiments are done, so the presets are narrowed to avoid re-running them. *Where:* `src/render/gpuScaler.ts`, `src/bench/experiments/webgpu.ts`,
+  `src/bench/presets.ts`. Not used by the editor; decide after the device numbers.
+
 ## 2026-10-12
 
 - **Roster entry: Enter adds the name and stays in the field; names sit below the field; this device remembers

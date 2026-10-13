@@ -42,6 +42,8 @@ export type RenderExperiments = {
     targetFile?: FileSystemFileHandle
     /** #6: Original highlights only re-encode the GOPs under the part of an overlay that is actually visible. */
     tightSpans?: boolean
+    /** #11: scale frames (and composite their graphics) with WebGPU instead of the encoder / WebGL / 2D canvas. Falls back if unavailable. */
+    scaler?: 'webgpu'
 }
 
 /** Cheap counters of where a re-encode spends its time (milliseconds summed over all frames of all units). */
@@ -61,6 +63,8 @@ export type PipelineStats = {
     /** Wall time of each unit relative to the first unit's start, ms (shows whether units overlapped). */
     unitSpans: { unit: number; startMs: number; endMs: number }[]
     scalePath?: string
+    /** #11: frames made by the WebGPU path (0 when it was off or unavailable). */
+    gpuFrames?: number
 }
 
 export const emptyStats = (): PipelineStats => ({ frames: 0, units: 0, decodeWaitMs: 0, paintMs: 0, encodeCallMs: 0, backpressureMs: 0, drainMs: 0, unitSpans: [] })

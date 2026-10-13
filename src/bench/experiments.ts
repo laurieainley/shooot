@@ -10,6 +10,7 @@ import { parallelRows } from './experiments/parallel'
 import { playbackRows } from './experiments/playback'
 import { segmentCacheRows } from './experiments/segmentCache'
 import { tightSpansRows } from './experiments/tightSpans'
+import { webgpuRows } from './experiments/webgpu'
 import { workerRows } from './experiments/worker'
 import type { ExperimentId, ExperimentResult, ExperimentRow } from './results'
 import { probeCodecSupport } from './stages'
@@ -37,6 +38,7 @@ export const EXPERIMENTS: ExperimentDef[] = [
     { id: 'latency', number: 7, name: 'Encoder latencyMode realtime', reencodes: true, hint: '10 s at 1080p and 4K; outputs offered for download.', run: latencyRows },
     { id: 'pipeline', number: 9, name: 'Pipeline depth + time breakdown', reencodes: true, hint: 'Encoder queue length and decoded pictures read ahead.', run: pipelineRows },
     { id: 'worker', number: 10, name: 'Render in a Web Worker', reencodes: true, hint: '1080p on the main thread vs in a dedicated worker, with and without graphics.', run: workerRows },
+    { id: 'webgpu', number: 11, name: 'WebGPU scaling', reencodes: true, hint: 'Scale and composite graphics with WebGPU vs the current path: 1080p plain, 1080p and 4K with graphics, per-frame micro-benchmark, picture diff.', run: webgpuRows },
 ]
 
 /** Rough minutes for all experiments on a computer with the default 45 s excerpt (phones: allow 1.5-2x). */

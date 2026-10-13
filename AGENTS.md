@@ -251,7 +251,10 @@ npm run lint       # baseline: 12 known problems — add none
   (the engine in `renderWorker.ts`; graphics build in the worker through `self.fonts`) are bench-only. The re-encode now always counts
   where time goes (decode wait / paint+scale / encoder call / back-pressure / packet writes → diagnostics note, `onStats`, stage
   `detail.pipeline`), and stages can time the save step ("deliver": wrap + read the output back through its blob URL, after the stage
-  clock stops). How the highlights engine picks its re-encoded span is described at the top of `experiments/tightSpans.ts`.
+  clock stops). #11 (`scaler: 'webgpu'`, `render/gpuScaler.ts`): WebGPU scales every frame that is not already output size and blends the
+  painted overlay canvas in the same render pass (`importExternalTexture` -> OffscreenCanvas 'webgpu' -> `new VideoFrame(canvas)`); one
+  isolated hook in `transcodeEngine` (`GpuPath`), falls back to the normal path with a diagnostics note if WebGPU is unavailable or fails.
+  **The three device presets currently tick ONLY #11** (no stages, deliver off; `ALL_EXPERIMENTS` still lists everything). How the highlights engine picks its re-encoded span is described at the top of `experiments/tightSpans.ts`.
 - **Deploys while a tab is open:** stale lazy chunks are recovered by one guarded reload (`staleBuildRecovery.ts`);
   the render engine is warmed at idle.
 - **Per-origin storage:** saved projects live in the browser per domain; moving domains loses them unless exported.
