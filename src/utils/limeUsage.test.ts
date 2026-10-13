@@ -11,8 +11,7 @@ const ALLOWED = [
     '.top-btn--primary',      // Export in the top bar
     '.ev-icon--goal',         // goal and penalty-goal icons (strip, rows, picker, edit sheet)
     '.scorebug__score',       // the score on the video
-    '.lanes__star',           // Top picks star + selected segment: approved in docs/superpowers/specs/2026-10-11-review-actions-toasts-design.md (Addendum 2)
-    '.lanes__btn--top',
+    '.lanes__star',           // Top picks star (the selected lane is neutral, like Other moments): docs/superpowers/specs/2026-10-11-review-actions-toasts-design.md (Addendum 2)
     '.strip-suggestion--top', // Top picks star in the strip's ring lane (same spec, Addendum 5)
 ]
 

@@ -22,6 +22,15 @@ describe('ColumnPanel', () => {
         slot.remove()
     })
 
+    it('should show a head note between the title and the close button', () => {
+        const slot = document.createElement('div')
+        document.body.appendChild(slot)
+        act(() => usePanelSlot.setState({ el: slot }))
+        render(<ColumnPanel label="Find goals" onClose={() => undefined} headNote={<p>1 – 1</p>}>x</ColumnPanel>)
+        expect(slot.querySelector('.column-panel__head')).toContainElement(screen.getByText('1 – 1'))
+        slot.remove()
+    })
+
     it('should close from the × button and from Escape', async () => {
         const slot = document.createElement('div')
         document.body.appendChild(slot)

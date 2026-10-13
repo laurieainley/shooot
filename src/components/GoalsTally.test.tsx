@@ -58,4 +58,17 @@ describe('GoalsTally', () => {
             expect(screen.getByLabelText('Goals tagged: Whites 2, Colours 0')).toBeTruthy()
         })
     })
+
+    describe('header form', () => {
+        it('should be a short score with the final score, labelled in full', () => {
+            useAppState.setState({ events: [ev('a', 'goal', 'Whites', 10)] as never, knownFinalScore: [3, 2] })
+            render(<GoalsTally head />)
+            expect(screen.getByText('1 – 0 · final 3 – 2')).toBeTruthy()
+            expect(screen.getByRole('group').getAttribute('aria-label')).toMatch(/^Goals tagged: Whites 1, Colours 0\. Final score Whites 3, Colours 2/)
+        })
+        it('should be just the score without a known final', () => {
+            render(<GoalsTally head />)
+            expect(screen.getByText('0 – 0')).toBeTruthy()
+        })
+    })
 })

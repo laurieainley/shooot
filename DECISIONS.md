@@ -10,6 +10,12 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 ---
 
 ## 2026-10-13
+- **UX round 3 (user approved):** Find goals card fits a phone on its side (score in the header), shows the marked time
+  once, Previous/Next as text, neutral selected lane, and a one-line intro before the start form; the summary folds top
+  picks into the kept line ("You kept 4 of 6 · 3 were top picks" — user preferred this over explaining what a top pick
+  is), hides the lane buttons when nothing more can join them, and puts diagnostics behind Details; Download clip gets
+  Cancel and "Downloaded: <name>"; New match swatches split 5 + 4 on phones (9 × 44px doesn't fit a 358px card).
+  *Why:* the mocked review's proposals. *Where:* merges of feat/review-card, feat/clip-newmatch.
 - **Share on YouTube gets an "Open YouTube upload" link, not an API integration** (user). *Why:* saves finding the upload
   page with no sign-in, Google app review or third-party requests; a full upload integration waits until posting to
   YouTube is common. *Where:* `src/components/YouTubeUpload.tsx`.

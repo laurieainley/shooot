@@ -38,7 +38,7 @@ export function NewMatchFlow({ onClose }: NewMatchFlowProps) {
                         <p className="m-0 text-[13px] text-muted">
                             {files.length === 0
                                 ? 'Add the match videos first: the last step uses them to set up the goals for replays. You can skip this and add them later.'
-                                : 'Split into several files? Put them in filming order from Files later if needed.'}
+                                : 'Several files? You can put them in filming order later in Files.'}
                         </p>
                         {files.length > 0 && (
                             <ul className="steps__files">
