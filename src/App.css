@@ -375,6 +375,9 @@
 .empty-player__keys div { display: flex; gap: 6px; align-items: center; }
 .empty-player__keys dt, .empty-player__keys dd { margin: 0; }
 .shell--phone .empty-player__keys, .shell--landscape .empty-player__keys { display: none; }
+/* Touch tablets without a trackpad: no keyboard to use the shortcuts with (⋯ → Shortcuts still lists them). */
+@media (pointer: coarse) and (hover: none) { .empty-player__keys { display: none; } }
+@media (pointer: coarse) { .empty-player__inner > p { font-size: 14px; } }
 
 /* ---------- floating panels and sheets ---------- */
 .floating {
@@ -428,6 +431,8 @@
   background: transparent; color: var(--sh-text); padding: 6px 10px; font-size: 14px; cursor: pointer;
 }
 .menu-list > button:hover:not(:disabled) { background: var(--sh-surface-2); }
+.menu-confirm { padding-inline: 10px; }
+@media (pointer: coarse) { .menu-confirm { font-size: 14px; } .menu-confirm .btn-quiet { min-height: 44px; } }
 .menu-list > button:disabled { opacity: 0.4; cursor: not-allowed; }
 .menu-list > button:nth-child(1) { border-bottom: 1px solid var(--sh-line); border-radius: var(--sh-radius-sm) 3px 0 0; margin-bottom: 4px; }
 .menu-list > button:last-of-type { border-top: 1px solid var(--sh-line); border-radius: 0 0 3px 3px; margin-top: 4px; }
@@ -469,6 +474,7 @@
 /* Final score row: names flank two mono digit boxes; wraps on narrow screens rather than clipping. */
 .final-score { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--sh-line); display: grid; gap: 6px; }
 .final-score__label { font-size: 12px; color: var(--sh-muted); }
+@media (pointer: coarse) { .final-score__label { font-size: 14px; } .file-card__meta { font-size: 14px; } } /* ≥14px on touch */
 .final-score__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .final-score__team { font-size: 14px; color: var(--sh-text); min-width: 0; overflow-wrap: anywhere; }
 .final-score .final-score__box { width: 4.25rem; min-height: 44px; box-sizing: border-box; text-align: center; font-family: var(--sh-font-mono); font-weight: 700; font-size: 18px; }
@@ -795,7 +801,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .menu-list > button { min-height: 44px; }
   /* 44px targets drawn as 32px dots: the transparent border is part of the target, not of the dot. */
   /* (the inline team colour is a background shorthand, which would reset the clip: hence !important) */
-  .swatch { box-sizing: border-box; width: 44px; height: 44px; border: 6px solid transparent; background-clip: padding-box !important; box-shadow: none; }
+  .swatch { box-sizing: border-box; width: 44px; height: 44px; border: 6px solid transparent; background-clip: padding-box !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sh-text) 25%, transparent); } /* the ring keeps a white kit visible on the light theme */
   .swatch[aria-pressed="true"] { outline-offset: -4px; }
   .swatches { gap: 0; }
   .field { min-height: 44px; font-size: 16px; } /* 16px: no zoom-on-focus in mobile Safari */
@@ -967,7 +973,12 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .column-panel__head .floating__title { font-size: 15px; }
 
 /* Wide panels (upright tablet: the events area is the full screen width): two columns of groups, so all ten fit. */
-.shell--tablet .event-picker__groups { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; row-gap: 2px; align-items: end; }
+.shell--tablet .event-picker__groups { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; row-gap: 6px; align-items: start; } /* group titles share a line */
+/* Tablet on its side: the tag box sits in the rail; slimmer type buttons (still 44px) so all ten fit without scrolling. */
+@media (pointer: coarse) and (orientation: landscape) and (min-height: 600px) {
+  .shell--desktop .event-picker--column .event-picker__item--type { min-height: 44px; }
+  .shell--desktop .event-picker--column .event-picker__group { gap: 3px; }
+}
 @media (max-height: 500px) { .event-picker--column .event-picker__prompt { display: none; } }
 .rail { grid-template-columns: minmax(0, 1fr); } /* a wide panel inside never widens the rail */
 
@@ -1086,8 +1097,17 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .event-row .clock, .event-row .row-score { font-size: 12px; }
 @media (pointer: coarse) { .event-row .clock, .event-row .row-score, .event-row .event-row__note, .event-row__type, .event-row .tag { font-size: 14px; } }
 /* Selected row: a second line of actions under the icon column (labels hide when the rail is narrow). */
-.event-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0 2px calc(var(--clock-ch, 5) * 1ch + 8px); white-space: nowrap; cursor: default; }
-.event-actions__download { display: inline-flex; }
+/* Buttons share the line and wrap (never clip) when the labels do not fit; the same filled layout at every rail width. */
+.event-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0 2px 12px; white-space: nowrap; cursor: default; }
+.event-actions .act-btn { flex: 1 1 auto; padding: 0 8px; }
+.event-actions__download { display: inline-flex; flex: 1 1 auto; }
+/* Mouse: the rail never fits all five labelled buttons on one line, so wrap on purpose: 3 + 2 (or 2 + 2), never a lone
+   full-width button on the second line. */
+@media (pointer: fine) {
+  .event-actions { padding-right: 12px; }
+  .event-actions > * { flex-basis: 30%; }
+  .event-actions:has(> :nth-child(4):last-child) > * { flex-basis: 40%; }
+}
 @media (pointer: coarse) { .event-actions__download > .act-btn { min-height: 44px; min-width: 44px; font-size: 14px; } }
 .floating.clip-download { min-width: 240px; }
 .clip-download__body { display: flex; flex-direction: column; gap: 10px; }
@@ -1114,17 +1134,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 /* The row's passive replay mark (never a button). */
 .event-row__replay { flex: none; color: var(--sh-muted); font-size: 13px; line-height: 1; }
 .act-btn--delete:hover { color: var(--sh-text); border-color: var(--sh-text); }
-/* Touch and narrow rails: no clock-column indent; buttons share the line and wrap (never clip) when the labels do not fit. Under 360px: icons only. */
-@media (pointer: coarse) {
-  .event-actions { padding-left: 12px; }
-  .event-actions .act-btn { flex: 1 1 auto; padding: 0 8px; }
-  .event-actions__download { flex: 1 1 auto; }
-}
-@container event-log (max-width: 420px) {
-  .event-actions { padding-left: 12px; }
-  .event-actions .act-btn { flex: 1 1 auto; padding: 0 8px; }
-  .event-actions__download { flex: 1 1 auto; }
-}
+/* Narrow rails, under 360px: icons only. */
 @container event-log (max-width: 360px) {
   .event-actions__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .act-switch__glyph { display: inline; }
@@ -1174,6 +1184,10 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 @media (max-width: 899px) and (orientation: portrait) {
   .floating.floating--drawer { width: 100vw; max-height: none; border-radius: 0; border-width: 0; }
 }
+/* Upright tablet (iPad 834px): a side drawer like landscape, not a full-screen page with 800px-wide controls. */
+@media (max-width: 899px) and (orientation: portrait) and (pointer: coarse) and (min-width: 600px) and (min-height: 600px) {
+  .floating.floating--drawer { width: min(480px, 100vw); border-width: 0 0 0 1px; }
+}
 .reel-summary { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
 .reel-summary__length { font-size: 15px; }
 .reel-summary__length b { font-family: var(--sh-font-mono); font-size: 22px; margin-right: 2px; }
@@ -1217,6 +1231,11 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .shortcuts-row { display: grid; grid-template-columns: minmax(92px, 36%) minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 4px 0; font-size: 13px; border-bottom: 1px solid var(--sh-line); }
 .shortcuts-row dt { display: flex; flex-wrap: wrap; gap: 4px; }
 .shortcuts-row dd { margin: 0; }
+/* Desktop: room for each description on one line, keys in a column only as wide as the longest set. */
+@media (min-width: 900px) and (pointer: fine) {
+  .sheet--narrow.shortcuts-sheet { width: min(600px, 100%); }
+  .shortcuts-row { grid-template-columns: 12em minmax(0, 1fr); }
+}
 .shortcuts-btn {
   flex: none; width: 28px; height: 28px; margin-left: 2px; padding: 0; border: 1px solid var(--sh-line); border-radius: 50%;
   background: transparent; color: var(--sh-muted); font: 700 14px var(--sh-font); cursor: pointer;
@@ -1396,7 +1415,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .range__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .range__label { font-size: 16px; }
 .range .btn-primary:disabled { opacity: .45; }
-.range__row .review__btn { flex: 0 0 10.5rem; }
+.range__row .review__btn { flex: 0 0 auto; min-width: 11.5rem; } /* both "… is here" buttons the same width */
 
 /* Toasts: one calm confirmation at a time. Top-right of the video (the scorebug is top-left); phone portrait: one line under the video. */
 .toast-host--video { position: absolute; top: 10px; right: 10px; z-index: 6; max-width: min(380px, calc(100% - 20px)); pointer-events: none; }
@@ -1662,3 +1681,9 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 @media (orientation: landscape) and (max-height: 500px) { .gs { --gs-col: 280px; } .gs-title { font-size: 15px; } }
 @media (min-width: 1024px) { .gs { --gs-col: 360px; } .gs-title { font-size: 18px; } .gs-head, .gs-controls { padding-inline: 16px; } }
 @media (prefers-reduced-motion: reduce) { .gs *, .gs *::before { transition: none !important; animation: none !important; } }
+
+/* Touch: no text under 14px. These base rules sit after the touch rule above and beat it, so restate them here. */
+@media (pointer: coarse) {
+  .segmented--quality .segmented__sub, .quality-field__help, .quality-field__explain, .export-disclosure__summary, .reel-summary__settings,
+  .final-score__label, .file-card__name, .file-slot__num, .file-card__meta { font-size: 14px; }
+}

@@ -84,7 +84,7 @@ export function FullMatchExport() {
                     <b className="tc">{Math.max(1, Math.round(plan.seconds / 60))} min</b>
                     <span> · kick-off to final whistle</span>
                 </p>
-                {(!hasKickOff || !hasWhistle) && <p className="reel-summary__settings m-0">Tag Kick off (K) and Final whistle (W) to trim the warm-up and the end.</p>}
+                {(!hasKickOff || !hasWhistle) && <p className="reel-summary__settings m-0">{phone ? 'Tag Kick off and Final whistle to trim the warm-up and the end.' : 'Tag Kick off (K) and Final whistle (W) to trim the warm-up and the end.'}</p>}
             </div>
             {phone && plan.bytes > PHONE_SIZE_WARNING && (
                 <p role="alert" className="export-note">This file will be over 2 GB ({formatBytes(plan.bytes)}): make sure the phone has room, or render the preview from the proxies.</p>

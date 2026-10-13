@@ -18,25 +18,17 @@ export type Preset = {
 
 export const BENCH_FILE = 'bench-gopro-4k.mp4'
 
-/** Every experiment, in the brief's numbering (1-7, 9, 10; 8, HEVC output, is deliberately not here). */
-export const ALL_EXPERIMENTS: ExperimentId[] = ['parallel', 'segmentCache', 'playback', 'directSave', 'overlayCache', 'tightSpans', 'latency', 'pipeline', 'worker']
+/** Every experiment, in the brief's numbering (1-7, 9, 10, 11; 8, HEVC output, is deliberately not here). */
+export const ALL_EXPERIMENTS: ExperimentId[] = ['parallel', 'segmentCache', 'playback', 'directSave', 'overlayCache', 'tightSpans', 'latency', 'pipeline', 'worker', 'webgpu']
 
-/** Experiment 4 writes to a file the user picks with the browser's save dialog, which phones and iPads do not have. */
-const MOBILE_EXPERIMENTS = ALL_EXPERIMENTS.filter((e) => e !== 'directSave')
+/** The other experiments have been run on all three devices: the presets now run only #11 (WebGPU scaling). */
+const WEBGPU_ONLY: ExperimentId[] = ['webgpu']
+const INSTRUCTION = `Pick ${BENCH_FILE}, then Start. About 5-8 minutes; keep the screen on and this tab in front. Runs only experiment 11 (WebGPU scaling).`
 
 export const PRESETS: Record<PresetId, Preset> = {
-    ipad: {
-        id: 'ipad', label: 'iPad', stages: ['reencode1080'], experiments: MOBILE_EXPERIMENTS, deliver: true, highlight: [],
-        instruction: `Pick ${BENCH_FILE}, then Start. About 30-40 minutes; keep the screen on. (Direct save is not supported here: only the save-step cost is reported.)`,
-    },
-    pixel: {
-        id: 'pixel', label: 'Pixel', stages: ['reencode1080'], experiments: MOBILE_EXPERIMENTS, deliver: true, highlight: ['overlayCache', 'tightSpans'],
-        instruction: `Pick ${BENCH_FILE}, then Start. About 30-40 minutes; keep the screen on. (Direct save is not supported here: only the save-step cost is reported.)`,
-    },
-    mac: {
-        id: 'mac', label: 'Mac', stages: ['reencode1080', 'reencode4k'], experiments: ALL_EXPERIMENTS, deliver: true, highlight: [],
-        instruction: `Pick ${BENCH_FILE}, then Start. About 20-25 minutes; you will be asked where to save a file first (experiment 4).`,
-    },
+    ipad: { id: 'ipad', label: 'iPad', stages: [], experiments: WEBGPU_ONLY, deliver: false, highlight: ['webgpu'], instruction: INSTRUCTION },
+    pixel: { id: 'pixel', label: 'Pixel', stages: [], experiments: WEBGPU_ONLY, deliver: false, highlight: ['webgpu'], instruction: INSTRUCTION },
+    mac: { id: 'mac', label: 'Mac', stages: [], experiments: WEBGPU_ONLY, deliver: false, highlight: ['webgpu'], instruction: INSTRUCTION },
 }
 
 /** The preset that most likely matches this browser, or null when it is none of the three. Never applied automatically. */

@@ -39,7 +39,7 @@ export type DeliverTiming = {
     bytes: number
 }
 
-export type ExperimentId = 'parallel' | 'segmentCache' | 'playback' | 'directSave' | 'overlayCache' | 'tightSpans' | 'latency' | 'pipeline' | 'worker'
+export type ExperimentId = 'parallel' | 'segmentCache' | 'playback' | 'directSave' | 'overlayCache' | 'tightSpans' | 'latency' | 'pipeline' | 'worker' | 'webgpu'
 
 /** One baseline/variant measurement of an experiment. */
 export type ExperimentRow = {
@@ -59,7 +59,7 @@ export type ExperimentRow = {
 
 export type ExperimentResult = {
     id: ExperimentId
-    /** The number in the brief (1, 2, 3, 4, 5, 6, 7, 9, 10). */
+    /** The number in the brief (1-7, 9, 10, 11). */
     number: number
     name: string
     source: string

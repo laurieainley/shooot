@@ -14,7 +14,7 @@ export function MatchSetup({ onClose }: MatchSetupProps) {
     return (
         <Sheet label="Match setup" onClose={onClose} className="sheet--wide">
             <MatchDetails />
-            <p className="m-0 mt-2 text-[12px] text-muted">Teams and rosters are remembered for next time.</p>
+            <p className="goal-areas__hint mt-2">Teams and rosters are remembered for next time.</p>
             {hasFiles && <GoalSetupSection />}
             <div className="sheet__actions">
                 <span className="flex-1" />

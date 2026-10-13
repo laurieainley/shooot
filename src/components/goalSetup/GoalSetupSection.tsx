@@ -19,7 +19,7 @@ export function GoalSetupSection() {
     return (
         <section ref={section} className="goal-areas" aria-label="Goal areas">
             <h3 className="export-section__title">Goal areas</h3>
-            <p className="goal-areas__hint">Each goal is named after the team that defends it at kick-off. Replays of a goal scored into it zoom in on it.</p>
+            <p className="goal-areas__hint">Each goal is named after the team that defends it at kick-off.</p>
             {first
                 ? <GoalSetupSummary compact frame={frame.frame} onEdit={(step) => setOpen({ step, only: true })} onSetup={() => setOpen({ step: 'picture', only: false })} />
                 : <p className="goal-areas__hint">Load a video to set up the goals.</p>}

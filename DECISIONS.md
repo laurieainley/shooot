@@ -10,6 +10,15 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 ---
 
 ## 2026-10-13
+- **UX review pass (desktop, phone, tablet) — polish only, no behaviour changes** (user asked for the review; agent
+  decided the individual fixes). Export is quiet until a video is loaded (one lime per screen); Match setup's "Set up
+  goals" is quiet so Done stays the one primary; touch text is restated at 14px at the end of App.css because later
+  base rules overrode it; upright touch tablets get a 480px Export drawer instead of a full-screen page; the desktop
+  action row wraps 3 + 2; key hints (K/W, ⌘Z) are dropped from copy on touch; sizes never show "0 MB"; the strip clock
+  never shows "−00:00". *Why:* the reviewers found these against the brand rules (one lime, ≥14px on touch) and real use
+  per device. Layout changes they proposed (wider rail on very wide screens, strip under the video on landscape tablets,
+  + button placement in phone landscape, two-column Match setup) are parked for the user. *Where:* merge of
+  feat/ux-desktop, feat/ux-mobile, feat/ux-tablet.
 - **Re-encode exports (Full match and Highlights at 4K / 1080p) run 2 units at a time by default** (user, from /bench
   experiment #1). *Why:* on raw GoPro 4K, 2 at once was 37-38% faster on a Pixel, 28% (4K) / 6% (1080p) on an iPad and
   13-30% on Mac Chrome, with frame counts and gaps intact. 3 at once gained little more on the Pixel and grew iPad files
@@ -90,6 +99,13 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
   *Why:* starting a drag anywhere near an icon jumped to the goal, so accurate scrubbing was hard.
 - **The fullscreen top-right buttons hide while the tag box is open** (Claude, review). *Why:* the column would cover
   them; the tag box has its own Cancel.
+
+## 2026-10-13
+- **Added `RenderExperiments.scaler: 'webgpu'` (default off) and bench experiment 11; the iPad/Pixel/Mac presets now run only #11.**
+  *Why:* device runs show the re-encode splitting into decode wait, paint/scale (Pixel 29 s of 131 s, iPad 18.5 s of 43 s) and encoder
+  back-pressure; we want to know if one WebGPU pass (zero-copy video import, scale + overlay composite) cuts paint/scale. The other
+  experiments are done, so the presets are narrowed to avoid re-running them. *Where:* `src/render/gpuScaler.ts`, `src/bench/experiments/webgpu.ts`,
+  `src/bench/presets.ts`. Not used by the editor; decide after the device numbers.
 
 ## 2026-10-12
 

@@ -265,7 +265,10 @@ npm run lint       # baseline: 12 known problems — add none
   (the engine in `renderWorker.ts`; graphics build in the worker through `self.fonts`) are bench-only. The re-encode now always counts
   where time goes (decode wait / paint+scale / encoder call / back-pressure / packet writes → diagnostics note, `onStats`, stage
   `detail.pipeline`), and stages can time the save step ("deliver": wrap + read the output back through its blob URL, after the stage
-  clock stops). How the highlights engine picks its re-encoded span is described at the top of `experiments/tightSpans.ts`.
+  clock stops). #11 (`scaler: 'webgpu'`, `render/gpuScaler.ts`): WebGPU scales every frame that is not already output size and blends the
+  painted overlay canvas in the same render pass (`importExternalTexture` -> OffscreenCanvas 'webgpu' -> `new VideoFrame(canvas)`); one
+  isolated hook in `transcodeEngine` (`GpuPath`), falls back to the normal path with a diagnostics note if WebGPU is unavailable or fails.
+  **The three device presets currently tick ONLY #11** (no stages, deliver off; `ALL_EXPERIMENTS` still lists everything). How the highlights engine picks its re-encoded span is described at the top of `experiments/tightSpans.ts`.
 - **Deploys while a tab is open:** stale lazy chunks are recovered by one guarded reload (`staleBuildRecovery.ts`);
   the render engine is warmed at idle.
 - **Per-origin storage:** saved projects live in the browser per domain; moving domains loses them unless exported.
@@ -283,7 +286,7 @@ npm run lint       # baseline: 12 known problems — add none
   - Archivo for UI, Big Shoulders (shirt font) for player names/numbers, JetBrains Mono for clocks/scores/keys;
   - "Shooot" in running text, sentence case, UK English; brand voice only in empty/progress/success states
     (`utils/voice.ts`); errors and instructions stay plain; we "tag" moments (not "mark");
-  - touch targets ≥ 44 px, text ≥ 14 px on touch, contrast ≥ 4.5:1 (`node scripts/check-contrast.mjs`), respect
+  - touch targets ≥ 44 px, text ≥ 14 px on touch (base rules later in App.css beat the touch block: restate 14px in the `pointer: coarse` block at the end of the file), contrast ≥ 4.5:1 (`node scripts/check-contrast.mjs`), respect
     `prefers-reduced-motion`, never red-vs-green alone to distinguish meanings.
 - **Picture gestures** (`components/pictureGestures.ts`): while zoomed, mouse drag or **one finger** pans (a tap still plays /
   pauses); two fingers pinch-zoom (1×–4×) and pan; wheel / trackpad pinch zooms. Leaving the page while a render or
@@ -299,7 +302,7 @@ npm run lint       # baseline: 12 known problems — add none
 ### Editor layout (calm editor, 2026-10-09)
 
 - **Top bar:** wordmark · Files button ("4 files · 56:34", warning dot when a file needs attention; opens the Files
-  sheet) · Setup · Export · ⋯ (all `.top-btn`; only Export is lime). Phone/landscape: Setup lives in ⋯. No file pills.
+  sheet) · Setup · Export · ⋯ (all `.top-btn`; only Export is lime, and only once a video is loaded — before that Choose files is the one primary). Phone/landscape: Setup lives in ⋯. No file pills.
   Render progress shows on the Export button (red dot + % + thin line), then "Ready"/"Failed" for 4 s.
 - **Video:** on-video `Scorebug` is the selected graphics theme's own score-bug painter drawn on a canvas (matches the export; clock as text beside it); no score in the top bar.
 - **One timeline:** the match strip (`MatchStrip`) is the only scrubber (video.js progress bar disabled): numbered file
@@ -320,7 +323,7 @@ npm run lint       # baseline: 12 known problems — add none
   list (the page only when the list can't scroll, phone portrait); touch layouts keep room below the last row so the
   + never covers it. Touch: a tap expands (Edit opens the sheet). Esc collapses, then leaves the log.
   Header: "+ Tag event" (quiet, red REC dot), undo/redo, "?" shortcuts. No rail footer and no key-hint bar.
-- **Export:** right-hand drawer over a scrim (`FloatingPanel variant="drawer"`; full screen on phones), tabs
+- **Export:** right-hand drawer over a scrim (`FloatingPanel variant="drawer"`; full screen on phones; a 480px side drawer on upright touch tablets 600–899px wide), tabs
   Highlights / Full match, one pattern: summary line (Highlights "6:12 reel · 14 clips" + Preview in player; Full match
   "49 min · kick-off to final whistle"), Quality (Original / 4K / 1080p with the size under each label; a short reason
   when disabled, full reason in `title`; "What's the difference?" toggles three one-liners), the tab's single lime button
