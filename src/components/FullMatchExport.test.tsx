@@ -42,6 +42,16 @@ describe('FullMatchExport', () => {
         })
     })
 
+    it('should name the keys for Kick off and Final whistle only when there is a keyboard', () => {
+        useAppState.setState({ events: [{ id: 'g', type: 'goal', matchTimeSec: 300, sourceFileIndex: 0, team: 'Whites' }] })
+        const { unmount } = render(<FullMatchExport />)
+        expect(screen.getByText('Tag Kick off (K) and Final whistle (W) to trim the warm-up and the end.')).toBeInTheDocument()
+        unmount()
+        setCoarsePointer(true)
+        render(<FullMatchExport />)
+        expect(screen.getByText('Tag Kick off and Final whistle to trim the warm-up and the end.')).toBeInTheDocument()
+    })
+
     it('should summarise the span, length and estimated size', () => {
         render(<FullMatchExport />)
         expect(screen.queryByText(/→/)).not.toBeInTheDocument() // just the length and size
