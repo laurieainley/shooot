@@ -66,6 +66,14 @@ describe('ClipDownload', () => {
         expect(screen.getByRole('button', { name: 'Download' })).toBeDisabled()
     })
 
+    it('should ask for the videos when none are loaded (after a reload)', async () => {
+        useAppState.setState({ files: [] })
+        render(<ClipDownload event={goal} />)
+        await open()
+        expect(screen.getByRole('status').textContent).toBe('Load the match videos first')
+        expect(screen.getByRole('button', { name: 'Download' })).toBeDisabled()
+    })
+
     it('should ask to relink an unlinked event', async () => {
         render(<ClipDownload event={{ ...goal, unlinked: true }} />)
         await open()
