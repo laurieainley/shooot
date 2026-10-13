@@ -99,7 +99,7 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
     const clock = (sec: number): string => withTenths((w) => formatClock(w, long), sec - kickOff)
     // Nobody marked it yet: the time shown (and saved, if you go ahead anyway) is wherever the playhead is.
     const savedSec = moment.markedSec ?? playheadSec
-    // Touch: no key hints; once marked the readout below says it all, so the instruction line goes.
+    // Touch: no key hints. Once marked, the marked line below says the time, so the instruction is screen-reader only.
     const instruction = instructionText({ marked, decision, teamCount, clock: clock(savedSec), touch: coarse })
     const sayText = instruction.text
     const stepsRef = useRef<HTMLElement | null>(null)
@@ -204,10 +204,10 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
     return (
         <div className="rv" data-esc-clears={hasChoice ? '' : undefined}>
             <header className="rv__head">
-                <p className="review__count">Moment {index + 1} of {total} · <span className="tc">{formatClock(Math.max(0, suggestion.globalTimeSec - kickOff), long)}</span></p>
+                <p className="review__count">Moment {index + 1} of {total}<span className="rv__momentclock"> · <span className="tc">{formatClock(Math.max(0, suggestion.globalTimeSec - kickOff), long)}</span></span></p>
                 <div className="rv__nav">
-                    <button type="button" className="rv__step" aria-label="Previous moment" title="Previous moment ([)" onClick={onPrev} disabled={index === 0}><Chevron dir="left" /></button>
-                    <button type="button" className="rv__step" aria-label="Next moment" title="Next moment (])" onClick={onNext}><Chevron dir="right" /></button>
+                    <button type="button" className="rv__step" aria-label="Previous moment" title="Previous moment ([)" onClick={onPrev} disabled={index === 0}><Chevron dir="left" />Previous</button>
+                    <button type="button" className="rv__step" aria-label="Next moment" title="Next moment (])" onClick={onNext}>Next<Chevron dir="right" /></button>
                 </div>
             </header>
 
@@ -222,7 +222,8 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
                         format={clock} onScrub={scrub} onEarlier={loop.earlier} onLater={loop.later} />
                 )}
                 {loop.window && <span className="sr-only">{formatReviewWindow(suggestion.globalTimeSec, loop.window)}</span>}
-                {!(coarse && marked) && <p className="rv__say" role="status" aria-live="polite">{sayText}</p>}
+                {/* Once marked the marked line below says the time; the instruction stays for screen readers only. */}
+                <p className={marked ? 'sr-only' : 'rv__say'} role="status" aria-live="polite">{sayText}</p>
                 {instruction.warning && <p className="rv__warn">{instruction.warning}</p>}
             </section>
 

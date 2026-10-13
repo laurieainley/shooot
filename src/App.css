@@ -1350,7 +1350,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .rv__decide { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .rv__decide .rv__save, .rv__decide .rv__discard { width: 100%; min-height: 52px; font-size: 16px; }
 .rv__decide .rv__discard { font-weight: 700; }
-.rv__step { display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: var(--sh-radius-md); background: transparent; color: var(--sh-muted); cursor: pointer; }
+.rv__step { display: inline-flex; align-items: center; justify-content: center; gap: 2px; min-width: 36px; height: 36px; padding: 0 8px; font: inherit; font-size: 14px; font-weight: 600; border: 0; border-radius: var(--sh-radius-md); background: transparent; color: var(--sh-muted); cursor: pointer; }
 .rv__step:hover:not(:disabled) { color: var(--sh-text); background: var(--sh-surface-2); }
 .rv__step:disabled { opacity: .3; cursor: default; }
 .rv__momentline .rv__link { min-height: 28px; margin-left: 6px; font-size: 13px; font-weight: 500; }
@@ -1358,7 +1358,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .rv__save:disabled { opacity: .45; }
 @media (max-width: 480px) { .rv__seg:not(.rv__seg--team) { grid-auto-flow: row; grid-template-columns: 1fr 1fr; } .rv__seg:not(.rv__seg--team) .rv__choice:nth-child(3) { border-left: 0; } .rv__seg:not(.rv__seg--team) .rv__choice:nth-child(n+3) { border-top: 1px solid var(--sh-line); } }
 @media (max-width: 480px) { .rv { gap: 10px; } .rv__steps { gap: 10px; } .rv__time { font-size: 24px; } .rv__say { margin: 0; } .rv__decide .rv__save, .rv__decide .rv__discard { min-height: 48px; } }
-@media (pointer: coarse) { .rv kbd { display: none; } .rv__say { font-size: 16px; } .rv__warn, .rv__hint { font-size: 14px; } .rv__choice { min-height: 52px; font-size: 15px; } .rv__step { width: 44px; height: 44px; } }
+@media (pointer: coarse) { .rv kbd { display: none; } .rv__say { font-size: 16px; } .rv__warn, .rv__hint { font-size: 14px; } .rv__choice { min-height: 52px; font-size: 15px; } .rv__step { min-width: 44px; height: 44px; font-size: 14px; } }
 
 /* Mini timeline: the loop window as a bar. Fill = playback progress, red line = playhead, ring = estimate, pin = marked. */
 .rtl { display: flex; flex-direction: column; gap: 4px; }
@@ -1425,9 +1425,8 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .lanes__icon { flex: none; opacity: .7; }
 /* Approved design decision (2026-10-11-review-actions-toasts-design.md, Addendum 2): the Top picks star and its selected segment are lime. */
 .lanes__star { flex: none; color: var(--sh-lime-text); }
-.lanes__btn--top[aria-pressed="true"] { background: var(--sh-lime); color: var(--sh-on-lime); }
-.lanes__btn--top[aria-pressed="true"] .lanes__star { color: var(--sh-on-lime); }
-.lanes__btn--top[aria-pressed="true"]:hover { background: var(--sh-lime); }
+/* Selected lane = the neutral selected style for both lanes (one lime button per panel); the star goes with the text colour then. */
+.lanes__btn--top[aria-pressed="true"] .lanes__star { color: inherit; }
 .lanes__gain { font-family: var(--sh-font-mono); font-weight: 800; }
 @media (prefers-reduced-motion: no-preference) { .lanes__gain { animation: lanes-gain 2.5s ease-out both; } }
 @keyframes lanes-gain { 0% { opacity: 0; transform: translateY(3px); } 12% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: .6; } }
@@ -1501,7 +1500,12 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   /* Mark moment / Confirm takes the room, Discard its own width: two equal halves overflowed the panel. */
   .rv__decide { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
   .rv__decide .rv__save, .rv__decide .rv__discard { font-size: 15px; padding-inline: 12px; }
+  /* Room for "Moment 1 of 3  ‹ Previous  Next ›" on one line: the moment's own clock goes. */
+  .rv__momentclock { display: none; }
 }
+
+/* Score in the panel header: only where height is short (phone on its side). */
+.tally-head { display: none; flex: 1 1 auto; min-width: 0; margin: 0; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--sh-text); }
 
 /* Tally + lane switch share a line where the width allows. */
 .review__top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
@@ -1512,6 +1516,13 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 @media (orientation: landscape) and (max-height: 500px) {
   .review .tally { margin-bottom: 0; }
   .review .tally { row-gap: 0; }
+  /* The score moves up into the panel header (.tally-head), so the body's tally goes. */
+  .review__top > .tally { display: none; }
+  .review .tally-head { display: block; }
+  .review .column-panel__head { flex-wrap: nowrap; gap: 6px; }
+  .review .column-panel__head .floating__title { flex: none; white-space: nowrap; font-size: 14px; }
+  .review .rv__decide { padding-block: 6px calc(6px + env(safe-area-inset-bottom, 0px)); }
+  .review .rv__decide .rv__save, .review .rv__decide .rv__discard { min-height: 44px; }
   .review__top { row-gap: 6px; }
   .review .rv { gap: 6px; }
   .review .rv__time { font-size: 22px; }
@@ -1763,3 +1774,6 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .match-row__tag { margin-left: auto; padding: 0 6px; border: 1px solid var(--sh-line); border-radius: var(--sh-radius-sm); font-size: 11px; font-weight: 600; color: var(--sh-text); }
 .match-row__menu { flex-basis: 100%; display: flex; justify-content: flex-end; padding: 0 8px 8px; }
 @media (pointer: coarse) { .match-row__meta, .match-list__note, .match-list__empty { font-size: 14px; } .match-row__tag { font-size: 12px; } }
+/* Find goals summary: the Details toggle (diagnostics for reporting a problem) stays small and out of the way; 44px on touch. */
+.review__details-toggle { align-self: flex-start; font-size: 13px; font-weight: 600; color: var(--sh-muted); }
+@media (pointer: coarse) { .review__details-toggle { min-height: 44px; font-size: 14px; } }

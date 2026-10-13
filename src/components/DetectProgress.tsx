@@ -3,7 +3,7 @@ import { useAppState } from '../state'
 import { cancelDetection, useDetectJob } from '../detectJobs'
 import { openFindGoals, setRangeStep } from './findGoals'
 import { topPicksLine } from '../utils/reviewLanes'
-import { checkingGoalsLine, downloadingModelLine, listeningLine } from '../utils/voice'
+import { FIND_GOALS_INTRO, checkingGoalsLine, downloadingModelLine, listeningLine } from '../utils/voice'
 
 const NO_VIDEO = 'Load the match videos first.'
 
@@ -77,6 +77,7 @@ export function DetectIdle({ cancelled, stale = false }: { cancelled?: boolean; 
         <div className="review__status">
             {stale && <p className="m-0">The videos changed since the last Find goals.</p>}
             {cancelled && <p className="m-0">Find goals was cancelled.</p>}
+            {!stale && !cancelled && <p className="m-0">{FIND_GOALS_INTRO}</p>}
             <button type="button" className="btn-quiet review__btn" onClick={() => (stale && hasOld ? setConfirming(true) : openFindGoals(true))}>Find goals</button>
         </div>
     )

@@ -37,15 +37,16 @@ export function checkingGoalsLine(fraction: number, ep: string | null = 'webgpu'
     return `Checking the goal mouths… ${pct(fraction)}%${ep === 'wasm' ? ' (slow on this device)' : ''}${topPicks ? ` · ${topPicks}` : ''}`
 }
 
-export function ballSeenLine(n: number): string {
-    return `Top picks: ${n}.`
+/** `topPicks`: how many of all the found moments were top picks (the goal-mouth check); 0 leaves it out. */
+export function keptSummary(kept: number, total: number, topPicks = 0): string {
+    const picks = topPicks === 1 ? ' · 1 was a top pick' : topPicks > 1 ? ` · ${topPicks} were top picks` : ''
+    return `You kept ${kept} of ${total}${picks}.`
 }
 
-export function keptSummary(kept: number, total: number): string {
-    return `You kept ${kept} of ${total}.`
-}
+/** Find goals start form, above the button: what it does, in one line (the form below already says where to set the range). */
+export const FIND_GOALS_INTRO = 'Listens to the match on this device to find likely goals, then you check each one.'
 
 /** The Top picks lane when the ball check finished and saw the ball in no goal. */
 export const NO_TOP_PICKS = "No top picks — the ball wasn't seen in a goal for any moment."
-export const LOW_KEEP_NOTE = 'Detection struggled on this footage. Copy diagnostics and send it over.'
+export const LOW_KEEP_NOTE = 'Detection struggled on this footage. Open Details, copy the diagnostics and send them over.'
 export const NOTHING_STOOD_OUT = 'Nothing stood out in the audio. Tag goals as you watch.'

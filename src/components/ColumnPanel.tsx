@@ -14,6 +14,8 @@ interface ColumnPanelProps {
     className?: string
     /** Small tag next to the title (e.g. AI). */
     badge?: ReactNode
+    /** Short readout between the title and the ×, for layouts that are short on height (the review's score). */
+    headNote?: ReactNode
 }
 
 /**
@@ -21,7 +23,7 @@ interface ColumnPanelProps {
  * floating over the picture: own header with ×, scrolling body, Esc closes. Without a slot (tests, or before the
  * shell has mounted) it falls back to a modal Sheet.
  */
-export function ColumnPanel({ label, onClose, children, className = '', badge }: ColumnPanelProps) {
+export function ColumnPanel({ label, onClose, children, className = '', badge, headNote }: ColumnPanelProps) {
     const slot = usePanelSlot((s) => s.el)
     const host = useFullscreenUi((s) => s.host)
     const hidden = useFullscreenUi((s) => s.reviewHidden)
@@ -38,10 +40,10 @@ export function ColumnPanel({ label, onClose, children, className = '', badge }:
     }, [target, box])
     if (!target) return <Sheet label={label} onClose={onClose} className={className} badge={badge}>{children}</Sheet>
     const cls = inFullscreen ? `${className} column-panel--fs${hidden && className.includes('review') ? ' column-panel--fs-hidden' : ''}` : className
-    return createPortal(<ColumnPanelBody label={label} onClose={onClose} className={cls} badge={badge}>{children}</ColumnPanelBody>, box)
+    return createPortal(<ColumnPanelBody label={label} onClose={onClose} className={cls} badge={badge} headNote={headNote}>{children}</ColumnPanelBody>, box)
 }
 
-function ColumnPanelBody({ label, onClose, children, className, badge }: ColumnPanelProps) {
+function ColumnPanelBody({ label, onClose, children, className, badge, headNote }: ColumnPanelProps) {
     const ref = useRef<HTMLDivElement | null>(null)
     const closeRef = useRef(onClose)
     closeRef.current = onClose
@@ -64,6 +66,7 @@ function ColumnPanelBody({ label, onClose, children, className, badge }: ColumnP
         <div ref={ref} role="dialog" aria-label={label} tabIndex={-1} className={`column-panel ${className}`}>
             <div className="column-panel__head floating__head">
                 <h2 className="floating__title">{label}{badge}</h2>
+                {headNote}
                 <CloseButton onClick={onClose} />
             </div>
             <div className="column-panel__body sheet__body">{children}</div>
