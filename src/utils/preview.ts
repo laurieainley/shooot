@@ -59,3 +59,17 @@ export function clipStep(steps: PreviewStep[], current: number, dir: 1 | -1): nu
     const next = first(here.clipIndex + 1)
     return next === -1 ? current : next
 }
+
+/** The step to jump to for an event (its clip's normal-speed start), or null when the event isn't in the reel. */
+export function previewStepForEvent(steps: PreviewStep[], eventId: string): number | null {
+    const i = steps.findIndex((s) => !s.replay && s.eventIds.includes(eventId))
+    return i === -1 ? null : i
+}
+
+/**
+ * Whether a playback-rate change flashes the speed overlay: only the viewer's own speed keys do — never the preview's own
+ * step changes, nor the rate restored when it ends (`quietUntilMs`: how long after such a change the overlay stays off).
+ */
+export function shouldShowSpeedIndicator(isPreviewMode: boolean, nowMs: number, quietUntilMs: number): boolean {
+    return !isPreviewMode && nowMs >= quietUntilMs
+}

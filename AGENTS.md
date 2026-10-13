@@ -94,8 +94,9 @@ npm run lint       # baseline: 12 known problems — add none
 - **Clip download:** a selected row's Download clip popover (`ClipDownload`) renders one event through `clipExport()`:
   its padding, its replay (option), a caption for that event only (score option; `buildGraphicsSpec` `captionEvents` /
   `captionScore` / `cards`), no title/full-time card, and a 3.5 s Shooot sting (`graphics/sting.ts`, outro
-  `{ kind: 'sting' }`; a missing wordmark fails the sting visibly). Name: `outputFileName` clip form
-  (`… - 13' Goal DJ.mp4`). Job kind `'clip'`: never resumable, doesn't save a timeline or the last diagnostics report;
+  `{ kind: 'sting' }`; a missing wordmark fails the sting visibly). Name: `outputFileName` clip form,
+  teams but never the score (`Matchday 3 - Hawks v Lions - 13' Goal DJ.mp4`). After a finished clip the popover's
+  primary button is Download again; Render again is quiet. Job kind `'clip'`: never resumable, doesn't save a timeline or the last diagnostics report;
   quality falls back to preview only for files the clip reads. Options persist as `clipOptions` (state v22).
 - **Full match:** Kick off → Final whistle across files, stream-copied; score bug windows (Off / After goals /
   Periodic; after goals = 1 s after for 5 s, like the highlights caption) and event captions are the only re-encoded
@@ -135,6 +136,22 @@ npm run lint       # baseline: 12 known problems — add none
 - **Import:** ⋯ → Import… opens one dialog: left, a project `.json` from Export project (asks before replacing existing
   events); right, pasted goal times — one per line, `MM:SS`, `H:MM:SS` or seconds, optionally "Team - Scorer"
   (`utils/bulkPaste.ts`, live preview). Export project is its own menu item.
+- **Known final score:** optional `knownFinalScore: Score | null` (persist v25), entered under the team cards in Match
+  setup and the New match Match step (`MatchDetails`; New match passes `compact`, which leaves out logo and graphics
+  style). Cleared by `newMatch()`; carried in project JSON and transfer links. `utils/scoreGap.ts` compares it with the
+  tagged score (`finalScore()`): the Find goals tally's second line ("Final 13 – 9 · 3 to find" / "✓ All goals tagged" /
+  "1 more than the final score (Whites)"), review summary lines, a quiet note in Export `ReelSummary`, and a one-off
+  toast when tagging reaches it (`useAllGoalsToast` in `SuggestionReview`). Not on the scorebug, rail or cards; graphics
+  and file names keep using the tagged goals.
+- **Roster entry:** `RosterTags` = text field + Add button, "Previous players" suggestions under it, roster chips
+  below (A–Z; tap to fix, × to remove). Enter / comma / Add / Tab add a name; Enter keeps focus so the phone keyboard
+  stays up (`enterKeyHint="enter"`, key or keyCode 13, `beforeinput` `insertLineBreak`). `knownPlayers` (persist v26,
+  `utils/knownPlayers.ts`) are this device's remembered names: recorded by `setTeams` / `addToRoster`, forgotten only via
+  the × on a suggestion, capped at 200, not in project files or transfer links, kept by `newMatch()`.
+- **Highlights preview:** plays the render plan's steps (`utils/preview.ts`). Zoom is locked (Z/0, wheel, pinch and drag
+  do nothing; 1× on entry and exit); ▶ / Enter on a row or a strip event dot jumps to that clip inside the preview
+  (`jumpToPreviewEvent`, `previewStepForEvent`) — events not in the reel leave the preview and seek as before; no
+  playback-speed overlay during the preview.
 - **Projects:** export/import JSON, and transfer links (`#p=`, deflate + base64url in the URL fragment — never sent
   to a server). Files are relinked by key on the receiving device.
 
@@ -230,6 +247,9 @@ npm run lint       # baseline: 12 known problems — add none
     (`utils/voice.ts`); errors and instructions stay plain; we "tag" moments (not "mark");
   - touch targets ≥ 44 px, text ≥ 14 px on touch, contrast ≥ 4.5:1 (`node scripts/check-contrast.mjs`), respect
     `prefers-reduced-motion`, never red-vs-green alone to distinguish meanings.
+- **Picture gestures** (`components/pictureGestures.ts`): while zoomed, mouse drag or **one finger** pans (a tap still plays /
+  pauses); two fingers pinch-zoom (1×–4×) and pan; wheel / trackpad pinch zooms. Leaving the page while a render or
+  Find goals is running asks first (`useLeaveWarning`).
 - **Keyboard:** one window-level handler (`Player.tsx` + `utils/shortcuts.ts` + `components/playerShortcuts.ts`);
   shortcuts work wherever focus is, except in text fields/menus/tabs, controls inside a dialog (`[role=dialog]`,
   `[aria-modal]` — dialogs own their keys), or while a picker/sheet is open. The event log ignores keys from portalled
@@ -246,14 +266,20 @@ npm run lint       # baseline: 12 known problems — add none
 - **Video:** on-video `Scorebug` is the selected graphics theme's own score-bug painter drawn on a canvas (matches the export; clock as text beside it); no score in the top bar.
 - **One timeline:** the match strip (`MatchStrip`) is the only scrubber (video.js progress bar disabled): numbered file
   bands, faint clip bands, event icons stacked in up to 3 lanes (`stackLanes`), Kick off / Half time / Final whistle
-  flags, red playhead, hover/drag time bubble, keyboard focusable.
+  flags, red playhead, hover/drag time bubble (over the exact symbol — event icon, marker flag icon, suggestion ring —
+  it names it at its own time: "Goal · 10:00 · V2", "Detected moment (top pick) · …"; no native `title` tooltips on
+  icons), keyboard focusable.
 - **Event icons:** `components/icons/EventIcon.tsx` + `utils/eventIcon.ts` (football, pen ball "P", own goal "OG",
   penalty spot / spot ✕, glove, whistle, star, flag, pause, chequered flag) — used in strip, rows, picker, edit sheet.
 - **Events rail:** rows = clock · team dot · icon · name (body font, weight 600, normal case — not the shirt face) ·
-  note (inline, muted) · score · ▶ (`utils/eventRow.ts`); no assist, no file number (only a "file missing" warning).
-  The selected row expands into an action row (`EventActions`): ↻ Replay · ⌖ Framing (when replay is on) · person-icon
-  Edit · [Download clip slot] · × Delete; markers get Edit + Delete. Labels hide (icon-only) when the rail is ≤ 360px;
-  the row wraps rather than clips. Touch: a tap expands (Edit opens the sheet). Esc collapses, then leaves the log.
+  note (inline, muted) · passive muted ↻ when the replay is on · score · ▶ (`utils/eventRow.ts`); no assist, no file
+  number (only a "file missing" warning). The selected row expands into an action row (`EventActions`): Slow-mo replay
+  switch (`role=switch`, R) · person-icon Edit · ⌖ Framing (when replay is on) · [Download clip slot] · × Delete;
+  markers get Edit + Delete. Edit opens the event sheet's details (no replay toggle there); Framing opens only its
+  "Replay framing" view (`editEvent(id, 'framing')`, `editingView`, not persisted; closes if the replay is switched
+  off). Labels hide (icon-only) when the rail is ≤ 360px; the row wraps rather than clips. An expanded row scrolls the
+  list (the page only when the list can't scroll, phone portrait); touch layouts keep room below the last row so the
+  + never covers it. Touch: a tap expands (Edit opens the sheet). Esc collapses, then leaves the log.
   Header: "+ Tag event" (quiet, red REC dot), undo/redo, "?" shortcuts. No rail footer and no key-hint bar.
 - **Export:** right-hand drawer over a scrim (`FloatingPanel variant="drawer"`; full screen on phones). Highlights tab:
   Reel (`ReelSummary`: length, clips, clip/replay recap with an Edit disclosure), Graphics, Render, Share.
@@ -289,6 +315,11 @@ npm run lint       # baseline: 12 known problems — add none
 - Non-trivial work starts with a spec in `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md` (decisions, scope,
   testing), optionally a plan in `docs/superpowers/plans/`. Record user decisions in the spec. Audits and the idea
   backlog live in `docs/superpowers/notes/`.
+
+### Decisions log
+- Record every product/technical decision in `DECISIONS.md` (repo root) in the same commit that acts on it: date, who
+  decided (user / agent), the decision, **why**, and where the detail lives (spec section or commit). Newest first; when a
+  decision changes, add a new entry naming the one it supersedes — never rewrite old entries. Specs keep the full design.
 
 ### Worktrees
 - Every parallel or delegated piece of work gets its own worktree **inside this repo** under

@@ -50,4 +50,22 @@ describe('ReelSummary', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Done' }))
         expect(screen.queryByLabelText('Replay before')).not.toBeInTheDocument()
     })
+
+    describe('known final score note', () => {
+        const goals = (n: number, team: string) => Array.from({ length: n }, (_, i) => ({ id: `${team}${i}`, matchTimeSec: 10 + i, sourceFileIndex: 0, type: 'goal' as const, team }))
+        beforeEach(() => useAppState.setState({ teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#000', roster: [] }], knownFinalScore: null }))
+        it('should say what was tagged against the final score when they differ', () => {
+            useAppState.setState({ events: [...goals(11, 'Whites'), ...goals(8, 'Colours')], knownFinalScore: [13, 9] })
+            render(<ReelSummary />)
+            expect(screen.getByText('Tagged 11–8, final score 13–9.')).toBeInTheDocument()
+        })
+        it('should stay quiet when they match or there is no known score', () => {
+            useAppState.setState({ events: [...goals(13, 'Whites'), ...goals(9, 'Colours')], knownFinalScore: [13, 9] })
+            const { rerender } = render(<ReelSummary />)
+            expect(screen.queryByText(/final score/)).toBeNull()
+            useAppState.setState({ knownFinalScore: null })
+            rerender(<ReelSummary />)
+            expect(screen.queryByText(/final score/)).toBeNull()
+        })
+    })
 })

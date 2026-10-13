@@ -57,3 +57,24 @@ describe('applyTransferPayload', () => {
         expect(useAppState.getState().goalMarks).toBeNull()
     })
 })
+
+describe('known final score on load', () => {
+    it('should load it from a received project and clear it when the project has none', () => {
+        const base = buildTransferPayload({ ...useAppState.getState(), events: [] })
+        applyTransferPayload({ ...base, knownFinalScore: [13, 9] })
+        expect(useAppState.getState().knownFinalScore).toEqual([13, 9])
+        const older: Record<string, unknown> = { ...base }
+        delete older.knownFinalScore
+        applyTransferPayload(older as never)
+        expect(useAppState.getState().knownFinalScore).toBeNull()
+        applyTransferPayload({ ...base, knownFinalScore: 'x' as never })
+        expect(useAppState.getState().knownFinalScore).toBeNull()
+    })
+    it('should load it from a project file and treat older files as none', async () => {
+        const { applyProjectData } = await import('./importProject')
+        applyProjectData({ events: [], teams: useAppState.getState().teams, knownFinalScore: [2, 1] })
+        expect(useAppState.getState().knownFinalScore).toEqual([2, 1])
+        applyProjectData({ events: [], teams: useAppState.getState().teams })
+        expect(useAppState.getState().knownFinalScore).toBeNull()
+    })
+})

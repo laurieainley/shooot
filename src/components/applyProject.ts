@@ -3,6 +3,7 @@ import { normaliseAreas } from '../utils/crop'
 import { normaliseGoalMarks } from '../utils/goalMarks'
 import { cancelDetection } from '../detectJobs'
 import { migrateEvent } from '../utils/eventTypes'
+import { parseKnownScore } from '../utils/scoreGap'
 import type { TransferPayload } from '../utils/projectTransfer'
 
 const num = (v: unknown, fallback: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : fallback)
@@ -22,6 +23,7 @@ export function applyTransferPayload(p: TransferPayload): void {
     if (p.graphics) st.setGraphics(p.graphics)
     if (p.fullMatch) st.setFullMatch(p.fullMatch)
     st.setMatchdayLabel(typeof p.matchdayLabel === 'string' ? p.matchdayLabel : null)
+    st.setKnownFinalScore(parseKnownScore(p.knownFinalScore))
     st.setGoalAreas(normaliseAreas(p.goalAreas, left))
     st.setAllGoalMarks(normaliseGoalMarks(p.goalMarks))
 }

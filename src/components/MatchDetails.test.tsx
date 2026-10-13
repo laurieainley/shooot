@@ -108,3 +108,112 @@ describe('MatchDetails graphics style', () => {
         expect(screen.getByRole('radio', { name: /shooot/i })).toBeChecked()
     })
 })
+
+describe('MatchDetails final score (if you know it)', () => {
+    beforeEach(() => {
+        saved.blob = null
+        URL.createObjectURL = vi.fn(() => 'blob:logo')
+        URL.revokeObjectURL = vi.fn()
+        useAppState.setState({
+            teams: [{ name: "Ryan's Rovers", color: '#f0f0f0', roster: [] }, { name: 'Walford Town', color: '#ec5fa4', roster: [] }],
+            knownFinalScore: null,
+        })
+    })
+    const first = () => screen.getByLabelText("Ryan's Rovers final score")
+    const second = () => screen.getByLabelText('Walford Town final score')
+
+    it('should show a labelled row with a numeric box per team', () => {
+        render(<MatchDetails />)
+        expect(screen.getByText('Final score (if you know it)')).toBeInTheDocument()
+        expect(first()).toHaveAttribute('inputmode', 'numeric')
+        expect(second()).toHaveAttribute('inputmode', 'numeric')
+        expect(first()).toHaveValue('')
+    })
+    it('should save when both boxes hold whole numbers, on blur', async () => {
+        render(<MatchDetails />)
+        await userEvent.type(first(), '13')
+        await userEvent.type(second(), '9')
+        fireEvent.blur(second())
+        expect(s().knownFinalScore).toEqual([13, 9])
+        expect(screen.queryByText('Enter both scores, or leave both empty.')).toBeNull()
+    })
+    it('should save on Enter', async () => {
+        render(<MatchDetails />)
+        await userEvent.type(first(), '2')
+        await userEvent.type(second(), '0{Enter}')
+        expect(s().knownFinalScore).toEqual([2, 0])
+    })
+    it('should accept 0-0 and ignore anything that is not a digit', async () => {
+        render(<MatchDetails />)
+        await userEvent.type(first(), '0')
+        await userEvent.type(second(), 'x0')
+        fireEvent.blur(second())
+        expect(second()).toHaveValue('0')
+        expect(s().knownFinalScore).toEqual([0, 0])
+    })
+    it('should show a plain hint and save nothing when only one box is filled', async () => {
+        render(<MatchDetails />)
+        await userEvent.type(first(), '13')
+        fireEvent.blur(first())
+        expect(screen.getByText('Enter both scores, or leave both empty.')).toBeInTheDocument()
+        expect(s().knownFinalScore).toBeNull()
+        expect(first()).toHaveValue('13')
+    })
+    it('should save null when both boxes are emptied', async () => {
+        useAppState.setState({ knownFinalScore: [3, 1] })
+        render(<MatchDetails />)
+        expect(first()).toHaveValue('3')
+        await userEvent.clear(first())
+        await userEvent.clear(second())
+        fireEvent.blur(second())
+        expect(s().knownFinalScore).toBeNull()
+    })
+    it('should offer Clear only when a score is set', async () => {
+        render(<MatchDetails />)
+        expect(screen.queryByRole('button', { name: 'Clear final score' })).toBeNull()
+        useAppState.setState({ knownFinalScore: [3, 1] })
+        await userEvent.click(await screen.findByRole('button', { name: 'Clear final score' }))
+        expect(s().knownFinalScore).toBeNull()
+        expect(first()).toHaveValue('')
+    })
+    it('should use Team 1 / Team 2 when a name is empty', () => {
+        useAppState.setState({ teams: [{ name: '', color: '#fff', roster: [] }, { name: '', color: '#000', roster: [] }] })
+        render(<MatchDetails />)
+        expect(screen.getByLabelText('Team 1 final score')).toBeInTheDocument()
+        expect(screen.getByLabelText('Team 2 final score')).toBeInTheDocument()
+    })
+})
+
+it('should leave out the logo and graphics style when compact', () => {
+    render(<MatchDetails compact />)
+    expect(screen.queryByRole('img', { name: /league logo/i })).toBeNull()
+    expect(screen.queryByText(/graphics style/i)).toBeNull()
+    expect(screen.getByLabelText('Title')).toBeInTheDocument()
+    expect(screen.getAllByLabelText(/final score/)).toHaveLength(2)
+})
+
+describe('MatchDetails remembered players', () => {
+    beforeEach(() => {
+        useAppState.setState({
+            teams: [{ name: 'A', color: '#f0f0f0', roster: ['Sam'] }, { name: 'B', color: '#ec5fa4', roster: [] }],
+            knownPlayers: [{ name: 'Sam', lastUsed: 3 }, { name: 'Jo', lastUsed: 2 }, { name: 'Bea', lastUsed: 1 }],
+        })
+    })
+
+    it('should suggest remembered players who are in neither team, add one to the team and remember typed names', async () => {
+        render(<MatchDetails />)
+        await userEvent.click(screen.getByLabelText('Team 2 roster'))
+        expect(screen.queryByRole('button', { name: 'Add Sam' })).toBeNull() // already in Team 1
+        await userEvent.click(screen.getByRole('button', { name: 'Add Jo' }))
+        expect(useAppState.getState().teams[1].roster).toEqual(['Jo'])
+        await userEvent.type(screen.getByLabelText('Team 2 roster'), 'Kit{Enter}')
+        expect(useAppState.getState().knownPlayers.map((p) => p.name)).toContain('Kit')
+    })
+
+    it('should forget a suggested player', async () => {
+        render(<MatchDetails />)
+        await userEvent.click(screen.getByLabelText('Team 2 roster'))
+        await userEvent.click(screen.getByRole('button', { name: 'Forget Bea' }))
+        expect(useAppState.getState().knownPlayers.map((p) => p.name)).not.toContain('Bea')
+    })
+})

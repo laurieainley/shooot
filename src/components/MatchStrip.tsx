@@ -65,6 +65,8 @@ export function MatchStrip() {
     // Pointer position as a fraction of the track: the hover / drag bubble, and (touch) the previewed playhead.
     const [pointerFrac, setPointerFrac] = useState<number | null>(null)
     const [touchDrag, setTouchDrag] = useState(false)
+    // The symbol under a mouse pointer (event icon, marker flag icon or suggestion ring): its name goes in the bubble.
+    const [hovered, setHovered] = useState<{ label: string; timeSec: number } | null>(null)
 
     const strip = useMemo(
         () => buildMatchStrip({ files, cumulativeOffsets, events, teams, currentFileIndex, currentTimeSec, before, after }),
@@ -84,33 +86,56 @@ export function MatchStrip() {
         if (rect.width <= 0) return null
         return Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width))
     }
-    /** A tap (little movement, short) within reach of a suggestion ring opens the review there; anything else is scrubbing. */
-    const tappedRing = (ev: ReactPointerEvent<HTMLDivElement>): string | null => {
-        const d = down.current
-        down.current = null
-        if (!d || marks.length === 0) return null
-        if (Math.hypot(ev.clientX - d.x, ev.clientY - d.y) >= TAP_MOVE_PX || performance.now() - d.at >= TAP_MS) return null
+    /** The suggestion ring under the pointer: within reach of the ring, in the thin bottom lane. */
+    const ringAt = (ev: ReactPointerEvent<HTMLDivElement>): (typeof marks)[number] | null => {
+        if (marks.length === 0) return null
         const rect = ev.currentTarget.getBoundingClientRect()
         const touch = ev.pointerType === 'touch' || ev.pointerType === 'pen'
         const reach = touch ? RING_REACH_TOUCH_PX : RING_REACH_MOUSE_PX
         if (ev.clientY < rect.bottom - (touch ? RING_LANE_TOUCH_PX : RING_LANE_MOUSE_PX)) return null
-        let best: { id: string; dist: number } | null = null
+        let best: { mark: (typeof marks)[number]; dist: number } | null = null
         for (const m of marks) {
             const dist = Math.abs(ev.clientX - (rect.left + (m.leftPct / 100) * rect.width))
-            if (dist <= reach && (!best || dist < best.dist)) best = { id: m.id, dist }
+            if (dist <= reach && (!best || dist < best.dist)) best = { mark: m, dist }
         }
-        return best?.id ?? null
+        return best?.mark ?? null
+    }
+    /** A tap (little movement, short) within reach of a suggestion ring opens the review there; anything else is scrubbing. */
+    const tappedRing = (ev: ReactPointerEvent<HTMLDivElement>): string | null => {
+        const d = down.current
+        down.current = null
+        if (!d) return null
+        if (Math.hypot(ev.clientX - d.x, ev.clientY - d.y) >= TAP_MOVE_PX || performance.now() - d.at >= TAP_MS) return null
+        return ringAt(ev)?.id ?? null
+    }
+    /** Only the symbol itself names it: an event icon, a marker's flag icon (not its hairline) or a suggestion ring. */
+    const symbolAt = (ev: ReactPointerEvent<HTMLDivElement>): { label: string; timeSec: number } | null => {
+        const target = ev.target instanceof Element ? ev.target : null
+        const dotId = target?.closest('.strip-dot')?.getAttribute('data-id')
+        const dot = dotId ? strip.events.find((e) => e.id === dotId) : undefined
+        if (dot) return dot
+        const flagId = target?.closest('.strip-flag svg') ? target.closest('.strip-flag')?.getAttribute('data-id') : null
+        const flag = flagId ? strip.flags.find((f) => f.id === flagId) : undefined
+        if (flag) return flag
+        const ring = ringAt(ev)
+        return ring ? { label: ring.top ? 'Detected moment (top pick)' : 'Detected moment', timeSec: ring.timeSec } : null
     }
     const seekFrac = (frac: number): void => {
         const { fileIndex, timeSec } = globalToFileTime(cumulativeOffsets, durations, frac * strip.totalSec)
         useAppState.getState().seekToGoal(fileIndex, Math.round(timeSec * 10) / 10)
     }
 
-    // The bubble: match clock (from kick-off) of the time under the pointer, and which file it is in.
+    // The bubble: match clock (from kick-off) of the time under the pointer, and which file it is in. Over a symbol: its name,
+    // and the symbol's own time and position.
     const bubble = pointerFrac === null || strip.totalSec <= 0 ? null : (() => {
-        const t = pointerFrac * strip.totalSec
+        const t = hovered ? hovered.timeSec : pointerFrac * strip.totalSec
         const at = globalToFileTime(cumulativeOffsets, durations, t)
-        return { clock: formatEventClock(t, at.timeSec, matchStartSec, clockLong), file: at.fileIndex + 1, pct: pointerFrac * 100 }
+        return {
+            label: hovered?.label ?? null,
+            clock: formatEventClock(t, at.timeSec, matchStartSec, clockLong),
+            file: at.fileIndex + 1,
+            pct: Math.min(100, Math.max(0, (t / strip.totalSec) * 100)),
+        }
     })()
     const playheadPct = touchDrag && pointerFrac !== null ? pointerFrac * 100 : strip.playheadPct
 
@@ -157,6 +182,7 @@ export function MatchStrip() {
                             if (frac === null) return
                             if (ev.pointerType === 'touch' && !dragging.current) return
                             setPointerFrac(frac)
+                            setHovered(ev.pointerType === 'mouse' && !dragging.current ? symbolAt(ev) : null)
                             if (dragging.current && ev.pointerType !== 'touch') seekFrac(frac)
                         }}
                         onPointerUp={(ev) => {
@@ -167,8 +193,8 @@ export function MatchStrip() {
                             setTouchDrag(false)
                             if (ev.pointerType === 'touch') setPointerFrac(null)
                         }}
-                        onPointerCancel={() => { dragging.current = false; down.current = null; setTouchDrag(false); setPointerFrac(null) }}
-                        onPointerLeave={(ev) => { if (!dragging.current && ev.pointerType !== 'touch') setPointerFrac(null) }}
+                        onPointerCancel={() => { dragging.current = false; down.current = null; setTouchDrag(false); setPointerFrac(null); setHovered(null) }}
+                        onPointerLeave={(ev) => { if (!dragging.current && ev.pointerType !== 'touch') { setPointerFrac(null); setHovered(null) } }}
                     >
                         {strip.files.map((f, i) => (
                             <div key={`${f.name}-${i}`} className={`strip-file${i === currentFileIndex ? ' strip-file--current' : ''}`}
@@ -181,8 +207,9 @@ export function MatchStrip() {
                             <div key={i} className="strip-clip" style={{ left: `${c.leftPct}%`, width: `max(${c.widthPct}%, 3px)` }} />
                         ))}
                         {strip.flags.map((f) => (
-                            <div key={f.id} className={`strip-flag strip-flag--${f.kind}`} title={f.title} style={{ left: `${f.leftPct}%` }}>
+                            <div key={f.id} className={`strip-flag strip-flag--${f.kind}`} data-id={f.id} style={{ left: `${f.leftPct}%` }}>
                                 <EventIcon event={{ type: f.kind }} size={13} />
+                                <span className="sr-only">{f.title}</span>
                             </div>
                         ))}
                         {marks.map((m) => (
@@ -191,7 +218,7 @@ export function MatchStrip() {
                                 type="button"
                                 className={`strip-suggestion${m.top ? ' strip-suggestion--top' : ''}`}
                                 style={{ left: `${m.leftPct}%` }}
-                                aria-label={`Suggested moment at ${formatEventClock(m.timeSec, m.timeSec, matchStartSec, clockLong)}`}
+                                aria-label={`Detected moment at ${formatEventClock(m.timeSec, m.timeSec, matchStartSec, clockLong)}`}
                                 onClick={() => useAppState.getState().openReviewAt(m.id)}
                             >
                                 {m.top && <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" focusable="false" fill="currentColor"><path d="M12 2.9l2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 16.7l-5.4 3 1.1-6.1-4.5-4.3 6.1-.8z" /></svg>}
@@ -203,13 +230,13 @@ export function MatchStrip() {
                                 type="button"
                                 className="strip-dot"
                                 aria-label={e.title}
-                                title={e.title}
+                                data-id={e.id}
                                 data-lane={lanes[i]}
                                 style={{ left: `${e.leftPct}%`, '--lane': lanes[i] } as React.CSSProperties}
                                 onClick={() => {
                                     const st = useAppState.getState()
                                     const ev = st.events.find((x) => x.id === e.id)
-                                    if (ev) st.seekToGoal(ev.sourceFileIndex ?? 0, Math.max(0, ev.matchTimeSec - st.lengthBeforeGoalSec))
+                                    if (ev && !st.jumpToPreviewEvent(ev.id)) st.seekToGoal(ev.sourceFileIndex ?? 0, Math.max(0, ev.matchTimeSec - st.lengthBeforeGoalSec))
                                 }}
                             >
                                 <EventIcon event={{ type: e.kind, pen: e.pen }} size={iconPx} decorative />
@@ -220,6 +247,7 @@ export function MatchStrip() {
                 )}
                 {bubble && (
                     <div className="strip-bubble tc" style={{ left: `${bubble.pct}%` }} aria-hidden="true">
+                        {bubble.label && <span className="strip-bubble__label">{bubble.label} · </span>}
                         {bubble.clock}<span className="strip-bubble__file"> · V{bubble.file}</span>
                     </div>
                 )}

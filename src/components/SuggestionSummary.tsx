@@ -4,6 +4,8 @@ import { AUDIO_DETECT } from '../detect/detectConfig'
 import { getDetectJob } from '../detectJobs'
 import { detectionReport, reviewCounts, type BallReport } from '../utils/suggestions'
 import { ballSeenLine, keptSummary, LOW_KEEP_NOTE, NOTHING_STOOD_OUT } from '../utils/voice'
+import { finalScore } from '../utils/score'
+import { extraText, missingText, scoreGap } from '../utils/scoreGap'
 import { openFindGoals } from './findGoals'
 
 interface SuggestionSummaryProps { onClose: () => void }
@@ -17,6 +19,11 @@ export function SuggestionSummary({ onClose }: SuggestionSummaryProps) {
     const suggestions = useAppState((s) => s.suggestions)
     const run = useAppState((s) => s.suggestionRun)
     const events = useAppState((s) => s.events)
+    const teams = useAppState((s) => s.teams)
+    const known = useAppState((s) => s.knownFinalScore)
+    const gap = teams.length >= 2 ? scoreGap(finalScore(events, teams), known) : null
+    const missing = gap ? gap.missing[0] + gap.missing[1] : 0
+    const extra = gap ? gap.extra[0] + gap.extra[1] : 0
     const counts = reviewCounts(suggestions, new Set(events.map((e) => e.id)))
     const decided = counts.kept + counts.rejected
     const ballSeen = suggestions.filter((s) => s.ball).length
@@ -41,6 +48,9 @@ export function SuggestionSummary({ onClose }: SuggestionSummaryProps) {
     return (
         <div className="review__summary">
             {counts.total === 0 ? <p className="m-0">{NOTHING_STOOD_OUT}</p> : <p className="m-0 review__kept">{keptSummary(counts.kept, counts.total)}</p>}
+            {gap?.complete && <p className="m-0 review__note">All goals tagged.</p>}
+            {gap && missing > 0 && <p className="m-0 review__note">{missingText(gap, teams)}. {counts.pending > 0 ? 'Look through the other moments, or tag them while watching.' : 'Tag them while watching.'}</p>}
+            {gap && extra > 0 && <p className="m-0 review__note msg-warn">{extraText(gap, teams)}.</p>}
             {ballSeen > 0 && <p className="m-0 review__note">{ballSeenLine(ballSeen)}</p>}
             {counts.pending > 0 && <p className="m-0 review__note">{counts.pending} not reviewed.</p>}
             {decided >= MIN_DECIDED && counts.kept / decided < AUDIO_DETECT.lowKeepRatio && <p className="m-0 review__note">{LOW_KEEP_NOTE}</p>}

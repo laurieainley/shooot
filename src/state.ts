@@ -4,6 +4,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { GoalAreas, GoalMarks, GoalMarksByTeam, GoalTeam, KeepType, MarkerType, MatchEvent, Suggestion, SuggestionRun, Team, VideoSourceFile } from './types'
 import type { ScoredMoment } from './utils/goalAudioScore'
+import type { Score } from './utils/score'
 import { effectiveStatus, firstPendingIndex, mergeSuggestions, runMatchesFiles } from './utils/suggestions'
 import { globalToFileTime } from './utils/matchStrip'
 import { AUDIO_DETECT } from './detect/detectConfig'
@@ -17,11 +18,12 @@ import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/hig
 import { relinkEvents as relinkByKey, linkedEvents } from './utils/relink'
 import { kickOffSec, resolveGlobalEvents, withMigratedKickOff } from './utils/matchClock'
 import { parseGoProName } from './utils/gopro'
-import { buildPreviewPlan, clipStep, type PreviewStep } from './utils/preview'
+import { buildPreviewPlan, clipStep, previewStepForEvent, type PreviewStep } from './utils/preview'
 import { normaliseGraphics, type GraphicsSettings } from './graphics/plan'
 
 const DEFAULT_GRAPHICS: GraphicsSettings = { cards: true, lowerThirds: true, replayTag: true, theme: 'shooot' }
 import type { ClipOptions, FullMatchSettings } from './utils/exportPlans'
+import { forgetPlayer, rememberPlayers, type KnownPlayer } from './utils/knownPlayers'
 
 /** Links events to the loaded files: migrated whole-timeline times are placed first, then file keys matched. */
 function relinkEvents(events: MatchEvent[], files: VideoSourceFile[]): MatchEvent[] {
@@ -53,6 +55,8 @@ type AppState = {
     /** Clips and their replays, in reel order; `currentPreviewSegment` indexes these. */
     previewSteps: PreviewStep[]
     currentPreviewSegment: number
+    /** Bumped by every jump, so jumping to the step already playing restarts it. Not persisted. */
+    previewJumpTick: number
     setFiles: (files: VideoSourceFile[]) => void
     addFiles: (files: VideoSourceFile[]) => void
     moveFile: (from: number, to: number) => void
@@ -98,6 +102,10 @@ type AppState = {
     exitPreview: () => void
     nextPreviewSegment: () => void
     prevPreviewSegment: () => void
+    /** Play the given preview step from its start (also when it is the one already playing). */
+    jumpToPreviewStep: (index: number) => void
+    /** During the preview: jump to the clip of an event. False (nothing done) when not previewing or the event isn't in the reel. */
+    jumpToPreviewEvent: (eventId: string) => boolean
     /** Previous / next clip of the preview (its first step). */
     stepPreviewClip: (dir: 1 | -1) => void
     // Teams, rosters and the event picker
@@ -110,6 +118,9 @@ type AppState = {
     setTeams: (teams: Team[]) => void
     renameTeam: (index: number, name: string) => void
     addToRoster: (team: string, name: string) => void
+    /** Player names used on this device, suggested when typing a roster. A device preference: not in projects or transfer links. */
+    knownPlayers: KnownPlayer[]
+    forgetPlayer: (name: string) => void
     markEvent: (timeInFileSec: number, opts?: { deferred?: boolean }) => void
     commitPending: () => void
     openPicker: (eventId: string) => void
@@ -126,8 +137,10 @@ type AppState = {
     panel: Panel | null
     /** The event the touch edit sheet (panel 'event') is editing. */
     editingEventId: string | null
-    /** Open the edit sheet for an event (touch: tapping a row in the event log). */
-    editEvent: (id: string) => void
+    /** Which part of the edit sheet is open: the event's details, or only its slow-mo replay framing. Not persisted. */
+    editingView: 'details' | 'framing'
+    /** Open the edit sheet for an event (touch: tapping a row in the event log); the Framing action opens only the framing view. */
+    editEvent: (id: string, view?: 'details' | 'framing') => void
     openPanel: (panel: Panel) => void
     /** Suggested moments from Find goals (Beta), with the user's decisions. */
     suggestions: Suggestion[]
@@ -171,6 +184,9 @@ type AppState = {
     /** Matchday heading on the title card; null = "MATCH". */
     matchdayLabel: string | null
     setMatchdayLabel: (label: string | null) => void
+    /** The final score the user already knows (team order), or null. Not the score of the tagged goals (`finalScore()`). */
+    knownFinalScore: Score | null
+    setKnownFinalScore: (score: Score | null) => void
     setTeamInitials: (index: number, initials: string) => void
     /** Replay zoom: where each team's goal is in the picture (null = not set). */
     goalAreas: GoalAreas | null
@@ -239,12 +255,14 @@ export const useAppState = create<AppState>()(
             picker: null,
             panel: null,
             editingEventId: null,
+            editingView: 'details',
             immersive: false,
             playerFullscreen: false,
             barCollapsed: false,
             opening: null,
             graphics: DEFAULT_GRAPHICS,
             matchdayLabel: null,
+            knownFinalScore: null,
             goalAreas: null,
             goalMarks: null,
             labs: false,
@@ -270,6 +288,7 @@ export const useAppState = create<AppState>()(
             previewSegments: [],
             previewSteps: [],
             currentPreviewSegment: 0,
+            previewJumpTick: 0,
             setFiles: (files) => set({
                 files,
                 cumulativeOffsets: computeCumulativeOffsets(files),
@@ -473,11 +492,13 @@ export const useAppState = create<AppState>()(
                     files: [], events: [], cumulativeOffsets: [], currentTimeInFileSec: 0, currentFileIndex: 0,
                     isPreviewMode: false, previewSegments: [], previewSteps: [], currentPreviewSegment: 0, picker: null, panel: null,
                     undoStack: [...state.undoStack.slice(-49), state.events], redoStack: [],
-                    matchdayLabel: null, goalAreas: null, goalMarks: null,
+                    matchdayLabel: null, knownFinalScore: null, goalAreas: null, goalMarks: null,
                     suggestions: [], suggestionRun: null, reviewIndex: 0,
                 })
             },
-            setTeams: (teams) => set({ teams }),
+            knownPlayers: [],
+            forgetPlayer: (name) => set({ knownPlayers: forgetPlayer(get().knownPlayers, name) }),
+            setTeams: (teams) => set({ teams, knownPlayers: rememberPlayers(get().knownPlayers, teams.flatMap((t) => t.roster), Date.now()) }),
             renameTeam: (index, name) => {
                 const old = get().teams[index]?.name
                 if (old === undefined) return
@@ -491,6 +512,7 @@ export const useAppState = create<AppState>()(
                     t.name === team && !t.roster.some((r) => r.toLowerCase() === name.toLowerCase())
                         ? { ...t, roster: [...t.roster, name] }
                         : t),
+                knownPlayers: rememberPlayers(get().knownPlayers, [name], Date.now()),
             }),
             markEvent: (timeInFileSec, opts) => {
                 const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
@@ -544,6 +566,7 @@ export const useAppState = create<AppState>()(
                 return next
             }) }),
             setMatchdayLabel: (label) => set({ matchdayLabel: label?.trim() ? label : null }),
+            setKnownFinalScore: (score) => set({ knownFinalScore: score }),
             setTeamInitials: (index, initials) => set({
                 teams: get().teams.map((t, i) => {
                     if (i !== index) return t
@@ -557,8 +580,8 @@ export const useAppState = create<AppState>()(
             setImmersive: (on) => set({ immersive: on }),
             setPlayerFullscreen: (on) => { if (get().playerFullscreen !== on) set({ playerFullscreen: on }) },
             setBarCollapsed: (collapsed) => set({ barCollapsed: collapsed }),
-            editEvent: (id) => {
-                if (get().events.some((e) => e.id === id)) set({ panel: 'event', editingEventId: id, picker: null, returnTo: nextReturnTo(get().panel, get().returnTo, 'event') })
+            editEvent: (id, view = 'details') => {
+                if (get().events.some((e) => e.id === id)) set({ panel: 'event', editingEventId: id, editingView: view, picker: null, returnTo: nextReturnTo(get().panel, get().returnTo, 'event') })
             },
             openPanel: (panel) => set({ panel, picker: null, returnTo: nextReturnTo(get().panel, get().returnTo, panel) }),
             setSuggestions: (run, moments) => {
@@ -655,6 +678,19 @@ export const useAppState = create<AppState>()(
                 const state = get()
                 if (state.isPreviewMode) set({ currentPreviewSegment: clipStep(state.previewSteps, state.currentPreviewSegment, dir) })
             },
+            jumpToPreviewStep: (index) => {
+                const state = get()
+                if (!state.isPreviewMode || !state.previewSteps[index]) return
+                set({ currentPreviewSegment: index, previewJumpTick: state.previewJumpTick + 1 })
+            },
+            jumpToPreviewEvent: (eventId) => {
+                const state = get()
+                if (!state.isPreviewMode) return false
+                const i = previewStepForEvent(state.previewSteps, eventId)
+                if (i === null) return false
+                state.jumpToPreviewStep(i)
+                return true
+            },
             prevPreviewSegment: () => {
                 const state = get()
                 if (state.isPreviewMode && state.currentPreviewSegment > 0) {
@@ -673,11 +709,13 @@ export const useAppState = create<AppState>()(
                 replayAfterSec: state.replayAfterSec,
                 replaySpeed: state.replaySpeed,
                 teams: state.teams,
+                knownPlayers: state.knownPlayers,
                 graphics: state.graphics,
                 fullMatch: state.fullMatch,
                 clipOptions: state.clipOptions,
                 highlightsQuality: state.highlightsQuality,
                 matchdayLabel: state.matchdayLabel,
+                knownFinalScore: state.knownFinalScore,
                 goalAreas: state.goalAreas,
                 goalMarks: state.goalMarks,
                 labs: state.labs,
@@ -686,7 +724,7 @@ export const useAppState = create<AppState>()(
                 suggestions: state.suggestions,
                 suggestionRun: state.suggestionRun,
             }),
-            version: 24,
+            version: 26,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -779,6 +817,16 @@ export const useAppState = create<AppState>()(
 
                 // Highlights output quality (v24): the device's default until the user chooses.
                 if (version < 24) state.highlightsQuality = 'auto'
+
+                // Known final score (v25): none until entered.
+                if (version < 25 && state.knownFinalScore === undefined) state.knownFinalScore = null
+
+                // Remembered players (v26): seeded from the current rosters.
+                if (version < 26) {
+                    const rosters: unknown[] = Array.isArray(state.teams) ? state.teams.map((t: { roster?: unknown }) => t?.roster) : []
+                    const names = rosters.flatMap((r) => (Array.isArray(r) ? r : []))
+                    state.knownPlayers = rememberPlayers([], names.filter((n: unknown): n is string => typeof n === 'string'), Date.now())
+                }
 
                 return state
             },

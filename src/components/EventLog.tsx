@@ -76,13 +76,23 @@ export function EventLog() {
     useEffect(() => {
         if (!selectedId) return
         const el = listRef.current?.querySelector<HTMLElement>(`[data-event-id="${CSS.escape(selectedId)}"]`)
-        el?.scrollIntoView?.({ block: 'nearest' })
+        // The expanded row (with its action row) comes fully into view. When the list scrolls, only the list moves (the
+        // page stays, so the video stays in view). No animation when motion is reduced.
+        const list = listRef.current
+        if (!el || !list) return
+        const reduce = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        const behavior = reduce ? 'auto' : 'smooth'
+        // Phone portrait: the list doesn't scroll, the page does (and the video has already scrolled away).
+        if (list.scrollHeight <= list.clientHeight) { el.scrollIntoView?.({ block: 'nearest', behavior }); return }
+        const top = listScrollFor(list, el)
+        if (top !== null) list.scrollTo?.({ top, behavior })
     }, [selectedId])
 
     // Watch = seek to the clip start and play. Selecting a row never moves or starts the video.
     const watch = (e: MatchEvent): void => {
         if (e.unlinked) return
         const st = useAppState.getState()
+        if (st.jumpToPreviewEvent(e.id)) return // during the preview: jump to that clip, stay in the preview
         st.seekToGoal(e.sourceFileIndex ?? 0, watchFromSec(e, st.lengthBeforeGoalSec))
     }
     const toggleReplay = (e: MatchEvent): void => { if (!isMarker(e)) useAppState.getState().updateEvent(e.id, { replay: !wantsReplay(e) }) }
@@ -172,7 +182,7 @@ export function EventLog() {
                     </p>
                 </>
             ) : (
-                <ol ref={listRef} role="listbox" aria-label="Event list" className="m-0 min-h-0 flex-1 list-none overflow-y-auto overscroll-contain p-0"
+                <ol ref={listRef} role="listbox" aria-label="Event list" className="event-list m-0 min-h-0 flex-1 list-none overflow-y-auto overscroll-contain p-0"
                     style={{ '--clock-ch': clockWidthCh(clockLong, true) } as CSSProperties}>
                     {events.map((e) => (
                         <EventRow
@@ -187,7 +197,7 @@ export function EventLog() {
                             onWatch={() => { setSelectedId(e.id); watch(e) }}
                             onEdit={(field) => { setSelectedId(e.id); setEditing(field ? { id: e.id, field } : null) }}
                             onToggleReplay={() => toggleReplay(e)}
-                            onFraming={() => useAppState.getState().editEvent(e.id)}
+                            onFraming={() => useAppState.getState().editEvent(e.id, 'framing')}
                             onRemove={() => remove(events.indexOf(e))}
                             restoreFocus={() => rootRef.current?.focus()}
                             touch={coarse}
@@ -286,6 +296,7 @@ function EventRow({ event: e, teams, selected, clock, score, editing, onSelect, 
                             : <span className="event-row__type">{controlLabel(e)}</span>}
                     </span>
                     {parts.note && <span className="event-row__note" onDoubleClick={(ev) => { stop(ev); onEdit('notes') }}>{parts.note}</span>}
+                    {wantsReplay(e) && <span className="event-row__replay" title="Slow-mo replay on"><span aria-hidden="true">↻</span><span className="sr-only">slow-mo replay</span></span>}
                 </span>
             )}
 
@@ -456,4 +467,14 @@ function UndoIcon({ redo = false }: UndoIconProps) {
             <path d="M5.5 3.5 2.5 6.5l3 3M2.5 6.5h7a4 4 0 0 1 0 8H7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
     )
+}
+
+/** Where to scroll the list so `row` is fully visible inside it (honouring its scroll-padding-bottom), or null when it already is. */
+function listScrollFor(list: HTMLElement, row: HTMLElement): number | null {
+    const l = list.getBoundingClientRect()
+    const r = row.getBoundingClientRect()
+    const padBottom = parseFloat(getComputedStyle(list).scrollPaddingBottom) || 0
+    if (r.top < l.top) return list.scrollTop - (l.top - r.top)
+    const over = r.bottom - (l.bottom - padBottom)
+    return over > 0 ? list.scrollTop + over : null
 }

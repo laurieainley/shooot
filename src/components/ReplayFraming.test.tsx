@@ -20,7 +20,7 @@ function setup(event: Partial<MatchEvent> = {}, areas = true): void {
     useAppState.setState({
         files: [file], cumulativeOffsets: [0], teams, goalAreas: areas ? defaultGoalAreas() : null,
         events: [{ id: 'a', matchTimeSec: 95, sourceFileIndex: 0, type: 'goal', team: 'Whites', ...event }],
-        undoStack: [], redoStack: [], picker: null, panel: 'event', editingEventId: 'a',
+        undoStack: [], redoStack: [], picker: null, panel: 'event', editingEventId: 'a', editingView: 'framing',
     })
     render(<EventSheet />)
 }

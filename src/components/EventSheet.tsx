@@ -15,15 +15,29 @@ import { ColumnPanel } from './ColumnPanel'
 import { ReplayFraming } from './ReplayFraming'
 
 /**
- * Touch editing of an existing event (tap a row in the event log; it replaces the events column rather than covering the picture): type, team, person, note, time nudge,
- * replay, delete. Every change is applied at once (one undo step each); typed text is saved on Enter, when
+ * Editing an existing event (tap a row in the event log; it replaces the events column rather than covering the picture): type, team, person, note, time nudge,
+ * delete (the slow-mo replay switch and its framing live in the log's action row). Every change is applied at once (one undo step each); typed text is saved on Enter, when
  * the field loses focus and when the sheet closes. Desktop keeps inline editing in the log.
  */
 export function EventSheet() {
     const event = useAppState((s) => s.events.find((e) => e.id === s.editingEventId))
     const teams = useAppState((s) => s.teams)
+    const view = useAppState((s) => s.editingView)
     if (!event) return null
+    if (view === 'framing') return <FramingSheetBody key={event.id} event={event} />
     return <EventSheetBody key={event.id} event={event} teams={teams} />
+}
+
+/** The Framing action's view: only how this event's slow-mo replay is framed. Closes when the replay is switched off (R, undo). */
+function FramingSheetBody({ event: e }: { event: MatchEvent }) {
+    const on = wantsReplay(e) && !isMarker(e)
+    useEffect(() => { if (!on) useAppState.getState().closePanel() }, [on])
+    if (!on) return null
+    return (
+        <ColumnPanel label="Replay framing" onClose={() => useAppState.getState().closePanel()} className="event-sheet">
+            <ReplayFraming event={e} />
+        </ColumnPanel>
+    )
 }
 
 interface EventSheetBodyProps {
@@ -216,12 +230,6 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
                     onBlur={() => saveNote(latest.current.note)}
                 />
             </fieldset>
-
-            <label className="toggle-row">
-                <input type="checkbox" checked={wantsReplay(e)} onChange={(ev) => update({ replay: ev.target.checked })} />
-                <span className="toggle-row__text">Slow-mo replay<span className="toggle-row__hint">after the clip in the reel</span></span>
-            </label>
-            {wantsReplay(e) && <ReplayFraming event={e} />}
             </>}
 
             <div className="sheet__actions">

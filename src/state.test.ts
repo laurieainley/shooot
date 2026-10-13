@@ -187,7 +187,7 @@ describe('teams and picker', () => {
 
     it('should migrate v8 legacy event types and persist teams (v9+)', () => {
         const opts = useAppState.persist.getOptions()
-        expect(opts.version).toBe(24)
+        expect(opts.version).toBe(26)
         const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
         expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
         expect(opts.partialize!(s())).toHaveProperty('teams')
@@ -314,6 +314,28 @@ describe('newMatch', () => {
     })
 })
 
+describe('known final score', () => {
+    it('should default to null, set and clear', () => {
+        useAppState.setState({ knownFinalScore: null })
+        s().setKnownFinalScore([13, 9])
+        expect(s().knownFinalScore).toEqual([13, 9])
+        s().setKnownFinalScore(null)
+        expect(s().knownFinalScore).toBeNull()
+    })
+    it('should be persisted and cleared by newMatch', () => {
+        useAppState.setState({ knownFinalScore: [3, 2], undoStack: [], redoStack: [] })
+        expect(useAppState.persist.getOptions().partialize!(s())).toHaveProperty('knownFinalScore', [3, 2])
+        s().newMatch()
+        expect(s().knownFinalScore).toBeNull()
+    })
+    it('should migrate older saves to null (v25) and keep an existing value', () => {
+        const migrate = useAppState.persist.getOptions().migrate!
+        expect((migrate({ events: [] }, 23) as Record<string, unknown>).knownFinalScore).toBeNull()
+        expect((migrate({ events: [] }, 24) as Record<string, unknown>).knownFinalScore).toBeNull()
+        expect((migrate({ knownFinalScore: [1, 0] }, 25) as Record<string, unknown>).knownFinalScore).toEqual([1, 0])
+    })
+})
+
 describe('panels and the picker', () => {
     beforeEach(() => {
         useAppState.setState({ files: [vf('a.mp4')], events: [], cumulativeOffsets: [0], currentFileIndex: 0, undoStack: [], redoStack: [], picker: null, panel: null })
@@ -363,6 +385,16 @@ describe('panels and the picker', () => {
         expect(s().picker).toBeNull()
         s().openPanel('menu')
         expect(s().panel).toBe('menu')
+    })
+
+    it('should open the edit sheet on the details view by default and on the framing view when asked', () => {
+        s().addEvent({ id: 'a', matchTimeSec: 1, sourceFileIndex: 0, type: 'goal' })
+        s().editEvent('a')
+        expect(s().editingView).toBe('details')
+        s().editEvent('a', 'framing')
+        expect(s().editingView).toBe('framing')
+        s().editEvent('a')
+        expect(s().editingView).toBe('details')
     })
 
     it('should close the edit sheet when its event goes away (delete, undo)', () => {
@@ -424,6 +456,30 @@ describe('preview', () => {
         s().startPreview()
         expect(s().currentPreviewSegment).toBe(0)
         expect(s().previewSteps.map((p) => [p.clipIndex, p.replay, p.speed])).toEqual([[0, false, 1], [0, true, 0.5], [1, false, 1]])
+    })
+
+    it('should jump to a step, and to the clip of an event, without leaving the preview', () => {
+        s().startPreview()
+        s().jumpToPreviewStep(2)
+        expect(s().isPreviewMode).toBe(true)
+        expect(s().currentPreviewSegment).toBe(2)
+        s().jumpToPreviewStep(99)
+        expect(s().currentPreviewSegment).toBe(2)
+        expect(s().jumpToPreviewEvent('g')).toBe(true)
+        expect(s().currentPreviewSegment).toBe(0)
+        expect(s().jumpToPreviewEvent('nope')).toBe(false)
+        expect(s().isPreviewMode).toBe(true)
+    })
+
+    it('should not jump when not previewing', () => {
+        expect(s().jumpToPreviewEvent('g')).toBe(false)
+    })
+
+    it('should restart the step when jumping to the one already playing', () => {
+        s().startPreview()
+        const before = s().previewJumpTick
+        s().jumpToPreviewStep(0)
+        expect(s().previewJumpTick).toBe(before + 1)
     })
 
     it('should start again from the first clip every time', () => {
@@ -969,5 +1025,36 @@ describe('setMarkerAt', () => {
         expect(ko[0]).toMatchObject({ sourceFileIndex: 1, matchTimeSec: 5 })
         s().undo()
         expect(s().events.filter((e) => e.type === 'kick_off')[0]).toMatchObject({ sourceFileIndex: 0, matchTimeSec: 20 })
+    })
+})
+
+describe('known players (device preference)', () => {
+    const team = (name: string, roster: string[]) => ({ name, color: '#fff', roster })
+    beforeEach(() => {
+        useAppState.setState({ knownPlayers: [], teams: [team('Whites', []), team('Colours', [])] })
+    })
+
+    it('should remember names added through setTeams, addToRoster and a rename', () => {
+        s().setTeams([team('Whites', ['Jo']), team('Colours', [])])
+        s().addToRoster('Colours', 'Sam')
+        s().setTeams([team('Whites', ['Joe']), team('Colours', ['Sam'])])
+        expect(s().knownPlayers.map((p) => p.name).sort()).toEqual(['Jo', 'Joe', 'Sam'])
+    })
+    it('should not forget a player removed from a roster, until forgetPlayer', () => {
+        s().setTeams([team('Whites', ['Jo']), team('Colours', [])])
+        s().setTeams([team('Whites', []), team('Colours', [])])
+        expect(s().knownPlayers.map((p) => p.name)).toEqual(['Jo'])
+        s().forgetPlayer('jo')
+        expect(s().knownPlayers).toEqual([])
+    })
+    it('should keep them through newMatch, persist them, and migrate from rosters (v26)', () => {
+        s().setTeams([team('Whites', ['Jo']), team('Colours', [])])
+        s().newMatch()
+        expect(s().knownPlayers).toHaveLength(1)
+        expect(useAppState.persist.getOptions().partialize!(s())).toHaveProperty('knownPlayers')
+        const migrate = useAppState.persist.getOptions().migrate!
+        const out = migrate({ teams: [team('A', ['Jo', 'Sam']), team('B', ['jo', 'Bea'])] }, 25) as { knownPlayers: { name: string }[] }
+        expect(out.knownPlayers.map((p) => p.name).sort()).toEqual(['Bea', 'Sam', 'jo'])
+        expect((migrate({ knownPlayers: [{ name: 'X', lastUsed: 1 }], teams: [] }, 26) as { knownPlayers: unknown[] }).knownPlayers).toHaveLength(1)
     })
 })

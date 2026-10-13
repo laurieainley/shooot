@@ -44,6 +44,10 @@ Date: 2026-10-11 · Status: approved in chat (user) · Builds on `2026-10-11-sug
    covers it).
 
 ## C. Top picks lane (SuggestionReview)
+> **Superseded in part** by `2026-10-11-review-actions-toasts-design.md` addenda 2–5 and `DECISIONS.md`: lanes are
+> disjoint (Top picks / Other moments, Top picks left), the default lane is Top picks while any are left, no Top pick tag
+> on the card, Skip removed.
+
 1. When the run used Advanced detection (ball phase running, done, or any suggestion has `ball`), the panel shows a
    two-option switch at the top: **All (35)** · **Top picks (7)**. Without Advanced detection: no switch (as today).
 2. Default lane: All. Both lanes are in match order (suggestions are kept sorted by time). The lane is UI-only state,

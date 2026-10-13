@@ -3,6 +3,7 @@ import { migrateEvent } from '../utils/eventTypes'
 import { normaliseAreas } from '../utils/crop'
 import { cancelDetection } from '../detectJobs'
 import { normaliseGoalMarks } from '../utils/goalMarks'
+import { parseKnownScore } from '../utils/scoreGap'
 import { withMigratedKickOff } from '../utils/matchClock'
 
 export type ProjectFileData = Record<string, unknown>
@@ -37,6 +38,7 @@ export function applyProjectData(data: ProjectFileData): number {
     st.clearSuggestions() // suggestions belong to the old project
     if (teams) st.setTeams(teams)
     if (typeof data.graphicsTheme === 'string') st.setGraphics({ theme: data.graphicsTheme as never })
+    st.setKnownFinalScore(parseKnownScore(data.knownFinalScore)) // older files have none
     if ('goalAreas' in data) st.setGoalAreas(normaliseAreas(data.goalAreas, left))
     if ('goalMarks' in data || 'goalAreas' in data) st.setAllGoalMarks(normaliseGoalMarks(data.goalMarks)) // files from before marks have neither: keep the current marks
     return imported ? imported.length : 0
