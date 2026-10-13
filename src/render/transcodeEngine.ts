@@ -15,7 +15,7 @@ import { planAudio } from './audioPlan'
 import { nominalFrameRate } from './frameGrid'
 import { muxUnits } from './muxUnits'
 import { coverRect } from './outputSize'
-import { canJournal, discardJob, loadJob, openUnit, readUnit, saveJob, type JobState, type UnitWriter } from './renderJob'
+import { type JobKind, canJournal, discardJob, loadJob, openUnit, readUnit, saveJob, type JobState, type UnitWriter } from './renderJob'
 import { GlScaler, isDownscale, probeDirectScale } from './downscale'
 import { encodeReplayAudio } from './replayAudio'
 import { makeSilentAudio, type SilentAudio } from './silentAudio'
@@ -50,6 +50,7 @@ class FrameCount {
 
 export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opts: RenderOptions, diag: RenderDiagnostics): Promise<File | Blob> {
     const out = opts.output!
+    const jobKind: JobKind = opts.resumable?.kind ?? 'fullMatch'
     const exp = opts.experiments
     const stats = emptyStats()
     const perfStart = performance.now()
@@ -130,7 +131,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         if (valid.length === 0) throw new Error('Nothing to render: every cut is outside its file')
         const planCuts = valid.map((v) => v.cut)
         // Units run PARALLEL_UNITS at a time when the render is journaled (the bench can force 1, 2 or 3); the plan then makes sure there are enough of them.
-        const journaled = opts.resumable ? await canJournal() : false
+        const journaled = opts.resumable ? await canJournal(jobKind) : false
         const parallelN = journaled ? Math.max(1, Math.floor(exp?.parallelUnits ?? PARALLEL_UNITS)) : 1
         if (!journaled && (exp?.parallelUnits ?? 1) > 1) diag.note('Parallel units need a resumable (journaled) render: running one unit at a time')
         const segments = planSegments(planCuts, frameSec, Math.round((exp?.segmentSec ?? SEGMENT_SEC) / frameSec), parallelN > 1 ? { units: parallelN, minFrames: Math.round(MIN_PARALLEL_UNIT_SEC / frameSec) } : undefined)
@@ -218,7 +219,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         let done = 0
         let copied = false
         if (journaled) {
-            const prev = await loadJob()
+            const prev = await loadJob(jobKind)
             const same = prev && prev.signature === opts.resumable!.signature && prev.graphics === !!g && prev.unitCount === units.length
             if (same && prev.unitsDone > 0 && prev.video) {
                 journal = { state: prev }
@@ -236,7 +237,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 }
                 diag.note(`Resumed after unit ${startUnit} of ${units.length}`)
             } else {
-                await discardJob()
+                await discardJob(jobKind)
                 const state: JobState = {
                     kind: opts.resumable!.kind, signature: opts.resumable!.signature, outputName, graphics: !!g,
                     unitsDone: 0, unitCount: units.length, cursor: 0, done: 0, total: totalWork, copied: false, report: null,
@@ -551,7 +552,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         }
         const saveUnit = async (u: number, d: UnitDescriptor, key: string, appliedBefore: number): Promise<void> => {
             const startSec = d.startFrame * frameSec
-            async function* rel(): AsyncGenerator<LogRecord> { for await (const r of readUnit(u)) yield { ...r, timestamp: r.timestamp - startSec } }
+            async function* rel(): AsyncGenerator<LogRecord> { for await (const r of readUnit(jobKind, u)) yield { ...r, timestamp: r.timestamp - startSec } }
             await exp!.unitCache!.save(key, rel(), report.applied.slice(appliedBefore))
         }
 
@@ -597,7 +598,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                     envs.add(env)
                     const t1 = now()
                     try {
-                        env.writer = await openUnit(job.u)
+                        env.writer = await openUnit(jobKind, job.u)
                         const endCut = diag.begin('cuts')
                         try { await runSegment(env, (units[job.u] as { segment: Segment }).segment, job.start, true) } finally { endCut() }
                         await env.writer.close()
@@ -646,7 +647,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 const key = desc ? exp!.unitCache!.keyOf(desc) : null
                 const uStart = now()
                 for (let attempt = 0; ; attempt++) {
-                    if (journal) mainEnv.writer = await openUnit(u)
+                    if (journal) mainEnv.writer = await openUnit(jobKind, u)
                     try {
                         if (key && desc && await restoreUnit(u, desc, key)) break
                         const appliedBefore = report.applied.length
@@ -685,8 +686,8 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             if (journal) {
                 onProgress({ cutIndex: cuts.length - 1, cutCount: cuts.length, fraction: 1, stage: 'Saving' })
                 const endMux = diag.begin('finalize')
-                file = await muxUnits(journal.state.outputName, units.length, 'avc', hasAudio ? 'aac' : null, finalVideo, aConfig, signal, exp?.targetFile)
-                await discardJob()
+                file = await muxUnits(jobKind, journal.state.outputName, units.length, 'avc', hasAudio ? 'aac' : null, finalVideo, aConfig, signal, exp?.targetFile)
+                await discardJob(jobKind)
                 endMux()
             } else {
                 const endFin = diag.begin('finalize')
@@ -707,7 +708,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 await direct.discard()
             }
             // A cancelled render is forgotten; anything else (a frozen tab, a failure) can be resumed.
-            if (journal && isAbort(e)) await discardJob()
+            if (journal && isAbort(e)) await discardJob(jobKind)
             if (!isAbort(e)) diag.note(`Re-encode failed: ${errorInfo(e).message}`)
             throw e
         }

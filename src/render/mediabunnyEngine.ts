@@ -20,7 +20,7 @@ import { DEFAULT_COEF, WorkMeter, cutShare, detectDeviceClass, factsOfSource, pl
 import { tightenOverlays } from './tightOverlays'
 import { encodeReplayAudio } from './replayAudio'
 import { makeSilentAudio, type SilentAudio } from './silentAudio'
-import { canJournal, discardJob, loadJob, openUnit, saveJob, type JobState, type UnitWriter } from './renderJob'
+import { type JobKind, canJournal, discardJob, loadJob, openUnit, saveJob, type JobState, type UnitWriter } from './renderJob'
 import type { Cut, CutTiming, GraphicsReport, RenderCard, RenderFn, RenderGraphics, RenderOptions, RenderOverlay, RenderSource } from './types'
 
 const OUTPUT_NAME = 'highlights.mp4'
@@ -102,6 +102,7 @@ async function renderGraphicsFirst(cuts: Cut[], sources: RenderSource[], opts: R
 type GraphicsRun = { graphics: RenderGraphics; report: GraphicsReport }
 
 async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOptions, runIn: GraphicsRun | null, diag: RenderDiagnostics): Promise<File | Blob> {
+    const jobKind: JobKind = opts.resumable?.kind ?? 'highlights'
     let run = runIn
     const { onProgress, signal } = opts
     const outputName = opts.outputName ?? OUTPUT_NAME
@@ -220,8 +221,8 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
         // Where every cut really landed in the output (reported at the end, for the YouTube chapters).
         let timings: (CutTiming | null)[] = cuts.map(() => null)
         let timingsKnown = true
-        if (opts.resumable && await canJournal()) {
-            const prev = await loadJob()
+        if (opts.resumable && await canJournal(jobKind)) {
+            const prev = await loadJob(jobKind)
             const same = prev && prev.signature === opts.resumable.signature && prev.graphics === !!run && prev.unitCount === cuts.length + 2
             if (same && prev.unitsDone > 0) {
                 journal = { state: prev }
@@ -229,7 +230,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                 if (prev.timings?.length === cuts.length) timings = prev.timings
                 else timingsKnown = false // saved by an older version: the finished cuts' places are not known
             } else {
-                await discardJob()
+                await discardJob(jobKind)
                 const state: JobState = {
                     kind: opts.resumable.kind, signature: opts.resumable.signature, outputName, graphics: !!run,
                     unitsDone: 0, unitCount: cuts.length + 2, cursor: 0, done: 0, total, copied: false, report: null,
@@ -499,7 +500,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             const unitCount = cuts.length + 2
             for (let u = startUnit; u < unitCount; u++) {
                 if (signal?.aborted) throw new DOMException('Render cancelled', 'AbortError')
-                if (journal) unitWriter = await openUnit(u)
+                if (journal) unitWriter = await openUnit(jobKind, u)
                 if (u === 0) {
                     const intro = journal ? await encodeCard(run?.graphics.intro, 'Title card') : directIntro
                     if (intro) {
@@ -523,8 +524,8 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             if (journal) {
                 onProgress({ cutIndex: cuts.length - 1, cutCount: cuts.length, fraction: 1, stage: 'Saving' })
                 const endMux = diag.begin('finalize')
-                const file = await muxUnits(journal.state.outputName, unitCount, first.video.codec!, audioSource?.audio?.codec ?? null, journal.state.video!, journal.state.audio, signal, opts.experiments?.targetFile)
-                await discardJob()
+                const file = await muxUnits(jobKind, journal.state.outputName, unitCount, first.video.codec!, audioSource?.audio?.codec ?? null, journal.state.video!, journal.state.audio, signal, opts.experiments?.targetFile)
+                await discardJob(jobKind)
                 endMux()
                 if (timingsKnown) opts.onTimeline?.(timings)
                 spanReport()
@@ -544,7 +545,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                 await direct.discard()
             }
             // A cancelled render is forgotten; anything else (a frozen tab, a failure) can be resumed.
-            if (journal && isAbort(e)) await discardJob()
+            if (journal && isAbort(e)) await discardJob(jobKind)
             throw e
         }
     } finally {

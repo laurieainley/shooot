@@ -17,7 +17,7 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
   while another is running (e.g. no second hardware encoder) the render drops to one at a time and retries that unit;
   parallelism never fails an export. Estimates use per-device factors (Android 0.63, iPad 0.94 / 0.72, desktop 0.8);
   learned rates are measured against that adjusted model and old re-encode rates are ignored so the speed-up is counted
-  once. *Where:* `render/unitPool.ts`, `transcodeEngine.ts`, `utils/renderTime.ts` (`parallelFactor`).
+  once. Highlights re-encodes are journaled too, with one saved job (IndexedDB key and OPFS folder) per kind so a reel never discards a half-finished full match; an old single job migrates to its kind. *Where:* `render/renderJob.ts`, `render/unitPool.ts`, `transcodeEngine.ts`, `utils/renderTime.ts` (`parallelFactor`).
 
 - **Goal set-up is a guided full-screen flow** (user). Choose the picture from 6 frames (avoid a player covering a goal)
   → Identify goal posts per goal (touch: move the picture under a crosshair, Set point) → Replay zoom per goal with the

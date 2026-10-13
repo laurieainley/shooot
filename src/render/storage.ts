@@ -10,7 +10,7 @@ export function isStorageFull(e: unknown): boolean {
 
 /**
  * Deletes finished renders left in the site's storage (every top-level file except `keep`). Each render used to stay
- * there after its download, so the space filled up render by render. Folders (a resumable render's saved progress)
+ * there after its download, so the space filled up render by render. Folders (a resumable render's saved progress, one per kind)
  * are left alone.
  */
 export async function clearOldOutputs(keep?: string): Promise<number> {
