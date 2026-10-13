@@ -95,8 +95,8 @@ npm run lint       # baseline: 12 known problems — add none
   its padding, its replay (option), a caption for that event only (score option; `buildGraphicsSpec` `captionEvents` /
   `captionScore` / `cards`), no title/full-time card, and a 3.5 s Shooot sting (`graphics/sting.ts`, outro
   `{ kind: 'sting' }`; a missing wordmark fails the sting visibly). Name: `outputFileName` clip form,
-  teams but never the score (`Matchday 3 - Hawks v Lions - 13' Goal DJ.mp4`). After a finished clip the popover's
-  primary button is Download again; Render again is quiet. Job kind `'clip'`: never resumable, doesn't save a timeline or the last diagnostics report;
+  teams but never the score (`Matchday 3 - Hawks v Lions - 13' Goal DJ.mp4`). After a finished clip the popover says
+  "Downloaded: <name>" and its primary button is Download again; Render again is quiet. A quiet Cancel stops a running clip. Job kind `'clip'`: never resumable, doesn't save a timeline or the last diagnostics report;
   quality falls back to preview only for files the clip reads. Options persist as `clipOptions` (state v22).
 - **Full match:** Kick off → Final whistle across files, stream-copied; score bug windows (Off / After goals /
   Periodic; after goals = 1 s after for 5 s, like the highlights caption) and event captions are the only re-encoded
@@ -370,6 +370,12 @@ npm run lint       # baseline: 12 known problems — add none
   the instruction line hides once marked. Lane buttons count suggestions still to review; the header stays positional
   ("2 of 5"). Specs: `2026-10-11-review-lanes-design.md`, `2026-10-11-review-actions-toasts-design.md`,
   `2026-10-13-mobile-review-fullscreen-design.md`.
+- **Find goals card and summary (2026-10-13):** moment navigation is "Previous" / "Next" text buttons (the ‹ › pair is
+  frame step); once marked, the instruction is screen-reader-only; the selected lane is neutral (Mark moment is the one
+  lime); on phone landscape (max-height 500) the score sits in the panel header (`ColumnPanel` `headNote`). The start
+  form opens with "Listens to the match on this device to find likely goals, then you check each one." The summary reads
+  "You kept 4 of 6 · 3 were top picks."; the lane buttons hide there unless the goal-mouth check is still running; Copy
+  diagnostics / Copy scores sit behind a "Details" toggle.
 - **Find goals panel:** stays open while tagging (the picker opens on top; a tag inside the current loop confirms that
   suggestion) and returns after Setup / Export / event edit; only ✕/Esc closes it. Start form (`MatchRangeStep`) always
   shown first (Kick off / Final whistle pre-filled); with Labs on, **Advanced detection** runs the goal-mouth ball check
