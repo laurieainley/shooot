@@ -10,6 +10,13 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 ---
 
 ## 2026-10-13
+- **New match is a top-level button (left, after the logo); Files moves right beside Match setup** (user suggested;
+  supersedes New match living only in ⋯ on desktop/tablet). Export follows the brand primary button (800 italic
+  uppercase) like every other lime button (user: consistency). New match window is persistent (no outside-click or Esc
+  close — Esc ignored rather than confirmed, so typed work can't be lost), all three steps show from the start, the Videos
+  step reuses the Files list, rosters are a lineup with kit-colour shirts and counts (user). Goals copy states the two
+  benefits separately (Find goals accuracy; replay zoom) (user). Matches list sorts (Last edited default) and "edited"
+  means a real change, not opening a match (user). *Where:* merges of feat/newmatch-design, feat/topbar-matches.
 - **UX round 3 (user approved):** Find goals card fits a phone on its side (score in the header), shows the marked time
   once, Previous/Next as text, neutral selected lane, and a one-line intro before the start form; the summary folds top
   picks into the kept line ("You kept 4 of 6 · 3 were top picks" — user preferred this over explaining what a top pick
