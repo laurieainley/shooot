@@ -799,7 +799,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .menu-list > button { min-height: 44px; }
   /* 44px targets drawn as 32px dots: the transparent border is part of the target, not of the dot. */
   /* (the inline team colour is a background shorthand, which would reset the clip: hence !important) */
-  .swatch { box-sizing: border-box; width: 44px; height: 44px; border: 6px solid transparent; background-clip: padding-box !important; box-shadow: none; }
+  .swatch { box-sizing: border-box; width: 44px; height: 44px; border: 6px solid transparent; background-clip: padding-box !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sh-text) 25%, transparent); } /* the ring keeps a white kit visible on the light theme */
   .swatch[aria-pressed="true"] { outline-offset: -4px; }
   .swatches { gap: 0; }
   .field { min-height: 44px; font-size: 16px; } /* 16px: no zoom-on-focus in mobile Safari */
