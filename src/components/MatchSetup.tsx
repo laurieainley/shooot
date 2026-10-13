@@ -12,10 +12,8 @@ export function MatchSetup({ onClose }: MatchSetupProps) {
     const hasFiles = useAppState((s) => s.files.length > 0)
 
     return (
-        <Sheet label="Match setup" onClose={onClose} className="sheet--wide">
-            <MatchDetails />
-            <p className="goal-areas__hint mt-2">Teams and rosters are remembered for next time.</p>
-            {hasFiles && <GoalSetupSection />}
+        <Sheet label="Match setup" onClose={onClose} className="sheet--wide sheet--setup">
+            <MatchDetails aside={hasFiles ? <GoalSetupSection /> : undefined} />
             <div className="sheet__actions">
                 <span className="flex-1" />
                 <button type="button" className="btn-primary" onClick={onClose}>Done</button>

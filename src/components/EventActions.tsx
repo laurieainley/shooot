@@ -26,7 +26,6 @@ export function EventActions({ event: e, touch, onToggleReplay, onFraming, onEdi
                 <button type="button" role="switch" aria-checked={replay} aria-label="Slow-mo replay" title="Slow-mo replay (R)"
                     className={`${btn} act-switch`} onClick={onToggleReplay}>
                     <span className="act-switch__track" aria-hidden="true"><span className="act-switch__knob" /></span>
-                    <span className="event-actions__label">Slow-mo replay</span>
                     <span className="act-switch__glyph" aria-hidden="true">↻</span>
                 </button>
             )}

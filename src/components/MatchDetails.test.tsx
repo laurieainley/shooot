@@ -36,6 +36,25 @@ describe('MatchDetails', () => {
         expect(s().matchdayLabel).toBe('Cup final')
     })
 
+    it('should show team names in normal case, not the uppercase scoreboard voice', () => {
+        render(<MatchDetails />)
+        expect(screen.getByLabelText('Team 1 name')).not.toHaveClass('voice-scoreboard')
+    })
+
+    it('should place an aside (the goal areas) in the side column after the logo and style, leaving the main column to the teams', () => {
+        render(<MatchDetails aside={<section aria-label="Aside" />} />)
+        const side = screen.getByRole('region', { name: 'Aside' }).closest('.match-details__side')
+        expect(side).not.toBeNull()
+        expect(side?.contains(screen.getByAltText('League logo'))).toBe(true)
+        expect(side?.contains(screen.getByLabelText('Team 1 name'))).toBe(false)
+        expect(document.querySelector('.match-details__main')?.contains(screen.getByLabelText('Team 1 name'))).toBe(true)
+    })
+
+    it('should have no side column when compact', () => {
+        render(<MatchDetails compact />)
+        expect(document.querySelector('.match-details__side')).toBeNull()
+    })
+
     it('should put the full name first with its initials beside it, derived from the name', () => {
         render(<MatchDetails />)
         const name = screen.getByLabelText('Team 1 name')
