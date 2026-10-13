@@ -5,6 +5,9 @@ import { shortcutFor, shouldHandleShortcut } from '../utils/shortcuts'
 import { EmptyPlayer } from './EmptyPlayer'
 import { EventLog } from './EventLog'
 import { Fab } from './Fab'
+import { MatchList } from './MatchList'
+import { RailTabs } from './RailTabs'
+import { useRailTab } from './railTab'
 import { MatchStrip } from './MatchStrip'
 import { Panels } from './Panels'
 import { Toast } from './Toast'
@@ -19,6 +22,7 @@ import { useWakeLock } from './useWakeLock'
 import { useRenderJobs } from '../renderJobs'
 import { useDetectJob } from '../detectJobs'
 import { useLeaveWarning } from './useLeaveWarning'
+import { useMatchAutosave } from './useMatchAutosave'
 
 /**
  * Edit bay. Desktop (≥ 900px): one screen, no page scroll — player and match strip on the left, the event
@@ -28,6 +32,7 @@ import { useLeaveWarning } from './useLeaveWarning'
  */
 export function AppShell() {
     const layout = useLayout()
+    const railTab = useRailTab()
     const setSlot = usePanelSlot((s) => s.setEl)
     useKeyboardInset()
     const hasFiles = useAppState((s) => s.files.length > 0)
@@ -62,6 +67,7 @@ export function AppShell() {
     // goals run would start again).
     const detecting = useDetectJob((s) => s.phase === 'running' || s.ballPhase === 'running')
     useLeaveWarning(rendering || detecting)
+    useMatchAutosave()
 
     // Side by side: the preview bar floats over the top of the picture. Portrait phone: it sits below the video.
     const stage = (
@@ -93,8 +99,11 @@ export function AppShell() {
                     <MatchStrip />
                 </div>
                 <aside className="rail" aria-label={sideBySide ? 'Event rail' : undefined}>
-                    <EventLog />
-                    {showFab && <Fab />}
+                    <div className="rail__main">
+                        <RailTabs />
+                        {railTab === 'events' ? <EventLog /> : <MatchList />}
+                    </div>
+                    {showFab && railTab === 'events' && <Fab />}
                     <div ref={setSlot} className="panel-slot" />
                 </aside>
             </main>

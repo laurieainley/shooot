@@ -194,6 +194,14 @@ npm run lint       # baseline: 12 known problems — add none
 - **Unknown event types** from saved state (persist `merge`, so every version), project import and transfer links go
   through `sanitiseEvents()` (utils/eventTypes.ts): aliases such as `kickoff` map to `kick_off`; anything else unknown is
   dropped, so one odd event never blanks the page. Export lengths are m:ss, or h:mm:ss from an hour.
+- **Match history** (spec `2026-10-13-match-history-design.md`): every match is autosaved on this device to IndexedDB
+  (`shooot-matches/matches`, one `MatchRecord` per match: the project payload + suggestions, clip options, file list,
+  list summary — `utils/matchRecord.ts`, `files/matchStore.ts`). `useMatchAutosave` writes the open match 1 s after a
+  change and on page hide; a match is saved once it has a file or an event. The open match id is in localStorage
+  `shooot-open-match` (`components/openMatch.ts`, outside `vhm-state`: no persist version). File handles are per match
+  (`match-handles:<id>`). `openMatch` / `startNewMatch` / `removeMatch` (`components/matchSwitch.ts`) save first, never
+  ask to save/discard; only a running render or Find goals asks ("Exporting — switching stops it."). Undo resets on
+  switching. New match no longer asks to clear (the old match stays in Matches).
 - **Projects:** export/import JSON, and transfer links (`#p=`, deflate + base64url in the URL fragment — never sent
   to a server). Files are relinked by key on the receiving device.
 
@@ -322,6 +330,10 @@ npm run lint       # baseline: 12 known problems — add none
   icons), keyboard focusable.
 - **Event icons:** `components/icons/EventIcon.tsx` + `utils/eventIcon.ts` (football, pen ball "P", own goal "OG",
   penalty spot / spot ✕, glove, whistle, star, flag, pause, chequered flag) — used in strip, rows, picker, edit sheet.
+- **Rail tabs:** `Events | Matches` (`RailTabs`, `components/railTab.ts`, not persisted); opens on Matches when the
+  editor is empty; L returns to Events. **Matches** (`MatchList`): + New match, rows newest first (title, score, date ·
+  files, "Open"), ⋯ → Delete (Undo toast); unreadable records show "Couldn’t open this match". A reopened match shows
+  the relink banner, naming the files to pick ("Pick GX010042.MP4, …"); in narrow rails "file missing" is the ⚠ alone.
 - **Events rail:** rows = clock · team dot · icon · name (body font, weight 600, normal case — not the shirt face) ·
   note (inline, muted) · passive muted ↻ when the replay is on · score · ▶ (`utils/eventRow.ts`); no assist, no file
   number (only a "file missing" warning). The selected row expands into an action row (`EventActions`): Slow-mo replay

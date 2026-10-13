@@ -5,6 +5,12 @@ import { acceptAttr } from '../utils/fileAccept'
 import { notePicked, openMediaPicker } from './pickerStatus'
 import { addPickedFiles } from './addFiles'
 import { OpeningStatus } from './OpeningStatus'
+import { useOpenMatch } from './openMatch'
+
+function pickLine(names: string[]): string {
+    const shown = names.slice(0, 3).join(', ')
+    return names.length > 3 ? `Pick ${shown} and ${names.length - 3} more` : `Pick ${shown}`
+}
 
 /**
  * After a reload the videos are gone but the events are not. Desktop Chrome / Edge: the remembered file handles reopen
@@ -13,20 +19,22 @@ import { OpeningStatus } from './OpeningStatus'
 export function RelinkBanner() {
     const files = useAppState((s) => s.files)
     const events = useAppState((s) => s.events)
+    const openFiles = useOpenMatch((s) => s.files)
     const [handles, setHandles] = useState<StoredHandle[]>([])
     const [message, setMessage] = useState<string | null>(null)
     const inputRef = useRef<HTMLInputElement | null>(null)
 
     const waiting = files.length === 0 ? events : events.filter((e) => e.unlinked)
     const missingKeys = [...new Set(waiting.map((e) => e.sourceFileKey).filter((k): k is string => !!k))]
+    const show = waiting.length > 0 || (files.length === 0 && openFiles.length > 0)
     useEffect(() => {
-        if (waiting.length === 0) return
+        if (!show) return
         let live = true
         void loadHandles().then((h) => { if (live) setHandles(h) })
         return () => { live = false }
-    }, [waiting.length])
+    }, [show])
 
-    if (waiting.length === 0) return null
+    if (!show) return null
     const oneClick = !!filePicker() && handles.length > 0
 
     const relink = async (): Promise<void> => {
@@ -52,9 +60,9 @@ export function RelinkBanner() {
     return (
         <div className="relink-banner" role="region" aria-label="Relink files">
             <p className="m-0">
-                <b>{n} {n === 1 ? 'event needs its video' : 'events need their videos'}</b>
+                <b>{n === 0 ? 'This match needs its videos' : `${n} ${n === 1 ? 'event needs its video' : 'events need their videos'}`}</b>
                 {missingKeys.length > 0 && files.length > 0 && <span className="text-muted"> · {missingKeys.join(', ')}</span>}
-                <span className="block text-muted">{oneClick ? 'Reopen the match’s files in one click.' : 'Browsers forget picked files on reload.'}</span>
+                <span className="block text-muted">{oneClick ? 'Reopen the match’s files in one click.' : files.length === 0 && openFiles.length > 0 ? pickLine(openFiles.map((f) => f.name)) : 'Browsers forget picked files on reload.'}</span>
             </p>
             <button type="button" className="btn-primary" onClick={() => void relink()}>Relink files</button>
             <input ref={inputRef} type="file" multiple accept={acceptAttr()} aria-label="Videos to relink" className="hidden" onChange={(e) => void onPick(e)} />

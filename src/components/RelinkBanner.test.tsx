@@ -15,6 +15,7 @@ vi.mock('../files/handleStore', () => ({
 const addPickedFiles = vi.fn<(f: File[]) => Promise<string | null>>(async () => null)
 vi.mock('./addFiles', () => ({ addPickedFiles: (f: File[]) => addPickedFiles(f) }))
 
+import { openMatchStore } from './openMatch'
 import { RelinkBanner } from './RelinkBanner'
 
 const ev = (id: string, key: string, extra: Partial<MatchEvent> = {}): MatchEvent => ({ id, type: 'goal', matchTimeSec: 10, sourceFileIndex: 0, sourceFileKey: key, ...extra })
@@ -64,5 +65,25 @@ describe('RelinkBanner', () => {
         render(<RelinkBanner />)
         expect(await screen.findByText(/1 event needs its video/i)).toBeInTheDocument()
         expect(screen.getByText(/020001/)).toBeInTheDocument()
+    })
+
+    it('should name the videos a reopened match needs when it has no events', async () => {
+        store.supported = false
+        useAppState.setState({ files: [], events: [] })
+        const meta = (name: string) => ({ name, size: 1, key: name })
+        openMatchStore.setState({ id: 'm-1', files: [meta('a.mp4'), meta('b.mp4')] })
+        render(<RelinkBanner />)
+        expect(await screen.findByText('This match needs its videos')).toBeInTheDocument()
+        expect(screen.getByText('Pick a.mp4, b.mp4')).toBeInTheDocument()
+        openMatchStore.setState({ id: null, files: [] })
+    })
+
+    it('should shorten a long list of videos to the first three', async () => {
+        store.supported = false
+        useAppState.setState({ files: [], events: [] })
+        openMatchStore.setState({ id: 'm-1', files: ['a', 'b', 'c', 'd', 'e'].map((n) => ({ name: `${n}.mp4`, size: 1, key: n })) })
+        render(<RelinkBanner />)
+        expect(await screen.findByText('Pick a.mp4, b.mp4, c.mp4 and 2 more')).toBeInTheDocument()
+        openMatchStore.setState({ id: null, files: [] })
     })
 })

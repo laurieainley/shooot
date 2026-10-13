@@ -5,8 +5,10 @@ import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import type { VideoSourceFile } from '../types'
 import { setMedia } from '../test/pointer'
+import { setRailTab } from './railTab'
 
 vi.mock('./Player', () => ({ Player: () => <div data-testid="player" /> }))
+vi.mock('idb-keyval', async () => (await import('../files/idbMock')).idbMock())
 vi.mock('../render', () => ({ renderReel: vi.fn() }))
 
 import { AppShell } from './AppShell'
@@ -24,6 +26,7 @@ function setLandscape(wide = false): void {
 
 describe('AppShell', () => {
     beforeEach(() => {
+        setRailTab('events')
         useAppState.setState({
             files: [vf('GX010226.MP4')], cumulativeOffsets: [0], events: [], picker: null, currentFileIndex: 0,
             currentTimeInFileSec: 12.4, isPreviewMode: false, undoStack: [], redoStack: [], panel: null,
@@ -109,12 +112,14 @@ describe('AppShell', () => {
         expect(screen.getByRole('dialog', { name: 'Shortcuts' })).toHaveTextContent('Tag an event at the playhead')
     })
 
-    it('should show the drop zone and an empty log before any file is loaded', () => {
+    it('should show the drop zone and an empty log before any file is loaded (the rail opens on Matches)', async () => {
         setWidth(true)
         useAppState.setState({ files: [], cumulativeOffsets: [] })
         render(<AppShell />)
         expect(screen.queryByTestId('player')).not.toBeInTheDocument()
         expect(screen.getByText(/drop your match videos here.*mp4 or mov from a phone or camera/i)).toBeInTheDocument()
+        expect(screen.getByRole('tab', { name: 'Matches' })).toHaveAttribute('aria-selected', 'true')
+        await userEvent.click(screen.getByRole('tab', { name: 'Events' }))
         expect(screen.getByText(/no goals yet/i)).toBeInTheDocument()
     })
 
