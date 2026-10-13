@@ -1,12 +1,16 @@
 // Resumable renders: each finished unit (title card, every cut, full-time card) is a packet log in OPFS
-// (render-job/u-NNNN.bin, committed when its writable closes) and the progress is saved in IndexedDB. After a reload
+// (render-job-<kind>/u-NNNN.bin, committed when its writable closes) and the progress is saved in IndexedDB.
+// One saved job per kind (highlights / fullMatch), so a short highlights render never discards an hour of full-match work. After a reload
 // the same render (same signature) carries on after the last finished unit; the logs are muxed into the MP4 at the end.
 import { del, get, set } from 'idb-keyval'
 import { LogParser, encodeRecord, type LogRecord } from './packetLog'
 import type { CutTiming, GraphicsReport } from './types'
 
-const KEY = 'render-job'
-const DIR = 'render-job'
+/** Before jobs were kept per kind there was one job under this key and folder. */
+const LEGACY = 'render-job'
+const KINDS: JobKind[] = ['highlights', 'fullMatch']
+const keyOf = (kind: JobKind): string => `render-job:${kind}`
+const dirOf = (kind: JobKind): string => `render-job-${kind}`
 
 export type JobKind = 'highlights' | 'fullMatch' | 'clip'
 
@@ -34,9 +38,38 @@ export type JobState = {
     updatedAt: number
 }
 
-export async function loadJob(): Promise<JobState | null> {
+/** Moves a job saved under the old single key to its kind's key and folder (only the legacy job of this kind). */
+async function migrateLegacy(kind: JobKind): Promise<void> {
+    const old = await get<JobState>(LEGACY).catch(() => undefined)
+    if (!old || typeof old !== 'object' || old.kind !== kind) return
+    let moved = false
     try {
-        const v = await get<JobState>(KEY)
+        const root = await navigator.storage.getDirectory()
+        const from = await root.getDirectoryHandle(LEGACY)
+        const to = await root.getDirectoryHandle(dirOf(kind), { create: true })
+        const files = from as FileSystemDirectoryHandle & { entries?: () => AsyncIterable<[string, FileSystemHandle]> }
+        moved = true
+        for await (const [name, h] of files.entries!()) {
+            const m = (h as FileSystemFileHandle & { move?: (d: FileSystemDirectoryHandle, n?: string) => Promise<void> }).move
+            if (h.kind !== 'file' || typeof m !== 'function') { moved = false; break }
+            await m.call(h, to, name)
+        }
+        if (moved) await root.removeEntry(LEGACY, { recursive: true }).catch(() => undefined)
+    } catch { moved = false }
+    if (moved) await set(keyOf(kind), old)
+    else await discardLegacy()
+    await del(LEGACY).catch(() => undefined)
+}
+
+async function discardLegacy(): Promise<void> {
+    await del(LEGACY).catch(() => undefined)
+    try { await (await navigator.storage.getDirectory()).removeEntry(LEGACY, { recursive: true }) } catch { /* nothing stored */ }
+}
+
+export async function loadJob(kind: JobKind): Promise<JobState | null> {
+    try {
+        let v = await get<JobState>(keyOf(kind))
+        if (!v) { await migrateLegacy(kind); v = await get<JobState>(keyOf(kind)) }
         return v && typeof v === 'object' && typeof v.signature === 'string' ? v : null
     } catch {
         return null
@@ -44,30 +77,34 @@ export async function loadJob(): Promise<JobState | null> {
 }
 
 export async function saveJob(state: JobState): Promise<void> {
-    await set(KEY, { ...state, updatedAt: Date.now() })
+    await set(keyOf(state.kind), { ...state, updatedAt: Date.now() })
 }
 
-async function dir(create: boolean): Promise<FileSystemDirectoryHandle | null> {
+async function dir(kind: JobKind, create: boolean): Promise<FileSystemDirectoryHandle | null> {
     try {
         const root = await navigator.storage.getDirectory()
-        return await root.getDirectoryHandle(DIR, { create })
+        return await root.getDirectoryHandle(dirOf(kind), { create })
     } catch {
         return null
     }
 }
 
-/** Forgets the job and deletes its logs. */
-export async function discardJob(): Promise<void> {
-    await del(KEY).catch(() => undefined)
-    try {
-        const root = await navigator.storage.getDirectory()
-        await root.removeEntry(DIR, { recursive: true })
-    } catch { /* nothing stored */ }
+/** Forgets the saved job of this kind (all kinds, and the pre-per-kind one, when omitted) and deletes its logs. */
+export async function discardJob(kind?: JobKind): Promise<void> {
+    for (const k of kind ? [kind] : KINDS) {
+        await del(keyOf(k)).catch(() => undefined)
+        try { await (await navigator.storage.getDirectory()).removeEntry(dirOf(k), { recursive: true }) } catch { /* nothing stored */ }
+    }
+    if (!kind) await discardLegacy()
+    else {
+        const old = await get<JobState>(LEGACY).catch(() => undefined)
+        if (old && old.kind === kind) await discardLegacy()
+    }
 }
 
 /** True when this browser can keep unit logs (OPFS writable files). */
-export async function canJournal(): Promise<boolean> {
-    const d = await dir(true)
+export async function canJournal(kind: JobKind): Promise<boolean> {
+    const d = await dir(kind, true)
     if (!d) return false
     try {
         const h = await d.getFileHandle('probe', { create: true })
@@ -82,8 +119,8 @@ const FLUSH_BYTES = 4 * 1024 * 1024
 
 export type UnitWriter = { write: (r: LogRecord) => Promise<void>; close: () => Promise<void>; abort: () => Promise<void> }
 
-export async function openUnit(index: number): Promise<UnitWriter> {
-    const d = await dir(true)
+export async function openUnit(kind: JobKind, index: number): Promise<UnitWriter> {
+    const d = await dir(kind, true)
     if (!d) throw new Error('no storage for the render')
     const handle = await d.getFileHandle(unitName(index), { create: true })
     const writable = await handle.createWritable()
@@ -111,8 +148,8 @@ export async function openUnit(index: number): Promise<UnitWriter> {
 }
 
 /** Reads a finished unit's packets in order (8 MB at a time). */
-export async function* readUnit(index: number): AsyncGenerator<LogRecord> {
-    const d = await dir(false)
+export async function* readUnit(kind: JobKind, index: number): AsyncGenerator<LogRecord> {
+    const d = await dir(kind, false)
     if (!d) throw new Error('the render’s saved progress is gone')
     const file = await (await d.getFileHandle(unitName(index))).getFile()
     const parser = new LogParser()
@@ -124,7 +161,7 @@ export async function* readUnit(index: number): AsyncGenerator<LogRecord> {
     if (parser.pending > 0) throw new Error('a saved part of the render is damaged')
 }
 
-export async function removeUnit(index: number): Promise<void> {
-    const d = await dir(false)
+export async function removeUnit(kind: JobKind, index: number): Promise<void> {
+    const d = await dir(kind, false)
     await d?.removeEntry(unitName(index)).catch(() => undefined)
 }

@@ -7,9 +7,9 @@ export function useSavedJob(kind: JobKind, busy: boolean): { job: JobState | nul
     useEffect(() => {
         if (busy) { setJob(null); return }
         let live = true
-        void loadJob().then((j) => { if (live) setJob(j && j.kind === kind && j.unitsDone > 0 ? j : null) })
+        void loadJob(kind).then((j) => { if (live) setJob(j && j.kind === kind && j.unitsDone > 0 ? j : null) })
         return () => { live = false }
     }, [kind, busy])
-    const discard = async (): Promise<void> => { await discardJob(); setJob(null) }
+    const discard = async (): Promise<void> => { await discardJob(kind); setJob(null) }
     return { job, discard }
 }

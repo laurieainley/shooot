@@ -82,7 +82,7 @@ export async function render(cuts: Cut[], ctx: StageCtx, extra: Partial<RenderOp
     let diagnostics: DiagnosticsReport | null = null
     let stats: Record<string, unknown> | null = null
     const signature = `bench-${Date.now()}-${Math.random().toString(36).slice(2)}`
-    await discardJob()
+    await discardJob('fullMatch')
     try {
         const file = await renderReel(cuts, [ctx.source], {
             onProgress: (p) => ctx.onProgress(p.fraction, p.stage ?? ''),
@@ -97,7 +97,7 @@ export async function render(cuts: Cut[], ctx: StageCtx, extra: Partial<RenderOp
         })
         return { file, diagnostics, stats }
     } finally {
-        await discardJob()
+        await discardJob('fullMatch')
     }
 }
 
@@ -230,7 +230,7 @@ export const STAGES: StageDef[] = [
 
 /** Deletes everything the stages left in the browser's private storage. */
 export async function cleanUp(): Promise<void> {
-    await discardJob().catch(() => undefined)
+    await discardJob('fullMatch').catch(() => undefined)
     await clearOldOutputs()
 }
 

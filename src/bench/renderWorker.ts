@@ -19,7 +19,7 @@ const post = (m: WorkerMessage): void => (self as unknown as { postMessage: (m: 
 self.onmessage = async (ev: MessageEvent<WorkerRequest>) => {
     const { cuts, file, quality, bitrate, spec } = ev.data
     try {
-        await discardJob()
+        await discardJob('fullMatch')
         let stats: Record<string, unknown> | null = null
         let report: { notes: string[]; applied: string[]; skipped: string[] } = { notes: [], applied: [], skipped: [] }
         const graphics = spec ? await prepareSpec(spec) : undefined
@@ -31,7 +31,7 @@ self.onmessage = async (ev: MessageEvent<WorkerRequest>) => {
             onDiagnostics: (d) => { report = { notes: d.notes, applied: d.graphics.applied, skipped: d.graphics.skipped.map((g) => `${g.label}: ${g.reason}`) } },
             ...(graphics ? { graphics } : {}),
         })
-        await discardJob()
+        await discardJob('fullMatch')
         post({ type: 'done', size: out.size, stats, notes: report.notes, graphicsApplied: report.applied, graphicsSkipped: report.skipped })
     } catch (e) {
         const i = errorInfo(e)

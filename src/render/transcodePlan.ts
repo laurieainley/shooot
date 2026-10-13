@@ -34,15 +34,44 @@ export function cutFrames(c: PlanCut, frameSec: number): number {
     return Math.max(1, Math.round((c.endSec - c.startSec) / (c.speed ?? 1) / frameSec))
 }
 
+/** Units (segments) a journaled re-encode runs at the same time: 2 on every device class (iPad files grow ~18% at 2 and ~36% at 3; Pixel gains little from 3). */
+export const PARALLEL_UNITS = 2
+/** Shortest piece of output worth a unit of its own when splitting a render to have something to run in parallel (each unit starts with a key frame). */
+export const MIN_PARALLEL_UNIT_SEC = 10
+
 /** A resumable stretch of a cut: output frames `firstFrame` … `firstFrame + frames - 1` of cut `cutIndex`. */
 export type Segment = { cutIndex: number; firstFrame: number; frames: number }
 
-/** Splits every cut into segments of at most `maxFrames` output frames (a render saves progress after each). */
-export function planSegments(cuts: PlanCut[], frameSec: number, maxFrames: number): Segment[] {
+/**
+ * Splits every cut into segments of at most `maxFrames` output frames (a render saves progress after each).
+ * `balance`: cut the pieces of a cut to equal length instead of leaving a short tail, and, when the whole render would have
+ * fewer than `units` segments, split the longest ones further (never below `minFrames` each) so that many can run side by side.
+ */
+export function planSegments(cuts: PlanCut[], frameSec: number, maxFrames: number, balance?: { units: number; minFrames: number }): Segment[] {
+    const totals = cuts.map((c) => cutFrames(c, frameSec))
+    const counts = totals.map((t) => Math.max(1, Math.ceil(t / maxFrames)))
+    if (balance) {
+        for (;;) {
+            if (counts.reduce((a, n) => a + n, 0) >= balance.units) break
+            let best = -1
+            let longest = 0
+            totals.forEach((t, i) => { const len = t / counts[i]; if (len > longest && t / (counts[i] + 1) >= balance.minFrames) { longest = len; best = i } })
+            if (best < 0) break
+            counts[best]++
+        }
+    }
     const out: Segment[] = []
-    cuts.forEach((c, cutIndex) => {
-        const total = cutFrames(c, frameSec)
-        for (let f = 0; f < total; f += maxFrames) out.push({ cutIndex, firstFrame: f, frames: Math.min(maxFrames, total - f) })
+    totals.forEach((total, cutIndex) => {
+        if (!balance) {
+            for (let f = 0; f < total; f += maxFrames) out.push({ cutIndex, firstFrame: f, frames: Math.min(maxFrames, total - f) })
+            return
+        }
+        const n = counts[cutIndex]
+        for (let k = 0; k < n; k++) {
+            const first = Math.round((total * k) / n)
+            const end = Math.round((total * (k + 1)) / n)
+            if (end > first) out.push({ cutIndex, firstFrame: first, frames: end - first })
+        }
     })
     return out
 }

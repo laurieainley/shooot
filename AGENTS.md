@@ -107,7 +107,12 @@ npm run lint       # baseline: 12 known problems — add none
   `RenderOptions.output`; plan fields in `utils/exportPlans.ts` `PlanOutput`; availability/size/time in
   `utils/outputQuality.ts`; pure planning in `render/transcodePlan.ts`; WebCodecs support probes in
   `render/transcodeSupport.ts`). Cards, captions, score bug, replay crops and slow-mo are drawn onto the canvas as each
-  frame is encoded (no second pass). 4K is disabled for sources below 4K; either option is disabled with a reason when
+  frame is encoded (no second pass). Journaled re-encodes (Full match and Highlights at 4K / 1080p; `ExportPlan.resumable`) run `PARALLEL_UNITS` (2, `transcodePlan.ts`) units at once, each with its own
+  decoder/encoder/canvas/WebGL scaler (`runParallel` + the scheduler `render/unitPool.ts`): `planSegments` balances unit lengths and splits
+  a short render so two exist (pieces >= `MIN_PARALLEL_UNIT_SEC`); units are written in order, the job is saved as the finished prefix
+  grows, and a failure while two ran drops the rest of the render to one at a time and retries the unit (software encoder as the last
+  resort). Estimates carry `parallelFactor()` (`utils/renderTime.ts`) and the engine's `estimateSec` includes it; learned rates
+  (`shooot.renderRates.v1`, entries flagged `par`) are measured against that model. 4K is disabled for sources below 4K; either option is disabled with a reason when
   `VideoDecoder`/`VideoEncoder.isConfigSupported` says no. Audio: AAC is copied, anything else is encoded to AAC at 160 kbps.
   Resumable: units are the cards and ≤ 2-minute segments of output, each with its own encoder and a key frame at its
   start (an interruption loses at most the unit in progress); the output quality is part of the job signature.
@@ -243,8 +248,8 @@ npm run lint       # baseline: 12 known problems — add none
   presets (`src/bench/presets.ts`, the likely device is highlighted, never auto-applied) tick the stages + experiments for that device and
   one Start runs them all. Results go to a comparison table and into Copy results / Share JSON as an `experiments` array (existing shape
   unchanged). Every engine switch lives in `RenderOptions.experiments` (`render/experiments.ts`) and is **off by default**: with it omitted
-  the editor's render paths behave exactly as before. Switches: `parallelUnits` + `segmentSec` (#1, units encoded concurrently in
-  `transcodeEngine`, each with its own decoder/encoder/canvas/WebGL scaler; journaled renders only), `unitCache` (#2, bench-only unit cache
+  the editor's render paths behave exactly as before. Switches: `parallelUnits` + `segmentSec` (#1, now the default of 2; the bench forces 1, 2 or 3 and a small
+  segment length), `unitCache` (#2, bench-only unit cache
   in OPFS keyed by an input hash), `targetFile` (#4, mux straight into a `showSaveFilePicker` file), `OverlayBitmapCache` passed to
   `prepareSpec` (#5, still stretches of captions/bug/tag drawn from bitmaps), `tightSpans` (#6, Original highlights re-encode only the
   visible part of each overlay window), `latencyMode` (#7), `encodeQueue` + `decodeAhead` (#9). #3 (render while a `<video>` plays) and #10

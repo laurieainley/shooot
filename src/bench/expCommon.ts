@@ -92,7 +92,7 @@ export async function run(ctx: ExpCtx, cuts: Cut[], o: RunOptions = {}): Promise
 
 /** Deletes the outputs and saved progress a render left in the browser's private storage (and the bench caches). */
 export async function cleanOutputs(keepCache = false): Promise<void> {
-    await discardJob().catch(() => undefined)
+    await discardJob('fullMatch').catch(() => undefined)
     await clearOldOutputs()
     if (keepCache) return
     try {
@@ -150,7 +150,7 @@ export async function pair(label: string, names: [string, string], baseline: () 
 
 /** Whether this browser can keep render progress in OPFS (resumable renders, which parallel units and the unit cache need). */
 export async function journalAvailable(): Promise<boolean> {
-    return canJournal()
+    return canJournal('fullMatch')
 }
 
 export type OutputCheck = { ok: boolean; frames: number; frameSec: number; maxGapErrMs: number; firstSec: number; lastEndSec: number; probes: { atSec: number; frames: number }[]; problems: string[] }
