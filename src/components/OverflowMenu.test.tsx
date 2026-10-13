@@ -32,7 +32,7 @@ describe('OverflowMenu', () => {
         expect(screen.queryByRole('menu')).not.toBeInTheDocument()
         await open()
         const items = screen.getAllByRole('menuitem').map((b) => b.textContent)
-        expect(items).toEqual(['New match…', 'Find goals AI — Finds likely goals with AI on this device — check each one', 'Advanced settings', 'Send project to another device', 'Import…', 'Export project', 'Shortcuts'])
+        expect(items).toEqual(['Find goals AI — Finds likely goals with AI on this device — check each one', 'Advanced settings', 'Send project to another device', 'Import…', 'Export project', 'Shortcuts'])
     })
 
     it('should offer Find goals (Beta), or Review moments once there are some', async () => {
@@ -61,18 +61,24 @@ describe('OverflowMenu', () => {
     })
 
     it('should cancel a running Find goals when a new match starts', async () => {
-        render(<OverflowMenu />)
+        render(<OverflowMenu layout="phone" />)
         await open()
         await userEvent.click(screen.getByRole('menuitem', { name: 'New match…' }))
         await vi.waitFor(() => expect(cancelDetection).toHaveBeenCalled())
     })
 
     it('should open the stepped New match setup after clearing', async () => {
-        render(<OverflowMenu />)
+        render(<OverflowMenu layout="phone" />)
         await open()
         await userEvent.click(screen.getByRole('menuitem', { name: 'New match…' }))
         await vi.waitFor(() => expect(s().panel).toBe('newmatch'))
         expect(s().files).toEqual([])
+    })
+
+    it('should leave New match to the top bar on desktop and tablet', async () => {
+        render(<OverflowMenu />)
+        await open()
+        expect(screen.queryByRole('menuitem', { name: /new match/i })).not.toBeInTheDocument()
     })
 
     it('should keep Match setup in the menu on the phone, where the bar has no room for it', async () => {
@@ -108,7 +114,7 @@ describe('OverflowMenu', () => {
     })
 
     it('should start a new match straight away, without a confirm', async () => {
-        render(<OverflowMenu />)
+        render(<OverflowMenu layout="phone" />)
         await open()
         await userEvent.click(screen.getByRole('menuitem', { name: /new match/i }))
         await vi.waitFor(() => expect(s().events).toEqual([]))
@@ -120,7 +126,7 @@ describe('OverflowMenu', () => {
     it('should ask first when an export is running, and keep everything on Cancel', async () => {
         renderJobs().setState({ job: { phase: 'running' } as never })
         try {
-            render(<OverflowMenu />)
+            render(<OverflowMenu layout="phone" />)
             await open()
             await userEvent.click(screen.getByRole('menuitem', { name: /new match/i }))
             expect(screen.getByText('Exporting — switching stops it.')).toBeInTheDocument()

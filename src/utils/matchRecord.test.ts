@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
-    buildRecord, fileMetas, isWorthSaving, matchDate, newMatchId, recordTitle, sameRecordData, summarise,
-    type FileMeta, type MatchData, type RecordSource,
+    buildRecord, fileMetas, isEdit, isWorthSaving, matchDate, newMatchId, recordTitle, sameRecordData, summarise,
+    type FileMeta, type MatchData, type MatchRecord, type RecordSource,
 } from './matchRecord'
 import type { MatchEvent, Team } from '../types'
 
@@ -95,5 +95,27 @@ describe('sameRecordData', () => {
         const a = buildRecord(src(), 'm-1', 100)
         expect(sameRecordData(a, { ...a, updatedAt: 999 })).toBe(true)
         expect(sameRecordData(a, buildRecord(src({ matchdayLabel: 'x' }), 'm-1', 100))).toBe(false)
+    })
+})
+
+describe('isEdit', () => {
+    const base = (): MatchRecord => ({
+        id: 'm', createdAt: 1, updatedAt: 2, summary: {} as MatchRecord['summary'],
+        data: { events: [{ id: 'a', type: 'goal', matchTimeSec: 1 }] } as unknown as MatchRecord['data'],
+        files: [{ name: 'a.mp4', size: 0, key: 'a.mp4' }, { name: 'b.mp4', size: 0, key: 'b.mp4' }],
+    })
+    it('should ignore file size, duration and event key order', () => {
+        const b = base()
+        b.files = b.files.map((f) => ({ ...f, size: 99, durationSec: 5 }))
+        b.data = { events: [{ matchTimeSec: 1, type: 'goal', id: 'a' }] } as unknown as MatchRecord['data']
+        expect(isEdit(base(), b)).toBe(false)
+    })
+    it('should count added, removed or reordered files and event changes', () => {
+        const r = base(); r.files = [r.files[1], r.files[0]]
+        expect(isEdit(base(), r)).toBe(true)
+        const d = base(); d.files = d.files.slice(0, 1)
+        expect(isEdit(base(), d)).toBe(true)
+        const e = base(); e.data = { events: [{ id: 'a', type: 'goal', matchTimeSec: 2 }] } as unknown as MatchRecord['data']
+        expect(isEdit(base(), e)).toBe(true)
     })
 })

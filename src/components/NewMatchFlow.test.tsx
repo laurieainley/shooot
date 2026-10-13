@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import { NewMatchFlow } from './NewMatchFlow'
@@ -25,19 +25,50 @@ describe('NewMatchFlow', () => {
         expect(screen.getByRole('button', { name: 'Add videos' })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Back' })).toBeDisabled()
         expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(expect.arrayContaining([expect.stringContaining('Videos'), expect.stringContaining('Match')]))
-        expect(screen.queryByText('Goals')).not.toBeInTheDocument()
     })
 
-    it('should skip to Match, finish there with Done (no Goals step without videos), and keep what was typed', async () => {
+    it('should show all three steps from the start, Goals explaining it needs the videos and skippable', async () => {
+        render(<NewMatchFlow onClose={() => {}} />)
+        const steps = within(screen.getByRole('list', { name: 'Steps' })).getAllByRole('listitem').map((li) => li.textContent)
+        expect(steps).toEqual(['1Videos', '2Match', '3Goals'])
+        await userEvent.click(screen.getByRole('button', { name: 'Skip for now' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Next' }))
+        expect(screen.getByText(/needs the videos/i)).toBeInTheDocument()
+        expect(screen.queryByRole('region', { name: 'Goal areas' })).not.toBeInTheDocument()
+        await userEvent.click(screen.getByRole('button', { name: 'Done' }))
+    })
+
+    it('should not close on a click outside or on Escape, only on the cross', async () => {
+        const onClose = vi.fn()
+        render(<NewMatchFlow onClose={onClose} />)
+        await userEvent.click(document.querySelector('.sheet-backdrop')!)
+        await userEvent.keyboard('{Escape}')
+        expect(onClose).not.toHaveBeenCalled()
+        await userEvent.click(screen.getByRole('button', { name: 'Close' }))
+        expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    it('should reorder videos right in the Videos step, with no later-in-Files hint', async () => {
+        const b = { ...file, id: 'b', name: 'half2.mp4' }
+        useAppState.setState({ files: [file, b] })
+        render(<NewMatchFlow onClose={() => {}} />)
+        expect(screen.queryByText(/later in Files/i)).not.toBeInTheDocument()
+        const grip = screen.getByRole('button', { name: 'Reorder half1.mp4' })
+        grip.focus()
+        await userEvent.keyboard('{ArrowDown}')
+        expect(useAppState.getState().files.map((f) => f.name)).toEqual(['half2.mp4', 'half1.mp4'])
+    })
+
+    it('should skip to Match, finish through Goals with Done, and keep what was typed', async () => {
         const onClose = vi.fn()
         render(<NewMatchFlow onClose={onClose} />)
         await userEvent.click(screen.getByRole('button', { name: 'Skip for now' }))
         expect(screen.getByLabelText('Team 1 name')).toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Next' })).not.toBeInTheDocument()
         await userEvent.type(screen.getByLabelText('Title'), 'Cup final')
         await userEvent.click(screen.getByRole('button', { name: 'Back' }))
         expect(screen.getByRole('button', { name: 'Add videos' })).toBeInTheDocument()
         await userEvent.click(screen.getByRole('button', { name: 'Skip for now' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Next' }))
         await userEvent.click(screen.getByRole('button', { name: 'Done' }))
         expect(onClose).toHaveBeenCalled()
         expect(useAppState.getState().matchdayLabel).toBe('Cup final')
@@ -67,14 +98,5 @@ describe('NewMatchFlow', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Next' }))
         await userEvent.click(screen.getByRole('button', { name: 'Done' }))
         expect(onClose).toHaveBeenCalledTimes(1)
-    })
-
-    it('should quit from the cross or Escape at any step', async () => {
-        const onClose = vi.fn()
-        render(<NewMatchFlow onClose={onClose} />)
-        await userEvent.click(screen.getByRole('button', { name: 'Close' }))
-        expect(onClose).toHaveBeenCalledTimes(1)
-        await userEvent.keyboard('{Escape}')
-        expect(onClose).toHaveBeenCalledTimes(2)
     })
 })

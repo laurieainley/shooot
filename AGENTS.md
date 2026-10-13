@@ -202,6 +202,12 @@ npm run lint       # baseline: 12 known problems — add none
   (`match-handles:<id>`). `openMatch` / `startNewMatch` / `removeMatch` (`components/matchSwitch.ts`) save first, never
   ask to save/discard; only a running render or Find goals asks ("Exporting — switching stops it."). Undo resets on
   switching. New match no longer asks to clear (the old match stays in Matches).
+- **New match window:** Videos · Match · Goals all visible from the start; persistent (outside click and Esc don't
+  close it, only ✕). The Videos step reuses the Files sheet's `FileList` (reorder, durations by the name). Rosters are a
+  lineup: one player per line with a mini shirt in the kit colour and "N players". Fields are sized for their content.
+- **Matches list:** Sort (Last edited default, Least recently edited, Newest / Oldest by match date, A–Z / Z–A; per
+  device in localStorage); the open match has an "Open" pill. `updatedAt` moves only on a real edit (`isEdit`: content
+  and file keys/order; not a relink, refreshed file details or reformatted events).
 - **Projects:** export/import JSON, and transfer links (`#p=`, deflate + base64url in the URL fragment — never sent
   to a server). Files are relinked by key on the receiving device.
 
@@ -318,8 +324,10 @@ npm run lint       # baseline: 12 known problems — add none
 
 ### Editor layout (calm editor, 2026-10-09)
 
-- **Top bar:** wordmark · Files button ("4 files · 56:34", warning dot when a file needs attention; opens the Files
-  sheet) · Setup · Export · ⋯ (all `.top-btn`; only Export is lime, and only once a video is loaded — before that Choose files is the one primary). Phone/landscape: Setup lives in ⋯. No file pills.
+- **Top bar** (desktop/tablet): wordmark · Beta · **+ New match** (quiet) … Files button ("4 files · 56:34", warning dot;
+  opens the Files sheet) · Match setup · Export · ⋯ (all `.top-btn`; only Export is lime, once a video is loaded). Export
+  uses the brand primary style (800 italic uppercase); at ≤ 900px its word hides while a progress / Ready / Failed label
+  shows. Phone/landscape: Files (compact) · Export · ⋯, with New match and Match setup in ⋯; the Beta tag hides ≤ 380px.
   Render progress shows on the Export button (red dot + % + thin line), then "Ready"/"Failed" for 4 s.
 - **Video:** on-video `Scorebug` is the selected graphics theme's own score-bug painter drawn on a canvas (matches the export; clock as text beside it); no score in the top bar.
 - **One timeline:** the match strip (`MatchStrip`) is the only scrubber (video.js progress bar disabled): numbered file
