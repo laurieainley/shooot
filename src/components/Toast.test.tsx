@@ -57,3 +57,14 @@ describe('Toast', () => {
         expect(screen.queryByText('Discarded 12:34')).toBeNull()
     })
 })
+
+describe('Toast secondary action', () => {
+    it('should render a second link that runs and dismisses', () => {
+        const run = vi.fn()
+        render(<Toast />)
+        act(() => { showToast('Goal tagged', { label: 'Undo', run: () => {} }, { label: 'Add note', run }) })
+        fireEvent.click(screen.getByRole('button', { name: 'Add note' }))
+        expect(run).toHaveBeenCalledTimes(1)
+        expect(screen.queryByText('Goal tagged')).toBeNull()
+    })
+})

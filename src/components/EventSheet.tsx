@@ -59,6 +59,13 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
     useEffect(() => setPerson(e.scorer ?? ''), [e.scorer])
     useEffect(() => setAssist(e.assist ?? ''), [e.assist])
     useEffect(() => setNote(e.notes ?? ''), [e.notes])
+    // "Add note" on the tag toast: focus the Note field once (this opens the keyboard on touch, as asked).
+    const noteRef = useRef<HTMLInputElement>(null)
+    useEffect(() => {
+        if (useAppState.getState().editingFocus !== 'note') return
+        noteRef.current?.focus()
+        useAppState.setState({ editingFocus: null })
+    }, [])
     const latest = useRef({ person, assist, note })
     latest.current = { person, assist, note }
 
@@ -219,6 +226,7 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
             <fieldset className="event-sheet__group">
                 <legend>{option.textLabel ?? 'Note'}</legend>
                 <input
+                    ref={noteRef}
                     aria-label="Note"
                     className="field event-sheet__input"
                     value={note}

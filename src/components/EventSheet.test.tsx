@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { act, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import type { MatchEvent, Team, VideoSourceFile } from '../types'
@@ -66,6 +66,14 @@ describe('EventSheet', () => {
         await userEvent.type(box, 'Kim{Enter}')
         expect(ev()?.scorer).toBe('Kim')
         expect(useAppState.getState().teams[0].roster).toContain('Kim')
+    })
+
+    it('should focus the Note field once when opened with focus: note, then clear the request', () => {
+        cleanup()
+        useAppState.setState({ editingFocus: 'note' })
+        render(<EventSheet />)
+        expect(screen.getByRole('textbox', { name: 'Note' })).toHaveFocus()
+        expect(useAppState.getState().editingFocus).toBeNull()
     })
 
     it('should add a note, saved when Done is tapped', async () => {

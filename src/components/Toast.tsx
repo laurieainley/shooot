@@ -25,6 +25,11 @@ export function Toast() {
                             {toast.action.label}
                         </button>
                     )}
+                    {toast.secondary && (
+                        <button type="button" className="toast__action toast__action--quiet" onClick={() => { const a = toast.secondary; dismissToast(toast.id); a?.run() }}>
+                            {toast.secondary.label}
+                        </button>
+                    )}
                 </div>
             )}
         </div>

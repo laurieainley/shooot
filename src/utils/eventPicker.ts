@@ -31,7 +31,8 @@ export type PickerEffect =
     | { kind: 'marker'; type: MarkerType }
     | { kind: 'close' }
 
-export type PickerContext = { teams: Team[] }
+/** `touch`: a phone/tablet, where the optional note step is skipped (no keyboard); it is added from the tag toast instead. */
+export type PickerContext = { teams: Team[]; touch: boolean }
 
 type Result = { state: PickerState; effects: PickerEffect[] }
 
@@ -82,9 +83,14 @@ function wrap(i: number, n: number): number {
 
 const toText = (state: PickerState): PickerState => ({ ...state, step: 'text', highlighted: 0, query: '' })
 
+/** The text step is skipped on touch when it is only optional. */
+function wantsText(option: PickerOption, ctx: PickerContext): boolean {
+    return !!option.askText && !(ctx.touch && option.askText === 'optional')
+}
+
 /** After the person step (picked or skipped): the text step when the type asks for one, else done. */
-function afterPerson(state: PickerState, effects: PickerEffect[]): Result {
-    return state.option.askText ? { state: toText(state), effects } : { state, effects: [...effects, CLOSE] }
+function afterPerson(state: PickerState, effects: PickerEffect[], ctx: PickerContext): Result {
+    return wantsText(state.option, ctx) ? { state: toText(state), effects } : { state, effects: [...effects, CLOSE] }
 }
 
 function chooseOption(state: PickerState, option: PickerOption, ctx: PickerContext): Result {
@@ -94,16 +100,16 @@ function chooseOption(state: PickerState, option: PickerOption, ctx: PickerConte
     if (option.askTeam && hasTeams(ctx)) {
         return { state: { ...next, step: 'team', highlighted: 0, query: '' }, effects }
     }
-    return option.askText ? { state: toText(next), effects } : { state: next, effects: [...effects, CLOSE] }
+    return wantsText(option, ctx) ? { state: toText(next), effects } : { state: next, effects: [...effects, CLOSE] }
 }
 
-function chooseTeam(state: PickerState, team: string): Result {
+function chooseTeam(state: PickerState, team: string, ctx: PickerContext): Result {
     const effects: PickerEffect[] = [{ kind: 'update', patch: { team } }]
     const next = { ...state, team }
     if (state.option.askScorer) {
         return { state: { ...next, step: 'scorer', highlighted: 0, query: '' }, effects }
     }
-    return afterPerson(next, effects)
+    return afterPerson(next, effects, ctx)
 }
 
 function chooseScorer(state: PickerState, name: string, ctx: PickerContext): Result {
@@ -115,23 +121,23 @@ function chooseScorer(state: PickerState, name: string, ctx: PickerContext): Res
         const next: PickerState = { ...state, step: 'assist', highlighted: 0, query: '', scorer: name.trim() }
         return { state: { ...next, highlighted: firstEnabled(next, ctx) }, effects }
     }
-    return afterPerson(state, effects)
+    return afterPerson(state, effects, ctx)
 }
 
 function chooseAssist(state: PickerState, name: string, ctx: PickerContext): Result {
     const { patch, addToRoster } = assistEdit(ctx.teams, { team: state.team, type: state.option.type, scorer: state.scorer }, name)
-    if (patch.assist === undefined) return afterPerson(state, [])
+    if (patch.assist === undefined) return afterPerson(state, [], ctx)
     const effects: PickerEffect[] = []
     if (addToRoster) effects.push({ kind: 'addToRoster', ...addToRoster })
     effects.push({ kind: 'update', patch })
-    return afterPerson(state, effects)
+    return afterPerson(state, effects, ctx)
 }
 
 /** Skip an optional step; skipping the team skips the person too (no roster to pick from). */
-function skip(state: PickerState): Result {
-    if (state.step === 'team' && state.option.teamOptional) return afterPerson(state, [])
-    if (state.step === 'scorer' && state.option.personOptional) return afterPerson(state, [])
-    if (state.step === 'assist') return afterPerson(state, [])
+function skip(state: PickerState, ctx: PickerContext): Result {
+    if (state.step === 'team' && state.option.teamOptional) return afterPerson(state, [], ctx)
+    if (state.step === 'scorer' && state.option.personOptional) return afterPerson(state, [], ctx)
+    if (state.step === 'assist') return afterPerson(state, [], ctx)
     return { state, effects: [] }
 }
 
@@ -153,12 +159,12 @@ export function pickerReducer(state: PickerState, input: PickerInput, ctx: Picke
     }
 
     if (input.kind === 'choose') {
-        if (input.value === SKIP) return skip(state)
+        if (input.value === SKIP) return skip(state, ctx)
         if (state.step === 'type') {
             const option = PICKER_OPTIONS.find((o) => o.id === input.value)
             return option ? chooseOption(state, option, ctx) : none
         }
-        if (state.step === 'team') return chooseTeam(state, input.value)
+        if (state.step === 'team') return chooseTeam(state, input.value, ctx)
         if (state.step === 'text') return none
         return state.step === 'assist' ? chooseAssist(state, input.value, ctx) : chooseScorer(state, input.value, ctx)
     }
@@ -166,7 +172,7 @@ export function pickerReducer(state: PickerState, input: PickerInput, ctx: Picke
     const k = input.key
     if (state.step === 'text') return k === 'Enter' || k === 'Escape' ? finishText(state) : none
     if (k === 'Escape') return { state, effects: [CLOSE] }
-    if (k === 'Tab') return skip(state)
+    if (k === 'Tab') return skip(state, ctx)
 
     if (state.step === 'type') {
         const n = PICKER_OPTIONS.length
@@ -182,9 +188,9 @@ export function pickerReducer(state: PickerState, input: PickerInput, ctx: Picke
         const names = ctx.teams.map((t) => t.name)
         if (k === 'ArrowDown') return { state: { ...state, highlighted: wrap(state.highlighted + 1, names.length) }, effects: [] }
         if (k === 'ArrowUp') return { state: { ...state, highlighted: wrap(state.highlighted - 1, names.length) }, effects: [] }
-        if (k === 'Enter') return chooseTeam(state, names[state.highlighted])
+        if (k === 'Enter') return chooseTeam(state, names[state.highlighted], ctx)
         const idx = k.length === 1 ? teamShortcuts(names).indexOf(k.toLowerCase()) : -1
-        return idx >= 0 ? chooseTeam(state, names[idx]) : none
+        return idx >= 0 ? chooseTeam(state, names[idx], ctx) : none
     }
 
     // scorer / assist step — letters go to the text field
@@ -198,9 +204,9 @@ export function pickerReducer(state: PickerState, input: PickerInput, ctx: Picke
     if (k === 'Enter') {
         const row = candidates[state.highlighted]
         const pick = state.query.trim() && candidates.length === 0 ? state.query.trim() : row !== undefined && !isDisabledName(state, row) ? row : undefined
-        if (state.step === 'assist') return pick ? chooseAssist(state, pick, ctx) : skip(state)
+        if (state.step === 'assist') return pick ? chooseAssist(state, pick, ctx) : skip(state, ctx)
         if (pick) return chooseScorer(state, pick, ctx)
-        return state.option.personOptional ? skip(state) : { state, effects: [CLOSE] }
+        return state.option.personOptional ? skip(state, ctx) : { state, effects: [CLOSE] }
     }
     return none
 }
