@@ -79,6 +79,19 @@ describe('ExportPanel', () => {
         expect(screen.queryByRole('button', { name: /export project/i })).not.toBeInTheDocument()
     })
 
+    it('should link to the YouTube upload page in a new tab from Share on YouTube, on both tabs', async () => {
+        render(<ExportPanel />)
+        await userEvent.click(screen.getByRole('button', { name: 'Export' }))
+        await userEvent.click(screen.getByRole('button', { name: /^Share on YouTube/ }))
+        for (const tab of ['Highlights', 'Full match']) {
+            await userEvent.click(screen.getByRole('tab', { name: tab }))
+            const link = screen.getByRole('link', { name: /open youtube upload/i })
+            expect(link).toHaveAttribute('href', 'https://www.youtube.com/upload')
+            expect(link).toHaveAttribute('target', '_blank')
+            expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+        }
+    })
+
     it('should have Highlights and Full match tabs', async () => {
         render(<ExportPanel />)
         await userEvent.click(screen.getByRole('button', { name: 'Export' }))

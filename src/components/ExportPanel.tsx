@@ -11,6 +11,7 @@ import { PreviewControls } from './PreviewControls'
 import { RenderHighlights } from './RenderHighlights'
 import { ReelSummary } from './ReelSummary'
 import { ThumbnailMaker } from './ThumbnailMaker'
+import { YouTubeUpload } from './YouTubeUpload'
 import { getTheme } from '../graphics/themes'
 import { clipsSummary, graphicsSummary } from '../utils/renderSummary'
 import { exportButtonStatus, SHOW_DONE_MS, type ExportButtonStatus } from '../utils/exportButton'
@@ -96,9 +97,10 @@ export function ExportPanel() {
                                 <ExportDisclosure id="graphics" title="Graphics" summary={graphicsSummary(graphics, getTheme(graphics.theme).name)}>
                                     <GraphicsSettings />
                                 </ExportDisclosure>
-                                <ExportDisclosure id="share" title="Share on YouTube" summary="description and thumbnail">
+                                <ExportDisclosure id="share" title="Share on YouTube" summary="description, thumbnail and upload">
                                     <DescriptionCopy kind="highlights" />
                                     <ThumbnailMaker kind="highlights" />
+                                    <YouTubeUpload />
                                 </ExportDisclosure>
                             </div>
                         </div>
@@ -106,9 +108,10 @@ export function ExportPanel() {
                         <div role="tabpanel" id="export-panel-fullMatch" aria-labelledby="export-tab-fullMatch" className="export-stack">
                             <FullMatchExport />
                             <div className="export-disclosures">
-                                <ExportDisclosure id="share" title="Share on YouTube" summary="description and thumbnail">
+                                <ExportDisclosure id="share" title="Share on YouTube" summary="description, thumbnail and upload">
                                     <DescriptionCopy kind="fullMatch" />
                                     <ThumbnailMaker kind="fullMatch" />
+                                    <YouTubeUpload />
                                 </ExportDisclosure>
                             </div>
                         </div>

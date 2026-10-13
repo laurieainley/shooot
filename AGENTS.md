@@ -353,6 +353,8 @@ npm run lint       # baseline: 12 known problems — add none
   "Preview with proxies" when proxies are loaded. Settings are collapsed `ExportDisclosure` rows (title + one-line
   summary, open state in localStorage): "Clips & replays", "Graphics", "Share on YouTube" / "Included", "Share on
   YouTube". The keep-screen-on line shows only while a render runs on a phone.
+- **Share on YouTube** (both Export tabs): copy description / goalscorers, Make a thumbnail, and an "Open YouTube upload"
+  link (youtube.com/upload in a new tab; no API, nothing sent until the user uploads there).
 - **Shortcuts sheet:** `?` key, the "?" button or ⋯ → Shortcuts (`ShortcutsSheet`, data in `utils/shortcutList.ts`,
   kept in sync with `shortcutFor` by a test).
 - **Find goals review card** (`SuggestionCard`, `ReviewTimeline`, `useMarkedMoment`, `PersonStep`, `utils/reviewMark.ts`):
