@@ -309,6 +309,9 @@ npm run lint       # baseline: 12 known problems — add none
   - Archivo for UI, Big Shoulders (shirt font) for player names/numbers, JetBrains Mono for clocks/scores/keys;
   - "Shooot" in running text, sentence case, UK English; brand voice only in empty/progress/success states
     (`utils/voice.ts`); errors and instructions stay plain; we "tag" moments (not "mark");
+  - **type scale** (`--sh-text-*` in index.css, Tailwind `text-ui-*`): micro 11 · xs 13 · sm 14 · md 15 · lg 17 · xl 20 · 2xl 28;
+    body/buttons/fields/event names = md, labels/tabs/row clocks = sm, hints = xs, panel titles = lg. One step up on
+    screens ≥ 1600px with a mouse; xs = 14 on touch. Use the tokens, not raw px, for text;
   - touch targets ≥ 44 px, text ≥ 14 px on touch (base rules later in App.css beat the touch block: restate 14px in the `pointer: coarse` block at the end of the file), contrast ≥ 4.5:1 (`node scripts/check-contrast.mjs`), respect
     `prefers-reduced-motion`, never red-vs-green alone to distinguish meanings.
 - **Picture gestures** (`components/pictureGestures.ts`): while zoomed, mouse drag or **one finger** pans (a tap still plays /

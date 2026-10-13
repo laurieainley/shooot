@@ -28,13 +28,13 @@ export function FilesSheet({ onClose }: FilesSheetProps) {
 
     return (
         <Sheet label="Files" onClose={onClose} className="sheet--roomy">
-            {files.length === 0 && <p className="m-0 py-3 text-[13px] text-muted">No videos loaded.</p>}
+            {files.length === 0 && <p className="m-0 py-3 text-ui-md text-muted">No videos loaded.</p>}
             <FileList onPlay={(i) => { useAppState.getState().setCurrentFileIndex(i); onClose() }} onError={setMessage} />
             <div className="flex flex-wrap items-center gap-2 pt-3">
                 <AddFilesButton label="Add files" className="btn-quiet" onError={setMessage} />
                 <OpeningStatus />
             </div>
-            {message && <p className="m-0 pt-2 text-[12px] msg-warn">{message}</p>}
+            {message && <p className="m-0 pt-2 text-ui-xs msg-warn">{message}</p>}
         </Sheet>
     )
 }

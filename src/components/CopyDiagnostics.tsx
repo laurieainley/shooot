@@ -21,7 +21,7 @@ export function CopyDiagnostics({ report }: CopyDiagnosticsProps) {
                 {state === 'copied' && <span role="status" className="export-hint">Copied</span>}
             </span>
             {state === 'manual' && (
-                <textarea aria-label="Diagnostics report" readOnly value={text} rows={6} className="w-full font-mono text-[11px]" onFocus={(e) => e.currentTarget.select()} />
+                <textarea aria-label="Diagnostics report" readOnly value={text} rows={6} className="w-full font-mono text-ui-xs" onFocus={(e) => e.currentTarget.select()} />
             )}
         </span>
     )

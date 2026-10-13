@@ -51,12 +51,12 @@ function LogoField() {
         <div className="graphics-setup__logo">
             <img src={logoUrl ?? DEFAULT_LOGO_URLS[0]} alt="League logo" />
             <div className="flex flex-col items-start gap-1.5">
-                <span className="text-[12px] text-muted">League logo (shown on the match graphics)</span>
+                <span className="text-ui-sm text-muted">League logo (shown on the match graphics)</span>
                 <div className="flex flex-wrap gap-2">
                     <button type="button" className="btn-quiet" onClick={() => pickRef.current?.click()}>Replace logo</button>
                     {logoUrl && <button type="button" className="btn-quiet" onClick={() => void resetLogo()}>Use default logo</button>}
                 </div>
-                {logoError && <p role="alert" className="m-0 text-[12px] msg-warn">{logoError}</p>}
+                {logoError && <p role="alert" className="m-0 text-ui-xs msg-warn">{logoError}</p>}
             </div>
             <input ref={pickRef} aria-label="Logo file" type="file" accept="image/*" onChange={(e) => void onPick(e)} className="sr-only" tabIndex={-1} />
         </div>
@@ -206,7 +206,7 @@ function FinalScoreField() {
                     <button type="button" className="btn-quiet final-score__clear" aria-label="Clear final score" onClick={() => { setVals(['', '']); setKnown(null) }}>Clear</button>
                 )}
             </div>
-            {half && left && <p id={hintId} className="m-0 text-[12px] msg-warn" role="status">Enter both scores, or leave both empty.</p>}
+            {half && left && <p id={hintId} className="m-0 text-ui-xs msg-warn" role="status">Enter both scores, or leave both empty.</p>}
         </div>
     )
 }

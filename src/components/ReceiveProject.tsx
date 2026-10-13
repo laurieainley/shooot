@@ -60,7 +60,7 @@ export function ReceiveProject() {
             )}
             {pending && (
                 <Sheet label="Replace project" onClose={() => done(false)} className="sheet--narrow">
-                    <div role="alertdialog" aria-label="Replace project" className="flex flex-col gap-3 py-2 text-[14px]">
+                    <div role="alertdialog" aria-label="Replace project" className="flex flex-col gap-3 py-2 text-ui-md">
                         <p className="m-0">Replace current project with the received one?</p>
                         <p className="m-0 text-muted">
                             Received: {pending.events.length} {pending.events.length === 1 ? 'event' : 'events'}. You have {useAppState.getState().events.length}. ⌘Z brings the old events back.

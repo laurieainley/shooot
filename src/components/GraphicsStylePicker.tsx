@@ -7,7 +7,7 @@ export function GraphicsStylePicker() {
     const setGraphics = useAppState((s) => s.setGraphics)
     return (
         <div className="graphics-style">
-            <span className="text-[12px] text-muted">Graphics style (reel graphics and thumbnails)</span>
+            <span className="text-ui-sm text-muted">Graphics style (reel graphics and thumbnails)</span>
             <div role="radiogroup" aria-label="Graphics style" className="theme-picker">
                 {THEMES.map((th) => (
                     <button

@@ -63,7 +63,7 @@ export function MatchList() {
     return (
         <section role="tabpanel" id="rail-panel" aria-labelledby="rail-tab-matches" className="match-list">
             <header className="match-list__head">
-                <h2 className="m-0 voice-heading text-[15px]">Matches</h2>
+                <h2 className="m-0 voice-heading text-ui-lg">Matches</h2>
                 <button type="button" className="btn-quiet" onClick={() => choose({ kind: 'new' })}>+ New match</button>
             </header>
             {shown.length > 1 && (

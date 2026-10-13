@@ -44,7 +44,7 @@ export function PreviewControls({ onStart }: PreviewControlsProps) {
                 <span className="preview-controls__label">Preview</span>
                 <button type="button" aria-label="Previous clip" title="Previous clip ([)" onClick={() => stepPreviewClip(-1)} disabled={current === 0} className="btn-icon">←</button>
                 {/* Fixed width (sized for the largest count) so the arrows never move. */}
-                <span className="preview-controls__count tc text-[13px]" style={{ minWidth: `${6 + 2 * String(clips).length}ch` }}>Clip {clip} / {clips}</span>
+                <span className="preview-controls__count tc text-ui-sm" style={{ minWidth: `${6 + 2 * String(clips).length}ch` }}>Clip {clip} / {clips}</span>
                 <button type="button" aria-label="Next clip" title="Next clip (])" onClick={() => stepPreviewClip(1)} disabled={clip >= clips} className="btn-icon">→</button>
                 <button type="button" onClick={exitPreview} className="btn-quiet">Exit</button>
             </div>
