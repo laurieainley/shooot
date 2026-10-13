@@ -836,7 +836,7 @@ export const useAppState = create<AppState>()(
             // migrate only runs when the saved version is older: events of an unknown type must not reach the page at any version.
             merge: (persistedState, currentState) => {
                 const saved = (persistedState ?? {}) as Partial<AppState>
-                return { ...currentState, ...saved, ...(Array.isArray(saved.events) ? { events: sanitiseEvents(saved.events, saved.whitesAttackLeft ?? true, Array.isArray(saved.teams) ? saved.teams : []) } : {}) }
+                return { ...currentState, ...saved, ...(Array.isArray(saved.events) ? { events: sanitiseEvents(saved.events, true, Array.isArray(saved.teams) ? saved.teams : []) } : {}) }
             },
         }
     )
