@@ -47,8 +47,12 @@ export type Segment = { cutIndex: number; firstFrame: number; frames: number }
  * `balance`: cut the pieces of a cut to equal length instead of leaving a short tail, and, when the whole render would have
  * fewer than `units` segments, split the longest ones further (never below `minFrames` each) so that many can run side by side.
  */
-export function planSegments(cuts: PlanCut[], frameSec: number, maxFrames: number, balance?: { units: number; minFrames: number }): Segment[] {
+export function planSegments(cuts: PlanCut[], frameSec: number, maxFrames: number, balance?: { units: number; minFrames: number; stable?: boolean }): Segment[] {
     const totals = cuts.map((c) => cutFrames(c, frameSec))
+    if (balance?.stable) {
+        const fixed = stableSegments(totals, maxFrames, balance.minFrames)
+        if (fixed.length >= balance.units) return fixed
+    }
     const counts = totals.map((t) => Math.max(1, Math.ceil(t / maxFrames)))
     if (balance) {
         for (;;) {
@@ -72,6 +76,23 @@ export function planSegments(cuts: PlanCut[], frameSec: number, maxFrames: numbe
             const end = Math.round((total * (k + 1)) / n)
             if (end > first) out.push({ cutIndex, firstFrame: first, frames: end - first })
         }
+    })
+    return out
+}
+
+/**
+ * Unit boundaries that survive small edits (for the unit cache): every cut is split on its own, from its own first frame, into
+ * pieces of exactly `maxFrames` (a tail shorter than `minFrames` joins the piece before it). A cut's units never depend on the
+ * other cuts, so changing or trimming one goal leaves every other goal's units (and so their cache keys) as they were, and
+ * trimming the end of a long cut only changes its last piece.
+ */
+export function stableSegments(totals: number[], maxFrames: number, minFrames: number): Segment[] {
+    const out: Segment[] = []
+    totals.forEach((total, cutIndex) => {
+        const starts: number[] = []
+        for (let f = 0; f < total; f += maxFrames) starts.push(f)
+        if (starts.length > 1 && total - starts[starts.length - 1] < minFrames) starts.pop()
+        starts.forEach((first, k) => out.push({ cutIndex, firstFrame: first, frames: (starts[k + 1] ?? total) - first }))
     })
     return out
 }

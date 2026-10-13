@@ -19,6 +19,7 @@ import { useRenderJobs } from '../renderJobs'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 import { useSavedJob } from './useSavedJob'
 import { useReencodeSupport } from './useReencodeSupport'
+import { useReusableParts } from './useReusableParts'
 import { useStorageRoom } from './useStorageRoom'
 
 const BUG_MODES: [ScoreBugMode, string][] = [['off', 'Off'], ['goals', 'After goals'], ['periodic', 'Periodic']]
@@ -49,10 +50,12 @@ export function FullMatchExport() {
     const { source, support } = useReencodeSupport(firstSource.file, known)
     const facts = useMemo(() => sourceFactsFor(files, source), [files, source])
     const room = useStorageRoom(busy)
+    // Parts of the last export that are still saved are not encoded again: the time hints count them out.
+    const reusable = useReusableParts('fullMatch', firstSource.plan, busy)
     // A choice that is not available here (e.g. 4K chosen in a saved project, now on 1080p footage) renders as Original;
     // one that will not fit in the browser's storage gives way to the largest that does.
     const { options, effective, note: fitNote, privateHint } = applyStorageFit(
-        qualityOptions({ source, support, seconds: firstSource.seconds, originalBytes: firstSource.bytes, time: (q) => estimatePlanTime(firstSource.plan, q, facts) }), room, fullMatch.quality)
+        qualityOptions({ source, support, seconds: firstSource.seconds, originalBytes: firstSource.bytes, time: (q) => estimatePlanTime(firstSource.plan, q, facts, reusable(q)) }), room, fullMatch.quality)
     const plan = useMemo(() => fullMatchExport(st, 'full', planOutput(effective)), [st, effective])
     const linked = linkedEvents(events)
     const hasKickOff = linked.some((e) => e.type === 'kick_off')

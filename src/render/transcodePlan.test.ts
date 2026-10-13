@@ -87,3 +87,22 @@ describe('aacConfig', () => {
         expect(() => aacConfig(12345, 2)).toThrow()
     })
 })
+
+describe('stableSegments', () => {
+    it('should split each cut on its own so editing one cut never moves another cut\'s units', () => {
+        const a = planSegments([{ startSec: 0, endSec: 300 }, { startSec: 0, endSec: 100 }], 0.5, 240, { units: 2, minFrames: 20, stable: true })
+        const b = planSegments([{ startSec: 0, endSec: 250 }, { startSec: 0, endSec: 100 }], 0.5, 240, { units: 2, minFrames: 20, stable: true })
+        const second = (x: typeof a) => x.filter((s) => s.cutIndex === 1)
+        expect(second(a)).toEqual(second(b))
+        expect(a.filter((s) => s.cutIndex === 0).map((s) => s.frames)).toEqual([240, 240, 120])
+    })
+    it('should join a short tail to the piece before it', () => {
+        const s = planSegments([{ startSec: 0, endSec: 125 }], 0.5, 240, { units: 1, minFrames: 20, stable: true })
+        expect(s.map((x) => x.frames)).toEqual([250])
+    })
+    it('should still split a short render so units can run side by side', () => {
+        const s = planSegments([{ startSec: 0, endSec: 40 }], 0.5, 240, { units: 2, minFrames: 20, stable: true })
+        expect(s.length).toBe(2)
+        expect(s.reduce((a, x) => a + x.frames, 0)).toBe(80)
+    })
+})

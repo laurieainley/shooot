@@ -17,7 +17,7 @@ import { buildRenderPlan } from './renderPlan'
 import { resolveRenderSources, usedMissing, type RenderQuality } from './renderSources'
 import { scoreBugWindows, type ScoreBugMode } from './scoreBug'
 import { VIDEO_BITRATE, estimateEncodedBytes, type OutputQuality, type ReencodeQuality, type SourceInfo } from './outputQuality'
-import { DEFAULT_FACTS, estimateRenderSeconds, type SourceFacts, type TimeEstimate } from './renderTime'
+import { DEFAULT_FACTS, estimateRenderSeconds, type ReusedParts, type SourceFacts, type TimeEstimate } from './renderTime'
 
 export type FullMatchSettings = {
     cards: boolean; scoreBug: ScoreBugMode; intervalMin: number; captions: boolean
@@ -145,8 +145,8 @@ export function clipExport(s: ExportState, eventId: string, opts: ClipOptions, q
  * replays and their slow-mo, the replay tag), the footage and the rates learned here. Changes whenever the plan does. The Export
  * panels call this for Original, 4K and 1080p.
  */
-export function estimatePlanTime(plan: Pick<ExportPlan, 'cuts' | 'spec'>, output: OutputQuality, facts: SourceFacts | null): TimeEstimate {
-    return estimateRenderSeconds(plan, output, facts)
+export function estimatePlanTime(plan: Pick<ExportPlan, 'cuts' | 'spec'>, output: OutputQuality, facts: SourceFacts | null, reused?: ReusedParts | null): TimeEstimate {
+    return estimateRenderSeconds(plan, output, facts, reused)
 }
 
 /** The footage facts the estimate needs: size and codec (from the file once read, else what the app knows), frame rate, and bytes per second of the full-quality files. */

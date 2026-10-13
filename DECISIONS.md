@@ -19,6 +19,34 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
   learned rates are measured against that adjusted model and old re-encode rates are ignored so the speed-up is counted
   once. Highlights re-encodes are journaled too, with one saved job (IndexedDB key and OPFS folder) per kind so a reel never discards a half-finished full match; an old single job migrates to its kind. *Where:* `render/renderJob.ts`, `render/unitPool.ts`, `transcodeEngine.ts`, `utils/renderTime.ts` (`parallelFactor`).
 
+- **Re-encode exports reuse the parts of the last export that no edit touched** (user, from /bench experiment #2; real devices re-rendering a
+  51 s reel after one caption change: Pixel 65% faster, iPad 58%, Mac ~60%, output checks passed). *What:* Highlights and Full match at
+  4K / 1080p keep each finished unit (title card, a stretch of one cut, full-time card) in OPFS (`unit-cache/`, packet log + a small json)
+  and the next export of that kind copies matching units back instead of encoding them; the rest still render 2 at a time. Not for Original
+  (stream copy), previews or clips. *Keys:* a SHA-256 of everything that decides the unit: footage identity (name, size, modified time),
+  the cut (times, speed, crop, gain, silence), output quality and bitrate, the engine's size / frame rate / key-frame interval / encoder
+  (hardware or software, full config) / scale path / audio format, the unit's frame range inside its cut, the graphics drawn in it (the
+  overlays overlapping the unit, the theme, the card spec, the logo's hash, a replay's previous clip when its caption carries on, and what
+  the prepared graphics will really draw) and `RENDER_VERSION` (bump it when the engine, painters, themes or fonts change what a frame looks like).
+  The full-time card's key includes its scorers. The unit's place on the output timeline is deliberately NOT in the key: timestamps are
+  stored relative to the unit and moved back onto the frame grid on reuse, so trimming goal 1 does not invalidate goal 3. Key frames are
+  placed relative to the cut, never the output, so they do not depend on where the unit lands. A wrong reuse is far worse than a miss: anything
+  unsure is in the key, and any read problem (missing, wrong size, damaged mid-stream) is a miss that renders the unit normally.
+  *Unit boundaries:* with the cache on, `planSegments` runs in `stable` mode: every cut is cut into 2-minute pieces from its own first frame
+  (a tail under 10 s joins the piece before), so a cut's units never depend on the other cuts, and editing one goal moves no other goal's units;
+  the old balanced split (equal pieces per cut) would shift all of a long cut's units when its end is trimmed. A render with fewer than 2 units
+  still falls back to the balanced split so two can run side by side. A highlights reel is one unit per clip, which is also the cache's
+  granularity for captions (a replay re-renders with the clip whose caption it carries on; the full-time card re-renders whenever scorers change).
+  *Storage:* the cache holds only the last export of each kind (everything else is deleted when an export finishes) and is capped at the
+  smaller of 6 GB and a quarter of the site's quota, oldest export first. Units are kept only while the render still has room (about
+  1.3x its output free after a unit is copied in; on a phone a long Full match mostly will not be cached). `storageRoom()` counts the
+  cache as free room, and the engine evicts cached units (the ones about to be reused last) before an export would run short; a quota
+  error also clears the cache and the message says so. `clearSavedParts()` (storage.ts) deletes it. *Estimates:* the Export panel asks the
+  cache which whole cuts / cards survive from the last export (`reusableParts`, cheap: manifest + one listing) and counts them out of the time
+  hint; the engine prices reused units out of its first `estimateSec`, the progress and the ETA. A run that reused anything does not feed the
+  learned device rates (it would teach a fast device). The progress shows "Reused 6 of 9 parts from your last export". The bench can turn it
+  off with `experiments.unitCache = false`. *Where:* `render/unitCache.ts`, `transcodeEngine.ts` (`restoreUnit` / `keepUnit`), `render/storage.ts`, `utils/renderTime.ts` (`reusedSeconds`), `components/renderRequest.ts` (`reuseKeysFor`), `components/useReusableParts.ts`.
+
 - **Goal set-up is a guided full-screen flow** (user). Choose the picture from 6 frames (avoid a player covering a goal)
   → Identify goal posts per goal (touch: move the picture under a crosshair, Set point) → Replay zoom per goal with the
   replay view as the editor → summary. Each goal is named by the team that defends it at kick-off; "attacking" is

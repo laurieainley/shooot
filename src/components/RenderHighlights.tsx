@@ -13,6 +13,7 @@ import { ResumeOffer } from './ResumeOffer'
 import { useLayout } from './useMediaQuery'
 import { useReencodeSupport } from './useReencodeSupport'
 import { useSavedJob } from './useSavedJob'
+import { useReusableParts } from './useReusableParts'
 import { useStorageRoom } from './useStorageRoom'
 import { renderButtonLabel, renderSummaryLine } from '../utils/renderSummary'
 
@@ -48,10 +49,12 @@ export function RenderHighlights() {
     // The time hints follow the plan (ticked cards, captions, replays) and the footage, not a fixed multiple of the reel length.
     const facts = useMemo(() => sourceFactsFor(files, source), [files, source])
     const room = useStorageRoom(busy)
+    // Parts of the last export that are still saved are not encoded again: the time hints count them out.
+    const reusable = useReusableParts('highlights', base.plan, busy)
     // A choice that is not available here (4K on 1080p footage, a codec this browser cannot handle) renders as Original;
     // one that will not fit in the browser's storage gives way to the largest that does.
     const { options, effective, note: fitNote, privateHint } = applyStorageFit(
-        qualityOptions({ source, support, seconds: base.seconds, originalBytes: base.bytes, time: (q) => estimatePlanTime(base.plan, q, facts) }),
+        qualityOptions({ source, support, seconds: base.seconds, originalBytes: base.bytes, time: (q) => estimatePlanTime(base.plan, q, facts, reusable(q)) }),
         room, resolveHighlightsQuality(choice, phone))
 
     const chosen = options.find((o) => o.id === effective) ?? options[0]

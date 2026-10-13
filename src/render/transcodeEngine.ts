@@ -6,10 +6,11 @@
 // SEGMENT_SEC of output, full-time card); each finished unit is a packet log in OPFS and the job is saved in IndexedDB.
 // Every unit starts with a key frame from its own encoder, so units join anywhere. An interrupted render loses at
 // most the unit in progress (about two minutes of output).
-import { emptyStats, type UnitDescriptor } from './experiments'
+import { emptyStats } from './experiments'
 import { EncodedAudioPacketSource, EncodedPacket, EncodedPacketSink, EncodedVideoPacketSource, Mp4OutputFormat, Output, VideoSampleSink, type VideoSample } from 'mediabunny'
 import { RenderDiagnostics, errorInfo } from './diagnostics'
 import type { LogRecord } from './packetLog'
+import { RENDER_VERSION, decodeDescription, digest, encodeDescription, evictForRoom, opfsUnitStore } from './unitCache'
 import { clipPartSeconds, replayPartAfter } from './captionJoin'
 import { planAudio } from './audioPlan'
 import { nominalFrameRate } from './frameGrid'
@@ -36,7 +37,7 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message : Stri
 const isAbort = (e: unknown): boolean => e instanceof DOMException && e.name === 'AbortError'
 
 /** What one unit draws on: normally the engine's single canvas and WebGL scaler; parallel units each get their own. `work`: model seconds this unit has credited so far. */
-type UnitEnv = { canvas: OffscreenCanvas; ctx: OffscreenCanvasRenderingContext2D; gl: GlScaler | null; writer: UnitWriter | null; cancelled: boolean; work: number }
+type UnitEnv = { canvas: OffscreenCanvas; ctx: OffscreenCanvasRenderingContext2D; gl: GlScaler | null; writer: UnitWriter | null; cancelled: boolean; work: number; /** Labels of the graphics this unit drew (kept with a cached unit). */ labels: Set<string> }
 
 type Unit = { kind: 'intro' } | { kind: 'outro' } | { kind: 'segment'; segment: Segment }
 
@@ -133,8 +134,10 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         // Units run PARALLEL_UNITS at a time when the render is journaled (the bench can force 1, 2 or 3); the plan then makes sure there are enough of them.
         const journaled = opts.resumable ? await canJournal(jobKind) : false
         const parallelN = journaled ? Math.max(1, Math.floor(exp?.parallelUnits ?? PARALLEL_UNITS)) : 1
+        // Units of the last export of this kind that no edit touched are reused (journaled re-encodes only); their boundaries must then not shift with the edit.
+        const reuse = journaled && exp?.unitCache !== false ? opts.reuse : undefined
         if (!journaled && (exp?.parallelUnits ?? 1) > 1) diag.note('Parallel units need a resumable (journaled) render: running one unit at a time')
-        const segments = planSegments(planCuts, frameSec, Math.round((exp?.segmentSec ?? SEGMENT_SEC) / frameSec), parallelN > 1 ? { units: parallelN, minFrames: Math.round(MIN_PARALLEL_UNIT_SEC / frameSec) } : undefined)
+        const segments = planSegments(planCuts, frameSec, Math.round((exp?.segmentSec ?? SEGMENT_SEC) / frameSec), parallelN > 1 ? { units: parallelN, minFrames: Math.round(MIN_PARALLEL_UNIT_SEC / frameSec), ...(reuse ? { stable: true } : {}) } : undefined)
         const units: Unit[] = [{ kind: 'intro' }, ...segments.map((segment): Unit => ({ kind: 'segment', segment })), { kind: 'outro' }]
         const cardFrames = (c: RenderCard | undefined): number => (c ? Math.max(1, Math.round(c.durationSec / frameSec)) : 0)
 
@@ -182,10 +185,10 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             overlays: valid.flatMap((v, vi) => (resolved.get(v.ci) ?? []).map((o) => ({ cutIndex: vi, startSec: o.startSec, durationSec: o.durationSec, ...(o.anchor === 'wholeCut' || o.anchor === 'stretchToCut' ? { whole: true } : {}) }))),
             introSec: g?.intro ? cardFrames(g.intro) * frameSec : 0, outroSec: g?.outro ? cardFrames(g.outro) * frameSec : 0,
         }, pricing)
-        const totalWork = work.seconds || 1
-        const meter = new WorkMeter(totalWork)
-        // The estimate is for the render as it will run: units in parallel finish sooner (the same factor the Export panel's hint uses).
-        onProgress({ cutIndex: 0, cutCount: cuts.length, fraction: 0, stage: 'Starting', estimateSec: totalWork * (parallelN > 1 ? parallelFactor(detectDeviceClass(), out.quality, parallelN) : 1) })
+        const fullWork = work.seconds || 1
+        // Parts reused from the last export cost nothing: the work, the progress and the estimate below are for what is really rendered.
+        let totalWork = fullWork
+        let meter = new WorkMeter(totalWork)
         // Replay crops are done with the picture itself; only a failure to draw can lose them.
         for (const c of cuts) if (c.crop) diag.graphicApplied(c.cropLabel ?? 'Replay zoom')
 
@@ -208,6 +211,66 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             if (silence === undefined) silence = refAudio ? await makeSilentAudio({ sampleRate: refAudio.sampleRate, numberOfChannels: refAudio.numberOfChannels }).catch(() => null) : null
             return silence ? silence.packets(durationSec) : null
         }
+
+        // ---- unit cache: which parts of the last export can be reused ----
+        const store = reuse ? opfsUnitStore() : null
+        let cacheOn = !!store
+        let cached = new Set<string>()
+        let reusedActual = 0
+        let reusedPlanned = 0
+        let keyedUnits = 0
+        const usedKeys = new Map<number, string>() // unit -> key, for the units that came from or went to the cache
+        const unitFrames = (u: number): number => { const x = units[u]; return x.kind === 'intro' ? (g?.intro ? cardFrames(g.intro) : 0) : x.kind === 'outro' ? (g?.outro ? cardFrames(g.outro) : 0) : x.segment.frames }
+        /** Everything the engine decides about a unit's packets: size, rate, bitrate, key frames, the encoder in use, the scale path and the audio. */
+        const unitFacts = (): unknown => ({
+            v: RENDER_VERSION, W, H, frameSec, quality: out.quality, bitrate: out.videoBitrate, keyFrames, encoder: { hw: encoder!.hardware, config: encoder!.config },
+            scale: { direct: directScale, gl: !!gl0, canvas: !!out.forceCanvas }, audio: hasAudio ? { copyAac, codec: refAudio?.codec ?? null, rate: aConfig?.sampleRate ?? null, channels: aConfig?.numberOfChannels ?? null } : null,
+        })
+        /** The key of unit `u` as it would be encoded now; null for a unit that is not cached (no card, or no reuse). */
+        const unitKeyOf = async (u: number): Promise<string | null> => {
+            if (!reuse) return null
+            const unit = units[u]
+            let part: unknown
+            if (unit.kind === 'intro') part = g?.intro && reuse.intro ? { spec: reuse.intro, label: g.intro.label, sec: g.intro.durationSec } : null
+            else if (unit.kind === 'outro') part = g?.outro && reuse.outro ? { spec: reuse.outro, label: g.outro.label, sec: g.outro.durationSec } : null
+            else {
+                const sg = unit.segment
+                const v = valid[sg.cutIndex]
+                const a = sourceTimeOf(v.cut, sg.firstFrame, frameSec)
+                const b = sourceTimeOf(v.cut, sg.firstFrame + sg.frames, frameSec)
+                // What the prepared graphics will really draw here must agree with the plan the key was made from (a failed font or logo leaves graphics out).
+                const drawn = (g?.overlays ?? []).filter((o) => o.cutIndex === v.ci && (o.anchor !== undefined || (o.startSec < b + 1e-3 && o.startSec + o.durationSec > a - 1e-3))).map((o) => [o.label, o.anchor ?? null, o.startSec, o.durationSec, o.follows ?? null])
+                part = { spec: reuse.cut(v.ci, a, b), drawn, first: sg.firstFrame }
+            }
+            if (part === null) return null
+            return digest({ facts: unitFacts(), kind: unit.kind, frames: unitFrames(u), part })
+        }
+        const unitWork = (u: number): number => {
+            const x = units[u]
+            if (x.kind === 'intro') return work.sections[0].seconds
+            if (x.kind === 'outro') return work.sections[work.sections.length - 1].seconds
+            return work.sections[x.segment.cutIndex + 1].seconds * x.segment.frames / cutFrames(valid[x.segment.cutIndex].cut, frameSec)
+        }
+        let reusedWork = 0
+        if (reuse && store) {
+            try {
+                const total = units.reduce((a, _, u) => a + unitFrames(u), 0)
+                const keys = await Promise.all(units.map((_, u) => unitKeyOf(u)))
+                keyedUnits = keys.filter((k) => k !== null).length
+                cached = await store.keys()
+                // Room first: the render itself needs about twice its output (unit logs plus the file); cached units are reclaimable, the ones about to be reused last.
+                const freed = await evictForRoom(total * frameSec * out.videoBitrate / 8 * 2.2, new Set(keys.filter((k): k is string => !!k && cached.has(k))))
+                if (freed > 0) { cached = await store.keys(); diag.note(`Cleared ${(freed / 1e6).toFixed(0)} MB of saved parts from earlier exports to make room`) }
+                keys.forEach((k, u) => { if (k && cached.has(k)) reusedWork += unitWork(u) })
+                const n = keys.filter((k) => k && cached.has(k)).length
+                if (n > 0) diag.note(`Unit cache: ${n} of ${keyedUnits} parts can be reused from the last export`)
+                totalWork = Math.max(1e-3, fullWork - reusedWork)
+                meter = new WorkMeter(totalWork)
+                reusedPlanned = n
+            } catch (e) { cacheOn = false; diag.note(`Unit cache unavailable: ${errorText(e)}`) }
+        }
+        // The estimate is for the render as it will run: units in parallel finish sooner (the same factor the Export panel's hint uses), reused parts are free.
+        onProgress({ cutIndex: 0, cutCount: cuts.length, fraction: 0, stage: 'Starting', estimateSec: totalWork * (parallelN > 1 ? parallelFactor(detectDeviceClass(), out.quality, parallelN) : 1), ...(reusedPlanned > 0 ? { reused: { units: reusedPlanned, of: keyedUnits } } : {}) })
 
         // Journal (resumable) or direct output.
         let journal: { state: JobState } | null = null
@@ -275,7 +338,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             if (!ctx) throw new Error('no 2D canvas')
             ctx.imageSmoothingEnabled = true
             ctx.imageSmoothingQuality = 'high'
-            return { canvas, ctx, gl: scaler, writer: null, cancelled: false, work: 0 }
+            return { canvas, ctx, gl: scaler, writer: null, cancelled: false, work: 0, labels: new Set() }
         }
         const mainEnv = makeEnv(gl0)
         const durUs = Math.round(frameSec * 1e6)
@@ -380,6 +443,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 still?.close()
             }
             report.applied.push(card.label)
+            env.labels.add(card.label)
             diag.graphicApplied(card.label)
             if (hasAudio) for (const p of (await silencePackets(n * frameSec)) ?? []) await emitAudio(env, p.clone({ timestamp: startFrame * frameSec + p.timestamp }))
             cursorFrames += n
@@ -460,7 +524,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                                 else s.draw(ctx, r.sx, r.sy, r.sw, r.sh, 0, 0, W, H)
                             }
                             paintOverlays(env, active, tSrc)
-                            for (const o of active) if (!failedOverlays.has(o) && o.label && !report.applied.includes(o.label)) { report.applied.push(o.label); diag.graphicApplied(o.label) }
+                            for (const o of active) if (!failedOverlays.has(o) && o.label) { env.labels.add(o.label); if (!report.applied.includes(o.label)) { report.applied.push(o.label); diag.graphicApplied(o.label) } }
                             frame = frames.make(new VideoFrame(canvas, { timestamp: tsUs(startFrame + j), duration: durUs }))
                         }
                         stats.paintMs += now() - tPaint
@@ -520,41 +584,64 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             }
         }
 
-        // ---- experiment 2: units restored from / saved to a bench-only cache ----
-        const describeUnit = (u: number): UnitDescriptor | null => {
-            const unit = units[u]
-            if (unit.kind === 'intro') return g?.intro ? { kind: 'intro', frames: cardFrames(g.intro), startFrame: cursorFrames } : null
-            if (unit.kind === 'outro') return g?.outro ? { kind: 'outro', frames: cardFrames(g.outro), startFrame: cursorFrames } : null
-            const sg = unit.segment
-            const cut = valid[sg.cutIndex].cut
-            return {
-                kind: 'segment', cutIndex: valid[sg.cutIndex].ci, firstFrame: sg.firstFrame, frames: sg.frames, startFrame: cursorFrames,
-                sourceStartSec: sourceTimeOf(cut, sg.firstFrame, frameSec), sourceEndSec: sourceTimeOf(cut, sg.firstFrame + sg.frames, frameSec),
-            }
+        // ---- the unit cache: a unit whose key is in the store is copied into its log instead of being encoded ----
+        /** Copies unit `u` from the cache into the unit log `env.writer` (timestamps moved to where the unit sits now); false = miss, and the log is empty again. */
+        const restoreUnit = async (u: number, startFrame: number, env: UnitEnv): Promise<boolean> => {
+            if (!store || !cacheOn || !reuse) return false
+            try {
+                const key = await unitKeyOf(u)
+                if (!key || !cached.has(key)) return false
+                const hit = await store.load(key)
+                if (!hit) { cached.delete(key); return false }
+                if (!hit.meta.video) return false
+                const description = decodeDescription(hit.meta.video.description)
+                if (vConfig && !sameBytes(vConfig.description as Uint8Array | undefined, description)) return false // another profile or level than this render's file
+                const startSec = startFrame * frameSec
+                try {
+                    // Video lands back on the frame grid (the unit's first frame is frame `startFrame`); audio keeps its own times.
+                    for await (const r of hit.records) await env.writer!.write({ ...r, timestamp: r.track === 0 ? tsUs(startFrame + Math.round(r.timestamp / frameSec)) / 1e6 : r.timestamp + startSec })
+                } catch {
+                    // A damaged cached unit counts as a miss: start the unit's log again and render it.
+                    await env.writer!.abort().catch(() => undefined)
+                    env.writer = await openUnit(jobKind, u)
+                    cached.delete(key)
+                    await store.remove(key)
+                    return false
+                }
+                if (!vConfig) vConfig = { codec: hit.meta.video.codec, codedWidth: W, codedHeight: H, description }
+                for (const l of hit.meta.applied) { env.labels.add(l); if (!report.applied.includes(l)) { report.applied.push(l); diag.graphicApplied(l) } }
+                const unit = units[u]
+                if (unit.kind === 'segment') {
+                    const v = valid[unit.segment.cutIndex]
+                    if (unit.segment.firstFrame === 0) timings[v.ci] = cutTiming(startSec, v.cut.startSec, v.cut.endSec, v.cut.speed ?? 1)
+                    copied = true
+                }
+                usedKeys.set(u, key)
+                reusedActual++
+                return true
+            } catch { return false }
         }
-        const restoreUnit = async (u: number, d: UnitDescriptor, key: string): Promise<boolean> => {
-            const hit = await exp!.unitCache!.load(key)
-            if (!hit) return false
-            const startSec = d.startFrame * frameSec
-            for await (const r of hit.records) await mainEnv.writer!.write({ ...r, timestamp: r.timestamp + startSec })
-            for (const l of hit.applied) if (!report.applied.includes(l)) { report.applied.push(l); diag.graphicApplied(l) }
-            const unit = units[u]
-            if (unit.kind === 'segment') {
-                const v = valid[unit.segment.cutIndex]
-                if (unit.segment.firstFrame === 0) timings[v.ci] = cutTiming(startSec, v.cut.startSec, v.cut.endSec, v.cut.speed ?? 1)
-                copied = true
-            }
-            // Experiment-only path: credit the reused unit's share of the work by its frame count.
-            const allFrames = units.reduce((a, x) => a + (x.kind === 'segment' ? x.segment.frames : x.kind === 'intro' ? (g?.intro ? cardFrames(g.intro) : 0) : (g?.outro ? cardFrames(g.outro) : 0)), 0)
-            done += totalWork * d.frames / Math.max(1, allFrames)
-            cursorFrames += d.frames
-            return true
+        /** Keeps a finished unit (its log is closed) in the cache. Never fails the render: no room, no storage or a skipped graphic just means it is not kept. */
+        const keepUnit = async (u: number, startFrame: number, env: UnitEnv): Promise<void> => {
+            if (!store || !cacheOn || !reuse || !vConfig || report.skipped.length > 0) return
+            try {
+                const key = await unitKeyOf(u)
+                const description = encodeDescription(vConfig.description)
+                if (!key || !description) return
+                const expected = unitFrames(u)
+                const unitBytes = expected * frameSec * out.videoBitrate / 8
+                const free = await store.free()
+                // Keep the room the render itself still needs (its output file is written when the units are done).
+                if (free !== null && free < unitBytes * 1.3 + fullFrames * frameSec * out.videoBitrate / 8 * 1.3) return
+                const startSec = startFrame * frameSec
+                let videoFrames = 0
+                async function* rel(): AsyncGenerator<LogRecord> { for await (const r of readUnit(jobKind, u)) { if (r.track === 0) videoFrames++; yield { ...r, timestamp: r.timestamp - startSec } } }
+                if (!(await store.save(key, rel(), { applied: [...env.labels], video: { codec: vConfig.codec, description } }))) { cacheOn = false; return }
+                if (videoFrames !== expected) { await store.remove(key); return } // not every frame was drawn: not a unit to reuse
+                usedKeys.set(u, key)
+            } catch { /* not kept */ }
         }
-        const saveUnit = async (u: number, d: UnitDescriptor, key: string, appliedBefore: number): Promise<void> => {
-            const startSec = d.startFrame * frameSec
-            async function* rel(): AsyncGenerator<LogRecord> { for await (const r of readUnit(jobKind, u)) yield { ...r, timestamp: r.timestamp - startSec } }
-            await exp!.unitCache!.save(key, rel(), report.applied.slice(appliedBefore))
-        }
+        const fullFrames = units.reduce((a, _, u) => a + unitFrames(u), 0)
 
         // ---- segments encoded concurrently, each with its own decoder, encoder, canvas and WebGL scaler ----
         /** A hardware encoder that failed is replaced by a software one (once per failure); false when there is nothing to fall back to. */
@@ -599,15 +686,19 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                     const t1 = now()
                     try {
                         env.writer = await openUnit(jobKind, job.u)
-                        const endCut = diag.begin('cuts')
-                        try { await runSegment(env, (units[job.u] as { segment: Segment }).segment, job.start, true) } finally { endCut() }
-                        await env.writer.close()
+                        const fromCache = await restoreUnit(job.u, job.start, env)
+                        if (!fromCache) {
+                            const endCut = diag.begin('cuts')
+                            try { await runSegment(env, (units[job.u] as { segment: Segment }).segment, job.start, true) } finally { endCut() }
+                        }
+                        await env.writer!.close()
                         env.writer = null
                         job.work = env.work
                         finished.add(job)
                         stats.unitSpans.push({ unit: job.u, startMs: t1 - perfStart, endMs: now() - perfStart })
                         saveProgress()
                         reportProgress()
+                        if (!fromCache) await keepUnit(job.u, job.start, env)
                     } catch (e) {
                         // Whatever this unit credited is taken back (the unit goes again, or the render stops): the shown progress only waits.
                         done -= env.work
@@ -643,19 +734,16 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                     continue
                 }
                 const snapshot = { cursorFrames, done }
-                const desc = exp?.unitCache && journal ? describeUnit(u) : null
-                const key = desc ? exp!.unitCache!.keyOf(desc) : null
                 const uStart = now()
                 for (let attempt = 0; ; attempt++) {
                     if (journal) mainEnv.writer = await openUnit(jobKind, u)
+                    mainEnv.labels = new Set()
                     try {
-                        if (key && desc && await restoreUnit(u, desc, key)) break
-                        const appliedBefore = report.applied.length
+                        if (journal && await restoreUnit(u, cursorFrames, mainEnv)) { cursorFrames += unitFrames(u); break }
+                        const startFrame = cursorFrames
                         await runUnit(u)
-                        if (key && desc && journal) {
-                            // Saved after the unit's log is closed (below), only when the unit really drew all its frames.
-                            pendingSave = cursorFrames - desc.startFrame === desc.frames ? () => saveUnit(u, desc, key, appliedBefore) : null
-                        }
+                        // Kept after the unit's log is closed (below), only when the unit really drew all its frames.
+                        pendingSave = journal && cursorFrames - startFrame === unitFrames(u) ? () => keepUnit(u, startFrame, mainEnv) : null
                         break
                     } catch (e) {
                         await mainEnv.writer?.abort()
@@ -684,11 +772,23 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             const finalVideo: VideoDecoderConfig = vConfig
             let file: File | Blob
             if (journal) {
-                onProgress({ cutIndex: cuts.length - 1, cutCount: cuts.length, fraction: 1, stage: 'Saving' })
+                onProgress({ cutIndex: cuts.length - 1, cutCount: cuts.length, fraction: 1, stage: 'Saving', ...(reusedActual > 0 ? { reused: { units: reusedActual, of: keyedUnits } } : {}) })
                 const endMux = diag.begin('finalize')
                 file = await muxUnits(jobKind, journal.state.outputName, units.length, 'avc', hasAudio ? 'aac' : null, finalVideo, aConfig, signal, exp?.targetFile)
                 await discardJob(jobKind)
                 endMux()
+                // This export becomes the kind's "last export" in the cache: the parts it used stay, older ones go.
+                if (store && cacheOn && reuse && usedKeys.size > 0) {
+                    const sections: { k: string; u: string[] }[] = []
+                    const section = async (part: string | null, us: number[]): Promise<void> => {
+                        const ks = us.map((u) => usedKeys.get(u))
+                        if (part && us.length > 0 && ks.every((k): k is string => !!k)) sections.push({ k: await digest(part), u: ks })
+                    }
+                    await section(reuse.intro, units.flatMap((x, u) => (x.kind === 'intro' ? [u] : [])))
+                    await section(reuse.outro, units.flatMap((x, u) => (x.kind === 'outro' ? [u] : [])))
+                    for (const [vi, v] of valid.entries()) await section(reuse.wholeCut(v.ci), units.flatMap((x, u) => (x.kind === 'segment' && x.segment.cutIndex === vi ? [u] : [])))
+                    await store.finish(reuse.which, { units: [...usedKeys.entries()].sort((x, y) => x[0] - y[0]).map(([, k]) => k), sections })
+                }
             } else {
                 const endFin = diag.begin('finalize')
                 await direct!.output.finalize()
@@ -698,6 +798,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             if (timingsKnown) opts.onTimeline?.(timings)
             opts.onGraphics?.(report)
             stats.units = units.length
+            if (keyedUnits > 0) stats.reused = { units: reusedActual, of: keyedUnits }
             if (shrinks) stats.scalePath = `${scaled.direct} by the encoder, ${scaled.webgl} by WebGL, ${scaled.canvas} by the 2D canvas`
             opts.onStats?.(stats)
             return file

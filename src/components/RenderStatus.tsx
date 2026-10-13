@@ -20,6 +20,9 @@ interface RenderStatusProps {
 const STOPPED_NOTE_MS = 5000
 const NAMES: Record<JobKind, string> = { highlights: 'highlights', fullMatch: 'full match', clip: 'clip' }
 
+/** "Reused 6 of 9 parts from your last export": what the unit cache saved this render. */
+export const reusedLine = (r: { units: number; of: number }): string => `Reused ${r.units} of ${r.of} parts from your last export`
+
 /** The render's progress, Cancel (confirmed in place; once confirmed the box goes at once), skipped graphics, and the downloaded file. */
 export function RenderStatus({ kind }: RenderStatusProps) {
     const stopping = useRenderJobs((s) => s.stopping)
@@ -130,6 +133,7 @@ function RenderStatusBody({ kind, onStopped }: RenderStatusProps & { onStopped: 
             {job.phase === 'running' && busyBox(`${keepOpenNotice(navigator)}${conflict ? ' One render at a time.' : ''}`, `${Math.round(job.fraction * 100)}%`)}
             {job.phase === 'running' && phone && <p className="export-hint m-0">Keep the screen on, the tab open and the device plugged in.</p>}
             {etaText && <p className="export-hint m-0" aria-label="Time left">{etaText}</p>}
+            {job.reused && job.reused.units > 0 && job.phase !== 'failed' && <p className="export-hint m-0">{reusedLine(job.reused)}</p>}
             {job.phase === 'running' && <p className="render-voice voice-heading">{POLISHING}</p>}
             <div role="status" className="tc export-hint">{job.phase === 'failed' ? `Render failed: ${job.error}` : job.status}</div>
             <SkippedList skipped={skipped} />

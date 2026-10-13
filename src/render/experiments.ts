@@ -1,29 +1,5 @@
 // Engine switches for the /bench "Experiments" section. Every field is optional and nothing here is reachable from the editor:
 // with `RenderOptions.experiments` omitted the engines use their defaults (including parallel units, #1).
-import type { LogRecord } from './packetLog'
-
-/** What a cached render unit is, as the engine knows it (the bench turns this into a hash of the unit's inputs). */
-export type UnitDescriptor = {
-    kind: 'intro' | 'outro' | 'segment'
-    /** Index into the cuts passed to the render (segments only). */
-    cutIndex?: number
-    firstFrame?: number
-    /** Segments: the stretch of source footage the unit draws on, seconds. */
-    sourceStartSec?: number
-    sourceEndSec?: number
-    frames: number
-    /** First output frame of the unit on the output timeline. */
-    startFrame: number
-}
-
-/** Bench-only prototype store for finished units, keyed by a hash of their inputs (#2, segment cache). */
-export type UnitCache = {
-    keyOf: (u: UnitDescriptor) => string | null
-    /** Reads a stored unit; records come back with timestamps relative to the unit start. Null = miss. */
-    load: (key: string) => Promise<{ records: AsyncIterable<LogRecord>; applied: string[] } | null>
-    /** Stores a finished unit (records relative to the unit start). */
-    save: (key: string, records: AsyncIterable<LogRecord>, applied: string[]) => Promise<void>
-}
 
 export type RenderExperiments = {
     /** #1: units encoded at the same time. The engine's default is PARALLEL_UNITS (2) for journaled renders; the bench forces 1, 2 or 3 here. */
@@ -36,8 +12,8 @@ export type RenderExperiments = {
     encodeQueue?: number
     /** #9: decoded pictures read ahead of the painting/encoding loop (default 0 = only what Mediabunny itself queues). */
     decodeAhead?: number
-    /** #2: bench-only unit cache. */
-    unitCache?: UnitCache
+    /** #2: false turns the unit cache off for this render (it is on whenever the caller supplies `RenderOptions.reuse`). */
+    unitCache?: boolean
     /** #4: write the final MP4 straight into this user-chosen file instead of OPFS. */
     targetFile?: FileSystemFileHandle
     /** #6: Original highlights only re-encode the GOPs under the part of an overlay that is actually visible. */
@@ -61,6 +37,8 @@ export type PipelineStats = {
     /** Wall time of each unit relative to the first unit's start, ms (shows whether units overlapped). */
     unitSpans: { unit: number; startMs: number; endMs: number }[]
     scalePath?: string
+    /** Units that came from the unit cache, and how many units were cacheable. */
+    reused?: { units: number; of: number }
 }
 
 export const emptyStats = (): PipelineStats => ({ frames: 0, units: 0, decodeWaitMs: 0, paintMs: 0, encodeCallMs: 0, backpressureMs: 0, drainMs: 0, unitSpans: [] })

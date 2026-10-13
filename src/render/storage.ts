@@ -1,3 +1,5 @@
+import { unitCacheBytes } from './unitCache'
+
 // The browser's private storage (OPFS) that renders write into. It has a per-site cap set by the browser
 // (a share of the disk on a computer, far less in a private window or on a phone), separate from free disk space.
 
@@ -28,8 +30,8 @@ export async function clearOldOutputs(keep?: string): Promise<number> {
 
 const gb = (bytes: number): string => `${(bytes / 1e9).toFixed(bytes >= 1e10 ? 0 : 1)} GB`
 
-/** A plain explanation, with the browser's own numbers when it gives them. */
-export async function storageFullMessage(): Promise<string> {
+/** A plain explanation, with the browser's own numbers when it gives them. `cleared`: the saved parts of earlier exports were just deleted to make room. */
+export async function storageFullMessage(cleared = false): Promise<string> {
     let room = ''
     try {
         const { quota, usage } = await navigator.storage.estimate()
@@ -37,13 +39,19 @@ export async function storageFullMessage(): Promise<string> {
     } catch { /* no estimate */ }
     return `Not enough browser storage for this render (this is the browser's limit for the site, not your disk).${room}`
         + ' Free up disk space, use a normal (not private) window on a computer, or render the preview.'
+        + (cleared ? ' The saved parts of earlier exports were cleared, so trying again may work.' : '')
 }
 
 export type StorageRoom = {
     quota: number
-    /** Space a new render could use: quota minus usage, plus the old renders `clearOldOutputs()` deletes first. */
+    /** Space a new render could use: quota minus usage, plus the old renders `clearOldOutputs()` deletes first and the saved parts of earlier exports (the unit cache), which a render evicts before it would run short. */
     free: number
+    /** Of `free`: what the unit cache holds. */
+    cache?: number
 }
+
+/** Deletes the unit cache (saved parts of earlier exports). The next export of a kind then encodes everything. Never throws. */
+export { clearUnitCache as clearSavedParts } from './unitCache'
 
 /** The browser's size of this site's storage, and how much of it a render could use; null when the browser will not say. */
 export async function storageRoom(): Promise<StorageRoom | null> {
@@ -60,6 +68,7 @@ export async function storageRoom(): Promise<StorageRoom | null> {
                 }
             }
         } catch { /* cannot list: count nothing as reclaimable */ }
-        return { quota, free: Math.max(0, quota - (usage ?? 0) + reclaimable) }
+        const cache = await unitCacheBytes()
+        return { quota, free: Math.max(0, quota - (usage ?? 0) + reclaimable + cache), ...(cache > 0 ? { cache } : {}) }
     } catch { return null }
 }

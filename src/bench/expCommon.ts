@@ -29,7 +29,8 @@ export type ExpCtx = {
 export type Measure = { wallMs: number; bytes?: number; detail?: Record<string, unknown>; notes?: string[] }
 
 export const KEEP_DIR = 'exp-keep'
-export const CACHE_DIR = 'unit-cache'
+export { CACHE_DIR } from '../render/unitCache'
+import { CACHE_DIR } from '../render/unitCache'
 
 /** Length of the excerpt actually used (never longer than the file). */
 export const excerptLen = (ctx: ExpCtx, max = Infinity): number => Math.max(5, Math.min(ctx.excerptSec, max, Math.floor(ctx.probe.durationSec)))

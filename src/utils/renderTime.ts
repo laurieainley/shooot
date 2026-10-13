@@ -288,12 +288,21 @@ export function workInputOf(plan: { cuts: Cut[]; spec?: { intro?: unknown; outro
  */
 export function estimateRenderTime(
     input: WorkInput,
-    o: { output: OutputQuality; facts?: SourceFacts | null; device?: DeviceClass; rates?: Rates | null },
+    o: { output: OutputQuality; facts?: SourceFacts | null; device?: DeviceClass; rates?: Rates | null; reused?: ReusedParts | null },
 ): TimeEstimate {
     const device = o.device ?? detectDeviceClass()
     const work = planWork(input, { facts: o.facts ?? DEFAULT_FACTS, output: o.output, coef: DEFAULT_COEF[device] })
     // Learned ratios are measured against this same (parallel-adjusted) model, so the speed-up is counted once.
-    return estimateFromWork(work.seconds * parallelFactor(device, o.output), o.output, o.rates === undefined ? loadRates() : o.rates)
+    return estimateFromWork(Math.max(0, work.seconds - reusedSeconds(work, o.reused)) * parallelFactor(device, o.output), o.output, o.rates === undefined ? loadRates() : o.rates)
+}
+
+/** Parts of a re-encode that the unit cache holds from the last export (render/unitCache `reusableParts`): they cost no encoding. */
+export type ReusedParts = { intro: boolean; outro: boolean; cuts: boolean[] }
+
+/** Model seconds of the sections that will be reused. */
+export function reusedSeconds(work: WorkPlan, reused: ReusedParts | null | undefined): number {
+    if (!reused) return 0
+    return work.sections.reduce((a, sec) => a + ((sec.kind === 'intro' ? reused.intro : sec.kind === 'outro' ? reused.outro : !!reused.cuts[sec.index]) ? sec.seconds : 0), 0)
 }
 
 // ---- learned rates (localStorage) ----
@@ -341,6 +350,6 @@ export function expectedWallSeconds(modelSeconds: number, path: RatePath, rates:
 }
 
 /** The stable entry point for the Export UI: seconds / low / high / basis for a plan (cuts + graphics spec) at an output quality. */
-export function estimateRenderSeconds(plan: Parameters<typeof workInputOf>[0], output: OutputQuality, facts: SourceFacts | null): TimeEstimate {
-    return estimateRenderTime(workInputOf(plan, { card: CARD_SEC, sting: STING_SEC }), { output, facts })
+export function estimateRenderSeconds(plan: Parameters<typeof workInputOf>[0], output: OutputQuality, facts: SourceFacts | null, reused?: ReusedParts | null): TimeEstimate {
+    return estimateRenderTime(workInputOf(plan, { card: CARD_SEC, sting: STING_SEC }), { output, facts, reused })
 }

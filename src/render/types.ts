@@ -1,6 +1,7 @@
 import type { DiagnosticsReport } from './diagnostics'
 import type { ReencodeQuality } from './transcodePlan'
 import type { PipelineStats, RenderExperiments } from './experiments'
+import type { ReuseKeys } from './unitCache'
 export type Cut = {
     sourceIndex: number
     startSec: number
@@ -34,6 +35,8 @@ export type RenderProgress = {
     stage?: string     // e.g. "Title card" while a graphic is being made
     /** Sent once at the start: the cost model's estimate of the whole render in seconds on a typical device of this class (see utils/renderTime). */
     estimateSec?: number
+    /** Re-encodes with a unit cache: how many of the render's parts came from the last export instead of being encoded. */
+    reused?: { units: number; of: number }
 }
 
 /** Draws one frame of a graphic at `tSec` into a context the size of the output video (cleared beforehand). */
@@ -104,6 +107,11 @@ export type RenderOptions = {
      * identifies the render (plan, sources, graphics): a saved job with another signature is discarded.
      */
     resumable?: { signature: string; kind: 'highlights' | 'fullMatch' }
+    /**
+     * Re-encodes (journaled) only: what the caller knows about each part, so the engine can reuse parts of the last export of the
+     * same kind that no edit touched (see unitCache.ts). Omitted = nothing is cached or reused.
+     */
+    reuse?: ReuseKeys
     /** Benchmarks only: opt-in speed-up experiments (see experiments.ts). Omitted = production behaviour. */
     experiments?: RenderExperiments
     /** Benchmarks: called at the end of a render with cheap counters (re-encode time breakdown, re-encoded spans). */

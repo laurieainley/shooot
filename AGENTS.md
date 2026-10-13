@@ -116,6 +116,16 @@ npm run lint       # baseline: 12 known problems — add none
   `VideoDecoder`/`VideoEncoder.isConfigSupported` says no. Audio: AAC is copied, anything else is encoded to AAC at 160 kbps.
   Resumable: units are the cards and ≤ 2-minute segments of output, each with its own encoder and a key frame at its
   start (an interruption loses at most the unit in progress); the output quality is part of the job signature.
+  **Unit cache** (`render/unitCache.ts`): journaled re-encodes pass `RenderOptions.reuse` (`buildReuseKeys`, made by
+  `components/renderRequest.ts reuseKeysFor`: footage identity, cut, graphics overlapping the unit, theme, logo hash, quality/bitrate).
+  The engine adds its own facts (`unitFacts`: size, fps, key interval, encoder + hardware, scale path, audio) and `RENDER_VERSION`, hashes
+  them to a unit key, and `restoreUnit` copies a cached unit's packets into the unit log (video back onto the frame grid, audio shifted)
+  instead of encoding; `keepUnit` stores each finished unit (never when a graphic was skipped, the unit lacks frames or there is no room).
+  Works in both the serial loop and `runParallel`. `planSegments(..., { stable: true })` keeps unit boundaries per cut. OPFS `unit-cache/`
+  holds `<key>.bin` + `<key>.json` + `manifest.json` (the last export per kind); `finish()` prunes to that and the cap (`planEviction`).
+  **When anything that changes pixels or packets changes (painters, themes, fonts, engine), bump `RENDER_VERSION`.** A cache read error is a
+  miss. `storageRoom()` counts the cache as free; `clearSavedParts()` deletes it. Estimates: `reusableParts()` + `estimateRenderTime({ reused })`;
+  `RenderProgress.reused` -> `RenderJob.reused` -> the "Reused N of M parts" line in `RenderStatus`; reused runs are not recorded as learned rates.
   **Storage fit and time:** `applyStorageFit()` (utils/outputQuality.ts) greys out options bigger than the site's free
   storage (`storageRoom()` in render/storage.ts: quota − usage + old outputs `clearOldOutputs()` frees, 10% margin) and
   auto-picks the largest that fits; no `estimate()` means no blocking. Time hints and the live ETA come from the render time
@@ -249,8 +259,7 @@ npm run lint       # baseline: 12 known problems — add none
   one Start runs them all. Results go to a comparison table and into Copy results / Share JSON as an `experiments` array (existing shape
   unchanged). Every engine switch lives in `RenderOptions.experiments` (`render/experiments.ts`) and is **off by default**: with it omitted
   the editor's render paths behave exactly as before. Switches: `parallelUnits` + `segmentSec` (#1, now the default of 2; the bench forces 1, 2 or 3 and a small
-  segment length), `unitCache` (#2, bench-only unit cache
-  in OPFS keyed by an input hash), `targetFile` (#4, mux straight into a `showSaveFilePicker` file), `OverlayBitmapCache` passed to
+  segment length), `unitCache: false` (#2, switches the production unit cache off; the segment-cache experiment turns it on by passing `reuse` keys), `targetFile` (#4, mux straight into a `showSaveFilePicker` file), `OverlayBitmapCache` passed to
   `prepareSpec` (#5, still stretches of captions/bug/tag drawn from bitmaps), `tightSpans` (#6, Original highlights re-encode only the
   visible part of each overlay window), `latencyMode` (#7), `encodeQueue` + `decodeAhead` (#9). #3 (render while a `<video>` plays) and #10
   (the engine in `renderWorker.ts`; graphics build in the worker through `self.fonts`) are bench-only. The re-encode now always counts

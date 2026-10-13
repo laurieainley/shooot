@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect, vi } from 'vitest'
-import { clearOldOutputs, isStorageFull, storageFullMessage } from './storage'
+import { clearOldOutputs, isStorageFull, storageFullMessage, storageRoom } from './storage'
 
 const fakeRoot = (names: [string, 'file' | 'directory'][]) => {
     const left = new Map(names)
@@ -33,5 +33,16 @@ describe('render storage', () => {
         const msg = await storageFullMessage()
         expect(msg).toMatch(/not your disk/)
         expect(msg).toMatch(/about 4\.0 GB and 0\.5 GB of that is free/)
+    })
+})
+
+describe('storage room and the unit cache', () => {
+    it('should count the saved parts of earlier exports as room (a render evicts them before it would run short)', async () => {
+        const file = (size: number) => ({ kind: 'file', getFile: async () => ({ size }) })
+        const cacheDir = { kind: 'directory', entries: async function* () { yield ['a.bin', file(300)]; yield ['a.json', file(10)] }, getDirectoryHandle: async () => cacheDir }
+        const root = { entries: async function* () { yield ['old.mp4', file(100)] }, getDirectoryHandle: async (n: string) => { if (n === 'unit-cache') return cacheDir; throw new Error('none') } }
+        vi.stubGlobal('navigator', { storage: { estimate: async () => ({ quota: 1000, usage: 500 }), getDirectory: async () => root } })
+        const room = await storageRoom()
+        expect(room).toEqual({ quota: 1000, free: 500 + 100 + 310, cache: 310 })
     })
 })

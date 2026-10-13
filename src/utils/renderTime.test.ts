@@ -242,3 +242,19 @@ describe('parallel units in the estimate', () => {
         expect(foldRate(null, 'original', 100, 90).original?.par).toBeUndefined()
     })
 })
+
+describe('estimates with parts reused from the last export', () => {
+    const facts: SourceFacts = { width: 3840, height: 2160, codec: 'hevc', fps: 30, bytesPerSec: 90e6 / 8 }
+    const input: WorkInput = {
+        cuts: Array.from({ length: 9 }, (_, i) => ({ startSec: 100 * i, endSec: 100 * i + 20 })),
+        overlays: [], introSec: 4, outroSec: 4,
+    }
+    const est = (reused?: { intro: boolean; outro: boolean; cuts: boolean[] }) => estimateRenderTime(input, { output: '1080p', facts, device: 'desktop', rates: null, reused }).seconds
+    it('should take less time the more parts are reused, and nothing reused changes nothing', () => {
+        const none = { intro: false, outro: false, cuts: Array.from({ length: 9 }, () => false) }
+        expect(est(none)).toBeCloseTo(est(undefined))
+        const most = { intro: true, outro: false, cuts: Array.from({ length: 9 }, (_, i) => i !== 3) }
+        expect(est(most)).toBeLessThan(est(none) * 0.3)
+        expect(est(most)).toBeGreaterThan(0)
+    })
+})
