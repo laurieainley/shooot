@@ -768,16 +768,16 @@ describe('Find goals: Advanced detection (Labs)', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Skip — use the whole video' }))
         expect(startDetectionMock).toHaveBeenCalledWith({ wholeVideo: true, ball: false })
     })
-    it('should be disabled and unticked with no goals marked, pointing to Match setup', () => {
+    it('should be disabled and unticked with no goal posts, opening the goal set-up', () => {
         useAppState.setState({ labs: true, goalMarks: null })
         render(<SuggestionReview onClose={() => {}} />)
         open()
         const box = screen.getByRole('checkbox', { name: new RegExp(TICK) }) as HTMLInputElement
         expect(box.checked).toBe(false)
         expect(box.disabled).toBe(true)
-        expect(screen.getByText('Mark the goals in Match setup first.')).toBeTruthy()
-        fireEvent.click(screen.getByRole('button', { name: 'Open Match setup' }))
-        expect(useAppState.getState().panel).toBe('match')
+        expect(screen.getByText('Identify the goal posts first.')).toBeTruthy()
+        fireEvent.click(screen.getByRole('button', { name: 'Identify goal posts' }))
+        expect(screen.getByRole('dialog', { name: 'Goal set-up' })).toBeTruthy()
     })
     it('should no longer show the post-run Match setup hint', () => {
         useAppState.setState({ labs: true, goalMarks: null })

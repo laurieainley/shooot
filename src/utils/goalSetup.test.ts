@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { GoalMarks } from '../types'
 import { MIN_BOX_W } from './crop'
 import {
-    clampViewPan, contentSize, cropImageStyle, guessNextPoint, mapTapToBox, panBox, panToCentre, pinchBox, stepBox, viewToFrame, zoomViewAt,
+    clampViewPan, contentSize, cropImageStyle, guessNextPoint, mapTapToBox, panBox, panToCentre, pinchBox, stepBox, thumbnailTimes, viewToFrame, zoomViewAt,
 } from './goalSetup'
 
 const VP = { width: 400, height: 600 }
@@ -204,5 +204,18 @@ describe('cropImageStyle', () => {
     })
     it('should be the identity for the whole frame', () => {
         expect(cropImageStyle({ x: 0, y: 0, w: 1, h: 1 })).toEqual({ width: '100%', height: '100%', left: '0%', top: '0%' })
+    })
+})
+
+describe('thumbnailTimes', () => {
+    it('should spread six moments across the video, skipping the first and last 5%', () => {
+        const t = thumbnailTimes(1000)
+        expect(t).toHaveLength(6)
+        expect(t[0]).toBeCloseTo(50)
+        expect(t[5]).toBeCloseTo(950)
+        expect(t[1] - t[0]).toBeCloseTo(t[2] - t[1])
+    })
+    it('should give nothing for an unknown duration', () => {
+        expect(thumbnailTimes(0)).toEqual([])
     })
 })

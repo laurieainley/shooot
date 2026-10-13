@@ -1,5 +1,5 @@
 import { useAppState } from '../state'
-import { GoalAreasSetup } from './GoalAreasSetup'
+import { GoalSetupSection } from './goalSetup/GoalSetupSection'
 import { MatchDetails } from './MatchDetails'
 import { Sheet } from './Sheet'
 
@@ -15,7 +15,7 @@ export function MatchSetup({ onClose }: MatchSetupProps) {
         <Sheet label="Match setup" onClose={onClose} className="sheet--wide">
             <MatchDetails />
             <p className="m-0 mt-2 text-[12px] text-muted">Teams and rosters are remembered for next time.</p>
-            {hasFiles && <GoalAreasSetup />}
+            {hasFiles && <GoalSetupSection />}
             <div className="sheet__actions">
                 <span className="flex-1" />
                 <button type="button" className="btn-primary" onClick={onClose}>Done</button>

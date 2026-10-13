@@ -116,3 +116,13 @@ export function cropImageStyle(r: CropRect): { width: string; height: string; le
         top: `${(-r.y / r.h) * 100}%`,
     }
 }
+
+const EDGE_SKIP = 0.05
+
+/** Times for the picture thumbnails: `count` moments spread across the video, skipping its first and last 5%. */
+export function thumbnailTimes(durationSec: number, count = 6): number[] {
+    if (!(durationSec > 0) || count < 1) return []
+    const from = durationSec * EDGE_SKIP, to = durationSec * (1 - EDGE_SKIP)
+    if (count === 1) return [(from + to) / 2]
+    return Array.from({ length: count }, (_, i) => from + ((to - from) * i) / (count - 1))
+}

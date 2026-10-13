@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import { NewMatchFlow } from './NewMatchFlow'
 
-vi.mock('./GoalAreasSetup', () => ({ GoalAreasSetup: () => <section aria-label="Goal areas" /> }))
+vi.mock('./goalSetup/GoalSetupSection', () => ({ GoalSetupSection: () => <section aria-label="Goal areas" /> }))
 vi.mock('./AddFilesButton', () => ({ AddFilesButton: ({ label }: { label: string }) => <button type="button">{label}</button> }))
 vi.mock('../graphics/logoStore', () => ({ loadCustomLogo: vi.fn(async () => null), saveCustomLogo: vi.fn(), clearCustomLogo: vi.fn() }))
 
