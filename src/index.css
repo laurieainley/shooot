@@ -41,6 +41,8 @@
   color-scheme: dark;
 }
 @media (pointer: coarse) { :root { --sh-text-xs: 14px; } }
+/* Large desktop screens (full screen at arm's length): one step up across the scale. */
+@media (min-width: 1600px) and (pointer: fine) { :root { --sh-text-xs: 14px; --sh-text-sm: 15px; --sh-text-md: 16px; --sh-text-lg: 18px; --sh-text-xl: 22px; } }
 :root[data-theme="light"] { color-scheme: light; }
 /* Light theme, softened for the editor (app-level override of the pack's light values): no pure-white fields, so lime
    and the red REC dot sit calmly. Dark keeps the pack's values. --sh-lime-edge anchors lime fills on light grounds;
