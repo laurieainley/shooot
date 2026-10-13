@@ -105,7 +105,26 @@ describe('ClipDownload', () => {
         render(<ClipDownload event={goal} />)
         await open()
         await userEvent.click(screen.getByRole('button', { name: 'Download' }))
-        expect(await screen.findByText(/Downloading .+\.mp4/)).toBeInTheDocument()
+        const name = await screen.findByTitle(/\.mp4$/)
+        expect(name.className).toMatch(/truncate/)
+        expect(name.parentElement?.textContent).toMatch(/^Downloaded:.+\.mp4$/)
+    })
+
+    it('should offer a quiet Cancel while the clip renders, and return to the start state without an error', async () => {
+        render(<ClipDownload event={goal} />)
+        await open()
+        expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
+        await userEvent.click(screen.getByRole('button', { name: 'Download' }))
+        await waitFor(() => expect(renderReel).toHaveBeenCalled())
+        const cancel = screen.getByRole('button', { name: 'Cancel' })
+        expect(cancel).toHaveClass('btn-quiet')
+        expect(cancel).not.toHaveClass('btn-primary')
+        await userEvent.click(cancel)
+        expect(renderReel.mock.calls[0][2].signal.aborted).toBe(true)
+        expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
+        expect(screen.queryByText(/Rendering clip/)).toBeNull()
+        expect(screen.queryByText(/failed/i)).toBeNull()
+        expect(screen.getByRole('button', { name: 'Download' })).toHaveClass('btn-primary')
     })
 
     it('should show the error when the clip failed', async () => {
