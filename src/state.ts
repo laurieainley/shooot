@@ -36,7 +36,7 @@ export interface DiscardEntry { prev: Suggestion; top: MatchEvent[] | undefined;
 
 export type Panel = 'menu' | 'files' | 'match' | 'newmatch' | 'settings' | 'import' | 'export' | 'event' | 'send' | 'shortcuts' | 'review'
 
-type AppState = {
+export type AppState = {
     files: VideoSourceFile[]
     events: MatchEvent[]
     cumulativeOffsets: number[]
