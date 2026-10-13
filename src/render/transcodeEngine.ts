@@ -643,6 +643,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 const free = await store.free()
                 // Keep the room the render itself still needs (its output file is written when the units are done).
                 if (free !== null && free < unitBytes * 1.3 + fullFrames * frameSec * out.videoBitrate / 8 * 1.3) return
+                if (!(await store.hasRoomFor(unitBytes * 1.1))) return // the cache cap holds while an export runs, not only when it ends
                 const startSec = startFrame * frameSec
                 let videoFrames = 0
                 async function* rel(): AsyncGenerator<LogRecord> { for await (const r of readUnit(jobKind, u)) { if (r.track === 0) videoFrames++; yield { ...r, timestamp: r.timestamp - startSec } } }
@@ -821,6 +822,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             }
             // A cancelled render is forgotten; anything else (a frozen tab, a failure) can be resumed.
             if (journal && isAbort(e)) await discardJob(jobKind)
+            if (store && isAbort(e)) await store.trim() // the parts a cancelled export saved are not any kind's "last export"
             if (!isAbort(e)) diag.note(`Re-encode failed: ${errorInfo(e).message}`)
             throw e
         }

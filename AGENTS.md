@@ -271,6 +271,12 @@ npm run lint       # baseline: 12 known problems — add none
   **The three device presets currently tick ONLY #11** (no stages, deliver off; `ALL_EXPERIMENTS` still lists everything). How the highlights engine picks its re-encoded span is described at the top of `experiments/tightSpans.ts`.
 - **Deploys while a tab is open:** stale lazy chunks are recovered by one guarded reload (`staleBuildRecovery.ts`);
   the render engine is warmed at idle.
+- **Storage audit / bench Storage section:** `/bench` → Storage (`src/bench/storageInspect.ts`) shows `storage.estimate()` and every top-level OPFS entry with
+  total size and file count (folders summed), with "Clear bench files" (outputs, kept copies, bench cache, the full-match job) and "Clear everything this site stored"
+  (confirm; also drops saved export progress and saved parts). The same list is in the report as `device.storage.opfs`. Audit fixes: `makeTarget().discard()` aborts its
+  writable (a never-closed writable keeps a swap copy); `canJournal` removes its probe file; unit-cache manifest/meta writables abort on a failed write; the cache cap is checked
+  while an export saves parts (`hasRoomFor`, counting only parts newer than the last export) and a cancelled export `trim()`s what it saved. Not leaks by design: one finished output
+  stays until the next render, one saved job folder per kind stays after a failed (not cancelled) export, bench kept copies stay until the next run or "Clean up storage".
 - **Per-origin storage:** saved projects live in the browser per domain; moving domains loses them unless exported.
 
 ## 7. Code conventions

@@ -5,6 +5,7 @@ import { collectDevice } from './deviceInfo'
 import { experimentRows, formatResult, summaryText, type BenchReport, type ExperimentId, type ExperimentResult, type StageId, type StageResult } from './results'
 import { EXPERIMENTS, EXPERIMENT_MINUTES, runExperiment, warmUp } from './experiments'
 import { clearKept } from './expCommon'
+import { clearAllOpfs, clearBenchFiles, listOpfs, mb, type OpfsEntry } from './storageInspect'
 import { hasSavePicker } from './experiments/directSave'
 import { ALL_EXPERIMENTS, PRESETS, detectPreset, type PresetId } from './presets'
 import { VIDEO_BITRATE } from '../utils/outputQuality'
@@ -40,12 +41,25 @@ export function BenchPage() {
     const [kept, setKept] = useState<{ url: string; name: string } | null>(null)
     const [artifacts, setArtifacts] = useState<{ url: string; name: string }[]>([])
     const [copied, setCopied] = useState('')
+    const [store, setStore] = useState<{ quota: number | null; usage: number | null; opfs: OpfsEntry[] } | null>(null)
     const abort = useRef<AbortController | null>(null)
     const lock = useRef<WakeLockSentinel | null>(null)
     const video = useRef<HTMLVideoElement | null>(null)
     const startedAt = useRef(new Date().toISOString())
 
     useEffect(() => { void collectDevice().then(setDevice) }, [])
+    const refreshStorage = async (): Promise<void> => {
+        let quota: number | null = null
+        let usage: number | null = null
+        try { const e = await navigator.storage.estimate(); quota = e.quota ?? null; usage = e.usage ?? null } catch { /* no estimate */ }
+        setStore({ quota, usage, opfs: await listOpfs() })
+    }
+    useEffect(() => { void refreshStorage() }, [])
+    const clearBench = async (): Promise<void> => { await clearBenchFiles(); setKept(null); setArtifacts([]); await refreshStorage() }
+    const clearAll = async (): Promise<void> => {
+        if (!window.confirm('Delete everything this site stored in the browser file area? This also drops saved export progress (a half-finished export cannot be resumed) and the saved parts of earlier exports (the next export re-encodes everything). Your projects and settings are not touched.')) return
+        await clearAllOpfs(); setKept(null); setArtifacts([]); await refreshStorage()
+    }
     const suggested = useMemo(() => detectPreset({ userAgent: navigator.userAgent, platform: navigator.platform, maxTouchPoints: navigator.maxTouchPoints }), [])
 
     const acquire = async (): Promise<void> => { try { lock.current = await navigator.wakeLock?.request('screen') ?? null } catch { lock.current = null } }
@@ -55,7 +69,7 @@ export function BenchPage() {
         return () => document.removeEventListener('visibilitychange', again)
     }, [running])
 
-    const report = (): BenchReport => ({ startedAt: startedAt.current, page: location.href, device: device ?? {}, results, experiments: expResults })
+    const report = (): BenchReport => ({ startedAt: startedAt.current, page: location.href, device: device ? { ...device, storage: { ...(device.storage as object), ...(store?.opfs ? { opfs: store.opfs } : {}) } } : {}, results, experiments: expResults })
 
     const applyPreset = (id: PresetId): void => {
         const p = PRESETS[id]
@@ -157,6 +171,7 @@ export function BenchPage() {
         } finally {
             setStatus(ctrl.signal.aborted ? 'Stopped' : 'Finished')
             setRunning(false)
+            void refreshStorage()
             await lock.current?.release().catch(() => undefined)
             lock.current = null
         }
@@ -196,6 +211,22 @@ export function BenchPage() {
             <section>
                 <h2>This device</h2>
                 <pre>{device ? JSON.stringify(device, null, 1) : 'Checking…'}</pre>
+            </section>
+
+            <section>
+                <h2>Storage</h2>
+                <p className="small">The browser says this site may use {store?.quota ? mb(store.quota) : '?'} and uses {store?.usage != null ? mb(store.usage) : '?'}. Its file area (OPFS) holds {mb((store?.opfs ?? []).reduce((a, e) => a + e.bytes, 0))}; the rest of the use is elsewhere (saved projects, caches) or the browser's own rounding.</p>
+                {store && store.opfs.length > 0 ? (
+                    <div className="table-wrap"><table className="exp-table">
+                        <thead><tr><th>Entry</th><th>Size</th><th>Files</th></tr></thead>
+                        <tbody>{store.opfs.map((e) => <tr key={e.name}><td>{e.name}</td><td>{mb(e.bytes)}</td><td>{e.files}</td></tr>)}</tbody>
+                    </table></div>
+                ) : <p className="small">{store ? 'The file area is empty.' : 'Checking…'}</p>}
+                <div className="buttons">
+                    <button type="button" className="btn-quiet" disabled={running} onClick={() => void refreshStorage()}>Refresh</button>
+                    <button type="button" className="btn-quiet" disabled={running} onClick={() => void clearBench()}>Clear bench files</button>
+                    <button type="button" className="btn-quiet" disabled={running} onClick={() => void clearAll()}>Clear everything this site stored</button>
+                </div>
             </section>
 
             <section>

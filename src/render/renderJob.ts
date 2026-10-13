@@ -108,7 +108,9 @@ export async function canJournal(kind: JobKind): Promise<boolean> {
     if (!d) return false
     try {
         const h = await d.getFileHandle('probe', { create: true })
-        return typeof (h as FileSystemFileHandle & { createWritable?: unknown }).createWritable === 'function'
+        const ok = typeof (h as FileSystemFileHandle & { createWritable?: unknown }).createWritable === 'function'
+        await d.removeEntry('probe').catch(() => undefined)
+        return ok
     } catch {
         return false
     }

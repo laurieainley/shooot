@@ -163,8 +163,7 @@ async function readManifest(dir: DirHandle): Promise<Manifest> {
 
 async function writeManifest(dir: DirHandle, m: Manifest): Promise<void> {
     const w = await (await dir.getFileHandle('manifest.json', { create: true })).createWritable()
-    await w.write(JSON.stringify(m))
-    await w.close()
+    try { await w.write(JSON.stringify(m)); await w.close() } catch (e) { await w.abort().catch(() => undefined); throw e }
 }
 
 async function removeKeys(dir: DirHandle, keys: Iterable<string>): Promise<void> {
@@ -227,6 +226,10 @@ export type UnitStore = {
     /** Stores a finished unit; false when it could not (no room, no storage). Never throws. */
     save: (key: string, records: AsyncIterable<LogRecord>, meta: Omit<UnitMeta, 'bytes'>) => Promise<boolean>
     remove: (key: string) => Promise<void>
+    /** True when the cache can take `extra` more bytes without passing its cap. */
+    hasRoomFor: (extra: number) => Promise<boolean>
+    /** Ends a cancelled or failed export: the units it saved that no "last export" uses go, and the cap is applied. Never throws. */
+    trim: () => Promise<void>
     /** Free bytes the site has left (null = unknown). */
     free: () => Promise<number | null>
     /** Ends an export: the units it used become the kind's "last export", everything else goes, and the cap is applied. */
@@ -271,8 +274,7 @@ export function opfsUnitStore(): UnitStore {
                     await w.close()
                 } catch (e) { await w.abort().catch(() => undefined); throw e }
                 const j = await (await dir.getFileHandle(`${key}.json`, { create: true })).createWritable()
-                await j.write(JSON.stringify({ ...meta, bytes } satisfies UnitMeta))
-                await j.close()
+                try { await j.write(JSON.stringify({ ...meta, bytes } satisfies UnitMeta)); await j.close() } catch (e) { await j.abort().catch(() => undefined); throw e }
                 return true
             } catch {
                 await removeKeys(dir, [key])
@@ -282,6 +284,31 @@ export function opfsUnitStore(): UnitStore {
         async remove(key) {
             const dir = await cacheDir(false)
             if (dir) await removeKeys(dir, [key])
+        },
+        async hasRoomFor(extra) {
+            let quota: number | null = null
+            try { quota = (await navigator.storage.estimate()).quota ?? null } catch { /* unknown quota */ }
+            try {
+                const dir = await cacheDir(false)
+                if (!dir) return true
+                const manifest = await readManifest(dir)
+                const keep = new Set<string>(Object.values(manifest.kinds).flatMap((k) => k?.units ?? []))
+                // The previous exports' parts are dropped when this export ends unless it reuses them, so only the parts saved since count.
+                const fresh = (await listEntries(dir, manifest)).filter((e) => !keep.has(e.key)).reduce((a, e) => a + e.bytes, 0)
+                return fresh + extra <= cacheCap(quota)
+            } catch { return false }
+        },
+        async trim() {
+            try {
+                const dir = await cacheDir(false)
+                if (!dir) return
+                const manifest = await readManifest(dir)
+                const keep = new Set<string>(Object.values(manifest.kinds).flatMap((k) => k?.units ?? []))
+                let quota: number | null = null
+                try { quota = (await navigator.storage.estimate()).quota ?? null } catch { /* unknown quota */ }
+                await removeKeys(dir, planEviction(await listEntries(dir, manifest), keep, cacheCap(quota)))
+                await removeOrphans(dir)
+            } catch { /* nothing to trim */ }
         },
         async free() {
             try {

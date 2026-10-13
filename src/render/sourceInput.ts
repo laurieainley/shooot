@@ -56,7 +56,8 @@ export async function makeTarget(name: string, into?: FileSystemFileHandle): Pro
         return {
             target: new StreamTarget(sink, { chunked: true }),
             result: () => handle.getFile(),
-            discard: () => (into ? Promise.resolve() : root.removeEntry(name).catch(() => undefined)),
+            // A writable that was never closed keeps a swap copy of the file (in WebKit and Chrome): abort it first (a no-op once it is closed).
+            discard: async () => { await writable.abort().catch(() => undefined); if (!into) await root.removeEntry(name).catch(() => undefined) },
         }
     } catch (e) {
         if (into) throw e

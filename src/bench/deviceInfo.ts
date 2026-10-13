@@ -1,11 +1,12 @@
 import { encodeSupportMatrix } from './stages'
+import { listOpfs } from './storageInspect'
 
 export async function collectDevice(): Promise<Record<string, unknown>> {
     const nav = navigator as Navigator & { deviceMemory?: number; userAgentData?: { platform?: string; brands?: unknown } }
     let storage: Record<string, unknown> = {}
     try {
         const e = await navigator.storage.estimate()
-        storage = { quotaGB: e.quota ? +(e.quota / 1e9).toFixed(2) : null, usageGB: e.usage ? +(e.usage / 1e9).toFixed(3) : null }
+        storage = { quotaGB: e.quota ? +(e.quota / 1e9).toFixed(2) : null, usageGB: e.usage ? +(e.usage / 1e9).toFixed(3) : null, opfs: await listOpfs() }
     } catch { storage = { error: 'storage.estimate unavailable' } }
     let opfs = false
     try { await navigator.storage.getDirectory(); opfs = true } catch { /* none */ }
