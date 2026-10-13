@@ -91,18 +91,36 @@ describe('EventPicker', () => {
         expect(s().picker).toBeNull()
     })
 
-    it('should offer the assist step on touch too', () => {
+    it('should offer the assist step on touch too, as name chips with the scorer disabled', () => {
         setCoarsePointer(true)
         render(<EventPicker />)
         fireEvent.click(screen.getByRole('option', { name: /^goal/i }))
         fireEvent.click(screen.getByRole('option', { name: /whites/i }))
-        fireEvent.click(screen.getByRole('option', { name: /sam taylor/i }))
-        expect(screen.getByRole('textbox', { name: 'Assist' })).toBeInTheDocument()
-        fireEvent.click(screen.getByRole('option', { name: /sandy wu/i }))
+        expect(screen.queryByRole('textbox')).not.toBeInTheDocument() // chips, not a typed field
+        fireEvent.click(screen.getByRole('button', { name: 'Sam Taylor' }))
+        expect(screen.getByRole('group', { name: 'Assist' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Sam Taylor' })).toBeDisabled()
+        fireEvent.click(screen.getByRole('button', { name: 'Sandy Wu' }))
         expect(s().events[0].assist).toBe('Sandy Wu')
         expect(s().picker).not.toBeNull() // the optional note
         press('Enter')
         expect(s().picker).toBeNull()
+        setCoarsePointer(false)
+    })
+
+    it('should skip the assist with "No assist" and add a new name only through + New name on touch', () => {
+        setCoarsePointer(true)
+        render(<EventPicker />)
+        fireEvent.click(screen.getByRole('option', { name: /^goal/i }))
+        fireEvent.click(screen.getByRole('option', { name: /whites/i }))
+        fireEvent.click(screen.getByRole('button', { name: '+ New name' }))
+        fireEvent.change(screen.getByRole('textbox', { name: 'Scorer' }), { target: { value: 'Kit' } })
+        fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+        expect(s().events[0]).toMatchObject({ scorer: 'Kit' })
+        expect(s().teams[0].roster).toContain('Kit')
+        fireEvent.click(screen.getByRole('button', { name: 'No assist' }))
+        expect(s().events[0].assist).toBeUndefined()
+        expect(screen.getByRole('textbox', { name: 'Note' })).toBeInTheDocument() // on to the note
         setCoarsePointer(false)
     })
 

@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { DOUBLE_TAP_MS, NO_TAPS, resolveTap, type Tap, type TapMemory, type TapZone } from '../utils/tap'
 import { Fab } from './Fab'
+import { useAppState } from '../state'
+import { effectiveStatus } from '../utils/suggestions'
+import { reopenReview, useSuggestionsCurrent } from './findGoals'
+import { useFullscreenUi } from './fullscreenUi'
+import { usePlayerPaused } from './playerControl'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 
 type OverlayPlayer = {
@@ -20,6 +25,10 @@ interface FullscreenControlsProps {
 }
 
 const SEEK_SEC = 5
+/** Hint: this many taps that toggled playback within this window make the lock button glow once. */
+const HINT_TAPS = 3
+const HINT_WINDOW_MS = 5000
+const HINT_GLOW_MS = 1600
 
 /**
  * Touch layer over the picture (touch screens, and fullscreen everywhere): a single tap toggles playback,
@@ -31,6 +40,19 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
     const tapsRef = useRef<TapMemory>(NO_TAPS)
     const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const coarse = useMediaQuery(COARSE_QUERY)
+    const locked = useFullscreenUi((s) => s.playbackLocked)
+    // Touch: the fullscreen tag box is a right-hand column that would cover the top-right buttons (it has its own Cancel).
+    const tagging = useAppState((s) => s.picker !== null)
+    const lockedRef = useRef(locked)
+    lockedRef.current = locked
+    const paused = usePlayerPaused()
+    const [hint, setHint] = useState(false)
+    const toggledAt = useRef<number[]>([])
+    const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    // Leaving fullscreen unlocks (the lock is for tagging in fullscreen only, and is never saved).
+    useEffect(() => { if (!isFullscreen) useFullscreenUi.getState().setPlaybackLocked(false) }, [isFullscreen])
+    useEffect(() => () => { if (hintTimer.current) clearTimeout(hintTimer.current) }, [])
 
     useEffect(() => {
         if (playerRef.current) setPlaybackSpeed(playerRef.current.playbackRate())
@@ -45,6 +67,21 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
         if (!player) return
         if (player.paused()) player.play()
         else player.pause()
+    }
+
+    /** A single tap on the picture: play / pause, unless locked (then it only shows the controls). Three in 5 s hint at the lock. */
+    const tapToggle = (): void => {
+        if (lockedRef.current) return
+        togglePlay()
+        if (!coarse || !isFullscreen) return
+        const now = Date.now()
+        toggledAt.current = [...toggledAt.current.filter((t) => now - t < HINT_WINDOW_MS), now]
+        if (toggledAt.current.length >= HINT_TAPS) {
+            toggledAt.current = []
+            setHint(true)
+            if (hintTimer.current) clearTimeout(hintTimer.current)
+            hintTimer.current = setTimeout(() => setHint(false), HINT_GLOW_MS)
+        }
     }
 
     const handleTap = (zone: TapZone): void => {
@@ -67,10 +104,10 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
             }
             return
         }
-        if (action === 'toggle') { togglePlay(); return } // no double tap in the centre, so no need to wait
+        if (action === 'toggle') { tapToggle(); return } // no double tap in the centre, so no need to wait
         singleTapTimerRef.current = setTimeout(() => {
             singleTapTimerRef.current = null
-            togglePlay()
+            tapToggle()
         }, DOUBLE_TAP_MS)
     }
 
@@ -105,7 +142,7 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
 
             {isFullscreen && (
                 <>
-                    <div className="overlay-controls top-right">
+                    {!(coarse && tagging) && <div className="overlay-controls top-right">
                         <button type="button" aria-label="Slower" className="control-btn speed-btn" onClick={() => setRate(Math.max(0.25, currentRate() - 0.25))}>
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 19l-7-7 7-7" /></svg>
                         </button>
@@ -116,15 +153,67 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13 5l7 7-7 7" /></svg>
                         </button>
                         {coarse && (
+                            <button type="button" aria-label={locked ? 'Unlock playback' : 'Lock playback'} aria-pressed={locked}
+                                className={`control-btn lock-btn${locked ? ' lock-btn--on' : ''}${hint ? ' lock-btn--hint' : ''}`}
+                                onClick={() => useFullscreenUi.getState().setPlaybackLocked(!locked)}>
+                                <LockIcon paused={paused} locked={locked} />
+                            </button>
+                        )}
+                        {coarse && <ReviewButton />}
+                        {coarse && (
                             <button type="button" aria-label="Exit fullscreen" className="control-btn fs-btn" onClick={() => playerRef.current?.exitFullscreen?.()}>
                                 <FsIcon exit />
                             </button>
                         )}
-                    </div>
+                    </div>}
                     <Fab />
                 </>
             )}
         </div>
+    )
+}
+
+/** Fullscreen, touch: "Review (N)" opens / tucks away the review column while suggestions are left. */
+function ReviewButton() {
+    const suggestions = useAppState((s) => s.suggestions)
+    const events = useAppState((s) => s.events)
+    const panel = useAppState((s) => s.panel)
+    const hidden = useFullscreenUi((s) => s.reviewHidden)
+    const current = useSuggestionsCurrent()
+    const ids = new Set(events.map((e) => e.id))
+    const left = current ? suggestions.filter((x) => effectiveStatus(x, ids) === 'pending').length : 0
+    if (left === 0) return null
+    const open = panel === 'review' && !hidden
+    return (
+        <button type="button" aria-label={`Review (${left})`} aria-expanded={open} className="control-btn review-btn"
+            onClick={() => {
+                const ui = useFullscreenUi.getState()
+                if (open) { ui.setReviewHidden(true); return }
+                ui.setReviewHidden(false)
+                if (useAppState.getState().panel !== 'review') reopenReview()
+            }}>
+            Review ({left})
+        </button>
+    )
+}
+
+interface LockIconProps {
+    paused: boolean
+    locked: boolean
+}
+
+/** Play or pause (the playback state), with a padlock badge: closed when locked, open when not. */
+function LockIcon({ paused, locked }: LockIconProps) {
+    return (
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            {paused
+                ? <path data-icon="play" d="M6 4.5v13l10.5-6.5z" fill="currentColor" />
+                : <g data-icon="pause" fill="currentColor"><rect x="5.5" y="4.5" width="3.5" height="13" rx="1" /><rect x="12" y="4.5" width="3.5" height="13" rx="1" /></g>}
+            <g data-lock={locked ? 'closed' : 'open'} strokeWidth="1.8">
+                <rect x="13.5" y="16" width="9" height="7" rx="1.5" fill="var(--sh-video)" />
+                <path d={locked ? 'M15.5 16v-2a2.5 2.5 0 0 1 5 0v2' : 'M15.5 16v-2a2.5 2.5 0 0 1 4.6-1.4'} />
+            </g>
+        </svg>
     )
 }
 

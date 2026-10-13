@@ -7,6 +7,8 @@ import { registerPlayerSeekPaused, registerPlayerShortcut, registerPlayerStep, r
 import { runShortcut, seekBy, stepFrame, type ShortcutPlayer } from './playerShortcuts'
 import { FullscreenControls } from './FullscreenControls'
 import { EventPicker } from './EventPicker'
+import { Toast } from './Toast'
+import { useFullscreenUi } from './fullscreenUi'
 import { patchPlayerFullscreen, type FullscreenPlayer } from './fullscreen'
 import { cropTransform } from '../utils/crop'
 import { attachPictureGestures } from './pictureGestures'
@@ -288,6 +290,14 @@ export function Player() {
     // Immersive (CSS) fullscreen: Esc leaves it, as it would real fullscreen; unloading the player ends it.
     const immersive = useAppState((s) => s.immersive)
     useEffect(() => () => { useAppState.getState().setImmersive(false); useAppState.getState().setPlayerFullscreen(false) }, [])
+    // Column panels (the review) and toasts render inside the fullscreen element, the only thing on screen in real fullscreen.
+    const inFullscreen = isFullscreen || immersive
+    useEffect(() => {
+        const ui = useFullscreenUi.getState()
+        ui.setHost(inFullscreen ? containerRef.current : null)
+        ui.setReviewHidden(false)
+        return () => { useFullscreenUi.getState().setHost(null) }
+    }, [inFullscreen])
     // Fullscreen has no event list to edit from: leaving the edit panel open would only be hidden behind the picture.
     useEffect(() => { if (isFullscreen || immersive) { const st = useAppState.getState(); if (st.panel === 'event') st.closePanel() } }, [isFullscreen, immersive])
     useEffect(() => {
@@ -333,6 +343,7 @@ export function Player() {
             {(isFullscreen || immersive) && <RenderChip variant="overlay" />}
             <FullscreenControls playerRef={playerRef} isFullscreen={isFullscreen || immersive} />
             <EventPicker />
+            {inFullscreen && <div className="toast-host toast-host--fs"><Toast /></div>}
         </div>
     )
 }

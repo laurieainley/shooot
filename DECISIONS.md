@@ -14,6 +14,20 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 - **Preview: zoom locked, row ▶ jumps to that clip inside the preview, no speed overlay** (user). *Why:* the preview
   should show exactly what renders, and jumping around it shouldn't drop you out of it. *Where:* `src/utils/preview.ts`,
   `src/state.ts` `jumpToPreviewEvent`, `src/components/Player.tsx`.
+- **Mobile review and fullscreen tagging reworked for one thumb** (user). Lane buttons count what's left. On touch:
+  name chips instead of typing (keyboard only for a new name), a sticky Confirm / Discard bar, compact type/team rows,
+  less text. The fullscreen tag box and the review are a right-hand column (bottom sheet in portrait), with a
+  "Review (N)" button in fullscreen. Desktop keeps typed names. *Why:* on a phone the tag box was cut off, the assist
+  field couldn't be seen, the review needed scrolling for every step, and fullscreen is the natural way to review on a
+  phone. *Where:* `2026-10-13-mobile-review-fullscreen-design.md`.
+- **Playback lock in touch fullscreen** (user). Single taps stop toggling playback; double-tap seek still works; three
+  toggling taps in 5 s glow the lock button as a hint. Not persisted, reset on leaving fullscreen. *Why:* single taps
+  were pausing the video while editing.
+- **Touch scrubbing no longer snaps to goals** (user). With touch / pen, icons don't capture the press, so a drag
+  always scrubs; only a short tap on the icon itself jumps. Marker flags were never tap targets and stay that way.
+  *Why:* starting a drag anywhere near an icon jumped to the goal, so accurate scrubbing was hard.
+- **The fullscreen top-right buttons hide while the tag box is open** (Claude, review). *Why:* the column would cover
+  them; the tag box has its own Cancel.
 
 ## 2026-10-12
 
