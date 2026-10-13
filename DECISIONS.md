@@ -10,6 +10,15 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 ---
 
 ## 2026-10-13
+- **UX review pass (desktop, phone, tablet) — polish only, no behaviour changes** (user asked for the review; agent
+  decided the individual fixes). Export is quiet until a video is loaded (one lime per screen); Match setup's "Set up
+  goals" is quiet so Done stays the one primary; touch text is restated at 14px at the end of App.css because later
+  base rules overrode it; upright touch tablets get a 480px Export drawer instead of a full-screen page; the desktop
+  action row wraps 3 + 2; key hints (K/W, ⌘Z) are dropped from copy on touch; sizes never show "0 MB"; the strip clock
+  never shows "−00:00". *Why:* the reviewers found these against the brand rules (one lime, ≥14px on touch) and real use
+  per device. Layout changes they proposed (wider rail on very wide screens, strip under the video on landscape tablets,
+  + button placement in phone landscape, two-column Match setup) are parked for the user. *Where:* merge of
+  feat/ux-desktop, feat/ux-mobile, feat/ux-tablet.
 - **Re-encode exports (Full match and Highlights at 4K / 1080p) run 2 units at a time by default** (user, from /bench
   experiment #1). *Why:* on raw GoPro 4K, 2 at once was 37-38% faster on a Pixel, 28% (4K) / 6% (1080p) on an iPad and
   13-30% on Mac Chrome, with frame counts and gaps intact. 3 at once gained little more on the Pixel and grew iPad files
