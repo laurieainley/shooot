@@ -76,6 +76,13 @@ describe('EventSheet', () => {
         expect(useAppState.getState().editingFocus).toBeNull()
     })
 
+    it('should focus the Note field when Add note is used while the sheet is already open', () => {
+        expect(screen.getByRole('textbox', { name: 'Note' })).not.toHaveFocus()
+        act(() => { useAppState.setState({ editingFocus: 'note' }) })
+        expect(screen.getByRole('textbox', { name: 'Note' })).toHaveFocus()
+        expect(useAppState.getState().editingFocus).toBeNull()
+    })
+
     it('should add a note, saved when Done is tapped', async () => {
         await userEvent.type(screen.getByRole('textbox', { name: 'Note' }), 'top corner')
         await userEvent.click(screen.getByRole('button', { name: 'Done' }))

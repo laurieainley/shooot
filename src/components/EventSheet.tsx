@@ -61,11 +61,12 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
     useEffect(() => setNote(e.notes ?? ''), [e.notes])
     // "Add note" on the tag toast: focus the Note field once (this opens the keyboard on touch, as asked).
     const noteRef = useRef<HTMLInputElement>(null)
+    const focusRequest = useAppState((s) => s.editingFocus)
     useEffect(() => {
-        if (useAppState.getState().editingFocus !== 'note') return
+        if (focusRequest !== 'note') return
         noteRef.current?.focus()
         useAppState.setState({ editingFocus: null })
-    }, [])
+    }, [focusRequest])
     const latest = useRef({ person, assist, note })
     latest.current = { person, assist, note }
 
