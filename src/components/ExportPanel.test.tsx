@@ -52,7 +52,7 @@ describe('ExportPanel', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Export' }))
         const dialog = screen.getByRole('dialog', { name: 'Export' })
         expect(dialog.querySelectorAll('.btn-primary')).toHaveLength(1)
-        await userEvent.click(screen.getByRole('tab', { name: 'Export full match' }))
+        await userEvent.click(screen.getByRole('tab', { name: 'Full match' }))
         expect(dialog.querySelectorAll('.btn-primary')).toHaveLength(1)
     })
 
@@ -69,22 +69,22 @@ describe('ExportPanel', () => {
         expect(screen.queryByRole('button', { name: /export project/i })).not.toBeInTheDocument()
     })
 
-    it('should have Export highlights and Export full match tabs', async () => {
+    it('should have Highlights and Full match tabs', async () => {
         render(<ExportPanel />)
         await userEvent.click(screen.getByRole('button', { name: 'Export' }))
-        const highlights = screen.getByRole('tab', { name: 'Export highlights' })
+        const highlights = screen.getByRole('tab', { name: 'Highlights' })
         expect(highlights).toHaveAttribute('aria-selected', 'true')
-        await userEvent.click(screen.getByRole('tab', { name: 'Export full match' }))
-        expect(screen.getByRole('tab', { name: 'Export full match' })).toHaveAttribute('aria-selected', 'true')
-        expect(screen.getByRole('tabpanel', { name: 'Export full match' })).toBeInTheDocument()
+        await userEvent.click(screen.getByRole('tab', { name: 'Full match' }))
+        expect(screen.getByRole('tab', { name: 'Full match' })).toHaveAttribute('aria-selected', 'true')
+        expect(screen.getByRole('tabpanel', { name: 'Full match' })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Render full match' })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Preview with proxies' })).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: /preview in player/i })).not.toBeInTheDocument()
         await userEvent.click(screen.getByRole('button', { name: /^Share on YouTube/ }))
         expect(screen.getByRole('button', { name: 'Copy full match description' })).toBeInTheDocument()
-        screen.getByRole('tab', { name: 'Export full match' }).focus()
+        screen.getByRole('tab', { name: 'Full match' }).focus()
         await userEvent.keyboard('{ArrowLeft}')
-        expect(screen.getByRole('tab', { name: 'Export highlights' })).toHaveAttribute('aria-selected', 'true')
+        expect(screen.getByRole('tab', { name: 'Highlights' })).toHaveAttribute('aria-selected', 'true')
     })
 
     it('should keep a render going when the panel closes and show its progress when it opens again', async () => {

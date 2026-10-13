@@ -299,8 +299,15 @@ npm run lint       # baseline: 12 known problems — add none
   list (the page only when the list can't scroll, phone portrait); touch layouts keep room below the last row so the
   + never covers it. Touch: a tap expands (Edit opens the sheet). Esc collapses, then leaves the log.
   Header: "+ Tag event" (quiet, red REC dot), undo/redo, "?" shortcuts. No rail footer and no key-hint bar.
-- **Export:** right-hand drawer over a scrim (`FloatingPanel variant="drawer"`; full screen on phones). Highlights tab:
-  Reel (`ReelSummary`: length, clips, clip/replay recap with an Edit disclosure), Graphics, Render, Share.
+- **Export:** right-hand drawer over a scrim (`FloatingPanel variant="drawer"`; full screen on phones), tabs
+  Highlights / Full match, one pattern: summary line (Highlights "6:12 reel · 14 clips" + Preview in player; Full match
+  "49 min · kick-off to final whistle"), Quality (Original / 4K / 1080p with the size under each label; a short reason
+  when disabled, full reason in `title`; "What's the difference?" toggles three one-liners), the tab's single lime button
+  "Render highlights" / "Render full match" (+ " · 4K" / " · 1080p") with "About 418 MB · about 5 min[ on this device]"
+  under it (`utils/renderSummary.ts`; time from the option's estimate, "on this device" only when measured here),
+  "Preview with proxies" when proxies are loaded. Settings are collapsed `ExportDisclosure` rows (title + one-line
+  summary, open state in localStorage): "Clips & replays", "Graphics", "Share on YouTube" / "Included", "Share on
+  YouTube". The keep-screen-on line shows only while a render runs on a phone.
 - **Shortcuts sheet:** `?` key, the "?" button or ⋯ → Shortcuts (`ShortcutsSheet`, data in `utils/shortcutList.ts`,
   kept in sync with `shortcutFor` by a test).
 - **Find goals review card** (`SuggestionCard`, `ReviewTimeline`, `useMarkedMoment`, `PersonStep`, `utils/reviewMark.ts`):

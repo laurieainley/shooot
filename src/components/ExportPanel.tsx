@@ -16,8 +16,8 @@ import { clipsSummary, graphicsSummary } from '../utils/renderSummary'
 import { exportButtonStatus, SHOW_DONE_MS, type ExportButtonStatus } from '../utils/exportButton'
 
 const TABS = [
-    { id: 'highlights', label: 'Export highlights' },
-    { id: 'fullMatch', label: 'Export full match' },
+    { id: 'highlights', label: 'Highlights' },
+    { id: 'fullMatch', label: 'Full match' },
 ] as const
 
 /** The render job as the Export button shows it: percentage while running, briefly "ready" / "failed" after (re-evaluated when that window ends). */

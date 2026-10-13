@@ -11,6 +11,11 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-13
 
+- **Export drawer: render first, size and one time on one line, settings collapsed, one vocabulary** (user). Buttons
+  "Render highlights" / "Render full match" (was "Render MP4" / "Render full match (full quality)"), "Preview with
+  proxies" on both tabs, tabs "Highlights" / "Full match". *Why:* the section was "way too much text", sizes were unclear,
+  and the two tabs used different words for the same action. *Where:* `src/components/ExportPanel.tsx`,
+  `OutputQualityField.tsx`, `ExportDisclosure.tsx`, `src/utils/renderSummary.ts`.
 - **Render time comes from a cost model of what the render does, and the live ETA from work-weighted progress** (user bug:
   a phone said Original ~10-13 min for a 6 min reel and "about 2 min left" after 2 minutes). Fixed multipliers measured on raw GoPro
   4K ignored the ticked options, the footage and the device, and media-time progress counted a copied second like a re-encoded one.
