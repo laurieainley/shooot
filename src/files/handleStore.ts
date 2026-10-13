@@ -3,8 +3,15 @@
 // the normal picker and events find their files again by name.
 import { del, get, set } from 'idb-keyval'
 import { VIDEO_EXTENSIONS } from '../utils/fileAccept'
+import { openMatchStore } from '../components/openMatch'
 
-const KEY = 'file-handles'
+const LEGACY_KEY = 'file-handles'
+
+/** Handles belong to the open match; before there is one, the old single list. */
+const key = (): string => {
+    const id = openMatchStore.getState().id
+    return id ? `match-handles:${id}` : LEGACY_KEY
+}
 
 export type StoredHandle = FileSystemFileHandle & {
     queryPermission?: (d: { mode: 'read' }) => Promise<PermissionState>
@@ -25,7 +32,7 @@ export function filePicker(): OpenFilePicker | null {
 
 export async function loadHandles(): Promise<StoredHandle[]> {
     try {
-        const v = await get<StoredHandle[]>(KEY)
+        const v = await get<StoredHandle[]>(key())
         return Array.isArray(v) ? v : []
     } catch {
         return []
@@ -38,12 +45,21 @@ export async function rememberHandles(handles: StoredHandle[]): Promise<void> {
     try {
         const byName = new Map((await loadHandles()).map((h) => [h.name, h]))
         for (const h of handles) byName.set(h.name, h)
-        await set(KEY, [...byName.values()])
+        await set(key(), [...byName.values()])
     } catch { /* storage unavailable: relinking falls back to the picker */ }
 }
 
 export async function clearHandles(): Promise<void> {
-    try { await del(KEY) } catch { /* nothing stored */ }
+    try { await del(key()) } catch { /* nothing stored */ }
+}
+
+/** Upgrade: the old single handle list becomes the first match's. */
+export async function adoptLegacyHandles(id: string): Promise<void> {
+    try {
+        const v = await get<StoredHandle[]>(LEGACY_KEY)
+        if (Array.isArray(v) && v.length > 0) await set(`match-handles:${id}`, v)
+        await del(LEGACY_KEY)
+    } catch { /* storage unavailable */ }
 }
 
 /** Reopens stored files (asking for read permission once where needed; must run in a click). */
