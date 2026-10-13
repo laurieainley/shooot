@@ -116,6 +116,20 @@ describe('highlightsExport', () => {
     })
 })
 
+describe('highlightsExport — re-encode', () => {
+    it('should journal a 4K / 1080p reel (so units run in parallel and a reload resumes) but not the stream copy or a preview', () => {
+        expect(highlightsExport(state(), 'full', planOutput('1080p')).resumable).toBe(true)
+        expect(highlightsExport(state(), 'full', planOutput('4k')).resumable).toBe(true)
+        expect(highlightsExport(state(), 'full').resumable).toBe(false)
+        expect(highlightsExport(state(), 'preview', planOutput('4k')).resumable).toBe(false)
+    })
+    it('should give each quality its own job signature so a saved render only resumes as what it was', () => {
+        const a = highlightsExport(state(), 'full', planOutput('1080p')).signature
+        expect(highlightsExport(state(), 'full', planOutput('4k')).signature).not.toBe(a)
+        expect(highlightsExport(state(), 'full').signature).not.toBe(a)
+    })
+})
+
 describe('highlightsExport — replay zoom', () => {
     const areas = { team1: { x: 0.04, y: 0.3, w: 0.4, h: 0.4 }, team2: { x: 0.56, y: 0.3, w: 0.4, h: 0.4 } }
     it('should crop replays to the goal the scoring team attacks and leave clips whole', () => {

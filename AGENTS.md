@@ -107,7 +107,7 @@ npm run lint       # baseline: 12 known problems — add none
   `RenderOptions.output`; plan fields in `utils/exportPlans.ts` `PlanOutput`; availability/size/time in
   `utils/outputQuality.ts`; pure planning in `render/transcodePlan.ts`; WebCodecs support probes in
   `render/transcodeSupport.ts`). Cards, captions, score bug, replay crops and slow-mo are drawn onto the canvas as each
-  frame is encoded (no second pass). Journaled re-encodes run `PARALLEL_UNITS` (2, `transcodePlan.ts`) units at once, each with its own
+  frame is encoded (no second pass). Journaled re-encodes (Full match and Highlights at 4K / 1080p; `ExportPlan.resumable`) run `PARALLEL_UNITS` (2, `transcodePlan.ts`) units at once, each with its own
   decoder/encoder/canvas/WebGL scaler (`runParallel` + the scheduler `render/unitPool.ts`): `planSegments` balances unit lengths and splits
   a short render so two exist (pieces >= `MIN_PARALLEL_UNIT_SEC`); units are written in order, the job is saved as the finished prefix
   grows, and a failure while two ran drops the rest of the render to one at a time and retries the unit (software encoder as the last

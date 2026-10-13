@@ -95,7 +95,9 @@ export function highlightsExport(s: ExportState, quality: RenderQuality, output?
     const segments = mergeOverlappingGoalSegments(linked, s.cumulativeOffsets, s.lengthBeforeGoalSec, s.lengthAfterGoalSec)
     const cuts = buildRenderPlan(segments, s.files.map((f) => f.durationSec ?? Infinity), replayOptionsFor({ ...s, events: linked }))
     const spec = nonEmpty(buildGraphicsSpec({ events: linked, teams: s.teams, cuts, cumulativeOffsets: s.cumulativeOffsets, settings: s.graphics, matchday: matchday(s) }))
-    return finish('highlights', quality, s, cuts, spec, false, undefined, quality === 'full' ? output : undefined)
+    // A re-encoded reel is journaled like a full match (units run two at a time and a reload resumes); the stream copy is not.
+    const reencode = quality === 'full' ? output : undefined
+    return finish('highlights', quality, s, cuts, spec, !!reencode, undefined, reencode)
 }
 
 /** `output`: re-encode to this quality instead of stream copying (not for previews). */
