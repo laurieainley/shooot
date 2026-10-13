@@ -252,7 +252,8 @@ npm run lint       # baseline: 12 known problems — add none
 - **Video:** on-video `Scorebug` is the selected graphics theme's own score-bug painter drawn on a canvas (matches the export; clock as text beside it); no score in the top bar.
 - **One timeline:** the match strip (`MatchStrip`) is the only scrubber (video.js progress bar disabled): numbered file
   bands, faint clip bands, event icons stacked in up to 3 lanes (`stackLanes`), Kick off / Half time / Final whistle
-  flags, red playhead, hover/drag time bubble (over the exact symbol — event icon, marker flag icon, suggestion ring —
+  flags, red playhead (touch/pen: icons never capture a press, so a drag always scrubs; only a short tap on an
+  icon's own box jumps to it), hover/drag time bubble (over the exact symbol — event icon, marker flag icon, suggestion ring —
   it names it at its own time: "Goal · 10:00 · V2", "Detected moment (top pick) · …"; no native `title` tooltips on
   icons), keyboard focusable.
 - **Event icons:** `components/icons/EventIcon.tsx` + `utils/eventIcon.ts` (football, pen ball "P", own goal "OG",
@@ -279,7 +280,11 @@ npm run lint       # baseline: 12 known problems — add none
   list), then **Confirm** (Enter). **Discard** (X) is one press: not a moment, ring removed, moves on; undoable.
   ‹ Previous / Next › only move. Keys while open: M · G/O/S/H/X · 1/2 · Enter · Esc · [ ] previous/next suggestion ·
   { } loop 2 s earlier/later · ←/→ ±5 s (Shift ±1 s) · ↑/↓ frame · , . / speed · Space. No shortcuts fire while a
-  person field is focused. Specs: `2026-10-11-review-lanes-design.md`, `2026-10-11-review-actions-toasts-design.md`.
+  person field is focused. On touch the person steps are name chips (alphabetical roster; `+ New name` is the only
+  thing that opens a keyboard; Skip / No assist), Mark moment / Confirm + Discard are a sticky bar at the bottom, and
+  the instruction line hides once marked. Lane buttons count suggestions still to review; the header stays positional
+  ("2 of 5"). Specs: `2026-10-11-review-lanes-design.md`, `2026-10-11-review-actions-toasts-design.md`,
+  `2026-10-13-mobile-review-fullscreen-design.md`.
 - **Find goals panel:** stays open while tagging (the picker opens on top; a tag inside the current loop confirms that
   suggestion) and returns after Setup / Export / event edit; only ✕/Esc closes it. Start form (`MatchRangeStep`) always
   shown first (Kick off / Final whistle pre-filled); with Labs on, **Advanced detection** runs the goal-mouth ball check
@@ -289,6 +294,11 @@ npm run lint       # baseline: 12 known problems — add none
   tally "Goals tagged: Whites 3 – 2 Colours" (whole match). After closing, the rail shows "Review suggestions (N left ·
   M top picks)". Suggestion rings sit in their own faint lane at the bottom of the match strip (only those still to
   review; only a click on the ring opens the review).
+- **Touch fullscreen** (UI state in `components/fullscreenUi.ts`, not persisted): column panels render into the
+  fullscreen element; the tag box (`event-picker--compact`) and the review are a right-hand column (portrait: bottom
+  sheet ≤ 60%); the top-right group (speed, **Lock playback**, **Review (N)**, exit) hides while the tag box is open.
+  Lock: a single tap no longer plays/pauses (double-tap seek and the control bar still work); three toggling taps
+  within 5 s glow the lock button once; reset on leaving fullscreen. Toasts render inside the player while fullscreen.
 - **Toasts** (`src/toasts.ts`, `Toast`): one at a time, 4 s, top-right of the video (phone portrait: under the video);
   confirm, discard (Undo), tag (Undo), delete (Undo), marker set. A toast's Undo only acts while its action is still the
   latest undo step.

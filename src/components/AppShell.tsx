@@ -32,6 +32,7 @@ export function AppShell() {
     useKeyboardInset()
     const hasFiles = useAppState((s) => s.files.length > 0)
     const isPreviewMode = useAppState((s) => s.isPreviewMode)
+    const fullscreen = useAppState((s) => s.playerFullscreen || s.immersive) // the player shows its own toast then
     const coarse = useMediaQuery(COARSE_QUERY)
     const sideBySide = layout === 'desktop' || layout === 'landscape'
     const collapsed = useAppState((s) => s.barCollapsed) && layout === 'landscape'
@@ -68,7 +69,7 @@ export function AppShell() {
             {hasFiles ? <Player /> : <EmptyPlayer />}
             {sideBySide && isPreviewMode && <div className="preview-bar"><PreviewControls /></div>}
             {collapsed && <RenderChip variant="overlay" />}
-            {sideBySide && <div className="toast-host toast-host--video"><Toast /></div>}
+            {sideBySide && !fullscreen && <div className="toast-host toast-host--video"><Toast /></div>}
         </div>
     )
 
@@ -87,7 +88,7 @@ export function AppShell() {
             <main className={sideBySide ? 'bay' : 'stack'}>
                 <div className="bay__left">
                     {stage}
-                    {!sideBySide && <div className="toast-host toast-host--under"><Toast /></div>}
+                    {!sideBySide && !fullscreen && <div className="toast-host toast-host--under"><Toast /></div>}
                     {!sideBySide && isPreviewMode && <div className="preview-bar preview-bar--inline"><PreviewControls /></div>}
                     <MatchStrip />
                 </div>

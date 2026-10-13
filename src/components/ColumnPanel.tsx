@@ -1,9 +1,11 @@
 import { CloseButton } from './CloseButton'
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppState } from '../state'
 import { Sheet } from './Sheet'
 import { usePanelSlot } from './panelSlot'
+import { useFullscreenUi } from './fullscreenUi'
+import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 
 interface ColumnPanelProps {
     label: string
@@ -21,8 +23,22 @@ interface ColumnPanelProps {
  */
 export function ColumnPanel({ label, onClose, children, className = '', badge }: ColumnPanelProps) {
     const slot = usePanelSlot((s) => s.el)
-    if (!slot) return <Sheet label={label} onClose={onClose} className={className} badge={badge}>{children}</Sheet>
-    return createPortal(<ColumnPanelBody label={label} onClose={onClose} className={className} badge={badge}>{children}</ColumnPanelBody>, slot)
+    const host = useFullscreenUi((s) => s.host)
+    const hidden = useFullscreenUi((s) => s.reviewHidden)
+    const coarse = useMediaQuery(COARSE_QUERY)
+    // Touch fullscreen: only the fullscreen element is on screen, so the panel lives inside it (a column on the right, a sheet in portrait).
+    const inFullscreen = !!host && coarse
+    const target = inFullscreen ? host : slot
+    // The panel renders into its own box, which moves between the rail and the fullscreen element, so going fullscreen (and back) keeps its state.
+    const box = useMemo(() => { const d = document.createElement('div'); d.style.display = 'contents'; return d }, [])
+    useLayoutEffect(() => {
+        if (!target) return
+        target.appendChild(box)
+        return () => { box.remove() }
+    }, [target, box])
+    if (!target) return <Sheet label={label} onClose={onClose} className={className} badge={badge}>{children}</Sheet>
+    const cls = inFullscreen ? `${className} column-panel--fs${hidden && className.includes('review') ? ' column-panel--fs-hidden' : ''}` : className
+    return createPortal(<ColumnPanelBody label={label} onClose={onClose} className={cls} badge={badge}>{children}</ColumnPanelBody>, box)
 }
 
 function ColumnPanelBody({ label, onClose, children, className, badge }: ColumnPanelProps) {

@@ -16,7 +16,7 @@ export function attachPictureGestures(el: HTMLElement, zoom: () => ZoomPan, lock
         const [a, b] = Array.from(pointers.values())
         return { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } }
     }
-    const onPicture = (e: Event): boolean => !locked() && !(e.target as HTMLElement).closest('.vjs-control-bar, button, .event-picker, .vjs-menu')
+    const onPicture = (e: Event): boolean => !locked() && !(e.target as HTMLElement).closest('.vjs-control-bar, button, .event-picker, .column-panel, .toast-host, .vjs-menu')
     const onDown = (e: PointerEvent): void => {
         if (!onPicture(e)) return
         if (e.pointerType === 'touch') {

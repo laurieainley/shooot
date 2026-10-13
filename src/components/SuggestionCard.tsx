@@ -100,6 +100,9 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
     // Nobody marked it yet: the time shown (and saved, if you go ahead anyway) is wherever the playhead is.
     const savedSec = moment.markedSec ?? playheadSec
     const instruction = instructionText({ marked, decision, teamCount, clock: clock(savedSec) })
+    // Touch: no Enter key, and once marked the readout below says it all, so the instruction line goes.
+    const sayText = coarse ? instruction.text.replace(/ — press Enter to confirm$/, '') : instruction.text
+    const stepsRef = useRef<HTMLElement | null>(null)
 
     const mark = (): void => { moment.mark() }
     const step = (kind: 'frame' | 'second', dir: 1 | -1): void => { moment.followPlayhead(); stepPlayer(kind, dir) }
@@ -189,6 +192,14 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
     const showTypeStep = sure && decision.type === null
     const hasChoice = decision.type !== null
     const teamStep = needsTeam(decision.type, teamCount)
+    // When a step completes the next one may be below the fold: bring it into view (the action bar is sticky, scroll-padding covers it).
+    const personStep = people.pk?.step ?? null
+    const firstStepRun = useRef(true)
+    useEffect(() => {
+        if (firstStepRun.current) { firstStepRun.current = false; return }
+        if (!coarse) return
+        stepsRef.current?.lastElementChild?.scrollIntoView?.({ block: 'nearest' })
+    }, [coarse, marked, decision.type, decision.team, personStep])
 
     return (
         <div className="rv" data-esc-clears={hasChoice ? '' : undefined}>
@@ -211,13 +222,13 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
                         format={clock} onScrub={scrub} onEarlier={loop.earlier} onLater={loop.later} />
                 )}
                 {loop.window && <span className="sr-only">{formatReviewWindow(suggestion.globalTimeSec, loop.window)}</span>}
-                <p className="rv__say" role="status" aria-live="polite">{instruction.text}</p>
+                {!(coarse && marked) && <p className="rv__say" role="status" aria-live="polite">{sayText}</p>}
                 {instruction.warning && <p className="rv__warn">{instruction.warning}</p>}
             </section>
 
             {hint && <div className="rv__hint">{hint}</div>}
 
-            <section className="rv__steps" aria-label="Decide">
+            <section ref={stepsRef} className="rv__steps" aria-label="Decide">
                 {sure && (
                     <div className="rv__moment">
                         <p className="rv__momentline m-0">
@@ -265,8 +276,10 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
 
                 {peopleOpen(people) && (
                     <div data-owns-escape="">
-                    <PersonStep key={people.pk?.step} label={peopleLabel(people)} autoFocus={!coarse}
-                        placeholder={`${peopleLabel(people)} (optional) — type to filter, Enter to pick, Tab to skip`}
+                    <PersonStep key={people.pk?.step} label={peopleLabel(people)} autoFocus={!coarse} chips={coarse} showLabel
+                        skipLabel={people.pk?.step === 'assist' ? 'No assist' : 'Skip'}
+                        onSkip={() => setPeople((p) => stepPeople(p, { kind: 'key', key: 'Tab' }, teams))}
+                        placeholder={coarse ? 'Type a new name' : `${peopleLabel(people)} (optional) — type to filter, Enter to pick, Tab to skip`}
                         query={people.pk?.query ?? ''} candidates={peopleCandidates(people, teams)} highlighted={people.pk?.highlighted ?? 0} showHighlight isDisabled={(n) => peopleDisabled(people, n)}
                         onQuery={(value) => setPeople((p) => stepPeople(p, { kind: 'text', value }, teams))}
                         onChoose={(value) => setPeople((p) => stepPeople(p, { kind: 'choose', value }, teams))}
@@ -284,21 +297,21 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
                     </div>
                 )}
 
-                <div className="rv__decide">
-                    {marked || hasChoice ? (
-                        <button type="button" className="btn-primary rv__save" disabled={!canConfirm(decision, teamCount)} onClick={confirm}>
-                            {confirmLabel()} <kbd>⏎</kbd>
-                        </button>
-                    ) : (
-                        <button type="button" className="btn-primary rv__save" onClick={mark}>
-                            <span className="rv__dot" aria-hidden="true" />Mark moment <kbd>M</kbd>
-                        </button>
-                    )}
-                    {!rejected && (
-                        <button type="button" className="rv__quiet rv__discard" onClick={discard}>Discard <kbd>X</kbd></button>
-                    )}
-                </div>
             </section>
+            <div className="rv__decide">
+                {marked || hasChoice ? (
+                    <button type="button" className="btn-primary rv__save" disabled={!canConfirm(decision, teamCount)} onClick={confirm}>
+                        {confirmLabel()} <kbd>⏎</kbd>
+                    </button>
+                ) : (
+                    <button type="button" className="btn-primary rv__save" onClick={mark}>
+                        <span className="rv__dot" aria-hidden="true" />Mark moment <kbd>M</kbd>
+                    </button>
+                )}
+                {!rejected && (
+                    <button type="button" className="rv__quiet rv__discard" onClick={discard}>Discard <kbd>X</kbd></button>
+                )}
+            </div>
         </div>
     )
 }

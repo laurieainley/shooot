@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Suggestion } from '../types'
-import { defaultLane, openingIndex, reviewRailLabel, firstToReviewInLane, laneCounts, laneNeighbour, laneSwitchVisible, positionInLane, topPicksLine } from './reviewLanes'
+import { defaultLane, openingIndex, reviewRailLabel, firstToReviewInLane, laneCounts, laneNeighbour, remainingCounts, laneSwitchVisible, positionInLane, topPicksLine } from './reviewLanes'
 
 const ball = { goal: 'team1' as const, frames: 2 }
 const mk = (id: string, over: Partial<Suggestion> = {}): Suggestion => ({ id, globalTimeSec: 0, score: 1, status: 'pending', ...over } as Suggestion)
@@ -12,6 +12,18 @@ describe('laneCounts', () => {
     it('should count every suggestion in All and those with a ball tag in Top picks', () => {
         expect(laneCounts(list)).toEqual({ all: 5, top: 3, other: 2 })
         expect(laneCounts([])).toEqual({ all: 0, top: 0, other: 0 })
+    })
+})
+
+describe('remainingCounts', () => {
+    it('should count only suggestions still to review, per lane', () => {
+        // list: a plain, b top, c plain, d top (rejected), e top
+        expect(remainingCounts(list, ids)).toEqual({ all: 4, top: 2, other: 2 })
+    })
+    it('should drop a suggestion once its event exists and bring it back when the event is gone', () => {
+        const kept = [mk('a', { status: 'kept', eventId: 'ev1' }), mk('b', { ball })]
+        expect(remainingCounts(kept, new Set(['ev1']))).toEqual({ all: 1, top: 1, other: 0 })
+        expect(remainingCounts(kept, new Set())).toEqual({ all: 2, top: 1, other: 1 })
     })
 })
 

@@ -3,7 +3,7 @@ import type { KeepType, Suggestion } from '../types'
 import { useAppState } from '../state'
 import { showToast, toastStore } from '../toasts'
 import { useDetectJob } from '../detectJobs'
-import { TOP_PICKS_DONE, defaultLane, firstPendingInLane, firstToReviewInLane, laneCounts, laneNeighbour, laneSwitchVisible, positionInLane, type Lane } from '../utils/reviewLanes'
+import { TOP_PICKS_DONE, defaultLane, firstPendingInLane, firstToReviewInLane, laneCounts, laneNeighbour, laneSwitchVisible, remainingCounts, positionInLane, type Lane } from '../utils/reviewLanes'
 import { NO_TOP_PICKS } from '../utils/voice'
 import { finalScore } from '../utils/score'
 import { scoreGap } from '../utils/scoreGap'
@@ -42,7 +42,8 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
     const failed = phase === 'failed'
     const switchShown = laneSwitchVisible(ballPhase, suggestions) && suggestions.length > 0 && !rangeStep && !stale && phase !== 'running'
     const lane: Lane = switchShown ? pickedLane : 'all'
-    const counts = laneCounts(suggestions)
+    const counts = laneCounts(suggestions) // positions in the lane ("2 of 5")
+    const left = remainingCounts(suggestions, ids) // the lane buttons: what is still to review
     const current = index < suggestions.length ? suggestions[index] : null
     const selectLane = (next: Lane): void => {
         if (next === lane) return
@@ -92,8 +93,10 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
     return (
         <ColumnPanel label="Suggested goals" onClose={onClose} className="review" badge={<BetaTag />}>
             <p className="sr-only" role="status" aria-live="polite">{announce}</p>
-            {suggestions.length > 0 && !rangeStep && !stale && phase !== 'running' && <GoalsTally />}
-            {switchShown && <LaneSwitch lane={lane} counts={counts} onSelect={selectLane} />}
+            <div className="review__top">
+                {suggestions.length > 0 && !rangeStep && !stale && phase !== 'running' && <GoalsTally />}
+                {switchShown && <LaneSwitch lane={lane} counts={left} onSelect={selectLane} />}
+            </div>
             {rangeStep && phase !== 'running' ? <MatchRangeStep /> : null}
             {failed && !rangeStep && <DetectFailed />}
             {ballPhase === 'running' && <BallProgress />}
