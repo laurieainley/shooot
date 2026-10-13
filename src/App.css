@@ -375,6 +375,9 @@
 .empty-player__keys div { display: flex; gap: 6px; align-items: center; }
 .empty-player__keys dt, .empty-player__keys dd { margin: 0; }
 .shell--phone .empty-player__keys, .shell--landscape .empty-player__keys { display: none; }
+/* Touch tablets without a trackpad: no keyboard to use the shortcuts with (⋯ → Shortcuts still lists them). */
+@media (pointer: coarse) and (hover: none) { .empty-player__keys { display: none; } }
+@media (pointer: coarse) { .empty-player__inner > p { font-size: 14px; } }
 
 /* ---------- floating panels and sheets ---------- */
 .floating {
@@ -967,7 +970,12 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .column-panel__head .floating__title { font-size: 15px; }
 
 /* Wide panels (upright tablet: the events area is the full screen width): two columns of groups, so all ten fit. */
-.shell--tablet .event-picker__groups { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; row-gap: 2px; align-items: end; }
+.shell--tablet .event-picker__groups { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; row-gap: 6px; align-items: start; } /* group titles share a line */
+/* Tablet on its side: the tag box sits in the rail; slimmer type buttons (still 44px) so all ten fit without scrolling. */
+@media (pointer: coarse) and (orientation: landscape) and (min-height: 600px) {
+  .shell--desktop .event-picker--column .event-picker__item--type { min-height: 44px; }
+  .shell--desktop .event-picker--column .event-picker__group { gap: 3px; }
+}
 @media (max-height: 500px) { .event-picker--column .event-picker__prompt { display: none; } }
 .rail { grid-template-columns: minmax(0, 1fr); } /* a wide panel inside never widens the rail */
 
@@ -1173,6 +1181,10 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .floating--drawer .floating__body { padding: 4px 18px 24px; }
 @media (max-width: 899px) and (orientation: portrait) {
   .floating.floating--drawer { width: 100vw; max-height: none; border-radius: 0; border-width: 0; }
+}
+/* Upright tablet (iPad 834px): a side drawer like landscape, not a full-screen page with 800px-wide controls. */
+@media (max-width: 899px) and (orientation: portrait) and (pointer: coarse) and (min-width: 600px) and (min-height: 600px) {
+  .floating.floating--drawer { width: min(480px, 100vw); border-width: 0 0 0 1px; }
 }
 .reel-summary { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
 .reel-summary__length { font-size: 15px; }
