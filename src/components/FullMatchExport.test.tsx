@@ -25,6 +25,7 @@ const big = (name: string, gb: number): VideoSourceFile => {
 
 describe('FullMatchExport', () => {
     beforeEach(() => {
+        localStorage.clear()
         renderReel.mockReset()
         resetRenderJobs()
         saved.job = null
@@ -44,8 +45,19 @@ describe('FullMatchExport', () => {
     it('should summarise the span, length and estimated size', () => {
         render(<FullMatchExport />)
         expect(screen.queryByText(/→/)).not.toBeInTheDocument() // just the length and size
-        expect(screen.getByText('18:00')).toBeInTheDocument()
-        expect(screen.getByRole('group', { name: 'Full match summary' })).toHaveTextContent(/about 2.3 GB/)
+        expect(screen.getByRole('group', { name: 'Full match summary' })).toHaveTextContent('18 min · kick-off to final whistle')
+        expect(screen.getByText(/^About 2\.3 GB · (quick|under a minute|about \d+ min)( on this device)?$/)).toBeInTheDocument()
+    })
+
+    it('should keep the cards, captions, replays and score bug behind one collapsed row with a one-line summary', async () => {
+        useAppState.setState({ fullMatch: { ...useAppState.getState().fullMatch, cards: true, captions: true, replays: true, scoreBug: 'goals' } })
+        render(<FullMatchExport />)
+        const row = screen.getByRole('button', { name: /^Included/ })
+        expect(row).toHaveAttribute('aria-expanded', 'false')
+        expect(row).toHaveTextContent('cards, captions, replays, score bug after goals')
+        expect(screen.queryByRole('checkbox', { name: /event captions/i })).not.toBeInTheDocument()
+        await userEvent.click(row)
+        expect(screen.getByRole('checkbox', { name: /event captions/i })).toBeInTheDocument()
     })
 
     it('should say where it starts and ends when the markers are missing', () => {
@@ -70,6 +82,8 @@ describe('FullMatchExport', () => {
 
     it('should set the score bug and cards', async () => {
         render(<FullMatchExport />)
+        expect(screen.queryByRole('radio', { name: 'Periodic' })).not.toBeInTheDocument()
+        await userEvent.click(screen.getByRole('button', { name: /^Included/ }))
         await userEvent.click(screen.getByRole('radio', { name: 'Periodic' }))
         expect(useAppState.getState().fullMatch.scoreBug).toBe('periodic')
         await userEvent.selectOptions(screen.getByRole('combobox', { name: /every/i }), '10')
@@ -104,29 +118,32 @@ describe('FullMatchExport', () => {
             useAppState.setState({ files: useAppState.getState().files.map((f) => ({ ...f, width, height })) })
         }
 
-        it('should default to Original and list the size and time of each choice', () => {
+        it('should default to Original, show each size under its label and one size and time line', async () => {
             withSize(3840, 2160)
             render(<FullMatchExport />)
-            expect(screen.getByRole('radio', { name: 'Original' })).toBeChecked()
-            const list = screen.getByRole('list', { name: /output quality sizes/i })
-            expect(list).toHaveTextContent(/Original about 2\.3 GB, roughly/)
-            expect(list).toHaveTextContent(/4K about .* GB, roughly .* min for a 18 min match, depending on the device/)
-            expect(list).toHaveTextContent(/1080p about .* GB, roughly .* min for a 18 min match, depending on the device/)
+            expect(screen.getByRole('radio', { name: /^Original/ })).toBeChecked()
+            expect(screen.getByRole('radio', { name: 'Original 2.3 GB' })).toBeChecked()
+            expect(screen.getByRole('radio', { name: /^4K .* GB$/ })).toBeInTheDocument()
+            expect(screen.getByRole('radio', { name: /^1080p .* GB$/ })).toBeInTheDocument()
+            expect(screen.getByText(/^About 2\.3 GB · (quick|under a minute|about \d+ min)( on this device)?$/)).toBeInTheDocument()
+            await userEvent.click(screen.getByRole('radio', { name: /^1080p/ }))
+            expect(screen.getByText(/^About .* GB · about \d+ min( on this device)?$/)).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Render full match · 1080p' })).toHaveClass('btn-primary')
         })
 
         it('should grey out 4K, saying why, when the footage is 1080p', () => {
             withSize(1920, 1080)
             render(<FullMatchExport />)
-            expect(screen.getByRole('radio', { name: '4K' })).toBeDisabled()
-            expect(screen.getByRole('radio', { name: '1080p' })).toBeEnabled()
-            expect(screen.getByRole('list', { name: /output quality sizes/i })).toHaveTextContent(/4K unavailable: The footage is 1920×1080, not 4K/)
+            expect(screen.getByRole('radio', { name: /^4K/ })).toBeDisabled()
+            expect(screen.getByRole('radio', { name: /^1080p/ })).toBeEnabled()
+            expect(screen.getByRole('radio', { name: /^4K/ }).closest('label')).toHaveTextContent('needs 4K footage')
         })
 
         it('should render with the chosen quality, resumable under its own signature', async () => {
             withSize(3840, 2160)
             renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
             render(<FullMatchExport />)
-            await userEvent.click(screen.getByRole('radio', { name: '1080p' }))
+            await userEvent.click(screen.getByRole('radio', { name: /^1080p/ }))
             expect(useAppState.getState().fullMatch.quality).toBe('1080p')
             await userEvent.click(screen.getByRole('button', { name: /render full match/i }))
             await waitFor(() => expect(renderReel).toHaveBeenCalled())
@@ -141,7 +158,7 @@ describe('FullMatchExport', () => {
             useAppState.setState({ fullMatch: { ...useAppState.getState().fullMatch, quality: '4k' } })
             renderReel.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }))
             render(<FullMatchExport />)
-            expect(screen.getByRole('radio', { name: 'Original' })).toBeChecked()
+            expect(screen.getByRole('radio', { name: /^Original/ })).toBeChecked()
             await userEvent.click(screen.getByRole('button', { name: /render full match/i }))
             await waitFor(() => expect(renderReel).toHaveBeenCalled())
             expect(renderReel.mock.calls[0][2].output).toBeUndefined()
@@ -157,17 +174,18 @@ describe('FullMatchExport', () => {
                 bigFootage()
                 stubStorage(async () => ({ quota: 10.8e9, usage: 0 }))
                 render(<FullMatchExport />)
-                await waitFor(() => expect(screen.getByRole('radio', { name: 'Original' })).toBeDisabled())
-                expect(screen.getByRole('list', { name: /output quality sizes/i })).toHaveTextContent(/Too big for this browser’s storage \(about .* GB needed, 10\.8 GB available\)/)
-                expect(screen.getByRole('radio', { name: '4K' })).toBeChecked()
+                await waitFor(() => expect(screen.getByRole('radio', { name: /^Original/ })).toBeDisabled())
+                expect(screen.getByRole('radio', { name: /^Original/ }).closest('label')).toHaveTextContent('too big')
+                expect(screen.getByRole('radio', { name: /^Original/ }).closest('label')).toHaveAttribute('title', expect.stringMatching(/Too big for this browser’s storage \(about .* GB needed, 10\.8 GB available\)/))
+                expect(screen.getByRole('radio', { name: /^4K/ })).toBeChecked()
                 expect(screen.getByRole('note')).toHaveTextContent(/Original would not fit.*4K is selected/)
             })
 
             it('should block nothing when estimate() is missing', async () => {
                 bigFootage()
                 render(<FullMatchExport />)
-                expect(screen.getByRole('radio', { name: 'Original' })).toBeEnabled()
-                expect(screen.getByRole('radio', { name: 'Original' })).toBeChecked()
+                expect(screen.getByRole('radio', { name: /^Original/ })).toBeEnabled()
+                expect(screen.getByRole('radio', { name: /^Original/ })).toBeChecked()
             })
 
             it('should block nothing when estimate() throws', async () => {
@@ -175,7 +193,7 @@ describe('FullMatchExport', () => {
                 stubStorage(async () => { throw new Error('nope') })
                 render(<FullMatchExport />)
                 await new Promise((r) => setTimeout(r, 20))
-                expect(screen.getByRole('radio', { name: 'Original' })).toBeEnabled()
+                expect(screen.getByRole('radio', { name: /^Original/ })).toBeEnabled()
             })
 
             it('should say private windows have little storage under 2 GB', async () => {
@@ -184,12 +202,12 @@ describe('FullMatchExport', () => {
                 expect(await screen.findByText(/Private windows have very little storage/)).toBeInTheDocument()
             })
 
-            it('should add the keep-awake note for a re-encode on a phone only', async () => {
+            it('should not show the keep-awake note before a render runs (it lives in the render status)', async () => {
                 setCoarsePointer(true)
                 withSize(3840, 2160)
                 useAppState.setState({ fullMatch: { ...useAppState.getState().fullMatch, quality: '1080p' } })
                 render(<FullMatchExport />)
-                expect(screen.getByText('Keep the screen on, the tab open and the device plugged in.')).toBeInTheDocument()
+                expect(screen.queryByText('Keep the screen on, the tab open and the device plugged in.')).not.toBeInTheDocument()
             })
         })
     })

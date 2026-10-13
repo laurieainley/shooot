@@ -805,6 +805,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
      Tailwind sizes used in components (unlayered CSS beats the utilities layer) and the small UI classes. */
   .text-\[10px\], .text-\[11px\], .text-\[12px\], .text-\[13px\],
   .btn-quiet, .btn-primary, .file-add, .field, .tag, .row-score, .menu > button, .menu-item,
+  .export-disclosure__summary, .segmented--quality .segmented__sub, .quality-field__help, .quality-field__explain,
   .reel-summary, .export-hint, .export-body, .shortcuts-row, .link-btn, .export-section__title, .settings-group legend, .export-section__hint, .toggle-row__hint, .settings-field, .settings-field .unit,
   .strip-label, .strip-file__num, .graphics-setup__field, .opening-status, .event-picker__hint, .event-picker__title, .event-picker__warn,
   .control-btn, .file-pill__dur,
@@ -894,6 +895,8 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 @media (pointer: coarse) {
   .segmented-field legend, .segmented-field__interval { font-size: 14px; }
   .segmented__option span { min-height: 44px; display: inline-flex; align-items: center; font-size: 14px; padding: 0 14px; }
+  .segmented--quality .segmented__stack { min-height: 52px; }
+  .quality-field__help { min-height: 44px; }
 }
 /* Export panel: two tabs, highlights / full match. */
 .export-tabs { display: flex; gap: 2px; margin: 0 0 4px; border-bottom: 1px solid var(--sh-line); }
@@ -1218,7 +1221,37 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .reel-summary__length { font-size: 15px; }
 .reel-summary__length b { font-family: var(--sh-font-mono); font-size: 22px; margin-right: 2px; }
 .reel-summary__settings { color: var(--sh-muted); line-height: 1.45; }
-.reel-summary__editor { padding: 12px; margin-top: 4px; border: 1px solid var(--sh-line); border-radius: var(--sh-radius-md); background: var(--sh-surface); }
+ 
+/* Export drawer: key action first, settings collapsed into one-line rows. */
+.export-stack { display: flex; flex-direction: column; gap: 10px; padding-top: 10px; }
+.export-disclosures { display: flex; flex-direction: column; margin-top: 4px; border-top: 1px solid var(--sh-line); }
+.export-disclosure { border-bottom: 1px solid var(--sh-line); }
+.export-disclosure__row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 48px; padding: 8px 0;
+  border: 0; background: none; color: var(--sh-text); font: inherit; text-align: left; cursor: pointer;
+}
+.export-disclosure__row:focus-visible { outline: 2px solid var(--sh-text); outline-offset: 2px; }
+.export-disclosure__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.export-disclosure__title { font-size: 14px; font-weight: 700; }
+.export-disclosure__summary { font-size: 13px; color: var(--sh-muted); line-height: 1.35; }
+.export-disclosure__chevron { flex: none; width: 8px; height: 8px; margin-right: 4px; border: solid var(--sh-muted); border-width: 0 2px 2px 0; transform: rotate(45deg); transition: transform 0.15s; }
+.export-disclosure__row[aria-expanded="true"] .export-disclosure__chevron { transform: rotate(-135deg); }
+.export-disclosure__body { display: flex; flex-direction: column; gap: 8px; padding: 4px 0 14px; }
+@media (prefers-reduced-motion: reduce) { .export-disclosure__chevron { transition: none; } }
+.render-estimate { text-align: center; }
+.quality-field { margin: 0; }
+.quality-field .segmented--quality { display: flex; width: 100%; }
+.segmented--quality .segmented__option { flex: 1; }
+.segmented--quality .segmented__stack { text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; width: 100%; padding: 6px 8px; border-left: 1px solid var(--sh-line); }
+.segmented--quality .segmented__option:first-child .segmented__stack { border-left: 0; }
+.segmented--quality .segmented__label { font-size: 14px; font-weight: 700; }
+.segmented--quality .segmented__sub { font-size: 12px; font-style: normal; opacity: 0.8; }
+.segmented--quality input:checked + .segmented__stack { background: var(--sh-text); color: var(--sh-ground); }
+.segmented--quality input:focus-visible + .segmented__stack { outline: 2px solid var(--sh-text); outline-offset: -2px; }
+.segmented--quality input:disabled + .segmented__stack { opacity: 0.55; }
+.quality-field__help { align-self: flex-start; font-size: 13px; font-weight: 600; }
+.quality-field__explain { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--sh-muted); flex-basis: 100%; }
+.quality-field__explain b { color: var(--sh-text); }
 
 /* Shortcuts sheet and the rail's ? button */
 .shortcuts-group { margin-top: 14px; }

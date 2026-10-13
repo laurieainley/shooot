@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useAppState } from '../state'
 import { useRenderJobs } from '../renderJobs'
 import { DescriptionCopy } from './DescriptionCopy'
-import { ExportSection as Section } from './ExportSection'
+import { ClipSettings } from './ClipSettings'
+import { ExportDisclosure } from './ExportDisclosure'
 import { FloatingPanel } from './FloatingPanel'
 import { FullMatchExport } from './FullMatchExport'
 import { GraphicsSettings } from './GraphicsSettings'
@@ -10,6 +11,8 @@ import { PreviewControls } from './PreviewControls'
 import { RenderHighlights } from './RenderHighlights'
 import { ReelSummary } from './ReelSummary'
 import { ThumbnailMaker } from './ThumbnailMaker'
+import { getTheme } from '../graphics/themes'
+import { clipsSummary, graphicsSummary } from '../utils/renderSummary'
 import { exportButtonStatus, SHOW_DONE_MS, type ExportButtonStatus } from '../utils/exportButton'
 
 const TABS = [
@@ -38,6 +41,10 @@ export function ExportPanel() {
     const tab = useAppState((s) => s.exportTab)
     const rendering = useRenderJobs((s) => s.job?.phase === 'running')
     const status = useExportButtonStatus()
+    const before = useAppState((s) => s.lengthBeforeGoalSec)
+    const after = useAppState((s) => s.lengthAfterGoalSec)
+    const replaySpeed = useAppState((s) => s.replaySpeed)
+    const graphics = useAppState((s) => s.graphics)
     const state = rendering ? (open ? 'rendering-open' : 'rendering') : open ? 'open' : 'idle'
     const setOpen = (next: boolean): void => { const st = useAppState.getState(); if (next) st.openPanel('export'); else st.closePanel() }
     const anchorRef = useRef<HTMLButtonElement | null>(null)
@@ -76,33 +83,32 @@ export function ExportPanel() {
                         ))}
                     </div>
                     {tab === 'highlights' ? (
-                        <div role="tabpanel" id="export-panel-highlights" aria-labelledby="export-tab-highlights">
-                            <Section title="Reel" hint="what the render will contain">
-                                <ReelSummary />
-                                <PreviewControls onStart={() => setOpen(false)} />
-                            </Section>
-                            <Section title="Graphics" hint="drawn into the rendered reel">
-                                <GraphicsSettings />
-                            </Section>
-                            <Section title="Render" hint="one MP4 reel">
-                                <RenderHighlights />
-                            </Section>
-                            <Section title="Share" hint="YouTube description with chapters">
-                                <DescriptionCopy kind="highlights" />
-                            </Section>
-                            <Section title="YouTube thumbnail" hint="a goal frame with the teams">
-                                <ThumbnailMaker kind="highlights" />
-                            </Section>
+                        <div role="tabpanel" id="export-panel-highlights" aria-labelledby="export-tab-highlights" className="export-stack">
+                            <ReelSummary />
+                            <PreviewControls onStart={() => setOpen(false)} />
+                            <RenderHighlights />
+                            <div className="export-disclosures">
+                                <ExportDisclosure id="clips" title="Clips & replays" summary={clipsSummary({ before, after, replaySpeed })}>
+                                    <ClipSettings />
+                                </ExportDisclosure>
+                                <ExportDisclosure id="graphics" title="Graphics" summary={graphicsSummary(graphics, getTheme(graphics.theme).name)}>
+                                    <GraphicsSettings />
+                                </ExportDisclosure>
+                                <ExportDisclosure id="share" title="Share on YouTube" summary="description and thumbnail">
+                                    <DescriptionCopy kind="highlights" />
+                                    <ThumbnailMaker kind="highlights" />
+                                </ExportDisclosure>
+                            </div>
                         </div>
                     ) : (
-                        <div role="tabpanel" id="export-panel-fullMatch" aria-labelledby="export-tab-fullMatch">
+                        <div role="tabpanel" id="export-panel-fullMatch" aria-labelledby="export-tab-fullMatch" className="export-stack">
                             <FullMatchExport />
-                            <Section title="Share" hint="YouTube description, chapters from kick-off">
-                                <DescriptionCopy kind="fullMatch" />
-                            </Section>
-                            <Section title="YouTube thumbnail" hint="a goal frame with the teams">
-                                <ThumbnailMaker kind="fullMatch" />
-                            </Section>
+                            <div className="export-disclosures">
+                                <ExportDisclosure id="share" title="Share on YouTube" summary="description and thumbnail">
+                                    <DescriptionCopy kind="fullMatch" />
+                                    <ThumbnailMaker kind="fullMatch" />
+                                </ExportDisclosure>
+                            </div>
                         </div>
                     )}
                 </FloatingPanel>
