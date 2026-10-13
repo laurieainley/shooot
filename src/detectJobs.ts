@@ -1,4 +1,4 @@
-// The one Find goals (Beta) analysis, kept outside the UI like renderJobs.ts: closing the review panel never stops it.
+// The one Find goals analysis, kept outside the UI like renderJobs.ts: closing the review panel never stops it.
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import { useAppState } from './state'
@@ -67,7 +67,7 @@ export function createDetectJobs(over: Partial<JobDeps> = {}): { store: StoreApi
         const keys = fileKeys(app.files)
         const startedAt = deps.now()
         const unwatch = useAppState.subscribe((s, prev) => {
-            // Diagnostic (Beta): the review panel should never close by itself while Find goals runs.
+            // Diagnostic: the review panel should never close by itself while Find goals runs.
             if (prev.panel === 'review' && s.panel !== 'review') console.warn('[Find goals] review panel closed', { to: s.panel, picker: !!s.picker }, new Error().stack)
             if (!sameFiles(snapshot, s.files.map((f) => f.file))) mine.abort()
             else if (!s.labs && store.getState().ballPhase === 'running') mine.abort() // Labs switched off: stop phase 2, the audio results stay

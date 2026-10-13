@@ -9,7 +9,7 @@ import { finalScore } from '../utils/score'
 import { scoreGap } from '../utils/scoreGap'
 import { GoalsTally } from './GoalsTally'
 import { LaneSwitch } from './LaneSwitch'
-import { BetaTag } from './BetaTag'
+import { AiTag } from './AiTag'
 import { ColumnPanel } from './ColumnPanel'
 import { BallFailed, BallProgress, DetectFailed, DetectIdle, DetectProgress } from './DetectProgress'
 import { useRangeStep, useSuggestionsCurrent } from './findGoals'
@@ -19,7 +19,7 @@ import { SuggestionSummary } from './SuggestionSummary'
 
 interface SuggestionReviewProps { onClose: () => void }
 
-/** Find goals (Beta): progress while listening, then one suggestion at a time, then the summary. */
+/** Find goals: progress while listening, then one moment at a time, then the summary. */
 export function SuggestionReview({ onClose }: SuggestionReviewProps) {
     const phase = useDetectJob((s) => s.phase)
     const suggestions = useAppState((s) => s.suggestions)
@@ -91,7 +91,7 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
     const emptyOther = lane === 'other' && counts.other === 0
     const announce = phase === 'running' ? 'Listening for goals.' : phase === 'done' ? 'Find goals finished.' : phase === 'cancelled' ? 'Find goals stopped.' : ''
     return (
-        <ColumnPanel label="Suggested goals" onClose={onClose} className="review" badge={<BetaTag />}>
+        <ColumnPanel label="Find goals" onClose={onClose} className="review" badge={<AiTag />}>
             <p className="sr-only" role="status" aria-live="polite">{announce}</p>
             <div className="review__top">
                 {suggestions.length > 0 && !rangeStep && !stale && phase !== 'running' && <GoalsTally />}

@@ -20,7 +20,7 @@ export function polishingChip(fraction: number): string {
     return `Polishing… ${pct(fraction)}%`
 }
 
-/** Find goals (Beta) progress (brand voice). */
+/** Find goals progress (brand voice). */
 export function listeningLine(fraction: number): string {
     return `Listening for the roar… ${pct(fraction)}%`
 }
@@ -46,6 +46,6 @@ export function keptSummary(kept: number, total: number): string {
 }
 
 /** The Top picks lane when the ball check finished and saw the ball in no goal. */
-export const NO_TOP_PICKS = "No top picks — the ball wasn't seen in a goal for any suggestion."
+export const NO_TOP_PICKS = "No top picks — the ball wasn't seen in a goal for any moment."
 export const LOW_KEEP_NOTE = 'Detection struggled on this footage. Copy diagnostics and send it over.'
 export const NOTHING_STOOD_OUT = 'Nothing stood out in the audio. Tag goals as you watch.'

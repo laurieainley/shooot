@@ -91,7 +91,7 @@ describe('MatchStrip', () => {
         expect(flag).not.toHaveAttribute('title')
     })
 
-    it('should call a suggestion ring a detected moment when hovering the ring itself', () => {
+    it('should call a suggestion ring a found moment when hovering the ring itself', () => {
         useAppState.setState({ suggestionRun: null, suggestions: [
             { id: 's1', globalTimeSec: 300, score: 1, source: 'audio', status: 'pending' },
             { id: 's2', globalTimeSec: 500, score: 1, source: 'audio', status: 'pending', ball: { goal: 'team1', frames: 2 } },
@@ -100,9 +100,9 @@ describe('MatchStrip', () => {
         mockRect(track())
         const bubble = (): string | null | undefined => container.querySelector('.strip-bubble')?.textContent
         fireEvent.pointerMove(track(), { clientX: 302, clientY: 36, pointerId: 1, pointerType: 'mouse' })
-        expect(bubble()).toBe('Detected moment · 03:20 · V1')
+        expect(bubble()).toBe('Found moment · 03:20 · V1')
         fireEvent.pointerMove(track(), { clientX: 500, clientY: 36, pointerId: 1, pointerType: 'mouse' })
-        expect(bubble()).toBe('Detected moment (top pick) · 06:40 · V1')
+        expect(bubble()).toBe('Found moment (top pick) · 06:40 · V1')
         // Above the ring lane, or beside the ring: just the time.
         fireEvent.pointerMove(track(), { clientX: 300, clientY: 10, pointerId: 1, pointerType: 'mouse' })
         expect(bubble()).toBe('03:20 · V1')
@@ -150,7 +150,7 @@ describe('MatchStrip', () => {
             { id: 's4', globalTimeSec: 360, score: 1, source: 'audio', status: 'kept', eventId: 'g1' },
         ], events: [{ id: 'g1', type: 'goal', matchTimeSec: 358, sourceFileIndex: 0 }] as never })
         render(<MatchStrip />)
-        const rings = screen.getAllByRole('button', { name: /Detected moment/ })
+        const rings = screen.getAllByRole('button', { name: /Found moment/ })
         expect(rings).toHaveLength(2)
         expect(rings[0].className).toContain('strip-suggestion')
         expect(rings[0].className).not.toContain('strip-suggestion--top')
@@ -163,7 +163,7 @@ describe('MatchStrip', () => {
             { id: 's2', globalTimeSec: 240, score: 1, source: 'audio', status: 'rejected' },
         ] })
         render(<MatchStrip />)
-        const rings = screen.getAllByRole('button', { name: /Detected moment/ })
+        const rings = screen.getAllByRole('button', { name: /Found moment/ })
         expect(rings).toHaveLength(1)
         fireEvent.click(rings[0])
         expect(useAppState.getState().panel).toBe('review')
@@ -296,7 +296,7 @@ describe('MatchStrip', () => {
         it('should hide rings from a run on other videos', () => {
             useAppState.setState({ suggestionRun: { createdAt: 0, source: 'audio', configVersion: 2, analysedSec: 1, total: 1, fileKeys: ['other.mp4'] } })
             render(<MatchStrip />)
-            expect(screen.queryByRole('button', { name: /Detected moment/ })).toBeNull()
+            expect(screen.queryByRole('button', { name: /Found moment/ })).toBeNull()
         })
     })
 })

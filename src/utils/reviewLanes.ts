@@ -76,10 +76,10 @@ export function openingIndex(suggestions: readonly Suggestion[], eventIds: Reado
     return first >= 0 ? first : suggestions.length
 }
 
-/** The quiet rail button after review was closed: "Review suggestions (5 left · 1 top pick)"; null when nothing is left. */
+/** The quiet rail button after review was closed: "Review moments (5 left · 1 top pick)"; null when nothing is left. */
 export function reviewRailLabel(suggestions: readonly Suggestion[], eventIds: ReadonlySet<string>): string | null {
     const left = suggestions.filter((s) => effectiveStatus(s, eventIds) === 'pending')
     if (left.length === 0) return null
     const top = left.filter((s) => !!s.ball).length
-    return `Review suggestions (${left.length} left${top > 0 ? ` · ${top} top ${top === 1 ? 'pick' : 'picks'}` : ''})`
+    return `Review moments (${left.length} left${top > 0 ? ` · ${top} top ${top === 1 ? 'pick' : 'picks'}` : ''})`
 }

@@ -48,11 +48,11 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
         rows: [
             { keys: ['M'], what: 'In the review: mark the exact moment (pauses; overrides mute)' },
             { keys: ['G', 'O', 'S', 'H'], what: 'In the review: choose goal, own goal, save, highlight' },
-            { keys: ['X'], what: 'In the review: discard the suggestion and go to the next' },
+            { keys: ['X'], what: 'In the review: discard the moment and go to the next' },
             { keys: ['1', '2'], what: 'In the review: choose the team' },
             { keys: ['⏎'], what: 'In the review: confirm and go to the next' },
             { keys: ['Esc', '⌫'], what: 'In the review: undo the choice' },
-            { keys: ['[', ']'], what: 'In the review: previous / next suggestion (elsewhere: previous / next file)' },
+            { keys: ['[', ']'], what: 'In the review: previous / next moment (elsewhere: previous / next file)' },
             { keys: ['{', '}'], what: 'In the review: look 2 s earlier / later (Shift+[ and Shift+])' },
             { keys: ['←', '→'], what: 'In the review: seek 5 s (Shift 1 s), like the editor' },
         ],

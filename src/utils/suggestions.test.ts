@@ -50,7 +50,7 @@ describe('detectionReport', () => {
         const run = { createdAt: 0, source: 'audio' as const, configVersion: 1, analysedSec: 2940, total: 30 }
         const counts = { total: 30, kept: 6, rejected: 20, pending: 4, byType: { goal: 5, save: 1 } }
         const text = detectionReport(run, counts)
-        expect(text).toContain('Find goals (Beta), audio, config v1')
+        expect(text).toContain('Find goals, audio, config v1')
         expect(text).toContain('Analysed: 49:00')
         expect(text).toContain('Range: —')
         expect(detectionReport({ ...run, bounded: true }, counts)).toContain('Range: kick off → final whistle')

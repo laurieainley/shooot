@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useAppState, type Panel } from '../state'
-import { BetaTag } from './BetaTag'
+import { AiTag } from './AiTag'
 import { cancelDetection, useDetectJob } from '../detectJobs'
 import { findGoalsProgress } from '../utils/findGoalsProgress'
 import { openFindGoals, useSuggestionsCurrent } from './findGoals'
@@ -83,7 +83,7 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
             <button type="button" role="menuitem" onClick={() => setConfirmNew(true)}>New match…</button>
             {hasFiles && (
                 <button type="button" role="menuitem" onClick={() => openFindGoals()}>
-                    {running ? `Find goals — ${running.percent}%` : hasSuggestions ? 'Review suggestions' : 'Find goals'} <BetaTag />
+                    {running ? `Find goals — ${running.percent}%` : hasSuggestions ? 'Review moments' : 'Find goals'} <AiTag />
                 </button>
             )}
             {items.map(({ label, panel, aria }) => (

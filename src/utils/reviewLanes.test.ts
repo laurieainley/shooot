@@ -110,9 +110,9 @@ describe('default lane, opening index and rail label', () => {
         expect(openingIndex([], ids)).toBe(0)
     })
     it('should word the rail button with the number left and top picks only when there are some', () => {
-        expect(reviewRailLabel(list, ids)).toBe('Review suggestions (4 left · 2 top picks)')
-        expect(reviewRailLabel([mk('a'), mk('b', { ball })], ids)).toBe('Review suggestions (2 left · 1 top pick)')
-        expect(reviewRailLabel([mk('a'), mk('b')], ids)).toBe('Review suggestions (2 left)')
+        expect(reviewRailLabel(list, ids)).toBe('Review moments (4 left · 2 top picks)')
+        expect(reviewRailLabel([mk('a'), mk('b', { ball })], ids)).toBe('Review moments (2 left · 1 top pick)')
+        expect(reviewRailLabel([mk('a'), mk('b')], ids)).toBe('Review moments (2 left)')
         expect(reviewRailLabel([mk('a', { status: 'rejected' })], ids)).toBeNull()
     })
 })
