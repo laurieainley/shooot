@@ -41,6 +41,8 @@
 .export-btn[data-state='open'] .export-btn__bar, .export-btn[data-state='rendering-open'] .export-btn__bar { background: var(--sh-text); }
 @keyframes export-pulse { 50% { opacity: 0.25; } }
 @media (prefers-reduced-motion: reduce) { .export-btn__dot { animation: none !important; } }
+/* Narrow phones: "Export ● 42%" pushed ⋯ off the screen and the whole page panned sideways; the progress (or Ready / Failed) stands in for the word. */
+@media (max-width: 430px) { .export-btn:has(.export-btn__live) > span:first-child { display: none; } }
 .btn-icon {
   display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0;
   border: 0; border-radius: var(--sh-radius-sm); background: transparent; color: var(--sh-muted); cursor: pointer; font-size: 15px;
@@ -1495,12 +1497,24 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 @container rvpanel (max-width: 360px) {
   .lanes__btn { padding: 4px 6px; gap: 4px; white-space: normal; text-align: center; line-height: 1.15; font-size: 14px; }
   .lanes__star, .lanes__icon { width: 14px; height: 14px; }
+  /* Mark moment / Confirm takes the room, Discard its own width: two equal halves overflowed the panel. */
+  .rv__decide { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .rv__decide .rv__save, .rv__decide .rv__discard { font-size: 15px; padding-inline: 12px; }
 }
 
 /* Tally + lane switch share a line where the width allows. */
 .review__top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .review__top > .tally { flex: 1 1 auto; }
 .review__top > .lanes { flex: 1 1 230px; }
+.review__top + .review__summary { margin-top: 12px; }
+/* Phone landscape (about 300 px of panel): tighter tally and card, so the mini timeline shows above the pinned Mark moment bar. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .review .tally { margin-bottom: 0; }
+  .review .tally { row-gap: 0; }
+  .review__top { row-gap: 6px; }
+  .review .rv { gap: 6px; }
+  .review .rv__time { font-size: 22px; }
+}
 
 /* Name chips (touch): the team's roster as 44 px chips, + New name for a typed one, Skip / No assist. Body font, not the shirt face. */
 .person-chips { display: flex; flex-direction: column; gap: 8px; }

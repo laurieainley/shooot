@@ -29,7 +29,6 @@ export function ClipDownload({ event }: ClipDownloadProps) {
     const canReplay = wantsReplay(event)
     const opts = { score: twoTeams && clipOptions.score, replay: canReplay && clipOptions.replay }
     const ownJob = mine && job?.kind === 'clip' ? job : null
-
     const files = useAppState((s) => s.files)
     const previewOnly = useMemo(
         () => open && !event.unlinked && !!clipExport(useAppState.getState(), event.id, { score: opts.score, replay: opts.replay }, 'full')?.missing.length,
@@ -37,7 +36,8 @@ export function ClipDownload({ event }: ClipDownloadProps) {
         [open, event, files, opts.score, opts.replay],
     )
 
-    const reason = running && !ownJob ? 'A render is in progress' : event.unlinked ? 'Relink the file first' : null
+    // After a reload no files are loaded and the events are not flagged unlinked yet: nothing to render from.
+    const reason = running && !ownJob ? 'A render is in progress' : event.unlinked ? 'Relink the file first' : files.length === 0 ? 'Load the match videos first' : null
 
     const toggle = (): void => {
         const r = anchorRef.current?.getBoundingClientRect()

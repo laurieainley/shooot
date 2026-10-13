@@ -104,22 +104,24 @@ export type InstructionInput = {
     teamCount: number
     /** The time that will be saved, formatted (the marked time, or the playhead when unmarked). */
     clock: string
+    /** Touch layout: no key hints (M, 1 / 2, Enter). */
+    touch?: boolean
 }
 export type Instruction = { text: string; warning: string | null }
 
 export const UNMARKED_WARNING = 'Using the playhead time — mark the exact moment for accurate clips'
 
 /** The line under the timeline: what to do next, by state. */
-export function instructionText({ marked, decision, teamCount, clock }: InstructionInput): Instruction {
+export function instructionText({ marked, decision, teamCount, clock, touch = false }: InstructionInput): Instruction {
     const { type, team } = decision
     if (type === null) {
         return marked
             ? { text: `Marked at ${clock} — now choose what it was`, warning: null }
-            : { text: 'Pause when the ball crosses the line or the moment happens, then press M (or tap Mark moment)', warning: null }
+            : { text: `Pause when the ball crosses the line or the moment happens, then ${touch ? 'tap Mark moment' : 'press M or click Mark moment'}`, warning: null }
     }
-    if (needsTeam(type, teamCount) && team === null) return { text: `${TYPE_NAME[type]} at ${clock} — choose the team (1 / 2)`, warning: marked ? null : UNMARKED_WARNING }
+    if (needsTeam(type, teamCount) && team === null) return { text: `${TYPE_NAME[type]} at ${clock} — choose the team${touch ? '' : ' (1 / 2)'}`, warning: marked ? null : UNMARKED_WARNING }
     const what = team ? `${TYPE_NAME[type]} · ${team}` : TYPE_NAME[type]
-    return { text: `${what} at ${clock} — press Enter to confirm`, warning: marked ? null : UNMARKED_WARNING }
+    return { text: touch ? `${what} at ${clock}` : `${what} at ${clock} — press Enter to confirm`, warning: marked ? null : UNMARKED_WARNING }
 }
 
 /** Label of the confirm button. */
