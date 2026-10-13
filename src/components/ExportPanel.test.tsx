@@ -26,6 +26,16 @@ describe('ExportPanel', () => {
         })
     })
 
+    it('should stay quiet (not the lime primary) until a video is loaded, so Choose files is the one primary action', () => {
+        useAppState.setState({ files: [], cumulativeOffsets: [] })
+        const { unmount } = render(<ExportPanel />)
+        expect(screen.getByRole('button', { name: 'Export' })).not.toHaveClass('top-btn--primary')
+        unmount()
+        useAppState.setState({ files: [proxy], cumulativeOffsets: [0] })
+        render(<ExportPanel />)
+        expect(screen.getByRole('button', { name: 'Export' })).toHaveClass('top-btn--primary')
+    })
+
     it('should be closed until the Export button is pressed', () => {
         render(<ExportPanel />)
         expect(screen.queryByRole('dialog', { name: 'Export' })).not.toBeInTheDocument()
