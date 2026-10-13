@@ -106,6 +106,11 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
   back-pressure; we want to know if one WebGPU pass (zero-copy video import, scale + overlay composite) cuts paint/scale. The other
   experiments are done, so the presets are narrowed to avoid re-running them. *Where:* `src/render/gpuScaler.ts`, `src/bench/experiments/webgpu.ts`,
   `src/bench/presets.ts`. Not used by the editor; decide after the device numbers.
+- **WebGPU stays bench-only: not used for real exports on any device** (user + Claude). *Why:* device numbers (45 s GoPro 4K, 2 units
+  at a time): Pixel 5–10% faster overall (scale + paint 8.7 → 1.3 ms/frame, but the encoder is the limit), colour correct; iPad about
+  2× slower (it replaces encoder scaling, which is nearly free there) and the adapter vanished mid-run; Intel Mac no gain and a +9/255
+  washed-out picture. A few percent on one device class doesn't justify a second picture path, a colour self-check and device-loss
+  handling while browser support is patchy. Experiment 11 stays on /bench to re-test later.
 
 ## 2026-10-12
 
