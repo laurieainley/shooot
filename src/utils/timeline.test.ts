@@ -80,6 +80,10 @@ describe('formatEventClock', () => {
         expect(formatEventClock(70, 70, 100)).toBe('−00:30')
     })
 
+    it('should not show a minus zero in the last second before kick-off', () => {
+        expect(formatEventClock(99.5, 99.5, 100)).toBe('00:00')
+    })
+
     it('should use the long shape in a long project', () => {
         expect(formatEventClock(1521, 1521, 100, true)).toBe('0:23:41')
         expect(formatEventClock(75, 75, 0, true)).toBe('0:01:15')

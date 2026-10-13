@@ -428,6 +428,8 @@
   background: transparent; color: var(--sh-text); padding: 6px 10px; font-size: 14px; cursor: pointer;
 }
 .menu-list > button:hover:not(:disabled) { background: var(--sh-surface-2); }
+.menu-confirm { padding-inline: 10px; }
+@media (pointer: coarse) { .menu-confirm { font-size: 14px; } .menu-confirm .btn-quiet { min-height: 44px; } }
 .menu-list > button:disabled { opacity: 0.4; cursor: not-allowed; }
 .menu-list > button:nth-child(1) { border-bottom: 1px solid var(--sh-line); border-radius: var(--sh-radius-sm) 3px 0 0; margin-bottom: 4px; }
 .menu-list > button:last-of-type { border-top: 1px solid var(--sh-line); border-radius: 0 0 3px 3px; margin-top: 4px; }
@@ -1666,3 +1668,9 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 @media (orientation: landscape) and (max-height: 500px) { .gs { --gs-col: 280px; } .gs-title { font-size: 15px; } }
 @media (min-width: 1024px) { .gs { --gs-col: 360px; } .gs-title { font-size: 18px; } .gs-head, .gs-controls { padding-inline: 16px; } }
 @media (prefers-reduced-motion: reduce) { .gs *, .gs *::before { transition: none !important; animation: none !important; } }
+
+/* Touch: no text under 14px. These base rules sit after the touch rule above and beat it, so restate them here. */
+@media (pointer: coarse) {
+  .segmented--quality .segmented__sub, .quality-field__help, .quality-field__explain, .export-disclosure__summary, .reel-summary__settings,
+  .final-score__label, .file-card__name, .file-slot__num, .file-card__meta { font-size: 14px; }
+}
