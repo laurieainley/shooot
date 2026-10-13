@@ -97,6 +97,19 @@ describe('RosterTags', () => {
         expect(input.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
+    it('should show a player count and a shirt for each player in the team colour', () => {
+        render(<RosterTags label="Team 1 roster" names={['Jo', 'Alex']} onChange={() => {}} color="#c2364a" />)
+        expect(screen.getByText('2 players')).toBeInTheDocument()
+        const list = screen.getByRole('list', { name: 'Team 1 roster players' })
+        expect(list.querySelectorAll('svg.roster-shirt')).toHaveLength(2)
+        expect(list.querySelector('svg.roster-shirt path')).toHaveAttribute('fill', '#c2364a')
+    })
+
+    it('should say 1 player for a single name', () => {
+        render(<RosterTags label="Team 1 roster" names={['Jo']} onChange={() => {}} />)
+        expect(screen.getByText('1 player')).toBeInTheDocument()
+    })
+
     it('should not remove a chip on Backspace in the empty field', async () => {
         render(<Harness initial={['Alex', 'Jo']} />)
         await userEvent.type(screen.getByLabelText('Team 1 roster'), '{Backspace}')

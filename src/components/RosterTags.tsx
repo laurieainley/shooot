@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ClipboardEvent, type FocusEvent, type KeyboardEvent } from 'react'
 import { parseRoster, sortNames } from '../utils/roster'
+import { solidTeamColor } from '../utils/teamColor'
 import { suggestPlayers, type KnownPlayer } from '../utils/knownPlayers'
 
 interface RosterTagsProps {
@@ -13,6 +14,8 @@ interface RosterTagsProps {
     exclude?: string[]
     /** Remove a name from the remembered players. */
     onForget?: (name: string) => void
+    /** The team's kit colour, for the little shirt beside each player. */
+    color?: string
 }
 
 const same = (a: string, b: string): boolean => a.toLowerCase() === b.toLowerCase()
@@ -27,12 +30,22 @@ function Cross() {
     )
 }
 
+/** A mini shirt in the kit colour; the outline keeps a white kit visible on a light background. */
+function Shirt({ color }: { color: string }) {
+    return (
+        <svg className="roster-shirt" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+            <path fill={color} stroke="var(--sh-muted)" strokeWidth="1.2" strokeLinejoin="round"
+                d="M8.5 3.5 3 6.2l1.8 4.6 2.7-1V20.5h9V9.8l2.7 1L21 6.2l-5.5-2.7c-.5 1.4-1.8 2.2-3.5 2.2s-3-.8-3.5-2.2z" />
+        </svg>
+    )
+}
+
 /**
- * A roster: a field with an Add button (Enter, comma or Tab adds; pasting several names adds several; Enter keeps
+ * A roster, laid out as a lineup: a field with an Add button (Enter, comma or Tab adds; pasting several names adds several; Enter keeps
  * focus in the field so the next name can be typed), previous players suggested under it, and the roster as chips
- * below (click a name to fix it, × to remove it). Names are de-duplicated ignoring case.
+ * below, one player per line with a shirt in the team colour (click a name to fix it, × to remove it). Names are de-duplicated ignoring case.
  */
-export function RosterTags({ label, names: unsorted, onChange: emit, known = [], exclude = [], onForget }: RosterTagsProps) {
+export function RosterTags({ label, names: unsorted, onChange: emit, known = [], exclude = [], onForget, color }: RosterTagsProps) {
     const names = sortNames(unsorted)
     const onChange = (next: string[]): void => emit(sortNames(next))
     const [draft, setDraft] = useState('')
@@ -191,9 +204,12 @@ export function RosterTags({ label, names: unsorted, onChange: emit, known = [],
                 )}
             </div>
             {names.length > 0 && (
+                <>
+                <p className="roster__count">{names.length === 1 ? '1 player' : `${names.length} players`}</p>
                 <ul className="roster__list" aria-label={`${label} players`}>
                     {names.map((name, i) => (
-                        <li key={name.toLowerCase()} className="roster-tag">
+                        <li key={name.toLowerCase()} className="roster-player">
+                            <Shirt color={solidTeamColor(color, 'var(--sh-surface-2)')} />
                             {editing === i ? (
                                 <input
                                     autoFocus
@@ -218,6 +234,7 @@ export function RosterTags({ label, names: unsorted, onChange: emit, known = [],
                         </li>
                     ))}
                 </ul>
+                </>
             )}
         </div>
     )

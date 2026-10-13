@@ -33,7 +33,13 @@ export function GoalSetupSummary({ frame, onEdit, onSetup, compact }: GoalSetupS
     if (!areas && !marks) {
         return (
             <section className="gs-summary" aria-label="Goal set-up">
-                <p className="goal-areas__hint">Show Shooot where the two goals are, so replays zoom in on them and Find goals can check the goal mouths. It takes a minute, and it's optional.</p>
+                <div className="goal-areas__hint">
+                    <p className="m-0">Mark the two goals (about a minute, optional):</p>
+                    <ul className="goal-areas__why">
+                        <li>Find goals spots goals more accurately: it checks for the ball in each goal mouth.</li>
+                        <li>Slow-mo replays zoom in on the action at either end.</li>
+                    </ul>
+                </div>
                 <div className="goal-areas__row"><button type="button" className="btn-quiet" onClick={onSetup}>Set up goals</button></div>
             </section>
         )

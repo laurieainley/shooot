@@ -24,9 +24,32 @@ type Drag = { from: number; to: number; dy: number; pitch: number }
  */
 export function FilesSheet({ onClose }: FilesSheetProps) {
     const files = useAppState((s) => s.files)
+    const [message, setMessage] = useState<string | null>(null)
+
+    return (
+        <Sheet label="Files" onClose={onClose} className="sheet--roomy">
+            {files.length === 0 && <p className="m-0 py-3 text-[13px] text-muted">No videos loaded.</p>}
+            <FileList onPlay={(i) => { useAppState.getState().setCurrentFileIndex(i); onClose() }} onError={setMessage} />
+            <div className="flex flex-wrap items-center gap-2 pt-3">
+                <AddFilesButton label="Add files" className="btn-quiet" onError={setMessage} />
+                <OpeningStatus />
+            </div>
+            {message && <p className="m-0 pt-2 text-[12px] msg-warn">{message}</p>}
+        </Sheet>
+    )
+}
+
+interface FileListProps {
+    /** A card was tapped: play that file. */
+    onPlay: (index: number) => void
+    onError: (message: string | null) => void
+}
+
+/** The order check and the numbered, reorderable file cards: shared by the Files sheet and the New match Videos step. */
+export function FileList({ onPlay, onError }: FileListProps) {
+    const files = useAppState((s) => s.files)
     const offsets = useAppState((s) => s.cumulativeOffsets)
     const currentFileIndex = useAppState((s) => s.currentFileIndex)
-    const [message, setMessage] = useState<string | null>(null)
     const [drag, setDrag] = useState<Drag | null>(null)
     const [refocus, setRefocus] = useState<string | null>(null)
     const listRef = useRef<HTMLOListElement | null>(null)
@@ -45,34 +68,24 @@ export function FilesSheet({ onClose }: FilesSheetProps) {
         if (to < 0 || to >= files.length || from === to) return
         useAppState.getState().moveFile(from, to)
     }
+    if (files.length === 0) return null
 
     return (
-        <Sheet label="Files" onClose={onClose} className="sheet--roomy">
-            {files.length === 0
-                ? <p className="m-0 py-3 text-[13px] text-muted">No videos loaded.</p>
-                : (
-                    <>
-                        {files.length > 1 && <p className="files-intro">If your video is split into multiple files, arrange them in chronological order here.</p>}
-                        <OrderStatus order={order} />
-                        <ol ref={listRef} className={`file-slots${drag ? ' file-slots--dragging' : ''}`}>
-                            {files.map((f, i) => (
-                                <FileSlot key={f.id} file={f} index={i} current={i === currentFileIndex}
-                                    startSec={offsets[i] ?? 0} sameDay={sameDay}
-                                    filmedBefore={order.kind === 'out-of-order' ? order.earlierThan.get(i) : undefined}
-                                    offsetY={slotOffset(i, drag)} dragging={drag?.from === i} target={drag !== null && drag.to === i}
-                                    listRef={listRef} onDrag={setDrag} onDrop={(d) => { setDrag(null); if (d) move(d.from, d.to) }}
-                                    onKeyMove={(to) => { move(i, to); setRefocus(f.id) }}
-                                    onPlay={() => { useAppState.getState().setCurrentFileIndex(i); onClose() }} onError={setMessage} />
-                            ))}
-                        </ol>
-                    </>
-                )}
-            <div className="flex flex-wrap items-center gap-2 pt-3">
-                <AddFilesButton label="Add files" className="btn-quiet" onError={setMessage} />
-                <OpeningStatus />
-            </div>
-            {message && <p className="m-0 pt-2 text-[12px] msg-warn">{message}</p>}
-        </Sheet>
+        <>
+            {files.length > 1 && <p className="files-intro">If your video is split into multiple files, arrange them in chronological order here.</p>}
+            <OrderStatus order={order} />
+            <ol ref={listRef} className={`file-slots${drag ? ' file-slots--dragging' : ''}`}>
+                {files.map((f, i) => (
+                    <FileSlot key={f.id} file={f} index={i} current={i === currentFileIndex}
+                        startSec={offsets[i] ?? 0} sameDay={sameDay}
+                        filmedBefore={order.kind === 'out-of-order' ? order.earlierThan.get(i) : undefined}
+                        offsetY={slotOffset(i, drag)} dragging={drag?.from === i} target={drag !== null && drag.to === i}
+                        listRef={listRef} onDrag={setDrag} onDrop={(d) => { setDrag(null); if (d) move(d.from, d.to) }}
+                        onKeyMove={(to) => { move(i, to); setRefocus(f.id) }}
+                        onPlay={() => onPlay(i)} onError={onError} />
+                ))}
+            </ol>
+        </>
     )
 }
 
