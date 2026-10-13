@@ -139,8 +139,10 @@ type AppState = {
     editingEventId: string | null
     /** Which part of the edit sheet is open: the event's details, or only its slow-mo replay framing. Not persisted. */
     editingView: 'details' | 'framing'
+    /** Set by editEvent(…, { focus: 'note' }); the sheet focuses that field once and clears it. Not persisted. */
+    editingFocus: 'note' | null
     /** Open the edit sheet for an event (touch: tapping a row in the event log); the Framing action opens only the framing view. */
-    editEvent: (id: string, view?: 'details' | 'framing') => void
+    editEvent: (id: string, view?: 'details' | 'framing', opts?: { focus?: 'note' }) => void
     openPanel: (panel: Panel) => void
     /** Suggested moments from Find goals (Beta), with the user's decisions. */
     suggestions: Suggestion[]
@@ -256,6 +258,7 @@ export const useAppState = create<AppState>()(
             panel: null,
             editingEventId: null,
             editingView: 'details',
+            editingFocus: null,
             immersive: false,
             playerFullscreen: false,
             barCollapsed: false,
@@ -580,8 +583,8 @@ export const useAppState = create<AppState>()(
             setImmersive: (on) => set({ immersive: on }),
             setPlayerFullscreen: (on) => { if (get().playerFullscreen !== on) set({ playerFullscreen: on }) },
             setBarCollapsed: (collapsed) => set({ barCollapsed: collapsed }),
-            editEvent: (id, view = 'details') => {
-                if (get().events.some((e) => e.id === id)) set({ panel: 'event', editingEventId: id, editingView: view, picker: null, returnTo: nextReturnTo(get().panel, get().returnTo, 'event') })
+            editEvent: (id, view = 'details', opts) => {
+                if (get().events.some((e) => e.id === id)) set({ panel: 'event', editingEventId: id, editingView: view, editingFocus: opts?.focus ?? null, picker: null, returnTo: nextReturnTo(get().panel, get().returnTo, 'event') })
             },
             openPanel: (panel) => set({ panel, picker: null, returnTo: nextReturnTo(get().panel, get().returnTo, panel) }),
             setSuggestions: (run, moments) => {

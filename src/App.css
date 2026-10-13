@@ -636,6 +636,8 @@
   width: 100%; box-sizing: border-box; margin-bottom: 6px; padding: 6px 8px; font: inherit;
   border-radius: var(--sh-radius-sm); border: 1px solid var(--sh-line); background: var(--sh-surface-2); color: var(--sh-text);
 }
+.event-picker__text { display: flex; flex-direction: column; }
+.event-picker__text > .btn-primary { min-height: 48px; margin-top: 8px; }
 .event-picker__input:focus { outline: none; border-color: var(--sh-text); }
 .event-picker__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 .event-picker__actions > button { min-height: 44px; min-width: 96px; justify-content: center; font-size: 15px; }
@@ -1415,6 +1417,8 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .toast-host--under .toast { margin: 6px 0; }
 .toast__text { min-width: 0; padding: 8px 0; }
 .toast__action { flex: none; min-width: 44px; min-height: 44px; padding: 0 12px; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+/* The second link (Add note) is quieter than the primary one (Undo). */
+.toast__action--quiet { font-weight: 600; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
 

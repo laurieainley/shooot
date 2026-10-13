@@ -11,6 +11,11 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-13
 
+- **On touch, the optional note step after tagging is skipped; the tag toast offers "Add note"** (user). Highlights keep
+  "What happened" but without opening the keyboard. Desktop unchanged. *Why:* the note field popped the keyboard and
+  shifted the layout for something optional. *Where:* `src/utils/eventPicker.ts` (`touch` in the context),
+  `src/components/EventPicker.tsx`, `src/toasts.ts` `secondary`.
+- **Editing is called "Edit event" everywhere** (user); the picker reads "Tag event" while tagging.
 - **Preview: zoom locked, row ▶ jumps to that clip inside the preview, no speed overlay** (user). *Why:* the preview
   should show exactly what renders, and jumping around it shouldn't drop you out of it. *Where:* `src/utils/preview.ts`,
   `src/state.ts` `jumpToPreviewEvent`, `src/components/Player.tsx`.

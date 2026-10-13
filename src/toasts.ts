@@ -3,7 +3,7 @@ import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 
 export interface ToastAction { label: string; run: () => void }
-export interface ToastItem { id: number; text: string; action?: ToastAction }
+export interface ToastItem { id: number; text: string; action?: ToastAction; secondary?: ToastAction }
 export interface ToastState { toast: ToastItem | null }
 
 /** How long a toast stays (paused while hovered or focused). */
@@ -13,9 +13,9 @@ let nextId = 1
 export const toastStore = createStore<ToastState>(() => ({ toast: null }))
 
 /** Show a plain confirmation, replacing the current toast. Returns its id. */
-export function showToast(text: string, action?: ToastAction): number {
+export function showToast(text: string, action?: ToastAction, secondary?: ToastAction): number {
     const id = nextId++
-    toastStore.setState({ toast: { id, text, ...(action ? { action } : {}) } })
+    toastStore.setState({ toast: { id, text, ...(action ? { action } : {}), ...(secondary ? { secondary } : {}) } })
     return id
 }
 

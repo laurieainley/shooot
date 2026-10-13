@@ -7,8 +7,9 @@ const teams: Team[] = [
     { name: 'Whites', color: '#fff', roster: ['Sam Taylor', 'Sandy Wu'] },
     { name: 'Colours', color: '#f00', roster: ['Alex Wu', 'Jo'] },
 ]
-const ctx: PickerContext = { teams }
-const noTeams: PickerContext = { teams: [] }
+const ctx: PickerContext = { teams, touch: false }
+const noTeams: PickerContext = { teams: [], touch: false }
+const touchCtx: PickerContext = { teams, touch: true }
 const key = (k: string): PickerInput => ({ kind: 'key', key: k })
 
 function run(inputs: PickerInput[], c: PickerContext = ctx) {
@@ -139,7 +140,7 @@ describe('pickerReducer — scorer step', () => {
     })
 
     it('should close without a scorer on Enter with empty text and no roster', () => {
-        const empty: PickerContext = { teams: [{ ...teams[0], roster: [] }, teams[1]] }
+        const empty: PickerContext = { teams: [{ ...teams[0], roster: [] }, teams[1]], touch: false }
         const r = run([key('Enter'), key('w'), key('Enter')], empty)
         expect(r.effects.at(-1)).toEqual({ kind: 'close' })
         expect(r.effects).not.toContainEqual(expect.objectContaining({ kind: 'addToRoster' }))
@@ -363,5 +364,34 @@ describe('pickerReducer — optional note on every event', () => {
 
     it('should not ask for a note on match markers', () => {
         expect(run([key('k')]).state.step).not.toBe('text')
+    })
+})
+
+describe('pickerReducer — touch skips the optional note', () => {
+    it('should close after the assist on touch instead of asking for a note', () => {
+        const r = run([key('Enter'), key('w'), { kind: 'choose', value: 'Sam Taylor' }, { kind: 'choose', value: 'Sandy Wu' }], touchCtx)
+        expect(r.state.step).toBe('assist')
+        expect(r.effects.at(-1)).toEqual({ kind: 'close' })
+    })
+
+    it('should close instead of the note step when skipping the assist on touch', () => {
+        const r = run([key('Enter'), key('w'), { kind: 'choose', value: 'Sam Taylor' }, { kind: 'choose', value: SKIP }], touchCtx)
+        expect(r.effects.at(-1)).toEqual({ kind: 'close' })
+    })
+
+    it('should close after skipping the person of a foul on touch', () => {
+        const r = run([key('f'), { kind: 'choose', value: 'Whites' }, { kind: 'choose', value: SKIP }], touchCtx)
+        expect(r.effects.at(-1)).toEqual({ kind: 'close' })
+    })
+
+    it('should keep the text step for a prompt type (Highlight) on touch', () => {
+        const r = run([key('h'), { kind: 'choose', value: SKIP }], touchCtx)
+        expect(r.state.step).toBe('text')
+        expect(r.effects.some((e) => e.kind === 'close')).toBe(false)
+    })
+
+    it('should still go to the note step on desktop', () => {
+        const r = run([key('f'), { kind: 'choose', value: 'Whites' }, { kind: 'choose', value: SKIP }])
+        expect(r.state.step).toBe('text')
     })
 })

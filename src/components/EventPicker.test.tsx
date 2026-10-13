@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, act, within } from '@testing-library/react'
+import { render, screen, fireEvent, act, within, cleanup } from '@testing-library/react'
 import { useAppState } from '../state'
 import { dismissToast, toastStore } from '../toasts'
 import { setReviewWindow } from './reviewWindowState'
@@ -102,9 +102,7 @@ describe('EventPicker', () => {
         expect(screen.getByRole('button', { name: 'Sam Taylor' })).toBeDisabled()
         fireEvent.click(screen.getByRole('button', { name: 'Sandy Wu' }))
         expect(s().events[0].assist).toBe('Sandy Wu')
-        expect(s().picker).not.toBeNull() // the optional note
-        press('Enter')
-        expect(s().picker).toBeNull()
+        expect(s().picker).toBeNull() // no optional note step on touch
         setCoarsePointer(false)
     })
 
@@ -233,13 +231,84 @@ describe('EventPicker on touch', () => {
 
     it('should keep the typed note on Done', () => {
         render(<EventPicker />)
-        fireEvent.click(screen.getByRole('option', { name: /^foul$/i }))
+        fireEvent.click(screen.getByRole('option', { name: /^highlight$/i }))
         fireEvent.click(screen.getByRole('option', { name: /colours/i }))
         fireEvent.click(screen.getByRole('button', { name: /skip/i }))
-        fireEvent.change(screen.getByRole('textbox', { name: 'Note' }), { target: { value: 'late tackle' } })
+        fireEvent.change(screen.getByRole('textbox', { name: 'What happened' }), { target: { value: 'late tackle' } })
         fireEvent.click(screen.getByRole('button', { name: 'Done' }))
         expect(s().picker).toBeNull()
-        expect(s().events[0]).toMatchObject({ type: 'foul', team: 'Colours', notes: 'late tackle' })
+        expect(s().events[0]).toMatchObject({ type: 'highlight', team: 'Colours', notes: 'late tackle' })
+    })
+
+    it('should not autofocus the Highlight text on touch, and offer one Done', () => {
+        render(<EventPicker />)
+        fireEvent.click(screen.getByRole('option', { name: /^highlight$/i }))
+        fireEvent.click(screen.getByRole('option', { name: /colours/i }))
+        fireEvent.click(screen.getByRole('button', { name: /skip/i }))
+        expect(document.activeElement).not.toBe(screen.getByRole('textbox', { name: 'What happened' }))
+        expect(screen.getAllByRole('button', { name: 'Done' })).toHaveLength(1)
+        fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+        expect(s().picker).toBeNull()
+        expect(s().events[0].type).toBe('highlight')
+    })
+
+    it('should end a goal after the assist step on touch and offer Add note on the toast, opening the sheet with Note focused', () => {
+        act(() => useAppState.setState({ teams: [{ name: 'Whites', color: '#fff', roster: ['Sam'] }, { name: 'Colours', color: '#f00', roster: [] }] }))
+        render(<EventPicker />)
+        fireEvent.click(screen.getByRole('option', { name: /^goal$/i }))
+        fireEvent.click(screen.getByRole('option', { name: /whites/i }))
+        fireEvent.click(screen.getByRole('option', { name: /sam/i }))
+        fireEvent.click(screen.getByRole('button', { name: 'Skip' })) // the assist
+        expect(s().picker).toBeNull()
+        const t = toastStore.getState().toast
+        expect(t?.secondary?.label).toBe('Add note')
+        act(() => t?.secondary?.run())
+        expect(s().panel).toBe('event')
+        expect(s().editingEventId).toBe(s().events[0].id)
+        expect(s().editingFocus).toBe('note')
+    })
+
+    it('should offer no Add note when the note was typed (desktop)', () => {
+        setCoarsePointer(false)
+        act(() => useAppState.setState({ picker: null, events: [], teams: [{ name: 'Whites', color: '#fff', roster: ['Sam'] }, { name: 'Colours', color: '#f00', roster: [] }] }))
+        act(() => s().markEvent(100))
+        render(<EventPicker />)
+        press('Enter'); press('w')
+        fireEvent.click(screen.getByRole('option', { name: /sam/i }))
+        press('Tab')
+        fireEvent.change(screen.getByRole('textbox', { name: 'Note' }), { target: { value: 'top bins' } })
+        press('Enter')
+        expect(s().picker).toBeNull()
+        expect(toastStore.getState().toast?.secondary).toBeUndefined()
+    })
+
+    it('should name the dialog Tag event for a fresh tag and Edit event for an existing one', () => {
+        render(<EventPicker />)
+        expect(screen.getByRole('dialog', { name: 'Tag event' })).toBeInTheDocument()
+        cleanup()
+        act(() => s().closePicker())
+        act(() => s().addEvent({ id: 'old', matchTimeSec: 50, sourceFileIndex: 0, type: 'goal', team: 'Whites' }))
+        act(() => s().openPicker('old'))
+        render(<EventPicker />)
+        expect(screen.getByRole('dialog', { name: 'Edit event' })).toBeInTheDocument()
+    })
+
+    it('should offer no Add note for a marker, or when a note exists, and do nothing once the event is gone', () => {
+        render(<EventPicker />)
+        fireEvent.click(screen.getByRole('option', { name: /^kick off/i }))
+        expect(toastStore.getState().toast?.secondary).toBeUndefined()
+        act(() => s().markEvent(200, { deferred: true }))
+        cleanup()
+        act(() => useAppState.setState({ teams: [{ name: 'Whites', color: '#fff', roster: ['Sam'] }, { name: 'Colours', color: '#f00', roster: [] }] }))
+        render(<EventPicker />)
+        fireEvent.click(screen.getByRole('option', { name: /^goal$/i }))
+        fireEvent.click(screen.getByRole('option', { name: /whites/i }))
+        fireEvent.click(screen.getByRole('option', { name: /sam/i }))
+        fireEvent.click(screen.getByRole('button', { name: 'Skip' })) // the assist
+        const t = toastStore.getState().toast
+        act(() => s().removeEvent(s().events.find((e) => e.matchTimeSec === 200)!.id))
+        act(() => t?.secondary?.run())
+        expect(s().panel).not.toBe('event')
     })
 
     it('should have nothing preselected and create no event until a type is chosen', () => {

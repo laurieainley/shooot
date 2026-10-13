@@ -314,7 +314,10 @@ npm run lint       # baseline: 12 known problems — add none
   Lock: a single tap no longer plays/pauses (double-tap seek and the control bar still work); three toggling taps
   within 5 s glow the lock button once; reset on leaving fullscreen. Toasts render inside the player while fullscreen.
 - **Toasts** (`src/toasts.ts`, `Toast`): one at a time, 4 s, top-right of the video (phone portrait: under the video);
-  confirm, discard (Undo), tag (Undo), delete (Undo), marker set. A toast's Undo only acts while its action is still the
+  confirm, discard (Undo), tag (Undo + "Add note" when it has none → edit sheet with the note focused), delete (Undo),
+  marker set. A toast has an optional quiet `secondary` action.
+- **Tagging on touch:** the optional note step is skipped (no keyboard); a Highlight's "What happened" step stays but
+  doesn't autofocus (Done button). The picker dialog is named "Tag event" while tagging and "Edit event" when editing. A toast's Undo only acts while its action is still the
   latest undo step.
 - **Lime guard:** `utils/limeUsage.test.ts` fails if a lime token is used in App.css outside the allow-list
   (primary buttons, goal icon, scorebug score). Don't widen the allow-list without a design decision.
