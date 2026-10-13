@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAppState } from '../state'
 import { formatHMS } from '../utils/timeline'
 import { AddFilesButton } from './AddFilesButton'
-import { GoalAreasSetup } from './GoalAreasSetup'
+import { GoalSetupSection } from './goalSetup/GoalSetupSection'
 import { MatchDetails } from './MatchDetails'
 import { OpeningStatus } from './OpeningStatus'
 import { Sheet } from './Sheet'
@@ -55,7 +55,7 @@ export function NewMatchFlow({ onClose }: NewMatchFlowProps) {
                     </section>
                 )}
                 {steps[step] === 'Match' && <MatchDetails compact />}
-                {steps[step] === 'Goals' && <GoalAreasSetup />}
+                {steps[step] === 'Goals' && <GoalSetupSection />}
             </div>
             <div className="steps__nav">
                 <button type="button" className="btn-quiet" disabled={step === 0} onClick={() => setStep(step - 1)}>Back</button>

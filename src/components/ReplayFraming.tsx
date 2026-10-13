@@ -67,7 +67,7 @@ export function ReplayFraming({ event: e }: ReplayFramingProps) {
                     >{c.label}</button>
                 ))}
             </div>
-            {!areas && <p className="goal-areas__hint">Mark the goals in Match setup to zoom to them automatically.</p>}
+            {!areas && <p className="goal-areas__hint">Set up the goals in Match setup to zoom to them automatically.</p>}
             <FrameBoxes
                 state={frame}
                 boxes={boxes}

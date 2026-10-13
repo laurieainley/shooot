@@ -6,6 +6,7 @@ import { globalToFileTime } from '../utils/matchStrip'
 import { formatClock } from '../utils/timeline'
 import { seekPlayerPaused, togglePlayerPlayback } from './playerControl'
 import { rangeIsValid, setRangeStep } from './findGoals'
+import { GoalSetup } from './goalSetup/GoalSetup'
 
 type Marker = 'kick_off' | 'final_whistle'
 
@@ -29,6 +30,7 @@ function seekBy(deltaSec: number): void {
 
 /** Start form of Find goals: where the match starts and ends (so warm-up and post-match footage is left out) and, with Labs, Advanced detection. */
 export function MatchRangeStep() {
+    const [goalSetup, setGoalSetup] = useState(false)
     const events = useAppState((s) => s.events)
     const offsets = useAppState((s) => s.cumulativeOffsets)
     const long = useAppState(selectClockLong)
@@ -79,6 +81,7 @@ export function MatchRangeStep() {
 
     return (
         <div className="range review__status">
+            {goalSetup && <GoalSetup onClose={() => setGoalSetup(false)} />}
             <p className="m-0">First, set where the match starts and ends.</p>
             <p className="review__note m-0">Scrub to the first kick, then to the final whistle.</p>
             {row('Kick off', ko, 'kick_off', 'Kick off is here', 'K')}
@@ -91,8 +94,8 @@ export function MatchRangeStep() {
                     </label>
                     {!hasMarks && (
                         <>
-                            <p className="review__note m-0">Mark the goals in Match setup first.</p>
-                            <button type="button" className="btn-quiet review__btn" onClick={() => useAppState.getState().openPanel('match')}>Open Match setup</button>
+                            <p className="review__note m-0">Identify the goal posts first.</p>
+                            <button type="button" className="btn-quiet review__btn" onClick={() => setGoalSetup(true)}>Identify goal posts</button>
                         </>
                     )}
                 </div>

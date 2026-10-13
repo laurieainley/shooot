@@ -11,6 +11,11 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-13
 
+- **Goal set-up is a guided full-screen flow** (user). Choose the picture from 6 frames (avoid a player covering a goal)
+  → Identify goal posts per goal (touch: move the picture under a crosshair, Set point) → Replay zoom per goal with the
+  replay view as the editor → summary. Each goal is named by the team that defends it at kick-off; "attacking" is
+  never used. *Why:* marking posts was "pretty impossible on mobile" and the old boxes didn't say whose goal was whose.
+  *Where:* `docs/superpowers/specs/2026-10-13-guided-goal-setup-design.md`, `src/components/goalSetup/`.
 - **Find goals has one vocabulary and an AI tag; Beta moves to the app** (user). Feature and panel "Find goals",
   results "moments" ("Review moments", "Found moment"), an "AI" tag instead of "Beta" on Find goals, one Beta tag by the
   logo. "Highlights" in labels; "reel" is fine in running text for variety. *Why:* four names for one feature, and Beta

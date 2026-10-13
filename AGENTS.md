@@ -147,7 +147,14 @@ npm run lint       # baseline: 12 known problems — add none
   matched by plan signature); until then an estimate from the render plan, flagged in the UI.
 - **Render storage:** outputs are written to OPFS first; `clearOldOutputs()` deletes earlier renders before each
   render (the per-site quota filled up otherwise); a quota error gets a plain message (`render/storage.ts`).
-- **Goal areas:** per team (`team1`/`team2`), drawn in Match setup; `replayGoalFor()` picks the replay crop.
+- **Goal areas / goal set-up:** per team (`team1`/`team2`), each the goal that team defends at kick-off ("Whites'
+  goal", never "attacking"); `replayGoalFor()` picks the replay crop. Set in a guided full-screen layer
+  (`components/goalSetup/GoalSetup.tsx`): choose the picture (6 thumbnails + scrubber) → Identify goal posts for each
+  goal (touch: move the picture under a fixed crosshair, Set point; desktop: click) → Replay zoom for each goal (the
+  replay view is the editor: drag / pinch, Closer / Wider / Reset, a frame map beside the buttons) → summary
+  (`GoalSetupSummary`, also compact in New match and Match setup; cards use the team's kit colour). Persisted
+  `goalMarks` / `goalAreas` unchanged; maths in `utils/goalSetup.ts`. Entry points: New match Goals step, Match setup,
+  Find goals "Identify the goal posts first". The layer owns Esc and pushes a history entry so Android Back closes it.
 - **Reel order:** segments sort by whole-timeline time (`cumulativeOffsets[file] + matchTimeSec`); the old
   "Adjust timestamps by offset" option is gone (persist v18 deletes it; Kick off defines the match clock).
 - **Import:** ⋯ → Import… opens one dialog: left, a project `.json` from Export project (asks before replacing existing

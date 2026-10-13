@@ -57,7 +57,7 @@ describe('Replay framing', () => {
         expect(choice("Whites' goal")).toBeDisabled()
         expect(choice("Colours' goal")).toBeDisabled()
         expect(choice('Custom')).toBeEnabled()
-        expect(screen.getByText(/Mark the goals in Match setup/)).toBeInTheDocument()
+        expect(screen.getByText(/Set up the goals in Match setup/)).toBeInTheDocument()
     })
 
     it('should make Custom from the current framing', async () => {
