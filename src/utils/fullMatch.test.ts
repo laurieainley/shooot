@@ -57,6 +57,10 @@ describe('formatBytes', () => {
         expect(formatBytes(734_003_200)).toBe('700 MB')
         expect(formatBytes(5.3 * 1024 ** 3)).toBe('5.3 GB')
     })
+
+    it('should never show 0 MB for a small but non-empty output', () => {
+        expect(formatBytes(200_000)).toBe('1 MB')
+    })
 })
 
 describe('recordingGaps', () => {
