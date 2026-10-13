@@ -150,8 +150,8 @@ export function GoalSetup({ startAt = 'picture', only = false, onClose }: GoalSe
 
     const titles: Record<SetupStep, [string, string]> = {
         picture: ['Choose the picture', 'Find a moment where both goals are clear.'],
-        posts1: [`Identify goal posts — ${label}`, `The goal ${teams[0]?.name.trim() || 'Team 1'} defend at kick-off`],
-        posts2: [`Identify goal posts — ${label}`, `The goal ${teams[1]?.name.trim() || 'Team 2'} defend at kick-off`],
+        posts1: [`Identify goal posts — ${label}`, `The goal ${teams[0]?.name.trim() || 'Team 1'} defend at Kick off`],
+        posts2: [`Identify goal posts — ${label}`, `The goal ${teams[1]?.name.trim() || 'Team 2'} defend at Kick off`],
         zoom1: [`Replay zoom — goals scored into ${label}`, 'Replays of goals at this end show this view.'],
         zoom2: [`Replay zoom — goals scored into ${label}`, 'Replays of goals at this end show this view.'],
         summary: ['Goal set-up', 'Check each goal, or edit one.'],

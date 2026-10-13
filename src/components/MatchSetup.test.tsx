@@ -45,6 +45,12 @@ describe('MatchSetup', () => {
         expect(screen.queryByLabelText('Match start')).not.toBeInTheDocument()
     })
 
+    it('should put Goal areas beside the teams once there is a video', () => {
+        useAppState.setState({ files: [{ id: 'f', name: 'a.mp4', url: 'blob:a', file: new File([], 'a.mp4'), kind: 'full', durationSec: 60 }] as never, cumulativeOffsets: [0] })
+        render(<MatchSetup onClose={() => {}} />)
+        expect(screen.getByRole('region', { name: 'Goal areas' }).closest('.match-details__side')).not.toBeNull()
+    })
+
     it('should hide Goal areas until a video is loaded', () => {
         const { unmount } = render(<MatchSetup onClose={() => {}} />)
         expect(screen.queryByRole('region', { name: 'Goal areas' })).not.toBeInTheDocument()

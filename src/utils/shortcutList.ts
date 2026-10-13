@@ -38,7 +38,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
             { keys: ['←', '→'], what: 'Seek 5 s', action: 'seekBack', key: 'ArrowLeft' },
             { keys: ['⇧←', '⇧→'], what: 'Seek 1 s' },
             { keys: ['↑', '↓'], what: 'One frame', action: 'frameForward', key: 'ArrowUp' },
-            { keys: ['Home'], what: 'Jump to kick-off (then to the start)', action: 'jumpStart', key: 'Home' },
+            { keys: ['Home'], what: 'Jump to Kick off (then to the start)', action: 'jumpStart', key: 'Home' },
             { keys: ['End'], what: 'Jump to the end of the file', action: 'jumpEnd', key: 'End' },
             { keys: ['[', ']'], what: 'Previous / next file (in the preview: clip)', action: 'prevFile', key: '[' },
         ],

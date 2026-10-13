@@ -37,7 +37,7 @@ describe('GoalSetupSection', () => {
         render(<GoalSetupSection />)
         expect(screen.getByRole('group', { name: "Whites' goal" })).toBeInTheDocument()
         expect(screen.getByRole('group', { name: "Colours' goal" })).toBeInTheDocument()
-        expect(screen.getByText(/defends it at kick-off/)).toBeInTheDocument()
+        expect(screen.getByText(/defends it at Kick off/)).toBeInTheDocument()
         expect(document.body.textContent).not.toMatch(/attacking/i)
     })
 

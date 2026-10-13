@@ -401,7 +401,8 @@ describe('EventPicker duplicate-mark guard', () => {
         act(() => s().addEvent({ id: 'old', matchTimeSec: 99, sourceFileIndex: 0, type: 'goal', team: 'Whites' }))
         act(() => s().markEvent(101))
         render(<EventPicker />)
-        expect(screen.getByRole('alert')).toHaveTextContent('Goal already tagged 2 s earlier')
+        expect(screen.getByRole('alert')).toHaveTextContent('You tagged Goal 2 s before this. ')
+        expect(screen.getByRole('alert')).toHaveTextContent('if that was a double tap.')
     })
 
     it('should not warn for a mark on its own', () => {

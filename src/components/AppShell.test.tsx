@@ -57,12 +57,14 @@ describe('AppShell', () => {
         expect(screen.queryByRole('button', { name: 'Tag event' })).not.toBeInTheDocument()
     })
 
-    it('should keep the files and Match setup behind the overflow menu on the phone', async () => {
+    it('should open the files from the top bar and Match setup from the overflow menu on the phone', async () => {
         setWidth(false)
         render(<AppShell />)
         expect(screen.queryByRole('dialog', { name: 'Files' })).not.toBeInTheDocument()
         await userEvent.click(screen.getByRole('button', { name: 'Menu' }))
-        await userEvent.click(screen.getByRole('menuitem', { name: 'Files' }))
+        expect(screen.queryByRole('menuitem', { name: 'Files' })).not.toBeInTheDocument()
+        await userEvent.keyboard('{Escape}')
+        await userEvent.click(screen.getByRole('button', { name: /^Files:/ }))
         expect(screen.getByRole('dialog', { name: 'Files' })).toHaveTextContent('GX010226.MP4')
         await userEvent.click(screen.getByRole('button', { name: 'Menu' }))
         await userEvent.click(screen.getByRole('menuitem', { name: 'Match setup' }))

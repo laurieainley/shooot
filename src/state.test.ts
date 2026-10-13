@@ -1058,3 +1058,12 @@ describe('known players (device preference)', () => {
         expect((migrate({ knownPlayers: [{ name: 'X', lastUsed: 1 }], teams: [] }, 26) as { knownPlayers: unknown[] }).knownPlayers).toHaveLength(1)
     })
 })
+
+describe('saved events of an unknown type', () => {
+    it('should not reach the store when the saved state is loaded at the current version', () => {
+        const opts = useAppState.persist.getOptions()
+        const saved = { events: [{ id: 'k', matchTimeSec: 3, type: 'kickoff' }, { id: 'x', matchTimeSec: 4, type: 'zzz' }, { id: 'g', matchTimeSec: 5, type: 'goal' }] }
+        const merged = opts.merge!(saved, useAppState.getState()) as { events: MatchEvent[] }
+        expect(merged.events.map((e) => [e.id, e.type])).toEqual([['k', 'kick_off'], ['g', 'goal']])
+    })
+})

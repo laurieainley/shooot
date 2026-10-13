@@ -59,7 +59,6 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
     const labsSeen = useAppState((s) => s.labsSeen)
     const [confirmNew, setConfirmNew] = useState(false)
     const items: MenuItem[] = [
-        { label: 'Files', panel: 'files' },
         ...(setupInMenu ? [{ label: 'Match setup', panel: 'match' as const }] : []),
         { label: 'Advanced settings', panel: 'settings' },
     ]

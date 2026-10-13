@@ -99,9 +99,9 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
     const clock = (sec: number): string => withTenths((w) => formatClock(w, long), sec - kickOff)
     // Nobody marked it yet: the time shown (and saved, if you go ahead anyway) is wherever the playhead is.
     const savedSec = moment.markedSec ?? playheadSec
-    const instruction = instructionText({ marked, decision, teamCount, clock: clock(savedSec) })
-    // Touch: no Enter key, and once marked the readout below says it all, so the instruction line goes.
-    const sayText = coarse ? instruction.text.replace(/ — press Enter to confirm$/, '') : instruction.text
+    // Touch: no key hints; once marked the readout below says it all, so the instruction line goes.
+    const instruction = instructionText({ marked, decision, teamCount, clock: clock(savedSec), touch: coarse })
+    const sayText = instruction.text
     const stepsRef = useRef<HTMLElement | null>(null)
 
     const mark = (): void => { moment.mark() }

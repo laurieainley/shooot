@@ -191,6 +191,9 @@ npm run lint       # baseline: 12 known problems — add none
   do nothing; 1× on entry and exit); ▶ / Enter on a row or a strip event dot jumps to that clip inside the preview
   (`jumpToPreviewEvent`, `previewStepForEvent`) — events not in the reel leave the preview and seek as before; no
   playback-speed overlay during the preview.
+- **Unknown event types** from saved state (persist `merge`, so every version), project import and transfer links go
+  through `sanitiseEvents()` (utils/eventTypes.ts): aliases such as `kickoff` map to `kick_off`; anything else unknown is
+  dropped, so one odd event never blanks the page. Export lengths are m:ss, or h:mm:ss from an hour.
 - **Projects:** export/import JSON, and transfer links (`#p=`, deflate + base64url in the URL fragment — never sent
   to a server). Files are relinked by key on the receiving device.
 
@@ -322,10 +325,10 @@ npm run lint       # baseline: 12 known problems — add none
 - **Events rail:** rows = clock · team dot · icon · name (body font, weight 600, normal case — not the shirt face) ·
   note (inline, muted) · passive muted ↻ when the replay is on · score · ▶ (`utils/eventRow.ts`); no assist, no file
   number (only a "file missing" warning). The selected row expands into an action row (`EventActions`): Slow-mo replay
-  switch (`role=switch`, R) · person-icon Edit · ⌖ Framing (when replay is on) · [Download clip slot] · × Delete;
+  switch shown as the ↻ icon beside the track (`role=switch`, aria-label "Slow-mo replay", R) · person-icon Edit · ⌖ Framing (when replay is on) · [Download clip slot] · × Delete;
   markers get Edit + Delete. Edit opens the event sheet's details (no replay toggle there); Framing opens only its
   "Replay framing" view (`editEvent(id, 'framing')`, `editingView`, not persisted; closes if the replay is switched
-  off). Labels hide (icon-only) when the rail is ≤ 360px; the row wraps rather than clips. An expanded row scrolls the
+  off). All five fit one line on desktop; touch wraps 3 + 2 at rail widths 361–440px. Labels hide (icon-only) when the rail is ≤ 360px; the row wraps rather than clips. An expanded row scrolls the
   list (the page only when the list can't scroll, phone portrait); touch layouts keep room below the last row so the
   + never covers it. Touch: a tap expands (Edit opens the sheet). Esc collapses, then leaves the log.
   Header: "+ Tag event" (quiet, red REC dot), undo/redo, "?" shortcuts. No rail footer and no key-hint bar.
@@ -371,6 +374,9 @@ npm run lint       # baseline: 12 known problems — add none
   on this device — check each one"); what it finds are **moments** ("Moment 1 of 4", "Review moments", "Found moment" on
   the strip); code identifiers keep `suggestion`. One **Beta** tag for the whole app sits right of the top-left wordmark.
   Editing is "Edit event"; labels say "highlights" (running text may say "reel").
+- **Touch landscape:** on a tablet on its side the match strip sits directly under the picture (spare space below it);
+  on a phone on its side the + sits on the picture's bottom-right, never over the rail. Match setup is two columns
+  from 1024px wide.
 - **Toasts** (`src/toasts.ts`, `Toast`): one at a time, 4 s, top-right of the video (phone portrait: under the video);
   confirm, discard (Undo), tag (Undo + "Add note" when it has none → edit sheet with the note focused), delete (Undo),
   marker set. A toast has an optional quiet `secondary` action.
