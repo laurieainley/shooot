@@ -24,6 +24,12 @@ describe('GoalSetupSection', () => {
         expect(useFrameAt).toHaveBeenCalledWith('blob:a', 300)
     })
 
+    it('should say what marking the goals is for: Find goals accuracy and replay zoom', () => {
+        render(<GoalSetupSection />)
+        expect(screen.getByText(/Find goals spots goals more accurately/)).toBeInTheDocument()
+        expect(screen.getByText(/Slow-mo replays zoom in on the action at either end/)).toBeInTheDocument()
+    })
+
     it('should offer Set up goals first, and open the layer at the picture step', async () => {
         render(<GoalSetupSection />)
         expect(screen.queryByRole('dialog')).toBeNull()
@@ -32,12 +38,12 @@ describe('GoalSetupSection', () => {
         expect(screen.getByText('Choose the picture')).toBeInTheDocument()
     })
 
-    it('should name each goal after the team that defends it, never "attacking"', () => {
+    it('should label each goal by the team defending it, never "attacking"', () => {
         useAppState.setState({ goalAreas: defaultGoalAreas() })
         render(<GoalSetupSection />)
         expect(screen.getByRole('group', { name: "Whites' goal" })).toBeInTheDocument()
         expect(screen.getByRole('group', { name: "Colours' goal" })).toBeInTheDocument()
-        expect(screen.getByText(/defends it at Kick off/)).toBeInTheDocument()
+        expect(screen.getByText(/labelled by the team defending them at Kick off/)).toBeInTheDocument()
         expect(document.body.textContent).not.toMatch(/attacking/i)
     })
 

@@ -9,16 +9,20 @@ interface SheetProps {
     className?: string
     /** Small tag next to the title (e.g. AI). */
     badge?: ReactNode
+    /** Only the × closes it: a click outside or Esc does nothing (for sheets holding work in progress, like New match). */
+    persistent?: boolean
 }
 
 /**
  * Modal sheet: centred and at most ~560px wide on desktop and landscape phones, a bottom sheet with its own
  * scroll on portrait phones (see .sheet in App.css). Esc, the × button or a tap on the backdrop closes it.
  */
-export function Sheet({ label, onClose, children, className = '', badge }: SheetProps) {
+export function Sheet({ label, onClose, children, className = '', badge, persistent = false }: SheetProps) {
     const sheetRef = useRef<HTMLDivElement | null>(null)
     const closeRef = useRef(onClose)
     closeRef.current = onClose
+    const persistentRef = useRef(persistent)
+    persistentRef.current = persistent
 
     useEffect(() => {
         const previous = document.activeElement
@@ -26,6 +30,7 @@ export function Sheet({ label, onClose, children, className = '', badge }: Sheet
         sheetRef.current?.focus({ preventScroll: true })
         const onKey = (e: KeyboardEvent): void => {
             if (e.key === 'Escape' && (e.target as Element | null)?.closest?.('[data-owns-escape]')) return
+            if (e.key === 'Escape' && persistentRef.current) return
             if (e.key === 'Escape' && !sheetRef.current?.querySelector('[data-esc-clears]')) { e.preventDefault(); e.stopPropagation(); closeRef.current() }
         }
         window.addEventListener('keydown', onKey, true)
@@ -36,7 +41,7 @@ export function Sheet({ label, onClose, children, className = '', badge }: Sheet
     }, [])
 
     return createPortal(
-        <div className="sheet-backdrop" onClick={onClose}>
+        <div className="sheet-backdrop" onClick={persistent ? undefined : onClose}>
             <div ref={sheetRef} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}
                 className={`sheet ${className}`} onClick={(e) => e.stopPropagation()}>
                 <div className="floating__head">

@@ -95,7 +95,7 @@ function TeamCard({ index: i }: TeamCardProps) {
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         onBlur={() => { if (name.trim() && name !== team.name) renameTeam(i, name.trim()) }}
-                        className="field text-[18px]"
+                        className="field"
                     />
                 </label>
                 <label className="graphics-setup__field team-card__initials">
@@ -139,6 +139,7 @@ function TeamCard({ index: i }: TeamCardProps) {
                 known={known}
                 exclude={allTeams.flatMap((t) => t.roster)}
                 onForget={forgetPlayer}
+                color={team.color}
             />
         </div>
     )
