@@ -285,7 +285,7 @@ npm run lint       # baseline: 12 known problems — add none
   bands, faint clip bands, event icons stacked in up to 3 lanes (`stackLanes`), Kick off / Half time / Final whistle
   flags, red playhead (touch/pen: icons never capture a press, so a drag always scrubs; only a short tap on an
   icon's own box jumps to it), hover/drag time bubble (over the exact symbol — event icon, marker flag icon, suggestion ring —
-  it names it at its own time: "Goal · 10:00 · V2", "Detected moment (top pick) · …"; no native `title` tooltips on
+  it names it at its own time: "Goal · 10:00 · V2", "Found moment (top pick) · …"; no native `title` tooltips on
   icons), keyboard focusable.
 - **Event icons:** `components/icons/EventIcon.tsx` + `utils/eventIcon.ts` (football, pen ball "P", own goal "OG",
   penalty spot / spot ✕, glove, whistle, star, flag, pause, chequered flag) — used in strip, rows, picker, edit sheet.
@@ -329,7 +329,7 @@ npm run lint       # baseline: 12 known problems — add none
   (`startDetection({ ball })`, needs goals marked). Then two disjoint lanes in match order (`utils/reviewLanes.ts`):
   **Top picks** (lime star; ball seen in a goal mouth) and **Other moments**. Opens on Top picks while any are left;
   moves on to Other moments automatically only when the last top pick is decided; never jumps when tags arrive. Header
-  tally "Goals tagged: Whites 3 – 2 Colours" (whole match). After closing, the rail shows "Review suggestions (N left ·
+  tally "Goals tagged: Whites 3 – 2 Colours" (whole match). After closing, the rail shows "Review moments (N left ·
   M top picks)". Suggestion rings sit in their own faint lane at the bottom of the match strip (only those still to
   review; only a click on the ring opens the review).
 - **Touch fullscreen** (UI state in `components/fullscreenUi.ts`, not persisted): column panels render into the
@@ -337,6 +337,10 @@ npm run lint       # baseline: 12 known problems — add none
   sheet ≤ 60%); the top-right group (speed, **Lock playback**, **Review (N)**, exit) hides while the tag box is open.
   Lock: a single tap no longer plays/pauses (double-tap seek and the control bar still work); three toggling taps
   within 5 s glow the lock button once; reset on leaving fullscreen. Toasts render inside the player while fullscreen.
+- **Words:** the feature is **Find goals** (panel title too), with an **AI** tag (`AiTag`: "Finds likely goals with AI
+  on this device — check each one"); what it finds are **moments** ("Moment 1 of 4", "Review moments", "Found moment" on
+  the strip); code identifiers keep `suggestion`. One **Beta** tag for the whole app sits right of the top-left wordmark.
+  Editing is "Edit event"; labels say "highlights" (running text may say "reel").
 - **Toasts** (`src/toasts.ts`, `Toast`): one at a time, 4 s, top-right of the video (phone portrait: under the video);
   confirm, discard (Undo), tag (Undo + "Add note" when it has none → edit sheet with the note focused), delete (Undo),
   marker set. A toast has an optional quiet `secondary` action.

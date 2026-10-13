@@ -11,6 +11,10 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-13
 
+- **Find goals has one vocabulary and an AI tag; Beta moves to the app** (user). Feature and panel "Find goals",
+  results "moments" ("Review moments", "Found moment"), an "AI" tag instead of "Beta" on Find goals, one Beta tag by the
+  logo. "Highlights" in labels; "reel" is fine in running text for variety. *Why:* four names for one feature, and Beta
+  applies to the whole product. *Where:* `src/components/AiTag.tsx`, top bar, `SuggestionReview`, `MatchStrip`.
 - **Export drawer: render first, size and one time on one line, settings collapsed, one vocabulary** (user). Buttons
   "Render highlights" / "Render full match" (was "Render MP4" / "Render full match (full quality)"), "Preview with
   proxies" on both tabs, tabs "Highlights" / "Full match". *Why:* the section was "way too much text", sizes were unclear,
