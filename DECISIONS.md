@@ -10,6 +10,9 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 ---
 
 ## 2026-10-13
+- **Share on YouTube gets an "Open YouTube upload" link, not an API integration** (user). *Why:* saves finding the upload
+  page with no sign-in, Google app review or third-party requests; a full upload integration waits until posting to
+  YouTube is common. *Where:* `src/components/YouTubeUpload.tsx`.
 - **UX round 2 (user approved the layout and wording proposals):** the desktop action row fits one line, with the
   Slow-mo replay switch as a ↻ icon instead of text (user preferred an icon to widening the rail); on a tablet on its side
   the match strip sits right under the picture; on a phone on its side the + moves onto the picture; Match setup is two
