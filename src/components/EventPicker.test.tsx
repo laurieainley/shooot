@@ -13,6 +13,7 @@ const press = (key: string) => act(() => { window.dispatchEvent(new KeyboardEven
 const s = () => useAppState.getState()
 
 describe('EventPicker', () => {
+    afterEach(() => setCoarsePointer(false))
     beforeEach(() => {
         useAppState.setState({
             files: [vf('a.mp4')], events: [], cumulativeOffsets: [0], currentFileIndex: 0, undoStack: [], redoStack: [], picker: null,
@@ -118,8 +119,7 @@ describe('EventPicker', () => {
         expect(s().teams[0].roster).toContain('Kit')
         fireEvent.click(screen.getByRole('button', { name: 'No assist' }))
         expect(s().events[0].assist).toBeUndefined()
-        expect(screen.getByRole('textbox', { name: 'Note' })).toBeInTheDocument() // on to the note
-        setCoarsePointer(false)
+        expect(s().picker).toBeNull() // on touch the optional note is skipped (added from the toast's Add note)
     })
 
     it('should make a highlight with H and ask for the team, with a Skip option', () => {
@@ -257,8 +257,8 @@ describe('EventPicker on touch', () => {
         render(<EventPicker />)
         fireEvent.click(screen.getByRole('option', { name: /^goal$/i }))
         fireEvent.click(screen.getByRole('option', { name: /whites/i }))
-        fireEvent.click(screen.getByRole('option', { name: /sam/i }))
-        fireEvent.click(screen.getByRole('button', { name: 'Skip' })) // the assist
+        fireEvent.click(screen.getByRole('button', { name: 'Sam' }))
+        fireEvent.click(screen.getByRole('button', { name: 'No assist' })) // the assist
         expect(s().picker).toBeNull()
         const t = toastStore.getState().toast
         expect(t?.secondary?.label).toBe('Add note')
@@ -303,8 +303,8 @@ describe('EventPicker on touch', () => {
         render(<EventPicker />)
         fireEvent.click(screen.getByRole('option', { name: /^goal$/i }))
         fireEvent.click(screen.getByRole('option', { name: /whites/i }))
-        fireEvent.click(screen.getByRole('option', { name: /sam/i }))
-        fireEvent.click(screen.getByRole('button', { name: 'Skip' })) // the assist
+        fireEvent.click(screen.getByRole('button', { name: 'Sam' }))
+        fireEvent.click(screen.getByRole('button', { name: 'No assist' })) // the assist
         const t = toastStore.getState().toast
         act(() => s().removeEvent(s().events.find((e) => e.matchTimeSec === 200)!.id))
         act(() => t?.secondary?.run())
