@@ -1663,3 +1663,9 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 @media (orientation: landscape) and (max-height: 500px) { .gs { --gs-col: 280px; } .gs-title { font-size: 15px; } }
 @media (min-width: 1024px) { .gs { --gs-col: 360px; } .gs-title { font-size: 18px; } .gs-head, .gs-controls { padding-inline: 16px; } }
 @media (prefers-reduced-motion: reduce) { .gs *, .gs *::before { transition: none !important; animation: none !important; } }
+
+/* Touch: no text under 14px. These base rules sit after the touch rule above and beat it, so restate them here. */
+@media (pointer: coarse) {
+  .segmented--quality .segmented__sub, .quality-field__help, .quality-field__explain, .export-disclosure__summary, .reel-summary__settings,
+  .final-score__label, .file-card__name, .file-slot__num, .file-card__meta { font-size: 14px; }
+}
