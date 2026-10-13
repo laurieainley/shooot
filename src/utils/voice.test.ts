@@ -25,4 +25,9 @@ describe('find goals lines', () => {
     it('should show progress in the brand voice', () => { expect(listeningLine(0.4)).toBe('Listening for the roar… 40%') })
     it('should show the ball model download in plain words', () => { expect(downloadingModelLine(0.426)).toBe('Downloading the ball model… 43%') })
     it('should summarise kept suggestions', () => { expect(keptSummary(6, 22)).toBe('You kept 6 of 22.') })
+    it('should add how many were top picks when there were any', () => {
+        expect(keptSummary(4, 6, 3)).toBe('You kept 4 of 6 · 3 were top picks.')
+        expect(keptSummary(4, 6, 1)).toBe('You kept 4 of 6 · 1 was a top pick.')
+        expect(keptSummary(4, 6, 0)).toBe('You kept 4 of 6.')
+    })
 })

@@ -45,6 +45,8 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
     const counts = laneCounts(suggestions) // positions in the lane ("2 of 5")
     const left = remainingCounts(suggestions, ids) // the lane buttons: what is still to review
     const current = index < suggestions.length ? suggestions[index] : null
+    // On the summary there's nothing left to switch to, unless the goal-mouth check is still sorting moments into Top picks.
+    const laneButtonsShown = switchShown && (current !== null || ballPhase === 'running')
     const selectLane = (next: Lane): void => {
         if (next === lane) return
         lastIn.current[lane] = index
@@ -96,7 +98,7 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
             <p className="sr-only" role="status" aria-live="polite">{announce}</p>
             <div className="review__top">
                 {suggestions.length > 0 && !rangeStep && !stale && phase !== 'running' && <GoalsTally />}
-                {switchShown && <LaneSwitch lane={lane} counts={left} onSelect={selectLane} />}
+                {laneButtonsShown && <LaneSwitch lane={lane} counts={left} onSelect={selectLane} />}
             </div>
             {rangeStep && phase !== 'running' ? <MatchRangeStep /> : null}
             {failed && !rangeStep && <DetectFailed />}

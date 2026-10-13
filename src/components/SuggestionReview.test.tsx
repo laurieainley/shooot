@@ -56,7 +56,7 @@ describe('SuggestionReview', () => {
         useAppState.getState().setSuggestions(run, Array.from({ length: 10 }, (_, i) => ({ timeSec: 30 + i * 40, score: 1 })))
         render(<SuggestionReview onClose={() => {}} />)
         for (let i = 0; i < 10; i++) { press('x'); press('Enter') }
-        expect(screen.getByText('Detection struggled on this footage. Copy diagnostics and send it over.')).toBeTruthy()
+        expect(screen.getByText('Detection struggled on this footage. Open Details, copy the diagnostics and send them over.')).toBeTruthy()
     })
     it('should say nothing stood out when there are no suggestions', () => {
         useAppState.setState({ suggestions: [], suggestionRun: { ...run, total: 0 } })
@@ -498,10 +498,29 @@ describe('SuggestionReview', () => {
                 expect(screen.getByText('Ball check unavailable: model not found.')).toBeTruthy()
                 expect(screen.getByText(/Moment 1 of 2/)).toBeTruthy()
             })
-            it('should add "Top picks: N." to the summary', () => {
+            it('should say how many were top picks on the kept line of the summary', () => {
                 useAppState.setState({ reviewIndex: 2, suggestions: useAppState.getState().suggestions.map((s) => ({ ...s, ball: { goal: 'team2' as const, frames: 2 } })) })
                 render(<SuggestionReview onClose={() => {}} />)
-                expect(screen.getByText('Top picks: 2.')).toBeTruthy()
+                expect(screen.getByText(/· 2 were top picks\.$/)).toBeTruthy()
+                expect(screen.queryByText(/^Top picks: /)).toBeNull()
+            })
+            it('should hide the lane buttons on the summary once the goal-mouth check is done, and keep them while it runs', () => {
+                useAppState.setState({ reviewIndex: 2, suggestions: useAppState.getState().suggestions.map((s, i) => (i === 0 ? { ...s, ball: { goal: 'team2' as const, frames: 2 } } : s)) })
+                job.ballPhase = 'done'
+                const { unmount } = render(<SuggestionReview onClose={() => {}} />)
+                expect(screen.queryByRole('button', { name: /^Top picks/ })).toBeNull()
+                unmount()
+                job.ballPhase = 'running'
+                render(<SuggestionReview onClose={() => {}} />)
+                expect(screen.getByRole('button', { name: /^Top picks/ })).toBeTruthy()
+            })
+            it('should keep Copy diagnostics behind Details on the summary', () => {
+                useAppState.setState({ reviewIndex: 2 })
+                render(<SuggestionReview onClose={() => {}} />)
+                expect(screen.queryByRole('button', { name: 'Copy diagnostics' })).toBeNull()
+                fireEvent.click(screen.getByRole('button', { name: 'Details' }))
+                expect(screen.getByRole('button', { name: 'Details' })).toHaveAttribute('aria-expanded', 'true')
+                expect(screen.getByRole('button', { name: 'Copy diagnostics' })).toBeTruthy()
             })
         })
         it('should scrub from the timeline without marking, pausing at that time', () => {
@@ -572,7 +591,7 @@ describe('SuggestionReview', () => {
             Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn(async () => {}) }, configurable: true })
             toSummary()
             render(<SuggestionReview onClose={() => {}} />)
-            await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' })) })
+            fireEvent.click(screen.getByRole('button', { name: 'Details' })); await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' })) })
             expect(screen.getByText('Copied.')).toBeTruthy()
         })
         it('should add the Ball check line to the diagnostics, or its error', async () => {
@@ -581,19 +600,19 @@ describe('SuggestionReview', () => {
             toSummary()
             job.ballPhase = 'done'; job.ballEp = 'webgpu'; job.ballMs = 41200
             const { unmount } = render(<SuggestionReview onClose={() => {}} />)
-            await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' })) })
+            fireEvent.click(screen.getByRole('button', { name: 'Details' })); await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' })) })
             expect(String((writeText.mock.calls[0] as unknown[])[0])).toContain('Ball check: webgpu, 41 s, 0 tagged')
             unmount()
             job.ballPhase = 'failed'; job.ballError = "Ball check failed: this browser can't decode the video."; job.ballDetail = 'unsupported codec'
             render(<SuggestionReview onClose={() => {}} />)
-            await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' })) })
+            fireEvent.click(screen.getByRole('button', { name: 'Details' })); await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' })) })
             expect(String((writeText.mock.calls[1] as unknown[])[0])).toContain("Ball check: Ball check failed: this browser can't decode the video. (unsupported codec)")
         })
         it('should show the text to select by hand when copying fails', async () => {
             Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn(async () => { throw new Error('denied') }) }, configurable: true })
             toSummary()
             render(<SuggestionReview onClose={() => {}} />)
-            await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' })) })
+            fireEvent.click(screen.getByRole('button', { name: 'Details' })); await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy diagnostics' })) })
             expect(screen.getByText("Couldn't copy — select and copy the text below.")).toBeTruthy()
             expect((screen.getByLabelText('Text to copy') as HTMLTextAreaElement).value).toContain('Find goals')
         })
@@ -967,7 +986,7 @@ describe('Find goals: Top picks lane', () => {
         tag(0); tag(2)
         render(<SuggestionReview onClose={() => {}} />)
         for (let i = 0; i < 5; i++) { press('x'); press('Enter') }
-        expect(screen.getByText('Top picks: 2.')).toBeTruthy()
+        expect(screen.getByText(/· 2 were top picks\.$/)).toBeTruthy()
     })
 })
 
