@@ -141,7 +141,7 @@ export function MatchStrip() {
         const flag = flagId ? strip.flags.find((f) => f.id === flagId) : undefined
         if (flag) return flag
         const ring = ringAt(ev)
-        return ring ? { label: ring.top ? 'Detected moment (top pick)' : 'Detected moment', timeSec: ring.timeSec } : null
+        return ring ? { label: ring.top ? 'Found moment (top pick)' : 'Found moment', timeSec: ring.timeSec } : null
     }
     const seekFrac = (frac: number): void => {
         const { fileIndex, timeSec } = globalToFileTime(cumulativeOffsets, durations, frac * strip.totalSec)
@@ -246,7 +246,7 @@ export function MatchStrip() {
                                 type="button"
                                 className={`strip-suggestion${m.top ? ' strip-suggestion--top' : ''}`}
                                 style={{ left: `${m.leftPct}%` }}
-                                aria-label={`Detected moment at ${formatEventClock(m.timeSec, m.timeSec, matchStartSec, clockLong)}`}
+                                aria-label={`Found moment at ${formatEventClock(m.timeSec, m.timeSec, matchStartSec, clockLong)}`}
                                 onClick={() => useAppState.getState().openReviewAt(m.id)}
                             >
                                 {m.top && <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" focusable="false" fill="currentColor"><path d="M12 2.9l2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 16.7l-5.4 3 1.1-6.1-4.5-4.3 6.1-.8z" /></svg>}

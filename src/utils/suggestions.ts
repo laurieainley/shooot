@@ -61,7 +61,7 @@ export type BallReport = { ep: string | null; ms: number | null; tagged: number 
 export function detectionReport(run: SuggestionRun | null, counts: ReviewCounts, ball?: BallReport | null): string {
     const types = Object.entries(counts.byType).map(([k, v]) => `${k.replace('_', ' ')} ${v}`).join(', ')
     return [
-        `Find goals (Beta), ${run?.source ?? 'audio'}, config v${run?.configVersion ?? '?'}`,
+        `Find goals, ${run?.source ?? 'audio'}, config v${run?.configVersion ?? '?'}`,
         `Analysed: ${run ? mmss(run.analysedSec) : '—'}`,
         `Range: ${run?.bounded === undefined ? '—' : run.bounded ? 'kick off → final whistle' : 'whole video'}`,
         `Run time: ${run?.durationMs !== undefined ? `${Math.round(run.durationMs / 1000)}s` : '—'}`,

@@ -12,7 +12,7 @@ interface ColumnPanelProps {
     onClose: () => void
     children: ReactNode
     className?: string
-    /** Small tag next to the title (e.g. Beta). */
+    /** Small tag next to the title (e.g. AI). */
     badge?: ReactNode
 }
 

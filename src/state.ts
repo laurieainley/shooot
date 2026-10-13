@@ -144,7 +144,7 @@ type AppState = {
     /** Open the edit sheet for an event (touch: tapping a row in the event log); the Framing action opens only the framing view. */
     editEvent: (id: string, view?: 'details' | 'framing', opts?: { focus?: 'note' }) => void
     openPanel: (panel: Panel) => void
-    /** Suggested moments from Find goals (Beta), with the user's decisions. */
+    /** Suggested moments from Find goals, with the user's decisions. */
     suggestions: Suggestion[]
     suggestionRun: SuggestionRun | null
     /** Which suggestion the review panel shows (not persisted). */
@@ -797,7 +797,7 @@ export const useAppState = create<AppState>()(
                 // Graphics themes (v16): saved projects get the Shooot look.
                 if (version < 16 && state.graphics) state.graphics = { ...state.graphics, theme: 'shooot' }
 
-                // Find goals (Beta) suggestions (v17).
+                // Find goals suggestions (v17).
                 if (version < 17) {
                     state.suggestions = Array.isArray(state.suggestions) ? state.suggestions : []
                     state.suggestionRun = state.suggestionRun ?? null

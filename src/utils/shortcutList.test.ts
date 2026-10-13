@@ -21,7 +21,7 @@ describe('SHORTCUT_GROUPS', () => {
     })
     it('should say [ ] move between suggestions in the review and ← → seek', () => {
         const rows = SHORTCUT_GROUPS.find((g) => g.title === 'Find goals review')!.rows
-        expect(rows.find((r) => r.keys.join('') === '[]')?.what).toMatch(/previous \/ next suggestion/)
+        expect(rows.find((r) => r.keys.join('') === '[]')?.what).toMatch(/previous \/ next moment/)
         expect(rows.find((r) => r.keys.join('') === '←→')?.what).toMatch(/seek/)
         expect(rows.find((r) => r.keys.join('') === '{}')?.what).toMatch(/2 s earlier \/ later/)
     })

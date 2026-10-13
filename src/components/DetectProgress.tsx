@@ -66,8 +66,8 @@ export function DetectIdle({ cancelled, stale = false }: { cancelled?: boolean; 
     useEffect(() => { if (confirming) dialogRef.current?.focus() }, [confirming])
     if (stale && hasOld && confirming) {
         return (
-            <div ref={dialogRef} tabIndex={-1} role="alertdialog" aria-label="Clear old suggestions" className="review__status">
-                <p className="m-0">The videos changed since the last Find goals. Clear the old suggestions and look for goals in these videos?</p>
+            <div ref={dialogRef} tabIndex={-1} role="alertdialog" aria-label="Clear old moments" className="review__status">
+                <p className="m-0">The videos changed since the last Find goals. Clear the old moments and look for goals in these videos?</p>
                 <button type="button" className="btn-primary review__btn" onClick={() => { useAppState.getState().clearSuggestions(); setRangeStep(true) }}>Clear and find goals</button>
                 <button type="button" className="btn-quiet review__btn" onClick={() => setConfirming(false)}>Cancel</button>
             </div>

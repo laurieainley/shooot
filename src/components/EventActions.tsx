@@ -30,7 +30,7 @@ export function EventActions({ event: e, touch, onToggleReplay, onFraming, onEdi
                     <span className="act-switch__glyph" aria-hidden="true">↻</span>
                 </button>
             )}
-            <button type="button" className={btn} aria-label="Edit details" title="Edit details (E person · T team · N note)" onClick={onEdit}>
+            <button type="button" className={btn} aria-label="Edit event" title="Edit event (E person · T team · N note)" onClick={onEdit}>
                 <PersonIcon /><span className="event-actions__label">Edit</span>
             </button>
             {replay && (

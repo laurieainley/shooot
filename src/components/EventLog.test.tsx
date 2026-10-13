@@ -290,11 +290,11 @@ describe('EventLog review button', () => {
         useAppState.getState().setSuggestions({ ...run, fileKeys: undefined }, [{ timeSec: 100, score: 3 }, { timeSec: 200, score: 3 }, { timeSec: 300, score: 3 }])
         useAppState.setState({ files, panel: null })
     })
-    it('should offer Review suggestions with the number left, and open the review at the first one', () => {
+    it('should offer Review moments with the number left, and open the review at the first one', () => {
         useAppState.getState().decideSuggestion(useAppState.getState().suggestions[0].id, { kind: 'reject' })
         useAppState.getState().setSuggestionBall(useAppState.getState().suggestions[2].id, { goal: 'team1', frames: 2 })
         render(<EventLog />)
-        fireEvent.click(screen.getByRole('button', { name: 'Review suggestions (2 left · 1 top pick)' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Review moments (2 left · 1 top pick)' }))
         const st = useAppState.getState()
         expect(st.panel).toBe('review')
         expect(st.reviewIndex).toBe(2) // Top picks first
@@ -302,12 +302,12 @@ describe('EventLog review button', () => {
     it('should not show when nothing is left or the review is open', () => {
         for (const x of useAppState.getState().suggestions) useAppState.getState().decideSuggestion(x.id, { kind: 'reject' })
         const { rerender } = render(<EventLog />)
-        expect(screen.queryByRole('button', { name: /^Review suggestions/ })).toBeNull()
+        expect(screen.queryByRole('button', { name: /^Review moments/ })).toBeNull()
         useAppState.getState().restoreSuggestion(useAppState.getState().suggestions[0].id)
         rerender(<EventLog />)
-        expect(screen.getByRole('button', { name: 'Review suggestions (1 left)' })).toBeTruthy()
+        expect(screen.getByRole('button', { name: 'Review moments (1 left)' })).toBeTruthy()
         act(() => { useAppState.setState({ panel: 'review' }) })
-        expect(screen.queryByRole('button', { name: /^Review suggestions/ })).toBeNull()
+        expect(screen.queryByRole('button', { name: /^Review moments/ })).toBeNull()
     })
 })
 
@@ -471,7 +471,7 @@ describe('EventLog find goals', () => {
     it('should offer Find goals in the empty state when videos are loaded', () => {
         setup([])
         render(<EventLog />)
-        expect(screen.getByRole('button', { name: /Find goals/ })).toHaveTextContent('Beta')
+        expect(screen.getByRole('button', { name: /Find goals/ })).toHaveTextContent("AI")
     })
 
     it('should not offer it without videos', () => {
@@ -509,7 +509,7 @@ describe('EventLog on touch screens', () => {
     it('should open the edit sheet from the action row Edit button', async () => {
         render(<EventLog />)
         await userEvent.click(rows()[0])
-        await userEvent.click(screen.getByRole('button', { name: 'Edit details' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Edit event' }))
         expect(useAppState.getState()).toMatchObject({ panel: 'event', editingEventId: 'a' })
     })
 
@@ -607,14 +607,14 @@ describe('EventLog action row', () => {
         render(<EventLog />)
         await userEvent.click(rows()[0])
         const actions = within(rows()[0]).getByRole('group', { name: 'Event actions' })
-        expect(Array.from(actions.querySelectorAll('button')).map((b) => b.getAttribute('aria-label'))).toEqual(['Slow-mo replay', 'Edit details', 'Replay framing', 'Download clip', 'Delete event'])
+        expect(Array.from(actions.querySelectorAll('button')).map((b) => b.getAttribute('aria-label'))).toEqual(['Slow-mo replay', 'Edit event', 'Replay framing', 'Download clip', 'Delete event'])
     })
 
     it('should open the details view from Edit and only the framing view from Framing', async () => {
         setup([goal('a', 100)])
         render(<EventLog />)
         await userEvent.click(rows()[0])
-        await userEvent.click(screen.getByRole('button', { name: 'Edit details' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Edit event' }))
         expect(useAppState.getState()).toMatchObject({ panel: 'event', editingEventId: 'a', editingView: 'details' })
         await userEvent.click(screen.getByRole('button', { name: 'Replay framing' }))
         expect(useAppState.getState()).toMatchObject({ panel: 'event', editingEventId: 'a', editingView: 'framing' })
@@ -665,7 +665,7 @@ describe('EventLog action row', () => {
         render(<EventLog />)
         await userEvent.click(rows()[0])
         const actions = within(rows()[0]).getByRole('group', { name: 'Event actions' })
-        expect(within(actions).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Edit details', 'Delete event'])
+        expect(within(actions).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Edit event', 'Delete event'])
     })
 
     it('should collapse on Esc and keep focus in the log', async () => {
@@ -702,7 +702,7 @@ describe('EventLog action row', () => {
         setup([goal('a', 100)])
         render(<EventLog />)
         await userEvent.click(rows()[0])
-        within(rows()[0]).getByRole('button', { name: 'Edit details' }).focus()
+        within(rows()[0]).getByRole('button', { name: 'Edit event' }).focus()
         await userEvent.keyboard('{Enter}')
         expect(useAppState.getState()).toMatchObject({ panel: 'event', editingEventId: 'a' })
         expect(seekToGoal).not.toHaveBeenCalled()
@@ -751,7 +751,7 @@ describe('EventLog find goals prompt', () => {
     it('should offer Find goals when only markers exist', () => {
         setup([marker('k', 'kick_off'), marker('h', 'half_time')])
         render(<EventLog />)
-        expect(screen.getByRole('button', { name: /Find goals/ })).toHaveTextContent('Beta')
+        expect(screen.getByRole('button', { name: /Find goals/ })).toHaveTextContent("AI")
     })
 
     it('should hide once a goal exists', () => {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAppState } from '../state'
 import { nextBarVisible } from '../utils/barScroll'
+import { BetaTag } from './BetaTag'
 import { ExportPanel } from './ExportPanel'
 import { FilesButton } from './FilesButton'
 import { OverflowMenu } from './OverflowMenu'
@@ -37,7 +38,7 @@ export function TopBar({ layout }: TopBarProps) {
 
     return (
         <header className={`top-bar${hidden ? ' top-bar--hidden' : ''}`}>
-            <span className="brand"><Wordmark /></span>
+            <span className="brand"><Wordmark /><BetaTag /></span>
             {layout === 'desktop' || layout === 'tablet' ? (
                 <>
                     <FilesButton />

@@ -31,19 +31,19 @@ describe('OverflowMenu', () => {
         expect(screen.queryByRole('menu')).not.toBeInTheDocument()
         await open()
         const items = screen.getAllByRole('menuitem').map((b) => b.textContent)
-        expect(items).toEqual(['New match…', 'Find goals Beta', 'Files', 'Advanced settings', 'Send project to another device', 'Import…', 'Export project', 'Shortcuts'])
+        expect(items).toEqual(['New match…', 'Find goals AI — Finds likely goals with AI on this device — check each one', 'Files', 'Advanced settings', 'Send project to another device', 'Import…', 'Export project', 'Shortcuts'])
     })
 
-    it('should offer Find goals (Beta), or Review suggestions once there are some', async () => {
+    it('should offer Find goals (Beta), or Review moments once there are some', async () => {
         useAppState.setState({ suggestions: [] })
         const { unmount } = render(<OverflowMenu />)
         await open()
-        expect(screen.getByRole('menuitem', { name: /Find goals/ })).toHaveTextContent('Beta')
+        expect(screen.getByRole('menuitem', { name: /Find goals/ })).toHaveTextContent("AI")
         unmount()
         useAppState.setState({ suggestions: [{ id: 's', globalTimeSec: 5, score: 1, source: 'audio', status: 'pending' }], panel: null })
         render(<OverflowMenu />)
         await open()
-        expect(screen.getByRole('menuitem', { name: /Review suggestions/ })).toHaveTextContent('Beta')
+        expect(screen.getByRole('menuitem', { name: /Review moments/ })).toHaveTextContent("AI")
         useAppState.setState({ suggestions: [] })
     })
 
@@ -55,7 +55,7 @@ describe('OverflowMenu', () => {
         render(<OverflowMenu />)
         await open()
         expect(screen.getByRole('menuitem', { name: /Find goals/ })).toBeInTheDocument()
-        expect(screen.queryByRole('menuitem', { name: /Review suggestions/ })).not.toBeInTheDocument()
+        expect(screen.queryByRole('menuitem', { name: /Review moments/ })).not.toBeInTheDocument()
         useAppState.setState({ suggestions: [], suggestionRun: null })
     })
 
