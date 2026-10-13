@@ -10,6 +10,9 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 ---
 
 ## 2026-10-13
+- **One UI type scale, larger on desktop** (user: "the font is rather small generally"). Tokens `--sh-text-*` replace ad hoc
+  12–13px sizes: body 15, labels/tabs 14, hints 13, panel titles 17; one step up (16/15/14/18) on screens ≥ 1600px with a
+  mouse, since the user works full screen. Touch keeps its reviewed 14px pins. *Where:* feat/type-scale.
 - **New match is a top-level button (left, after the logo); Files moves right beside Match setup** (user suggested;
   supersedes New match living only in ⋯ on desktop/tablet). Export follows the brand primary button (800 italic
   uppercase) like every other lime button (user: consistency). New match window is persistent (no outside-click or Esc
