@@ -91,7 +91,8 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
     const emptyOther = lane === 'other' && counts.other === 0
     const announce = phase === 'running' ? 'Listening for goals.' : phase === 'done' ? 'Find goals finished.' : phase === 'cancelled' ? 'Find goals stopped.' : ''
     return (
-        <ColumnPanel label="Find goals" onClose={onClose} className="review" badge={<AiTag />}>
+        <ColumnPanel label="Find goals" onClose={onClose} className="review" badge={<AiTag />}
+            headNote={suggestions.length > 0 && !rangeStep && !stale && phase !== 'running' ? <GoalsTally head /> : undefined}>
             <p className="sr-only" role="status" aria-live="polite">{announce}</p>
             <div className="review__top">
                 {suggestions.length > 0 && !rangeStep && !stale && phase !== 'running' && <GoalsTally />}

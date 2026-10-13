@@ -6,6 +6,7 @@ import { globalToFileTime } from '../utils/matchStrip'
 import { formatClock } from '../utils/timeline'
 import { seekPlayerPaused, togglePlayerPlayback } from './playerControl'
 import { rangeIsValid, setRangeStep } from './findGoals'
+import { FIND_GOALS_INTRO } from '../utils/voice'
 import { GoalSetup } from './goalSetup/GoalSetup'
 
 type Marker = 'kick_off' | 'final_whistle'
@@ -82,6 +83,7 @@ export function MatchRangeStep() {
     return (
         <div className="range review__status">
             {goalSetup && <GoalSetup onClose={() => setGoalSetup(false)} />}
+            <p className="m-0">{FIND_GOALS_INTRO}</p>
             <p className="m-0">First, set where the match starts and ends.</p>
             <p className="review__note m-0">Scrub to the first kick, then to the final whistle.</p>
             {row('Kick off', ko, 'kick_off', 'Kick off is here', 'K')}

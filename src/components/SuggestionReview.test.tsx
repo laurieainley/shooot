@@ -256,6 +256,22 @@ describe('SuggestionReview', () => {
             expect(screen.getByText('−7 s … +5 s')).toBeTruthy()
         })
     })
+    describe('one readout per state', () => {
+        it('should drop the visible instruction once marked on every layout, keeping it for screen readers only', () => {
+            render(<SuggestionReview onClose={() => {}} />)
+            expect(document.querySelector('.rv__say')).toBeTruthy()
+            fireEvent.click(screen.getByRole('button', { name: /^Mark moment/ }))
+            expect(document.querySelector('.rv__say')).toBeNull()
+            expect(document.querySelectorAll('.rv__momentat')).toHaveLength(1) // the marked time shows once
+            expect([...document.querySelectorAll('.sr-only[role=status]')].map((e) => e.textContent).join(' ')).toMatch(/Marked at/)
+        })
+        it('should label the moment navigation Previous / Next, keeping the aria-labels', () => {
+            render(<SuggestionReview onClose={() => {}} />)
+            expect(screen.getByRole('button', { name: 'Previous moment' }).textContent).toBe('Previous')
+            expect(screen.getByRole('button', { name: 'Next moment' }).textContent).toBe('Next')
+            expect(screen.getByRole('button', { name: 'Forward one frame' }).textContent).toBe('')
+        })
+    })
     describe('marking the moment', () => {
         const at = (sec: number): void => { act(() => { useAppState.setState({ currentTimeInFileSec: sec }) }) }
         it('should tell the user to pause and mark before marking, and show the estimate ring only', () => {
@@ -661,6 +677,7 @@ describe('Find goals: match start and end step', () => {
         open()
         expect(startDetectionMock).not.toHaveBeenCalled()
         expect(screen.getByText('First, set where the match starts and ends.')).toBeTruthy()
+        expect(screen.getByText('Listens to the match on this device to find likely goals, then you check each one.')).toBeTruthy()
         expect(screen.getByText('Scrub to the first kick, then to the final whistle.')).toBeTruthy()
         expect(screen.getByText("AI")).toBeTruthy()
         expect(screen.getByText('00:10')).toBeTruthy()
@@ -1013,13 +1030,13 @@ describe('Review keys', () => {
         expect(screen.getByText(/Moment 1 of 2/)).toBeTruthy()
         off()
     })
-    it('should keep Previous and Next as quiet icon buttons with [ and ] in their tooltips', () => {
+    it('should keep Previous and Next as quiet text buttons with [ and ] in their tooltips', () => {
         useAppState.setState({ reviewIndex: 1 })
         render(<SuggestionReview onClose={() => {}} />)
         const prev = screen.getByRole('button', { name: 'Previous moment' })
         const next = screen.getByRole('button', { name: 'Next moment' })
         expect(prev.getAttribute('title')).toContain('['); expect(next.getAttribute('title')).toContain(']')
-        expect(prev.className).toContain('rv__step'); expect(prev.textContent).toBe('')
+        expect(prev.className).toContain('rv__step'); expect(prev.textContent).toBe('Previous')
     })
 })
 

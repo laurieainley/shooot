@@ -45,6 +45,9 @@ export function keptSummary(kept: number, total: number): string {
     return `You kept ${kept} of ${total}.`
 }
 
+/** Find goals start form, above the button: what it does, in one line (the form below already says where to set the range). */
+export const FIND_GOALS_INTRO = 'Listens to the match on this device to find likely goals, then you check each one.'
+
 /** The Top picks lane when the ball check finished and saw the ball in no goal. */
 export const NO_TOP_PICKS = "No top picks — the ball wasn't seen in a goal for any moment."
 export const LOW_KEEP_NOTE = 'Detection struggled on this footage. Copy diagnostics and send it over.'
