@@ -20,8 +20,27 @@
   --sh-video: #050706;
   --sh-on-video: #F3F1EA;
   --sh-scrim: rgb(5 7 6 / 0.6);
+  /* Type scale (UI, by role). Desktop sizes for a 1280–1920 screen at arm's length; BRAND.md steps 13 · 15 · 17 · 20 · 28,
+     plus 14 for labels/tabs/meta and the touch floor. Use these instead of raw px; on touch nothing is under 14px.
+       micro 11  uppercase badges and number dots only (BETA, steps numbers, strip file numbers)
+       xs    13  hints, muted meta, status and notes (14 on touch)
+       sm    14  labels, legends, tabs, section titles, clocks/scores in rows, secondary controls
+       md    15  body text, buttons, fields, menu items, event row names, toasts
+       lg    17  panel and dialog titles, sub-headings, player names in rosters
+       xl    20  big numbers (reel length)
+       2xl   28  hero numbers (review clock, empty-player title)
+       input 16  text fields on touch (no zoom-on-focus in mobile Safari) */
+  --sh-text-micro: 11px;
+  --sh-text-xs: 13px;
+  --sh-text-sm: 14px;
+  --sh-text-md: 15px;
+  --sh-text-lg: 17px;
+  --sh-text-xl: 20px;
+  --sh-text-2xl: 28px;
+  --sh-text-input: 16px;
   color-scheme: dark;
 }
+@media (pointer: coarse) { :root { --sh-text-xs: 14px; } }
 :root[data-theme="light"] { color-scheme: light; }
 /* Light theme, softened for the editor (app-level override of the pack's light values): no pure-white fields, so lime
    and the red REC dot sit calmly. Dark keeps the pack's values. --sh-lime-edge anchors lime fills on light grounds;
@@ -55,6 +74,12 @@
   --font-sans: var(--sh-font);
   --font-shirt: var(--sh-font-shirt);
   --font-mono: var(--sh-font-mono);
+  /* Type scale as utilities: text-ui-xs … text-ui-lg (values in :root above). */
+  --text-ui-micro: var(--sh-text-micro);
+  --text-ui-xs: var(--sh-text-xs);
+  --text-ui-sm: var(--sh-text-sm);
+  --text-ui-md: var(--sh-text-md);
+  --text-ui-lg: var(--sh-text-lg);
 }
 
 html, body, #root { height: 100%; }
@@ -66,7 +91,7 @@ body {
   background: var(--sh-ground);
   color: var(--sh-text);
   font-family: var(--sh-font);
-  font-size: 14px;
+  font-size: var(--sh-text-md);
   line-height: 1.4;
   -webkit-font-smoothing: antialiased;
 }

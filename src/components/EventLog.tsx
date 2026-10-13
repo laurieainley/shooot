@@ -157,8 +157,8 @@ export function EventLog() {
             className="event-log group/log flex min-h-0 flex-col outline-none"
         >
             <header className="flex items-center gap-1 border-b border-line px-3 py-2">
-                <h2 className="m-0 mr-auto voice-heading text-[15px]">
-                    Events <span className="tc text-[13px] font-normal tracking-normal text-muted">· {events.length}</span>
+                <h2 className="m-0 mr-auto voice-heading text-ui-lg">
+                    Events <span className="tc text-ui-sm font-normal tracking-normal text-muted">· {events.length}</span>
                 </h2>
                 {!coarse && (
                     <button type="button" onClick={() => { const st = useAppState.getState(); st.markEvent(st.currentTimeInFileSec) }}
@@ -177,7 +177,7 @@ export function EventLog() {
             {!finding && <FindGoalsPrompt />}
             {events.length === 0 && !finding ? (
                 <>
-                    <p className="empty-log m-0 px-3 py-4 text-[13px] text-muted">
+                    <p className="empty-log m-0 px-3 py-4 text-ui-md text-muted">
                         <strong className="empty-log__lead voice-heading">{empty.lead}</strong>
                         {' '}{empty.key ? <>{empty.hint} <kbd>{empty.key}</kbd> {empty.tail}</> : empty.hint}
                     </p>
@@ -257,11 +257,11 @@ function EventRow({ event: e, teams, selected, clock, score, editing, onSelect, 
                             useAppState.getState().sortEvents()
                             done()
                         }}
-                        className="field tc w-full px-1 py-0 text-[13px]"
+                        className="field tc w-full px-1 py-0 text-ui-sm"
                     />
                 </span>
             ) : (
-                <span className="tc clock text-[13px]" onDoubleClick={(ev) => { stop(ev); onEdit('time') }} title="Double-click to edit time (in file)">{clock}</span>
+                <span className="tc clock text-ui-sm" onDoubleClick={(ev) => { stop(ev); onEdit('time') }} title="Double-click to edit time (in file)">{clock}</span>
             )}
 
             <span
@@ -280,7 +280,7 @@ function EventRow({ event: e, teams, selected, clock, score, editing, onSelect, 
                         <button key={t.name} type="button" autoFocus={t.name === e.team || (!e.team && t === teams[0])}
                             onClick={() => { update(e.id, { team: t.name }); done() }}
                             onKeyDown={(ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); done() } }}
-                            className="btn-quiet flex items-center gap-1 px-1.5 py-0 text-[12px]">
+                            className="btn-quiet flex items-center gap-1 px-1.5 py-0 text-ui-sm">
                             <span className="team-dot" style={{ background: teamBackground(t.color) }} />{t.name}
                         </button>
                     ))}
@@ -323,11 +323,11 @@ function MarkerRow({ event: e, selected, clock, editing, onSelect, onWatch, onEd
             onClick={onSelect} className={`event-row event-row--marker event-row--${e.type}`}>
             {editing === 'time' ? (
                 <span onClick={stop}>
-                    <TimeInput ariaLabel="Event time" valueSec={e.matchTimeSec} className="field tc w-full px-1 py-0 text-[13px]"
+                    <TimeInput ariaLabel="Event time" valueSec={e.matchTimeSec} className="field tc w-full px-1 py-0 text-ui-sm"
                         onCommit={(t) => { update(e.id, { matchTimeSec: t }); useAppState.getState().sortEvents(); onEdit(null); restoreFocus() }} />
                 </span>
             ) : (
-                <span className="tc clock text-[13px]" onDoubleClick={(ev) => { stop(ev); onEdit('time') }} title="Double-click to edit time (in file)">{clock}</span>
+                <span className="tc clock text-ui-sm" onDoubleClick={(ev) => { stop(ev); onEdit('time') }} title="Double-click to edit time (in file)">{clock}</span>
             )}
             <span className="team-dot team-dot--none" aria-hidden="true" />
             <span className="event-row__icon"><EventIcon event={e} size={touch ? 22 : 18} /></span>
@@ -407,7 +407,7 @@ function ScorerEdit({ event: e, teams, onDone }: ScorerEditProps) {
                 }}
                 onBlur={onDone}
                 placeholder="Scorer"
-                className="field w-full px-1 py-0 text-[13px]"
+                className="field w-full px-1 py-0 text-ui-md"
             />
             {candidates.length > 0 && (
                 <ul role="listbox" aria-label="Scorer suggestions" className="menu absolute left-0 right-0 top-full z-20 mt-0.5 list-none p-1">
@@ -453,7 +453,7 @@ function NoteEdit({ event: e, onDone }: NoteEditProps) {
                 }}
                 onBlur={() => finish(true)}
                 placeholder="Note"
-                className="field w-full px-1 py-0 text-[13px]"
+                className="field w-full px-1 py-0 text-ui-md"
             />
         </span>
     )

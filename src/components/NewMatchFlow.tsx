@@ -54,7 +54,7 @@ export function NewMatchFlow({ onClose }: NewMatchFlowProps) {
                                 </div>
                             </>
                         )}
-                        {message && <p className="m-0 text-[12px] msg-warn">{message}</p>}
+                        {message && <p className="m-0 text-ui-xs msg-warn">{message}</p>}
                     </section>
                 )}
                 {STEPS[step] === 'Match' && <MatchDetails compact />}

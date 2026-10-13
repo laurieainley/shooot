@@ -64,7 +64,7 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
 
     if (blocker) {
         return (
-            <div role="alertdialog" aria-label="New match" className="menu-confirm flex flex-col gap-3 py-3 text-[13px]">
+            <div role="alertdialog" aria-label="New match" className="menu-confirm flex flex-col gap-3 py-3 text-ui-md">
                 <p className="m-0">{blockerText(blocker)}</p>
                 <div className="flex flex-wrap gap-2">
                     <button type="button" onClick={() => { stopBlocker(); void startNewMatch() }} className="btn-quiet btn-danger">Stop and switch</button>
