@@ -13,9 +13,9 @@ const rects = (ops: DrawOp[]): RectOp[] => ops.filter((o): o is RectOp => o.kind
 const fills = (ops: DrawOp[]): string[] => ops.flatMap((o) => (o.kind === 'rect' || o.kind === 'poly' || o.kind === 'circle' ? [o.fill] : []))
 
 describe('tnf layouts (Shooot geometry, TNF palette)', () => {
-    it('should draw the event slab in shirt yellow with navy text, leaning like Shooot', () => {
+    it('should draw the event slab in shirt yellow with dark text, leaning like Shooot', () => {
         const ops = captionLayout(cap, 2.5, true)
-        expect(texts(ops).find((o) => o.text === 'GOAL!')).toMatchObject({ color: T.navy, skew: expect.any(Number) })
+        expect(texts(ops).find((o) => o.text === 'GOAL!')).toMatchObject({ color: T.ground, skew: expect.any(Number) })
         expect(rects(ops).some((r) => r.fill === T.yellow && r.skew !== undefined)).toBe(true)
     })
 

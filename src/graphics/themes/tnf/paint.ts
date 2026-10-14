@@ -8,9 +8,9 @@ import { TNF_VOICE, VOICES, fontCss } from './fonts'
 export const TNF_LOOK: PaintLook = {
     font: (voice, size) => fontCss(TNF_VOICE[voice], size),
     letterSpacing: (voice) => VOICES[TNF_VOICE[voice]].letterSpacing,
-    groundFrom: T.navy,
-    groundTo: T.navyLight,
-    pitch: 'rgba(51,160,217,0.2)',
+    groundFrom: T.ground,
+    groundTo: T.groundLight,
+    pitch: T.pitch,
 }
 
 export const measureWith = (ctx: Ctx): MeasureText => shoootMeasureWith(ctx, TNF_LOOK)
