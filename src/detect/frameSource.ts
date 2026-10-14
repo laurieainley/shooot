@@ -1,7 +1,5 @@
-import { ALL_FORMATS, CanvasSink, Input } from 'mediabunny'
-import { fileSource } from '../render/fileSource'
-import { yieldToEventLoop } from '../render/yield'
-import { TILE, type Frame, type GoalTile } from '../utils/ballSampling'
+import type { Frame, GoalTile } from '../utils/ballSampling'
+import type { FrameWorkerIn, FrameWorkerOut } from './frameSource.worker'
 
 export type FrameSource = {
     frameSize: Frame
@@ -10,39 +8,65 @@ export type FrameSource = {
     dispose: () => void
 }
 
-/** Decoded video frames of one file for the ball check (engine boundary: verified with real renders, no unit test). */
-export async function createFrameSource(file: File): Promise<FrameSource> {
-    const input = new Input({ source: fileSource(file), formats: ALL_FORMATS })
-    try {
-        const track = await input.getPrimaryVideoTrack()
-        if (!track) throw new Error('No video track')
-        // CanvasSink applies the track's rotation and colour conversion, so frames are upright, display-sized RGBA.
-        const sink = new CanvasSink(track, { poolSize: 2 })
-        const frameSize = { w: track.displayWidth, h: track.displayHeight }
-        const out = new OffscreenCanvas(TILE, TILE)
-        const ctx = out.getContext('2d', { willReadFrequently: true })
-        if (!ctx) throw new Error('Canvas is not available')
-        return {
-            frameSize,
-            async *tilesAt(timesSec, tiles, signal) {
-                let i = 0
-                for await (const wrapped of sink.canvasesAtTimestamps(timesSec)) {
-                    const timeSec = timesSec[i++]
-                    if (signal?.aborted) throw new Error('Cancelled')
-                    if (!wrapped) continue
-                    const images = tiles.map((t) => {
-                        ctx.clearRect(0, 0, TILE, TILE)
-                        ctx.drawImage(wrapped.canvas as CanvasImageSource, t.sx, t.sy, t.sw, t.sh, 0, 0, TILE, TILE)
-                        return ctx.getImageData(0, 0, TILE, TILE)
-                    })
-                    yield { timeSec, images }
-                    await yieldToEventLoop()
-                }
-            },
-            dispose: () => input.dispose(),
+/** Frames the decoder may run ahead of the ball model. */
+const AHEAD = 2
+
+type Waiter = { frame: (f: { timeSec: number; images: ImageData[] }) => void; done: () => void; fail: (e: Error) => void }
+
+/**
+ * Decoded video frames of one file for the ball check. Mediabunny decoding, the canvas draw and the tile read-back all run in a
+ * Web Worker (4K HEVC on the main thread froze the page and the playing video); only the small tile images come back.
+ * Engine boundary: verified with real renders, no unit test.
+ */
+export function createFrameSource(file: File): Promise<FrameSource> {
+    const worker = new Worker(new URL('./frameSource.worker.ts', import.meta.url), { type: 'module' })
+    const send = (m: FrameWorkerIn): void => worker.postMessage(m)
+    const waiters = new Map<number, Waiter>()
+    let nextId = 0
+    let failure: Error | null = null
+    return new Promise<FrameSource>((resolve, reject) => {
+        const fail = (e: Error): void => { failure ??= e; reject(e); const all = [...waiters.values()]; waiters.clear(); all.forEach((w) => w.fail(e)) }
+        worker.onerror = (e) => fail(new Error(e.message || 'Decoding failed'))
+        worker.onmessageerror = () => fail(new Error('Decoding failed'))
+        worker.onmessage = (e: MessageEvent<FrameWorkerOut>) => {
+            const m = e.data
+            if (m.type === 'opened') {
+                resolve({
+                    frameSize: m.frameSize,
+                    async *tilesAt(timesSec, tiles, signal) {
+                        if (failure) throw failure
+                        const id = nextId++
+                        const queue: { timeSec: number; images: ImageData[] }[] = []
+                        let finished = false
+                        let error: Error | null = null
+                        let wake: (() => void) | null = null
+                        const poke = (): void => { const w = wake; wake = null; w?.() }
+                        waiters.set(id, { frame: (f) => { queue.push(f); poke() }, done: () => { finished = true; poke() }, fail: (er) => { error = er; poke() } })
+                        const onAbort = (): void => { error = new Error('Cancelled'); poke() }
+                        signal?.addEventListener('abort', onAbort, { once: true })
+                        send({ type: 'tiles', id, times: timesSec, tiles, ahead: AHEAD })
+                        try {
+                            for (;;) {
+                                if (signal?.aborted) throw new Error('Cancelled')
+                                const f = queue.shift()
+                                if (f) { send({ type: 'pull', id }); yield f; continue }
+                                if (error) throw error
+                                if (finished) return
+                                await new Promise<void>((r) => { wake = r })
+                            }
+                        } finally {
+                            signal?.removeEventListener('abort', onAbort)
+                            waiters.delete(id)
+                            send({ type: 'stop', id })
+                        }
+                    },
+                    dispose: () => { fail(new Error('Cancelled')); worker.terminate() },
+                })
+            } else if (m.type === 'frame') waiters.get(m.id)?.frame({ timeSec: m.timeSec, images: m.images })
+            else if (m.type === 'done') waiters.get(m.id)?.done()
+            else if (m.id !== undefined) { const w = waiters.get(m.id); waiters.delete(m.id); w?.fail(new Error(m.message)) }
+            else fail(new Error(m.message))
         }
-    } catch (e) {
-        input.dispose()
-        throw e
-    }
+        send({ type: 'open', file })
+    }).catch((e) => { worker.terminate(); throw e })
 }
