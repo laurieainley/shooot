@@ -64,6 +64,7 @@ export function PostPlacer({ frame, loading, team, marks, current, other, touch,
     const rightPan = useRef(false)
     const dragging = useRef<{ key: MarkKey; startX: number; startY: number; off: Pt } | null>(null)
     const dragMoved = useRef(false)
+    const cursorLabel = useRef<HTMLDivElement | null>(null)
 
     useLayoutEffect(() => {
         const el = viewportEl.current
@@ -100,7 +101,7 @@ export function PostPlacer({ frame, loading, team, marks, current, other, touch,
         const onWheel = (e: WheelEvent): void => {
             e.preventDefault()
             const r = el.getBoundingClientRect()
-            setView((v) => zoomViewAt(v, wheelZoomFactor(e.deltaY), { x: e.clientX - (r.left + r.width / 2), y: e.clientY - (r.top + r.height / 2) }, vpRef.current, aspectRef.current, MAX_PLACER_ZOOM))
+            setView((v) => zoomViewAt(v, wheelZoomFactor(e.deltaY, e.deltaMode), { x: e.clientX - (r.left + r.width / 2), y: e.clientY - (r.top + r.height / 2) }, vpRef.current, aspectRef.current, MAX_PLACER_ZOOM))
         }
         el.addEventListener('wheel', onWheel, { passive: false })
         return () => el.removeEventListener('wheel', onWheel)
@@ -134,6 +135,12 @@ export function PostPlacer({ frame, loading, team, marks, current, other, touch,
         if (pointers.current.size === 2) { pinch.current = { dist: dist(), zoom: viewRef.current.zoom }; moved.current = true }
     }
     const move = (e: PointerEvent<HTMLDivElement>): void => {
+        const tag = cursorLabel.current
+        if (tag && !touch) {
+            const r = viewportEl.current?.getBoundingClientRect()
+            tag.style.display = 'block'
+            tag.style.transform = `translate(${e.clientX - (r?.left ?? 0) + 16}px, ${e.clientY - (r?.top ?? 0) + 18}px)`
+        }
         const prev = pointers.current.get(e.pointerId)
         if (!prev) return
         const next = { x: e.clientX, y: e.clientY }
@@ -228,6 +235,7 @@ export function PostPlacer({ frame, loading, team, marks, current, other, touch,
             onPointerMove={move}
             onPointerUp={up}
             onPointerCancel={up}
+            onPointerLeave={() => { if (cursorLabel.current) cursorLabel.current.style.display = 'none' }}
             onClick={click}
             onKeyDown={viewKey}
             onKeyUp={(e) => { if (e.key === ' ') space.current = false }}
@@ -273,6 +281,7 @@ export function PostPlacer({ frame, loading, team, marks, current, other, touch,
                             })}
                         </div>
                     </div>
+                    {!touch && current && <div ref={cursorLabel} className="gs-cursorlabel" data-testid="goal-setup-cursor-label" aria-hidden="true">{LABELS[current]}{current.startsWith('back') ? ' (optional)' : ''}</div>}
                     {touch && current && <div className="gs-crosshair" data-testid="goal-setup-crosshair" aria-hidden="true" />}
                     <div className="gs-zoom" role="group" aria-label="Zoom" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
                         <button type="button" className="gs-zoom__btn" aria-label="Zoom out" disabled={view.zoom <= 1} onClick={() => zoomBy(1 / ZOOM_STEP)}>

@@ -22,7 +22,7 @@ export function GoalSetupSection() {
             {first
                 ? <GoalSetupSummary compact frame={frame.frame} onEdit={(step) => setOpen({ step, only: true })} onSetup={() => setOpen({ step: 'picture', only: false })} />
                 : <p className="goal-areas__hint">Load a video to set up the goals.</p>}
-            <p className="goal-areas__hint">Goals are labelled by the team defending them at Kick off.</p>
+            <p className="goal-areas__hint">Each goal is named for the team defending it at kick-off.</p>
             {open && <GoalSetup startAt={open.step} only={open.only} onClose={() => setOpen(null)} />}
         </section>
     )

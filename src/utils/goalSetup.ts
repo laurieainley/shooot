@@ -80,11 +80,13 @@ export function guessNextPoint(key: MarkKey, placed: Partial<GoalMarks>, other: 
     }
 }
 
-const CLOSER = 0.8
+const ZOOM_STEP_TENTH = 10
 
-/** One Closer / Wider step: the box gets 0.8 × / ÷ 0.8 as wide about its centre, within the allowed sizes and the frame. */
+/** One Closer / Wider step: the zoom (1 / width) moves to the next whole tenth (1.0×, 1.1×, 1.2× …) about the box's centre. */
 export function stepBox(r: CropRect, dir: 'closer' | 'wider'): CropRect {
-    return resizeAbout(r, dir === 'closer' ? r.w * CLOSER : r.w / CLOSER)
+    const tenths = (1 / r.w) * ZOOM_STEP_TENTH
+    const next = dir === 'closer' ? Math.floor(tenths + 1e-6) + 1 : Math.ceil(tenths - 1e-6) - 1
+    return resizeAbout(r, ZOOM_STEP_TENTH / Math.max(1, next))
 }
 
 /** A pinch of `scale` (fingers apart = > 1) on the replay view: the box shrinks by that factor about its centre. */

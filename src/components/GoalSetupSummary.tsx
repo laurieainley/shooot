@@ -36,8 +36,8 @@ export function GoalSetupSummary({ frame, onEdit, onSetup, compact }: GoalSetupS
                 <div className="goal-areas__hint">
                     <p className="m-0">Mark the two goals (about a minute, optional):</p>
                     <ul className="goal-areas__why">
-                        <li>Find goals spots goals more accurately: it checks for the ball in each goal mouth.</li>
-                        <li>Slow-mo replays zoom in on the action at either end.</li>
+                        <li>Find goals catches more goals: it watches each goal for the ball.</li>
+                        <li>Goal replays zoom in on the right end.</li>
                     </ul>
                 </div>
                 <div className="goal-areas__row"><button type="button" className="btn-quiet" onClick={onSetup}>Set up goals</button></div>

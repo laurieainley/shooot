@@ -136,20 +136,29 @@ describe('guessNextPoint', () => {
 })
 
 describe('stepBox', () => {
-    const r = { x: 0.3, y: 0.3, w: 0.4, h: 0.4 }
-    it('should make the box 0.8 times as wide for Closer, about the same centre', () => {
+    const at = (zoom: number) => ({ x: 0.3, y: 0.3, w: 1 / zoom, h: 1 / zoom })
+    it('should go up a tenth of zoom for Closer, about the same centre', () => {
+        const r = { x: 0.25, y: 0.25, w: 0.5, h: 0.5 } // 2.0x
         const c = stepBox(r, 'closer')
-        expect(c.w).toBeCloseTo(0.32)
+        expect(1 / c.w).toBeCloseTo(2.1)
         expect(c.x + c.w / 2).toBeCloseTo(0.5)
         expect(c.y + c.h / 2).toBeCloseTo(0.5)
         expect(c.h).toBeCloseTo(c.w)
     })
-    it('should divide by 0.8 for Wider', () => {
-        expect(stepBox(r, 'wider').w).toBeCloseTo(0.5)
+    it('should go down a tenth for Wider, and walk 1.0, 1.1, 1.2', () => {
+        expect(1 / stepBox({ x: 0.25, y: 0.25, w: 0.5, h: 0.5 }, 'wider').w).toBeCloseTo(1.9)
+        const one = { x: 0, y: 0, w: 1, h: 1 }
+        const a = stepBox(one, 'closer')
+        expect(1 / a.w).toBeCloseTo(1.1)
+        expect(1 / stepBox(a, 'closer').w).toBeCloseTo(1.2)
+    })
+    it('should land on a whole tenth from an in-between zoom', () => {
+        expect(1 / stepBox(at(1.25), 'closer').w).toBeCloseTo(1.3)
+        expect(1 / stepBox(at(1.25), 'wider').w).toBeCloseTo(1.2)
     })
     it('should stop at the smallest and the largest box', () => {
         expect(stepBox({ x: 0.4, y: 0.4, w: MIN_BOX_W, h: MIN_BOX_W }, 'closer').w).toBe(MIN_BOX_W)
-        expect(stepBox({ x: 0, y: 0, w: 0.9, h: 0.9 }, 'wider').w).toBe(1)
+        expect(stepBox({ x: 0, y: 0, w: 1, h: 1 }, 'wider').w).toBe(1)
     })
     it('should slide a widened box back inside the frame', () => {
         const w = stepBox({ x: 0.6, y: 0.6, w: 0.4, h: 0.4 }, 'wider')

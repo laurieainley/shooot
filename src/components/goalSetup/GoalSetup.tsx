@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppState } from '../../state'
 import type { CropRect, GoalMarks, GoalTeam } from '../../types'
@@ -26,6 +26,8 @@ interface GoalSetupProps {
 const FRAME_STEP_SEC = 5
 const HINT_KEY = 'shooot-goal-setup-rotate-hint'
 const PHONE_PORTRAIT_QUERY = '(pointer: coarse) and (orientation: portrait) and (max-width: 599px)'
+const NONE_SKIPPED: ReadonlySet<MarkKey> = new Set<MarkKey>()
+const ZOOM_INSTRUCTION = 'Goal replays at this end zoom to this view. To frame one goal more exactly, use Framing on its row in the events list.'
 const DOTS: SetupStep[] = ['posts1', 'posts2', 'zoom1', 'zoom2']
 const TEAM_OF: Partial<Record<SetupStep, GoalTeam>> = { posts1: 'team1', zoom1: 'team1', posts2: 'team2', zoom2: 'team2' }
 
@@ -61,7 +63,6 @@ export function GoalSetup({ startAt = 'picture', only = false, onClose }: GoalSe
     const [solo, setSolo] = useState(only)
     const [time, setTime] = useState(Math.min(duration / 2, duration))
     const [drafts, setDrafts] = useState<Partial<Record<GoalTeam, Partial<GoalMarks>>>>(() => ({ team1: marks?.team1, team2: marks?.team2 }))
-    const [wantBack, setWantBack] = useState<Partial<Record<GoalTeam, boolean>>>(() => ({ team1: !!marks?.team1?.backL, team2: !!marks?.team2?.backL }))
     const [rects, setRects] = useState<Partial<Record<GoalTeam, CropRect>>>({})
     const [hintGone, setHintGone] = useState(readHint)
     const root = useRef<HTMLDivElement | null>(null)
@@ -96,8 +97,7 @@ export function GoalSetup({ startAt = 'picture', only = false, onClose }: GoalSe
     const team = TEAM_OF[step]
     const label = team ? teamGoalLabel(teams, team) : ''
     const partial: Partial<GoalMarks> = (team && drafts[team]) || {}
-    const skipped = useMemo(() => (team && wantBack[team] ? new Set<MarkKey>() : new Set<MarkKey>(['backL', 'backR'])), [team, wantBack])
-    const current = step === 'posts1' || step === 'posts2' ? nextStep(partial, skipped) : null
+    const current = step === 'posts1' || step === 'posts2' ? nextStep(partial, NONE_SKIPPED) : null
     const other = team ? marks?.[team === 'team1' ? 'team2' : 'team1'] ?? null : null
 
     const go = (to: SetupStep): void => setStep(to)
@@ -122,15 +122,8 @@ export function GoalSetup({ startAt = 'picture', only = false, onClose }: GoalSe
     const saveMarks = (): void => {
         if (!team || !isComplete(partial)) return
         const { postL, postR, barL, barR, backL, backR } = partial
-        setMarks(team, backL && backR && wantBack[team] ? { postL, postR, barL, barR, backL, backR } : { postL, postR, barL, barR })
+        setMarks(team, backL && backR ? { postL, postR, barL, barR, backL, backR } : { postL, postR, barL, barR })
         after(step)
-    }
-    const removeBack = (): void => {
-        if (!team) return
-        const rest = { ...partial }
-        delete rest.backL; delete rest.backR
-        setPartial(team, rest)
-        setWantBack((w) => ({ ...w, [team]: false }))
     }
 
     const homeRect = (t: GoalTeam): CropRect => (marks?.[t] ? goalRectFromMarks(marks[t]!) : defaultGoalAreas()[t]!)
@@ -150,19 +143,20 @@ export function GoalSetup({ startAt = 'picture', only = false, onClose }: GoalSe
 
     const titles: Record<SetupStep, [string, string]> = {
         picture: ['Choose the picture', 'Find a moment where both goals are clear.'],
-        posts1: [`Identify goal posts — ${label}`, `The goal ${teams[0]?.name.trim() || 'Team 1'} defend at Kick off`],
-        posts2: [`Identify goal posts — ${label}`, `The goal ${teams[1]?.name.trim() || 'Team 2'} defend at Kick off`],
-        zoom1: [`Replay zoom — goals scored into ${label}`, 'Replays of goals at this end show this view.'],
-        zoom2: [`Replay zoom — goals scored into ${label}`, 'Replays of goals at this end show this view.'],
+        posts1: [`Identify goal posts — ${label}`, ''],
+        posts2: [`Identify goal posts — ${label}`, ''],
+        zoom1: [`Replay zoom — goals scored into ${label}`, ZOOM_INSTRUCTION],
+        zoom2: [`Replay zoom — goals scored into ${label}`, ZOOM_INSTRUCTION],
         summary: ['Goal set-up', 'Check each goal, or edit one.'],
     }
     const [title, instruction] = titles[step]
+    const teamName = team ? teams[team === 'team1' ? 0 : 1]?.name.trim() || (team === 'team1' ? 'Team 1' : 'Team 2') : ''
+    const goalNote = team && step !== 'picture' && step !== 'summary' ? `${label}: the end ${teamName} defend at kick-off.` : ''
     const dot = DOTS.indexOf(step)
     const posts = step === 'posts1' || step === 'posts2'
     const frame = picture.frame
-    const requiredKeys = MARK_STEPS.filter((s) => !s.optional)
     const at = current ? MARK_STEPS.findIndex((s) => s.key === current) : -1
-    const pointNo = at < requiredKeys.length ? `${at + 1} of ${requiredKeys.length}` : 'Optional'
+    const pointNo = `${at + 1} of ${MARK_STEPS.length}`
     const pointPrompt = current
         ? (touch ? `Move the picture until the crosshair is on ${MARK_STEPS.find((s) => s.key === current)!.prompt}, then press Set point.` : promptFor(current, false))
         : null
@@ -173,21 +167,23 @@ export function GoalSetup({ startAt = 'picture', only = false, onClose }: GoalSe
     return createPortal(
         <div ref={root} className={`gs gs--${step}`} role="dialog" aria-modal="true" aria-label="Goal set-up" tabIndex={-1} data-owns-escape onKeyDown={onKeyDown}>
             <header className="gs-head">
-                <div className="gs-head__top">
-                    <h2 className="gs-title">{title}</h2>
-                    <CloseButton onClick={onClose} label="Close goal set-up" />
-                </div>
-                <p className="gs-instruction">{instruction}</p>
-                {posts && (
-                    <div className="gs-head__point">
-                        <GoalDiagram current={current} placed={partial} />
-                        {pointPrompt && <p className="gs-prompt" role="status">{`${pointNo} · `}{pointPrompt}</p>}
-                    </div>
-                )}
                 {step !== 'picture' && step !== 'summary' && (
                     <ol className="gs-dots" aria-label={`Step ${dot + 1} of ${DOTS.length}`}>
                         {DOTS.map((d, i) => <li key={d} className={i === dot ? 'gs-dots__dot gs-dots__dot--now' : i < dot ? 'gs-dots__dot gs-dots__dot--done' : 'gs-dots__dot'} />)}
                     </ol>
+                )}
+                <div className="gs-head__top">
+                    <h2 className="gs-title">{title}</h2>
+                    <CloseButton onClick={onClose} label="Close goal set-up" />
+                </div>
+                {goalNote && <p className="gs-note gs-note--goal">{goalNote}</p>}
+                {instruction && <p className="gs-instruction">{instruction}</p>}
+                {posts && (
+                    <div className="gs-head__point">
+                        <GoalDiagram current={current} placed={partial} />
+                        {pointPrompt && <p className="gs-prompt" role="status">{`${pointNo} · `}{pointPrompt}</p>}
+                        {!touch && <p className="gs-note">Scroll to zoom. Right-drag, or hold Space and drag, to move the picture.</p>}
+                    </div>
                 )}
             </header>
 
@@ -267,16 +263,13 @@ export function GoalSetup({ startAt = 'picture', only = false, onClose }: GoalSe
                 )}
                 {posts && team && (
                     <>
-                        {complete && !current && !wantBack[team] && <p className="gs-note">All four points set. Drag or nudge a dot if one is off.</p>}
+                        {complete && current && <p className="gs-note">Back corners are optional: press Next to skip them.</p>}
+                        {complete && !current && <p className="gs-note">All six points set. Drag or nudge a dot if one is off.</p>}
                         <div className="gs-actions">
                             {touch && current
                                 ? <button type="button" className="btn-primary" disabled={!frame} onClick={() => placer.current?.setPoint()}>Set point</button>
                                 : <button type="button" className="btn-primary" disabled={!complete} onClick={saveMarks}>Next</button>}
                             {touch && current && complete && <button type="button" className="btn-quiet" onClick={saveMarks}>Next</button>}
-                            {complete && !current && !wantBack[team] && (
-                                <button type="button" className="btn-quiet" onClick={() => setWantBack((w) => ({ ...w, [team]: true }))}>Add the back corners of the net</button>
-                            )}
-                            {wantBack[team] && <button type="button" className="btn-quiet" onClick={removeBack}>Skip the back corners</button>}
                             {!complete && !touch && <span className="gs-actions__fill" />}
                             <button type="button" className="btn-quiet" disabled={placed === 0} onClick={undo}>Undo</button>
                         </div>
