@@ -9,6 +9,14 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ---
 
+## 2026-10-14
+
+- **Matches list keeps its own + New match only on phones** (user: yes). Desktop and tablet have it in the top bar, so the
+  list's copy was a duplicate; phone layouts keep it (their top bar has New match only in ⋯). *Where:* fix/small-layout.
+- **New match on short screens** (agent, user approved fixing): the step tabs stay pinned under the title bar while the
+  form scrolls (max-height 560px), and every step opens at its top. In the narrow Find goals panel the lane switch drops
+  its decorative list icon so "Other moments (3)" stays on one line. *Where:* fix/small-layout.
+
 ## 2026-10-13
 - **One UI type scale, larger on desktop** (user: "the font is rather small generally"). Tokens `--sh-text-*` replace ad hoc
   12–13px sizes: body 15, labels/tabs 14, hints 13, panel titles 17; one step up (16/15/14/18) on screens ≥ 1600px with a
