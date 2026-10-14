@@ -53,8 +53,9 @@ export async function ensureGraphicsFonts(theme: GraphicsTheme = getTheme(DEFAUL
     return ok
 }
 
-/** The league logo as a bitmap: a custom image if given, otherwise the bundled T.N.F badge. */
-export async function loadLogo(custom?: Blob | null): Promise<ImageBitmap | null> {
+/** The league logo as a bitmap: a custom image if given, null for `'none'` (no logo), otherwise the bundled T.N.F badge. */
+export async function loadLogo(custom?: Blob | 'none' | null): Promise<ImageBitmap | null> {
+    if (custom === 'none') return null
     if (custom) {
         try { return await createImageBitmap(custom) } catch { /* fall through to the default */ }
     }

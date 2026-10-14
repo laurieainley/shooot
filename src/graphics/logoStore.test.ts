@@ -7,7 +7,7 @@ vi.mock('idb-keyval', () => ({
     del: vi.fn(async (k: string) => { store.delete(k) }),
 }))
 
-import { clearCustomLogo, loadCustomLogo, saveCustomLogo } from './logoStore'
+import { clearCustomLogo, hideLogo, loadCustomLogo, saveCustomLogo } from './logoStore'
 
 describe('logoStore', () => {
     beforeEach(() => store.clear())
@@ -20,6 +20,17 @@ describe('logoStore', () => {
         const blob = new Blob(['png'], { type: 'image/png' })
         await saveCustomLogo(blob)
         expect(await loadCustomLogo()).toBe(blob)
+        await clearCustomLogo()
+        expect(await loadCustomLogo()).toBeNull()
+    })
+
+    it('should remember that the logo was removed, until a picture is saved or it is cleared', async () => {
+        await hideLogo()
+        expect(await loadCustomLogo()).toBe('none')
+        const blob = new Blob(['png'], { type: 'image/png' })
+        await saveCustomLogo(blob)
+        expect(await loadCustomLogo()).toBe(blob)
+        await hideLogo()
         await clearCustomLogo()
         expect(await loadCustomLogo()).toBeNull()
     })

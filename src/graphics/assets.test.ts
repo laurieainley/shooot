@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ensureGraphicsFonts, settleWithin } from './assets'
+import { ensureGraphicsFonts, loadLogo, settleWithin } from './assets'
 import { getTheme } from './themes'
 
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
@@ -62,5 +62,15 @@ describe('ensureGraphicsFonts', () => {
         const p = ensureGraphicsFonts(getTheme('shooot'), 500)
         await vi.advanceTimersByTimeAsync(600)
         expect(await p).toBe(false)
+    })
+})
+
+describe('loadLogo', () => {
+    it('should draw no logo, without fetching the default, when the choice is none', async () => {
+        const fetchSpy = vi.fn()
+        vi.stubGlobal('fetch', fetchSpy)
+        expect(await loadLogo('none')).toBeNull()
+        expect(fetchSpy).not.toHaveBeenCalled()
+        vi.unstubAllGlobals()
     })
 })
