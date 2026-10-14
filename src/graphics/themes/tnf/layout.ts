@@ -1,5 +1,5 @@
 // TNF graphics: the Shooot theme's geometry (angular plates leaning -10°, the same layout structure and proportions)
-// in the league's palette: badge sky blue, shirt yellow, navy ground, orange / white stripes. The fonts are swapped in
+// in the league palette: shirt yellow on dark purple plates (colors.ts), orange / white stripes. The fonts are swapped in
 // at paint time (paint.ts); here the shared draw ops are recoloured and the badge stripe motif is added to the cards.
 import type { BugSpec, CaptionSpec, CardSpec } from '../../types'
 import { C } from '../shooot/brandColors'
@@ -13,12 +13,12 @@ export type { DrawOp, MeasureText, PolyOp, RectOp, TextOp } from '../shooot/layo
 /** Shooot colour -> TNF colour. Anything else (kit colours, black fades) passes through. */
 const PALETTE: Record<string, string> = {
     [C.lime]: T.yellow,
-    [C.onLime]: T.navy,
-    [C.ground]: T.navy,
-    [C.surface]: T.sky,
-    [C.surface2]: T.sky,
+    [C.onLime]: T.ground,
+    [C.ground]: T.ground,
+    [C.surface]: T.panel,
+    [C.surface2]: T.panel,
     [C.text]: T.white,
-    [C.muted]: T.skyPale,
+    [C.muted]: T.muted,
     [C.rec]: T.orange,
 }
 const tone = (c: string): string => PALETTE[c] ?? c
