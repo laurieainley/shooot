@@ -35,26 +35,33 @@ describe('ClipDownload', () => {
     it('should offer Score and Replay for a goal and start a clip render', async () => {
         render(<ClipDownload event={goal} />)
         await open()
-        expect(screen.getByRole('checkbox', { name: 'Score' })).toBeChecked()
-        expect(screen.getByRole('checkbox', { name: 'Replay' })).toBeChecked()
+        expect(screen.getByRole('checkbox', { name: /^Score/ })).toBeChecked()
+        expect(screen.getByRole('checkbox', { name: /^Replay/ })).toBeChecked()
         await userEvent.click(screen.getByRole('button', { name: 'Download' }))
         expect(renderJobs().getState().job).toMatchObject({ kind: 'clip', quality: 'full' })
         await waitFor(() => expect(renderReel).toHaveBeenCalled())
         expect(renderReel.mock.calls[0][2]).toMatchObject({ kind: 'clip' })
     })
 
+    it('should say what each option does', async () => {
+        render(<ClipDownload event={goal} />)
+        await open()
+        expect(screen.getByRole('checkbox', { name: /^Score.*score in the caption/ })).toBeInTheDocument()
+        expect(screen.getByRole('checkbox', { name: /^Replay.*slow-mo replay after the clip/ })).toBeInTheDocument()
+    })
+
     it('should hide Replay for an event without one and Score without teams', async () => {
         useAppState.setState({ teams: [] })
         render(<ClipDownload event={save} />)
         await open()
-        expect(screen.queryByRole('checkbox', { name: 'Replay' })).toBeNull()
-        expect(screen.queryByRole('checkbox', { name: 'Score' })).toBeNull()
+        expect(screen.queryByRole('checkbox', { name: /^Replay/ })).toBeNull()
+        expect(screen.queryByRole('checkbox', { name: /^Score/ })).toBeNull()
     })
 
     it('should remember the options', async () => {
         render(<ClipDownload event={goal} />)
         await open()
-        await userEvent.click(screen.getByRole('checkbox', { name: 'Score' }))
+        await userEvent.click(screen.getByRole('checkbox', { name: /^Score/ }))
         expect(useAppState.getState().clipOptions.score).toBe(false)
     })
 
@@ -223,7 +230,7 @@ describe('ClipDownload', () => {
         const { shortcutFor, shouldHandleShortcut } = await import('../utils/shortcuts')
         render(<ClipDownload event={goal} />)
         await open()
-        const box = screen.getByRole('checkbox', { name: 'Score' })
+        const box = screen.getByRole('checkbox', { name: /^Score/ })
         box.focus()
         for (const key of [' ', 'g', 'ArrowRight']) {
             expect(shortcutFor(new KeyboardEvent('keydown', { key }))).not.toBeNull()

@@ -79,12 +79,14 @@ export function ClipDownload({ event }: ClipDownloadProps) {
                     <div className="clip-download__body">
                         {twoTeams && (
                             <label className="clip-download__opt">
-                                <input type="checkbox" checked={clipOptions.score} onChange={(ev) => useAppState.getState().setClipOptions({ score: ev.target.checked })} /> Score
+                                <input type="checkbox" checked={clipOptions.score} onChange={(ev) => useAppState.getState().setClipOptions({ score: ev.target.checked })} />
+                                <span className="clip-download__opt-text">Score<span className="clip-download__opt-hint">Show the score in the caption</span></span>
                             </label>
                         )}
                         {canReplay && (
                             <label className="clip-download__opt">
-                                <input type="checkbox" checked={clipOptions.replay} onChange={(ev) => useAppState.getState().setClipOptions({ replay: ev.target.checked })} /> Replay
+                                <input type="checkbox" checked={clipOptions.replay} onChange={(ev) => useAppState.getState().setClipOptions({ replay: ev.target.checked })} />
+                                <span className="clip-download__opt-text">Replay<span className="clip-download__opt-hint">Add the slow-mo replay after the clip</span></span>
                             </label>
                         )}
                         {previewOnly && <p className="clip-download__note">Full-quality files aren't loaded — this clip uses the preview files.</p>}

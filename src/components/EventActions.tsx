@@ -14,7 +14,7 @@ export interface EventActionsProps {
     download?: ReactNode
 }
 
-/** The selected row's second line: slow-mo replay switch, edit, framing (replay on), download, delete. */
+/** The selected row's second line: Replay switch, edit, framing (disabled while the replay is off), download, delete. */
 export function EventActions({ event: e, touch, onToggleReplay, onFraming, onEdit, onRemove, download }: EventActionsProps) {
     const stop = (ev: React.SyntheticEvent): void => ev.stopPropagation()
     const marker = isMarker(e)
@@ -25,15 +25,16 @@ export function EventActions({ event: e, touch, onToggleReplay, onFraming, onEdi
             {!marker && (
                 <button type="button" role="switch" aria-checked={replay} aria-label="Slow-mo replay" title="Slow-mo replay (R)"
                     className={`${btn} act-switch`} onClick={onToggleReplay}>
-                    <span className="act-switch__track" aria-hidden="true"><span className="act-switch__knob" /></span>
-                    <span className="act-switch__glyph" aria-hidden="true">↻</span>
+                    <span className="event-actions__label">Replay</span>
+                    <span className="act-switch__pill">{replay ? 'On' : 'Off'}</span>
                 </button>
             )}
             <button type="button" className={btn} aria-label="Edit event" title="Edit event (E person · T team · N note)" onClick={onEdit}>
                 <PersonIcon /><span className="event-actions__label">Edit</span>
             </button>
-            {replay && (
-                <button type="button" className={btn} aria-label="Replay framing" title="Replay framing (zoom to the goal)" onClick={onFraming}>
+            {!marker && (
+                <button type="button" className={btn} aria-label="Replay framing" disabled={!replay}
+                    title={replay ? 'Replay framing (zoom to the goal)' : 'Turn Replay on to frame it'} onClick={onFraming}>
                     <span aria-hidden="true">⌖</span><span className="event-actions__label">Framing</span>
                 </button>
             )}
