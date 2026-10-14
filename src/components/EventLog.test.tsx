@@ -5,6 +5,7 @@ import { toastStore } from '../toasts'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import { EventLog } from './EventLog'
+import { setReviewDismissed } from './reviewDismiss'
 import { setCoarsePointer } from '../test/pointer'
 import type { MatchEvent, Team, VideoSourceFile } from '../types'
 
@@ -216,13 +217,24 @@ describe('EventLog replay toggle', () => {
         expect(screen.getByRole('switch', { name: 'Slow-mo replay' })).not.toBeChecked()
     })
 
-    it('should show the replay switch as the replay icon beside the track, with no text label', async () => {
+    it('should label the replay switch Replay in text with an On / Off pill', async () => {
         render(<EventLog />)
         await userEvent.click(rows()[0])
         const sw = screen.getByRole('switch', { name: 'Slow-mo replay' })
         expect(sw).toHaveAttribute('title', 'Slow-mo replay (R)')
-        expect(sw.textContent).toBe('\u21BB')
-        expect(sw.querySelector('.act-switch__glyph')).not.toBeNull()
+        expect(sw.textContent).toBe('ReplayOn')
+        await userEvent.click(sw)
+        expect(sw.textContent).toBe('ReplayOff')
+    })
+
+    it('should keep Framing in the row but disabled while the replay is off', async () => {
+        render(<EventLog />)
+        await userEvent.click(rows()[1])
+        const framing = screen.getByRole('button', { name: 'Replay framing' })
+        expect(framing).toBeDisabled()
+        expect(framing).toHaveAttribute('title', 'Turn Replay on to frame it')
+        await userEvent.click(screen.getByRole('switch', { name: 'Slow-mo replay' }))
+        expect(screen.getByRole('button', { name: 'Replay framing' })).toBeEnabled()
     })
 
     it('should show a passive replay glyph in the row, not a button, only while the replay is on', async () => {
@@ -317,6 +329,38 @@ describe('EventLog review button', () => {
         expect(screen.getByRole('button', { name: 'Review moments (1 left)' })).toBeTruthy()
         act(() => { useAppState.setState({ panel: 'review' }) })
         expect(screen.queryByRole('button', { name: /^Review moments/ })).toBeNull()
+    })
+})
+
+describe('EventLog review button dismiss', () => {
+    const run = { createdAt: 1, source: 'audio' as const, configVersion: 1, analysedSec: 600, total: 2 }
+    beforeEach(() => {
+        setReviewDismissed(null)
+        setup([kickOff(0)], { panel: null })
+        useAppState.setState({ suggestions: [], suggestionRun: null })
+        useAppState.getState().setSuggestions({ ...run, fileKeys: undefined }, [{ timeSec: 100, score: 3 }, { timeSec: 200, score: 3 }])
+        useAppState.setState({ files: [vf('a.mp4')], panel: null })
+    })
+    it('should hide the Review moments button with a Dismiss x, keep the moments, and offer Undo', () => {
+        render(<EventLog />)
+        fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+        expect(screen.queryByRole('button', { name: /^Review moments/ })).toBeNull()
+        expect(useAppState.getState().suggestions).toHaveLength(2)
+        expect(toastStore.getState().toast?.action?.label).toBe('Undo')
+        act(() => { toastStore.getState().toast?.action?.run() })
+        expect(screen.getByRole('button', { name: /^Review moments/ })).toBeTruthy()
+    })
+    it('should stay dismissed after a reload but come back for a new detection run', () => {
+        const { unmount } = render(<EventLog />)
+        fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+        unmount()
+        expect(localStorage.getItem('shooot-review-dismissed')).toBe('1')
+        const again = render(<EventLog />)
+        expect(screen.queryByRole('button', { name: /^Review moments/ })).toBeNull()
+        again.unmount()
+        useAppState.getState().setSuggestions({ ...run, createdAt: 2, fileKeys: undefined }, [{ timeSec: 100, score: 3 }])
+        render(<EventLog />)
+        expect(screen.getByRole('button', { name: /^Review moments/ })).toBeTruthy()
     })
 })
 
@@ -662,11 +706,11 @@ describe('EventLog action row', () => {
         expect(pageScroll).toHaveBeenCalledWith(expect.objectContaining({ block: 'nearest' }))
     })
 
-    it('should show Framing only while the replay is on', async () => {
+    it('should disable Framing while the replay is off', async () => {
         setup([goal('a', 100, { replay: false })])
         render(<EventLog />)
         await userEvent.click(rows()[0])
-        expect(within(rows()[0]).queryByRole('button', { name: /framing/i })).toBeNull()
+        expect(within(rows()[0]).getByRole('button', { name: /framing/i })).toBeDisabled()
     })
 
     it('should give marker rows only Edit and Delete', async () => {
