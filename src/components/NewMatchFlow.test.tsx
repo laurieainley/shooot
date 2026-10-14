@@ -38,6 +38,14 @@ describe('NewMatchFlow', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Done' }))
     })
 
+    it('should start each step at the top of the window, not where the last step was scrolled to', async () => {
+        render(<NewMatchFlow onClose={() => {}} />)
+        const sheet = screen.getByRole('dialog', { name: 'New match' })
+        sheet.scrollTop = 300
+        await userEvent.click(screen.getByRole('button', { name: 'Skip for now' }))
+        expect(sheet.scrollTop).toBe(0)
+    })
+
     it('should not close on a click outside or on Escape, only on the cross', async () => {
         const onClose = vi.fn()
         render(<NewMatchFlow onClose={onClose} />)

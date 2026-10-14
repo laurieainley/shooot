@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAppState } from '../state'
 import { AddFilesButton } from './AddFilesButton'
 import { FileList } from './FilesSheet'
@@ -23,10 +23,14 @@ export function NewMatchFlow({ onClose }: NewMatchFlowProps) {
     const [step, setStep] = useState(0)
     const [message, setMessage] = useState<string | null>(null)
     const last = step >= STEPS.length - 1
+    const stepsRef = useRef<HTMLOListElement>(null)
+    // A new step starts at its top: the window keeps its scroll otherwise, and on a phone on its side the next step
+    // would open half-way down.
+    useEffect(() => { const sheet = stepsRef.current?.closest('.sheet'); if (sheet) sheet.scrollTop = 0 }, [step])
 
     return (
         <Sheet label="New match" onClose={onClose} className="sheet--wide sheet--steps" persistent>
-            <ol className="steps" aria-label="Steps">
+            <ol ref={stepsRef} className="steps" aria-label="Steps">
                 {STEPS.map((name, i) => (
                     <li key={name} className="steps__item" aria-current={i === step ? 'step' : undefined} data-done={i < step || undefined}>
                         <span className="steps__num" aria-hidden="true">{i + 1}</span>

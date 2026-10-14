@@ -80,6 +80,12 @@ describe('MatchList', () => {
         expect(startNewMatch).toHaveBeenCalled()
     })
 
+    it('should leave out its own New match button when the top bar has one', async () => {
+        render(<MatchList showNew={false} />)
+        await screen.findByRole('heading', { name: 'Matches' })
+        expect(screen.queryByRole('button', { name: '+ New match' })).toBeNull()
+    })
+
     it('should ask first when an export is running, and Cancel changes nothing', async () => {
         await putMatch(rec('m-a', 10, 'Alpha', null))
         vi.mocked(switchBlocker).mockReturnValue('render')

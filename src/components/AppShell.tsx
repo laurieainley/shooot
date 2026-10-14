@@ -101,7 +101,7 @@ export function AppShell() {
                 <aside className="rail" aria-label={sideBySide ? 'Event rail' : undefined}>
                     <div className="rail__main">
                         <RailTabs />
-                        {railTab === 'events' ? <EventLog /> : <MatchList />}
+                        {railTab === 'events' ? <EventLog /> : <MatchList showNew={layout === 'phone' || layout === 'landscape'} />}
                     </div>
                     {showFab && railTab === 'events' && <Fab />}
                     <div ref={setSlot} className="panel-slot" />
