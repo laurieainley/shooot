@@ -11,6 +11,17 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-14
 
+- **No general AI embedding model or video "judge" for Find goals; the audio score stays** (user's bar: "dropping multiple
+  true positives would indicate they're not fit for purpose"; agent ran the test). On 413 labelled clips from 4 matches
+  (69 goals; Colab A100), with 2 suggestions per goal, the audio score missed 4 goals. The best AI models did much worse:
+  LCO-Omni-3B listening to sound only missed 9; EmbeddingGemma 2 (best mode) missed 13; Qwen3-VL-Embedding-2B and CLAP
+  missed 14 each; PE-AV large (sound + video) missed 16; the Qwen3-VL-8B yes/no judge missed 21. Models that only see the
+  video were near chance, because at fixed wide GoPro distance the ball and players are too small. Adding the 8B judge's
+  score to the audio score cut misses from 4 to 2, but that weighting was tuned on the same goals.
+  Device cost was not a factor (see the user's rule: accuracy first; downloads, runtime and a high-end phone are fine).
+  The open route is a model trained on our own labelled footage. *Where:* spikes/clipbench (untracked):
+  colab_results_1, colab_results_4, fusion.py.
+
 - **Matches list keeps its own + New match only on phones** (user: yes). Desktop and tablet have it in the top bar, so the
   list's copy was a duplicate; phone layouts keep it (their top bar has New match only in ⋯). *Where:* fix/small-layout.
 - **New match on short screens** (agent, user approved fixing): the step tabs stay pinned under the title bar while the
