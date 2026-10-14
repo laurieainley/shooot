@@ -34,6 +34,18 @@ describe('RosterTags', () => {
         expect(input).toHaveValue('Sam')
     })
 
+    it('should say a name left typed in the field is not added yet, and drop the note once it is', async () => {
+        render(<Harness />)
+        const input = screen.getByLabelText('Team 1 roster')
+        await userEvent.type(input, 'Sam')
+        expect(screen.queryByText(/isn’t added yet/)).toBeNull()
+        await userEvent.tab()
+        expect(screen.getByText('Sam isn’t added yet: press Enter or Add.')).toBeInTheDocument()
+        await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+        expect(latest).toEqual(['Sam'])
+        expect(screen.queryByText(/isn’t added yet/)).toBeNull()
+    })
+
     it('should not add on a typed comma or on Tab', async () => {
         render(<Harness />)
         const input = screen.getByLabelText('Team 1 roster')

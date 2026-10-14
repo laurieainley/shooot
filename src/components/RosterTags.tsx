@@ -50,6 +50,7 @@ export function RosterTags({ label, names: unsorted, onChange: emit, known = [],
     const onChange = (next: string[]): void => emit(sortNames(next))
     const [draft, setDraft] = useState('')
     const [focused, setFocused] = useState(false)
+    const [typing, setTyping] = useState(false)
     const [editing, setEditing] = useState<number | null>(null)
     const [editText, setEditText] = useState('')
     const inputRef = useRef<HTMLInputElement | null>(null)
@@ -159,7 +160,8 @@ export function RosterTags({ label, names: unsorted, onChange: emit, known = [],
                         onChange={(e) => onChangeDraft(e.target.value)}
                         onKeyDown={onKeyDown}
                         onPaste={onPaste}
-                        onFocus={onInputFocus}
+                        onFocus={() => { setTyping(true); onInputFocus() }}
+                        onBlur={() => setTyping(false)}
                         className="field roster__input"
                     />
                     <button
@@ -170,6 +172,8 @@ export function RosterTags({ label, names: unsorted, onChange: emit, known = [],
                         onClick={commitAndStay}
                     >Add</button>
                 </div>
+                {/* Leaving the field never adds (user decision): say so, so a typed name isn't lost on Next / Done. */}
+                {!typing && draft.trim() && <p role="status" className="roster__unadded">{draft.trim()} isn’t added yet: press Enter or Add.</p>}
                 {suggestions.length > 0 && (
                     <div ref={suggestRef} role="group" aria-label="Previous players" data-owns-escape className="roster-suggest" onKeyDown={onSuggestKeyDown}>
                         <span className="roster-suggest__title" aria-hidden="true">Previous players</span>

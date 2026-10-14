@@ -510,6 +510,7 @@
 /* Roster: a field with an Add button, previous players under it, the roster as chips below. */
 .roster { display: flex; flex-direction: column; gap: 8px; }
 .roster__entry { display: flex; flex-direction: column; gap: 8px; scroll-margin: 80px 0; }
+.roster__unadded { margin: 6px 0 0; font-size: var(--sh-text-xs); color: var(--sh-warn-text, var(--sh-muted)); }
 .roster__row { display: flex; gap: 8px; align-items: stretch; }
 .roster__count { margin: 4px 0 0; font-size: var(--sh-text-sm); color: var(--sh-muted); }
 .roster__input { flex: 0 1 30ch; min-width: 0; width: 30ch; box-sizing: border-box; }
