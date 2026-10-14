@@ -558,6 +558,14 @@
 .steps__num { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; border: 1px solid currentColor; font-size: var(--sh-text-micro); flex: none; }
 .steps__item[aria-current="step"] .steps__num { background: var(--sh-text); color: var(--sh-surface); }
 .steps__panel { padding: 24px 0 24px; min-height: 420px; }
+/* Short screens (phone on its side): the form scrolls under the step tabs, which stay pinned below the title bar.
+   The tabs carry the step names so they are never scrolled out of sight. 45px = the title bar's height. */
+@media (max-height: 560px) {
+  .sheet--steps .steps { position: sticky; top: 45px; z-index: 1; margin: 0 -24px; padding: 8px 24px 0; background: var(--sh-surface); }
+  /* Focused fields scroll clear of the title bar and the tabs. */
+  .sheet.sheet--steps { scroll-padding-top: 100px; }
+  .kb-open .sheet--steps .steps { top: 0; }
+}
 @media (max-height: 700px), (max-width: 899px) { .steps__panel { min-height: 0; } }
 .steps__lead { margin: 0; max-width: 65ch; font-size: var(--sh-text-md); line-height: 1.5; color: var(--sh-muted); }
 .steps__videos { display: grid; gap: 16px; max-width: 640px; align-content: start; }
@@ -1533,6 +1541,8 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 @container rvpanel (max-width: 360px) {
   .lanes__btn { padding: 4px 6px; gap: 4px; white-space: normal; text-align: center; line-height: 1.15; font-size: var(--sh-text-sm); }
   .lanes__star, .lanes__icon { width: 14px; height: 14px; }
+  /* The list icon is decoration: without it "Other moments (3)" fits on one line in a ~300px panel. */
+  .lanes__icon { display: none; }
   /* Mark moment / Confirm takes the room, Discard its own width: two equal halves overflowed the panel. */
   .rv__decide { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
   .rv__decide .rv__save, .rv__decide .rv__discard { font-size: var(--sh-text-md); padding-inline: 12px; }

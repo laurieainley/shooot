@@ -24,8 +24,13 @@ function DotsIcon() {
 
 const BROKEN = 'Couldn’t open this match'
 
+interface MatchListProps {
+    /** False where the top bar already has + New match (desktop and tablet). */
+    showNew?: boolean
+}
+
 /** The Matches tab: matches saved on this device, in the order chosen (last edited first by default). */
-export function MatchList() {
+export function MatchList({ showNew = true }: MatchListProps) {
     const openId = useOpenMatch((s) => s.id)
     const saveError = useOpenMatch((s) => s.saveError)
     const version = useMatchesVersion()
@@ -64,7 +69,7 @@ export function MatchList() {
         <section role="tabpanel" id="rail-panel" aria-labelledby="rail-tab-matches" className="match-list">
             <header className="match-list__head">
                 <h2 className="m-0 voice-heading text-ui-lg">Matches</h2>
-                <button type="button" className="btn-quiet" onClick={() => choose({ kind: 'new' })}>+ New match</button>
+                {showNew && <button type="button" className="btn-quiet" onClick={() => choose({ kind: 'new' })}>+ New match</button>}
             </header>
             {shown.length > 1 && (
                 <label className="match-list__sort">

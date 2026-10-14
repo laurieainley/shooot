@@ -205,6 +205,7 @@ npm run lint       # baseline: 12 known problems — add none
 - **New match window:** Videos · Match · Goals all visible from the start; persistent (outside click and Esc don't
   close it, only ✕). The Videos step reuses the Files sheet's `FileList` (reorder, durations by the name). Rosters are a
   lineup: one player per line with a mini shirt in the kit colour and "N players". Fields are sized for their content.
+  Each step opens at its top; on short screens (max-height 560px) the step tabs stay pinned under the title bar.
 - **Matches list:** Sort (Last edited default, Least recently edited, Newest / Oldest by match date, A–Z / Z–A; per
   device in localStorage); the open match has an "Open" pill. `updatedAt` moves only on a real edit (`isEdit`: content
   and file keys/order; not a relink, refreshed file details or reformatted events).
@@ -342,7 +343,7 @@ npm run lint       # baseline: 12 known problems — add none
 - **Event icons:** `components/icons/EventIcon.tsx` + `utils/eventIcon.ts` (football, pen ball "P", own goal "OG",
   penalty spot / spot ✕, glove, whistle, star, flag, pause, chequered flag) — used in strip, rows, picker, edit sheet.
 - **Rail tabs:** `Events | Matches` (`RailTabs`, `components/railTab.ts`, not persisted); opens on Matches when the
-  editor is empty; L returns to Events. **Matches** (`MatchList`): + New match, rows newest first (title, score, date ·
+  editor is empty; L returns to Events. **Matches** (`MatchList`): + New match (phone layouts only; desktop/tablet use the top bar's), rows newest first (title, score, date ·
   files, "Open"), ⋯ → Delete (Undo toast); unreadable records show "Couldn’t open this match". A reopened match shows
   the relink banner, naming the files to pick ("Pick GX010042.MP4, …"); in narrow rails "file missing" is the ⚠ alone.
 - **Events rail:** rows = clock · team dot · icon · name (body font, weight 600, normal case — not the shirt face) ·
