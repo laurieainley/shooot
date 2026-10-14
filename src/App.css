@@ -1666,12 +1666,15 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   background: var(--sh-ground); color: var(--sh-text); outline: none; overscroll-behavior: contain;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
-.gs-head { display: grid; gap: 4px; padding: 8px 12px 6px; }
+.gs-head { display: grid; gap: 6px; padding: 10px 12px 8px; }
 .gs-head__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .gs-title { margin: 0; font-size: var(--sh-text-lg); font-weight: 700; line-height: 1.25; }
 .gs-instruction, .gs-prompt, .gs-note, .gs-hint { margin: 0; font-size: var(--sh-text-md); color: var(--sh-muted); }
 .gs-prompt { color: var(--sh-text); }
-.gs-dots { display: flex; gap: 6px; margin: 2px 0 0; padding: 0; list-style: none; }
+.gs-note { font-size: var(--sh-text-sm); }
+.gs-note--goal { color: var(--sh-text); }
+.gs-instruction { max-width: 60ch; line-height: 1.4; }
+.gs-dots { display: flex; gap: 6px; margin: 0 0 4px; padding: 0; list-style: none; }
 .gs-dots__dot { width: 22px; height: 4px; border-radius: 2px; background: var(--sh-line); }
 .gs-dots__dot--done { background: var(--sh-muted); }
 .gs-dots__dot--now { background: var(--sh-text); }
@@ -1689,13 +1692,19 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .gs-hint { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .gs .btn-quiet, .gs .btn-primary { min-height: 44px; }
 .gs .btn-text { min-height: 44px; padding-inline: 10px; font-size: var(--sh-text-md); }
-.gs-head__point { display: flex; align-items: center; gap: 10px; }
-.gs-diagram { flex: none; width: 56px; height: 42px; }
+.gs-head__point { display: grid; gap: 6px; }
+.gs-diagram { display: block; width: 100%; height: auto; max-height: 144px; overflow: visible; }
+@media (orientation: portrait) { .gs-diagram { max-height: 104px; } }
 .gs-diagram__frame { fill: none; stroke: var(--sh-text); stroke-width: 3; stroke-linejoin: round; }
 .gs-diagram__net { fill: color-mix(in srgb, var(--sh-muted) 25%, transparent); stroke: var(--sh-muted); stroke-width: 1; }
-.gs-diagram__dot { fill: var(--sh-surface); stroke: var(--sh-muted); stroke-width: 1.5; }
-.gs-diagram__dot--done { fill: var(--sh-muted); }
-.gs-diagram__dot--now { fill: var(--sh-text); stroke: var(--sh-ground); stroke-width: 2; }
+.gs-diagram__dot { fill: var(--sh-surface); stroke: var(--sh-muted); stroke-width: 2; stroke-dasharray: 3 3; }
+.gs-diagram__no { fill: var(--sh-muted); font: 700 13px var(--sh-font-mono, monospace); }
+.gs-diagram__pt--done .gs-diagram__dot { fill: var(--sh-muted); stroke: var(--sh-muted); stroke-dasharray: none; }
+.gs-diagram__tick { fill: none; stroke: var(--sh-ground); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.gs-diagram__pt--now .gs-diagram__dot { fill: var(--sh-text); stroke: var(--sh-ground); stroke-width: 3; stroke-dasharray: none; }
+.gs-diagram__pt--now .gs-diagram__no { fill: var(--sh-ground); font-size: 15px; }
+.gs-diagram__halo { fill: none; stroke: var(--sh-text); stroke-width: 2.5; }
+.gs-cursorlabel { position: absolute; left: 0; top: 0; display: none; padding: 3px 8px; border-radius: var(--sh-radius-sm); background: rgb(0 0 0 / 0.78); color: var(--sh-on-video); font-size: var(--sh-text-sm); font-weight: 600; white-space: nowrap; pointer-events: none; z-index: 2; }
 
 /* picture choice */
 .gs-thumbs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
@@ -1736,14 +1745,14 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .gs-zoom__btn { background: color-mix(in srgb, var(--sh-surface) 88%, transparent); }
 
 /* replay zoom */
-.gs-zoomwrap { display: grid; justify-items: center; align-content: center; gap: 8px; padding: 8px 12px; min-height: 0; }
+.gs-zoomwrap { display: grid; justify-items: center; align-content: center; gap: 14px; padding: 12px; min-height: 0; }
 .gs-zoomview { position: relative; width: min(100cqw - 24px, (100cqh - 100px) * var(--aspect, 1.7778)); aspect-ratio: var(--aspect, 1.7778); max-width: 100%; align-self: center; overflow: hidden; background: var(--sh-video); border-radius: var(--sh-radius-sm); touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; }
 .gs-zoomview:focus-visible { outline: 3px solid var(--sh-on-video); outline-offset: 2px; }
 .gs-zoomview__img { position: absolute; max-width: none; pointer-events: none; }
 .gs-map { position: relative; flex: none; width: 96px; overflow: hidden; border: 2px solid var(--sh-on-video); border-radius: 3px; background: var(--sh-video); cursor: pointer; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.7); }
 .gs-map img { display: block; width: 100%; height: 100%; opacity: 0.8; pointer-events: none; }
 .gs-map__box { position: absolute; box-sizing: border-box; border: 2px solid var(--sh-on-video); box-shadow: 0 0 0 1px rgb(0 0 0 / 0.8); pointer-events: none; }
-.gs-zoombar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
+.gs-zoombar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; }
 .gs-zoombar__zoom { min-width: 4ch; font-size: var(--sh-text-sm); color: var(--sh-muted); }
 
 /* summary */
