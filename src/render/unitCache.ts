@@ -60,7 +60,7 @@ const overlaps = (o: OverlaySpec, a: number, b: number): boolean => o.startSec <
 const cutBound = (o: OverlaySpec): boolean => o.kind === 'caption' && (!!o.fromCutStart || !!o.toCutEnd)
 
 /**
- * The reuse keys of a render. `logo`: a fingerprint of the logo picture ('default' for the bundled badge); `fonts`: the graphics look
+ * The reuse keys of a render. `logo`: a fingerprint of the logo picture ('default' for the bundled badge, 'none' for no logo); `fonts`: the graphics look
  * version. Intro/outro cards carry their whole spec (the full-time card lists scorers, so it changes when they do).
  */
 export function buildReuseKeys(o: { which: CacheKind; cuts: Cut[]; sources: RenderSource[]; spec: GraphicsSpec | undefined; quality: string; videoBitrate: number; logo: string }): ReuseKeys {
@@ -92,7 +92,8 @@ export function buildReuseKeys(o: { which: CacheKind; cuts: Cut[]; sources: Rend
 }
 
 /** Fingerprint of the logo picture for the keys (hash of its bytes; 'default' for the bundled badge). */
-export async function logoFingerprint(blob: Blob | null): Promise<string> {
+export async function logoFingerprint(blob: Blob | 'none' | null): Promise<string> {
+    if (blob === 'none') return 'none'
     if (!blob) return 'default'
     try {
         const h = new Uint8Array(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer()))

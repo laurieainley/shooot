@@ -109,3 +109,11 @@ describe('cache size and eviction', () => {
         expect(cacheCap(null)).toBe(CACHE_CAP_BYTES)
     })
 })
+
+describe('logoFingerprint', () => {
+    it('should tell the default badge from no logo', async () => {
+        const { logoFingerprint } = await import('./unitCache')
+        expect(await logoFingerprint(null)).toBe('default')
+        expect(await logoFingerprint('none')).toBe('none')
+    })
+})

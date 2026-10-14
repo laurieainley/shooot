@@ -4,11 +4,12 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 
-const saved: { blob: Blob | null } = { blob: null }
+const saved: { blob: Blob | 'none' | null } = { blob: null }
 vi.mock('../graphics/logoStore', () => ({
     loadCustomLogo: vi.fn(async () => saved.blob),
     saveCustomLogo: vi.fn(async (b: Blob) => { if (!b.type.startsWith('image/')) throw new Error('Pick an image file for the logo'); saved.blob = b }),
     clearCustomLogo: vi.fn(async () => { saved.blob = null }),
+    hideLogo: vi.fn(async () => { saved.blob = 'none' }),
 }))
 
 import { MatchDetails } from './MatchDetails'
@@ -82,10 +83,28 @@ describe('MatchDetails', () => {
 
     it('should show the roster as tags that save straight to the team', async () => {
         render(<MatchDetails />)
-        await userEvent.type(screen.getByLabelText('Team 2 roster'), 'Jo{Enter}Alex,')
+        await userEvent.type(screen.getByLabelText('Team 2 roster'), 'Jo{Enter}Alex{Enter}')
         expect(s().teams[1].roster).toEqual(['Alex', 'Jo'])
         await userEvent.click(screen.getByRole('button', { name: 'Remove Jo' }))
         expect(s().teams[1].roster).toEqual(['Alex'])
+    })
+
+    it('should let the league logo be removed, show No logo, and come back with Use default logo or Replace logo', async () => {
+        render(<MatchDetails />)
+        await userEvent.click(screen.getByRole('button', { name: /remove logo/i }))
+        await waitFor(() => expect(screen.getByRole('img', { name: /no league logo/i })).toBeInTheDocument())
+        expect(saved.blob).toBe('none')
+        expect(screen.queryByRole('button', { name: /remove logo/i })).toBeNull()
+        expect(screen.getByRole('button', { name: /replace logo/i })).toBeInTheDocument()
+        await userEvent.click(screen.getByRole('button', { name: /use default logo/i }))
+        await waitFor(() => expect(screen.getByRole('img', { name: /^league logo$/i })).toHaveAttribute('src', '/brand/tnf-logo.webp'))
+        expect(saved.blob).toBeNull()
+    })
+
+    it('should open in the No logo state when the logo was removed earlier', async () => {
+        saved.blob = 'none'
+        render(<MatchDetails />)
+        await waitFor(() => expect(screen.getByRole('img', { name: /no league logo/i })).toBeInTheDocument())
     })
 
     it('should show the default logo and let a picked image replace it', async () => {

@@ -7,10 +7,11 @@ import { parseKnownScore } from '../utils/scoreGap'
 import type { Team } from '../types'
 import { DEFAULT_LOGO_URLS } from '../graphics/assets'
 import { GraphicsStylePicker } from './GraphicsStylePicker'
-import { clearCustomLogo, loadCustomLogo, saveCustomLogo } from '../graphics/logoStore'
+import { clearCustomLogo, hideLogo, loadCustomLogo, saveCustomLogo } from '../graphics/logoStore'
 
 function LogoField() {
     const [logoUrl, setLogoUrl] = useState<string | null>(null)
+    const [noLogo, setNoLogo] = useState(false)
     const [logoError, setLogoError] = useState('')
     const pickRef = useRef<HTMLInputElement | null>(null)
 
@@ -19,6 +20,7 @@ function LogoField() {
         let live = true
         void loadCustomLogo().then((blob) => {
             if (!live || !blob) return
+            if (blob === 'none') { setNoLogo(true); return }
             url = URL.createObjectURL(blob)
             setLogoUrl(url)
         })
@@ -36,6 +38,7 @@ function LogoField() {
         try {
             await saveCustomLogo(file)
             setLogoError('')
+            setNoLogo(false)
             showLogo(file)
         } catch (e) {
             setLogoError(e instanceof Error ? e.message : String(e))
@@ -44,17 +47,32 @@ function LogoField() {
 
     const resetLogo = async (): Promise<void> => {
         await clearCustomLogo().catch(() => undefined)
+        setNoLogo(false)
         showLogo(null)
+    }
+
+    const removeLogo = async (): Promise<void> => {
+        try {
+            await hideLogo()
+            setLogoError('')
+            setNoLogo(true)
+            showLogo(null)
+        } catch (e) {
+            setLogoError(e instanceof Error ? e.message : String(e))
+        }
     }
 
     return (
         <div className="graphics-setup__logo">
-            <img src={logoUrl ?? DEFAULT_LOGO_URLS[0]} alt="League logo" />
+            {noLogo
+                ? <div className="graphics-setup__nologo text-ui-xs text-muted" role="img" aria-label="No league logo">No logo</div>
+                : <img src={logoUrl ?? DEFAULT_LOGO_URLS[0]} alt="League logo" />}
             <div className="flex flex-col items-start gap-1.5">
                 <span className="text-ui-sm text-muted">League logo (shown on the match graphics)</span>
                 <div className="flex flex-wrap gap-2">
                     <button type="button" className="btn-quiet" onClick={() => pickRef.current?.click()}>Replace logo</button>
-                    {logoUrl && <button type="button" className="btn-quiet" onClick={() => void resetLogo()}>Use default logo</button>}
+                    {(logoUrl || noLogo) && <button type="button" className="btn-quiet" onClick={() => void resetLogo()}>Use default logo</button>}
+                    {!noLogo && <button type="button" className="btn-quiet" onClick={() => void removeLogo()}>Remove logo</button>}
                 </div>
                 {logoError && <p role="alert" className="m-0 text-ui-xs msg-warn">{logoError}</p>}
             </div>
