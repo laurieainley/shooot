@@ -214,11 +214,62 @@ describe('MatchDetails final score (if you know it)', () => {
         expect(s().knownFinalScore).toBeNull()
         expect(first()).toHaveValue('')
     })
+    it('should leave empty boxes blank and step from empty to 1-0 with +', async () => {
+        render(<MatchDetails />)
+        expect(first()).not.toHaveAttribute('placeholder')
+        await userEvent.click(screen.getByRole('button', { name: "One more for Ryan's Rovers" }))
+        expect(s().knownFinalScore).toEqual([1, 0])
+        expect(first()).toHaveValue('1')
+        expect(second()).toHaveValue('0')
+        await userEvent.click(screen.getByRole('button', { name: 'One more for Walford Town' }))
+        expect(s().knownFinalScore).toEqual([1, 1])
+    })
+    it('should step the other side from empty too, and never go below 0', async () => {
+        render(<MatchDetails />)
+        await userEvent.click(screen.getByRole('button', { name: 'One more for Walford Town' }))
+        expect(s().knownFinalScore).toEqual([0, 1])
+        await userEvent.click(screen.getByRole('button', { name: "One fewer for Ryan's Rovers" }))
+        expect(s().knownFinalScore).toEqual([0, 1])
+        await userEvent.click(screen.getByRole('button', { name: 'One fewer for Walford Town' }))
+        await userEvent.click(screen.getByRole('button', { name: 'One fewer for Walford Town' }))
+        expect(s().knownFinalScore).toEqual([0, 0])
+    })
+    it('should not set a score when - is pressed on an empty score', async () => {
+        render(<MatchDetails />)
+        await userEvent.click(screen.getByRole('button', { name: 'One fewer for Walford Town' }))
+        expect(s().knownFinalScore).toBeNull()
+    })
+    it('should still allow typing after stepping', async () => {
+        render(<MatchDetails />)
+        await userEvent.click(screen.getByRole('button', { name: "One more for Ryan's Rovers" }))
+        await userEvent.clear(first())
+        await userEvent.type(first(), '7')
+        fireEvent.blur(second())
+        expect(s().knownFinalScore).toEqual([7, 0])
+    })
     it('should use Team 1 / Team 2 when a name is empty', () => {
         useAppState.setState({ teams: [{ name: '', color: '#fff', roster: [] }, { name: '', color: '#000', roster: [] }] })
         render(<MatchDetails />)
         expect(screen.getByLabelText('Team 1 final score')).toBeInTheDocument()
         expect(screen.getByLabelText('Team 2 final score')).toBeInTheDocument()
+    })
+})
+
+describe('MatchDetails team sheet', () => {
+    beforeEach(() => {
+        useAppState.setState({
+            teams: [{ name: 'Whites', color: '#f5f5f5', roster: [] }, { name: 'Colours', color: '#3a6ea5', roster: [] }],
+            matchdayLabel: null,
+        })
+    })
+    it('should show the fixture line from the live team names', () => {
+        render(<MatchDetails compact />)
+        expect(screen.getByTestId('fixture')).toHaveTextContent('Whites v Colours')
+        expect(screen.getByTestId('fixture')).toHaveAttribute('aria-hidden', 'true')
+    })
+    it('should print the initials on the team shirt', () => {
+        render(<MatchDetails compact />)
+        expect(screen.getAllByTestId('team-shirt')[0]).toHaveTextContent('WH')
     })
 })
 

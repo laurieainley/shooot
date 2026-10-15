@@ -11,6 +11,10 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-15
 
+- **User: the Match step becomes a team sheet** (poster Title, fixture line, kit shirts with initials, numbered lineup,
+  scoreboard final score with −/+). Why: the form felt cramped and samey ("how do we bring back a bit of fun?").
+  Presentation only, no persist change. Detail: AGENTS.md §4 "Match step look", commit on feat/teamsheet.
+
 - **Batch from user feedback** (user): only Enter / Add adds a player (blur, Tab, comma no longer), with a note when a typed name
   isn't added; Match setup can remove the league logo (stored as `'none'` in the logo IDB key; graphics already handle no logo);
   TNF graphics drop the league sky blue for dark purple plates, charcoal kept as a one-line swap (`tnf/colors.ts`); in the Find

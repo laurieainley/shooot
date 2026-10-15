@@ -1,6 +1,7 @@
-import { MULTI_COLOR, isMultiColor, solidTeamColor, teamBackground } from '../utils/teamColor'
+import { MULTI_COLOR, isMultiColor, teamBackground } from '../utils/teamColor'
 import { deriveInitials } from '../utils/initials'
 import { RosterTags } from './RosterTags'
+import { KitShirt } from './KitShirt'
 import { useEffect, useId, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { useAppState } from '../state'
 import { parseKnownScore } from '../utils/scoreGap'
@@ -104,8 +105,9 @@ function TeamCard({ index: i }: TeamCardProps) {
     const patch = (p: Partial<Team>): void => setTeams(useAppState.getState().teams.map((t, j) => (j === i ? { ...t, ...p } : t)))
 
     return (
-        <div className="team-card" style={{ borderTopColor: solidTeamColor(team.color, 'var(--sh-muted)') }}>
+        <div className="team-card">
             <div className="team-card__id">
+                <span data-testid="team-shirt" className="team-card__shirt"><KitShirt color={team.color} label={typed ?? team.initials ?? derived} size={64} /></span>
                 <label className="graphics-setup__field team-card__name">
                     <span>Team {i + 1} name</span>
                     <input
@@ -190,17 +192,37 @@ function FinalScoreField() {
         else if (v[0] !== '' && v[1] !== '') setKnown([Number(v[0]), Number(v[1])])
     }
     const half = (vals[0] === '') !== (vals[1] === '')
-    const box = (i: 0 | 1) => (
-        <input
-            aria-label={`${name(i)} final score`}
-            inputMode="numeric"
-            autoComplete="off"
-            value={vals[i]}
-            onChange={(e) => setVals((cur) => (i === 0 ? [digits(e.target.value), cur[1]] : [cur[0], digits(e.target.value)]))}
-            onKeyDown={(e) => { if (e.key === 'Enter') { setLeft(true); save(vals) } }}
-            className="field final-score__box"
-            aria-describedby={half && left ? hintId : undefined}
-        />
+    // A stepper always sets a whole score: from empty (or half typed) the empty side counts as 0.
+    const step = (i: 0 | 1, d: 1 | -1): void => {
+        const cur = vals.map((v) => (v === '' ? 0 : Number(v)))
+        if (d === -1 && vals[0] === '' && vals[1] === '') return
+        cur[i] = Math.max(0, Math.min(99, cur[i] + d))
+        const next: [string, string] = [String(cur[0]), String(cur[1])]
+        setVals(next)
+        save(next)
+    }
+    const side = (i: 0 | 1) => (
+        <div className="final-score__side">
+            <span className="final-score__team">{name(i)}</span>
+            <div className="final-score__stepper">
+                <button type="button" className="final-score__step" aria-label={`One fewer for ${name(i)}`} onClick={() => step(i, -1)}>
+                    <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><path d="M2 6h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+                </button>
+                <input
+                    aria-label={`${name(i)} final score`}
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={vals[i]}
+                    onChange={(e) => setVals((cur) => (i === 0 ? [digits(e.target.value), cur[1]] : [cur[0], digits(e.target.value)]))}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { setLeft(true); save(vals) } }}
+                    className="field final-score__box"
+                    aria-describedby={half && left ? hintId : undefined}
+                />
+                <button type="button" className="final-score__step" aria-label={`One more for ${name(i)}`} onClick={() => step(i, 1)}>
+                    <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><path d="M2 6h8M6 2v8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+                </button>
+            </div>
+        </div>
     )
     return (
         <div
@@ -213,19 +235,34 @@ function FinalScoreField() {
                 save(vals)
             }}
         >
-            <span id={labelId} className="final-score__label">Final score (if you know it)</span>
-            <div className="final-score__row">
-                <span className="final-score__team">{name(0)}</span>
-                {box(0)}
-                <span className="final-score__dash" aria-hidden="true">–</span>
-                {box(1)}
-                <span className="final-score__team">{name(1)}</span>
+            <div className="final-score__head">
+                <span id={labelId} className="final-score__label">Final score (if you know it)</span>
                 {known && (
                     <button type="button" className="btn-quiet final-score__clear" aria-label="Clear final score" onClick={() => { setVals(['', '']); setKnown(null) }}>Clear</button>
                 )}
             </div>
+            <div className="final-score__row">
+                {side(0)}
+                <span className="final-score__dash" aria-hidden="true">–</span>
+                {side(1)}
+            </div>
             {half && left && <p id={hintId} className="m-0 text-ui-xs msg-warn" role="status">Enter both scores, or leave both empty.</p>}
         </div>
+    )
+}
+
+/** "Whites v Colours" under the title, from the live team names, each with a little kit shirt. Decorative. */
+function Fixture() {
+    const teams = useAppState((s) => s.teams)
+    const [a, b] = teams
+    if (!a || !b) return null
+    const nm = (t: Team, i: number): string => t.name.trim() || `Team ${i + 1}`
+    return (
+        <p className="fixture" data-testid="fixture" aria-hidden="true">
+            <KitShirt color={a.color} size={22} /><span className="fixture__name">{nm(a, 0)}{' '}</span>
+            <span className="fixture__v">v{' '}</span>
+            <KitShirt color={b.color} size={22} /><span className="fixture__name">{nm(b, 1)}</span>
+        </p>
     )
 }
 
@@ -260,6 +297,7 @@ export function MatchDetails({ compact = false, aside }: MatchDetailsProps = {})
                         className="field"
                     />
                 </label>
+                <Fixture />
                 <div className="team-grid">
                     {Array.from({ length: teamCount }, (_, i) => <TeamCard key={i} index={i} />)}
                 </div>

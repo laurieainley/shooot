@@ -479,8 +479,10 @@
   .sheet-backdrop { padding: 8px 8px calc(8px + var(--kb, 0px)); }
   .sheet { max-height: calc(100dvh - 16px - var(--kb, 0px)); }
 }
-.team-card { display: flex; flex-direction: column; gap: 10px; border-top: 4px solid; padding-top: 10px; min-width: 0; }
-.team-card__id { display: grid; grid-template-columns: minmax(0, 1fr) 84px; gap: 10px; align-items: end; }
+.team-card { display: flex; flex-direction: column; gap: 14px; border-top: 1px solid var(--sh-line); padding-top: 18px; min-width: 0; }
+.team-card__id { display: grid; grid-template-columns: auto minmax(0, 1fr) 84px; gap: 12px; align-items: end; }
+.team-card__shirt { display: block; line-height: 0; align-self: center; }
+.team-card__shirt svg { display: block; }
 .match-details { display: grid; gap: 4px; padding-top: 8px; }
 .match-details__main, .match-details__side { display: grid; gap: 4px; align-content: start; min-width: 0; }
 /* Laptop and wider: teams and final score on the left, goal set-up first on the right (then logo and graphics style), so the
@@ -494,31 +496,50 @@
   .match-details__side:not(:has(.goal-areas)) > .graphics-setup__logo:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
 }
 .match-details__title { max-width: 32ch; }
-.match-details__title .field, .team-card__name .field { font-size: var(--sh-text-md); }
+.team-card__name .field { font-size: var(--sh-text-lg); }
 .team-card__name { max-width: 24ch; }
-.match-details .team-card__id { grid-template-columns: minmax(0, 24ch) 84px; }
+.match-details .team-card__id { grid-template-columns: auto minmax(0, 24ch) 84px; justify-content: start; }
+/* Title as the poster heading: no box until hover or focus, a dotted underline says it is a field. */
+.match-details .match-details__title .field { font-family: var(--sh-font-shirt, 'Big Shoulders Display', sans-serif); font-weight: 800; font-size: var(--sh-text-2xl); letter-spacing: 0.08em; text-transform: uppercase; line-height: 1.15; min-height: 44px; padding: 2px 0; background: transparent; border-color: transparent; border-radius: 0; box-shadow: none; border-bottom: 2px dotted var(--sh-line-strong, var(--sh-muted)); }
+.match-details .match-details__title .field::placeholder { color: var(--sh-muted); opacity: 0.7; }
+.match-details .match-details__title .field:hover { border-bottom-style: solid; }
+.match-details .match-details__title .field:focus { border-bottom: 2px solid var(--sh-text); outline: none; box-shadow: none; }
+.match-details .match-details__title .field:focus-visible { outline: 2px solid var(--sh-text); outline-offset: 2px; }
+.fixture { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0 0; font-family: var(--sh-font-shirt, 'Big Shoulders Display', sans-serif); font-weight: 800; font-size: var(--sh-text-xl); letter-spacing: 0.08em; text-transform: uppercase; color: var(--sh-text); }
+.fixture__v { color: var(--sh-muted); font-size: var(--sh-text-md); }
+.fixture__name { margin-right: 4px; }
+.match-details__main { gap: 8px; }
+.match-details__main .team-grid { margin-top: 28px; gap: 24px; }
+.match-details--split .match-details__main .team-grid { gap: 24px; }
 /* Final score row: names flank two mono digit boxes; wraps on narrow screens rather than clipping. */
-.final-score { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--sh-line); display: grid; gap: 6px; }
+.final-score { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--sh-line); display: grid; gap: 10px; }
+.final-score__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .final-score__label { font-size: var(--sh-text-sm); color: var(--sh-muted); }
-@media (pointer: coarse) { .final-score__label, .final-score__team { font-size: var(--sh-text-sm); } .final-score .final-score__box, .final-score__clear { min-height: 44px; } .final-score .final-score__box { font-size: 16px; } .file-card__meta { font-size: var(--sh-text-sm); } } /* ≥14px on touch */
-.final-score__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.final-score__team { font-size: var(--sh-text-md); color: var(--sh-text); min-width: 0; overflow-wrap: anywhere; }
-.final-score .final-score__box { width: 4.25rem; min-height: 36px; box-sizing: border-box; text-align: center; font-family: var(--sh-font-mono); font-weight: 600; font-size: var(--sh-text-md); }
-.final-score__dash { color: var(--sh-muted); font-family: var(--sh-font-mono); }
-
-.match-details .graphics-setup__logo { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--sh-line); }
+.final-score__row { display: flex; align-items: flex-end; justify-content: center; gap: 12px; padding: 14px 12px; border: 1px solid var(--sh-line); border-radius: var(--sh-radius-md, 10px); background: var(--sh-surface-2); max-width: 30rem; }
+.final-score__side { display: grid; gap: 8px; justify-items: center; min-width: 0; flex: 1 1 0; }
+.final-score__team { font-family: var(--sh-font-shirt, 'Big Shoulders Display', sans-serif); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; font-size: var(--sh-text-lg); color: var(--sh-text); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.final-score__stepper { display: flex; align-items: center; gap: 6px; }
+.final-score .final-score__box { width: 3.5rem; min-height: 56px; box-sizing: border-box; text-align: center; font-family: var(--sh-font-mono); font-weight: 700; font-size: var(--sh-text-2xl); padding: 0 4px; }
+.final-score__step { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border-radius: 50%; border: 1px solid var(--sh-line); background: transparent; color: var(--sh-text); cursor: pointer; }
+.final-score__step:hover { background: var(--sh-surface); border-color: var(--sh-muted); }
+.final-score__dash { color: var(--sh-muted); font-family: var(--sh-font-mono); font-size: var(--sh-text-2xl); line-height: 56px; }
+.final-score__row .final-score__dash { align-self: flex-end; }
+@media (pointer: coarse) { .final-score__label { font-size: var(--sh-text-sm); } .final-score__team { font-size: var(--sh-text-md); } .final-score .final-score__box { min-height: 56px; font-size: 24px; } .final-score__step { width: 44px; height: 44px; } .final-score__clear { min-height: 44px; } .file-card__meta { font-size: var(--sh-text-sm); } } /* ≥14px on touch */
+@media (max-width: 420px) { .final-score__row { gap: 6px; padding: 12px 8px; } .final-score .final-score__box { width: 2.75rem; } .final-score__stepper { gap: 2px; } }
+.match-details .graphics-setup__logo { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--sh-line); }
 /* Roster: a field with an Add button, previous players under it, the roster as chips below. */
 .roster { display: flex; flex-direction: column; gap: 8px; }
 .roster__entry { display: flex; flex-direction: column; gap: 8px; scroll-margin: 80px 0; }
 .roster__unadded { margin: 6px 0 0; font-size: var(--sh-text-xs); color: var(--sh-warn-text, var(--sh-muted)); }
 .roster__row { display: flex; gap: 8px; align-items: stretch; }
+.roster__empty { margin: 4px 0 0; font-size: var(--sh-text-sm); color: var(--sh-muted); font-style: italic; }
 .roster__count { margin: 4px 0 0; font-size: var(--sh-text-sm); color: var(--sh-muted); }
 .roster__input { flex: 0 1 30ch; min-width: 0; width: 30ch; box-sizing: border-box; }
 .roster__add { flex: none; }
 .roster-suggest { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; list-style: none; margin: 0; padding: 0; }
 /* The lineup: one player per line, a shirt in the kit colour, the name in the shirt face (BRAND: line-ups), × to remove. */
 .roster__list { display: flex; flex-direction: column; gap: 2px; list-style: none; margin: 0; padding: 0; }
-.roster-player { display: flex; align-items: center; gap: 10px; padding: 2px 4px 2px 2px; border-bottom: 1px solid var(--sh-line); max-width: 24rem; min-height: 32px; }
+.roster-player { display: flex; align-items: center; gap: 12px; padding: 2px 4px 2px 2px; border-bottom: 1px solid var(--sh-line); max-width: 24rem; min-height: 40px; }
 .roster-shirt { flex: none; }
 .roster-player .roster-tag__name { flex: 1 1 auto; min-width: 0; text-align: left; padding: 4px 0; font-family: var(--sh-font-shirt, 'Big Shoulders Display', sans-serif); font-weight: 800; font-size: var(--sh-text-lg); letter-spacing: 0.08em; text-transform: uppercase; }
 .roster-player .roster-tag__edit { flex: 1 1 auto; min-width: 0; padding: 4px 0; font-family: var(--sh-font-shirt, 'Big Shoulders Display', sans-serif); font-weight: 800; font-size: var(--sh-text-lg); letter-spacing: 0.08em; text-transform: uppercase; }
