@@ -510,6 +510,7 @@
 /* Roster: a field with an Add button, previous players under it, the roster as chips below. */
 .roster { display: flex; flex-direction: column; gap: 8px; }
 .roster__entry { display: flex; flex-direction: column; gap: 8px; scroll-margin: 80px 0; }
+.roster__unadded { margin: 6px 0 0; font-size: var(--sh-text-xs); color: var(--sh-warn-text, var(--sh-muted)); }
 .roster__row { display: flex; gap: 8px; align-items: stretch; }
 .roster__count { margin: 4px 0 0; font-size: var(--sh-text-sm); color: var(--sh-muted); }
 .roster__input { flex: 0 1 30ch; min-width: 0; width: 30ch; box-sizing: border-box; }
@@ -835,6 +836,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .graphics-setup__initials { text-transform: uppercase; font-family: var(--sh-font); font-weight: 800; font-style: italic; font-stretch: var(--sh-stretch-scoreboard); letter-spacing: 0.04em; }
 .graphics-setup__logo { display: flex; align-items: center; gap: 10px; }
 .graphics-setup__logo img { width: 40px; height: 52px; object-fit: contain; flex: none; }
+.graphics-setup__nologo { width: 40px; height: 52px; flex: none; display: grid; place-items: center; text-align: center; border: 1px dashed var(--sh-line); border-radius: 6px; line-height: 1.15; }
 @media (max-width: 640px) {
   .graphics-setup__grid { grid-template-columns: 1fr 1fr; }
   .graphics-setup__matchday { grid-column: 1 / -1; }
@@ -1165,8 +1167,13 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .event-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0 2px 12px; white-space: nowrap; cursor: default; }
 .event-actions .act-btn { flex: 1 1 auto; padding: 0 8px; }
 .event-actions__download { display: inline-flex; flex: 1 1 auto; }
-/* Mouse: the replay switch is an icon, so all five buttons share one line at every desktop rail width (wrap stays as the safety net). */
-@media (pointer: fine) { .event-actions { padding: 4px 8px 2px 10px; } .event-actions .act-btn { padding: 0 5px; gap: 4px; } }
+/* Mouse: all five buttons (fixed set, so nothing moves when Replay toggles) share one line at every desktop rail width (wrap stays as the safety net). */
+@media (pointer: fine) {
+  .event-actions { padding: 4px 6px 2px 8px; gap: 3px; } .event-actions .act-btn { padding: 0 4px; gap: 3px; }
+  /* Five labelled buttons do not fit a 400px rail on one line: Delete is the icon alone (its title and name stay). */
+  .event-actions .act-btn--delete { flex: 0 0 auto; min-width: 32px; }
+  .event-actions .act-btn--delete .event-actions__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
 /* Touch (44px buttons): where the labelled five do not fit one line, wrap 3 + 2 (or 2 + 2), never a lone button on the second line. */
 @media (pointer: coarse) {
   @container event-log (min-width: 361px) and (max-width: 440px) {
@@ -1181,7 +1188,10 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .clip-download__file-label { flex: none; }
 .clip-download__file .truncate { min-width: 0; color: var(--sh-text); }
 .clip-download__opt { display: flex; align-items: center; gap: 8px; min-height: 32px; font: 600 var(--sh-text-md) var(--sh-font); color: var(--sh-text); cursor: pointer; }
-.clip-download__opt input { width: 18px; height: 18px; accent-color: var(--sh-text); }
+.clip-download__opt { align-items: flex-start; padding: 4px 0; }
+.clip-download__opt input { flex: none; width: 18px; height: 18px; margin-top: 1px; accent-color: var(--sh-text); }
+.clip-download__opt-text { display: flex; flex-direction: column; gap: 1px; }
+.clip-download__opt-hint { font: 400 var(--sh-text-xs) var(--sh-font); color: var(--sh-muted); }
 .clip-download__note { margin: 0; font-size: var(--sh-text-sm); color: var(--sh-muted); overflow-wrap: anywhere; }
 @media (pointer: coarse) { .clip-download__opt { min-height: 44px; } .clip-download__body .btn-primary, .clip-download__body .btn-quiet { min-height: 44px; } }
 .act-btn {
@@ -1192,14 +1202,13 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .act-btn[aria-pressed="true"] { border-color: var(--sh-text); }
 .act-btn[aria-pressed="false"] { color: var(--sh-muted); }
 .act-btn--touch { min-height: 44px; min-width: 44px; font-size: var(--sh-text-sm); }
-/* Slow-mo replay switch: on = filled track, knob right; off = outlined track, knob left (readable without colour). No lime. */
-.act-switch__track { position: relative; flex: none; width: 26px; height: 16px; border-radius: 8px; border: 1.5px solid var(--sh-muted); background: transparent; box-sizing: border-box; }
-.act-switch__knob { position: absolute; top: 50%; left: 2px; width: 9px; height: 9px; border-radius: 50%; background: var(--sh-muted); transform: translateY(-50%); transition: left 120ms ease, background-color 120ms ease; }
-.act-switch[aria-checked="true"] .act-switch__track { background: var(--sh-text); border-color: var(--sh-text); }
-.act-switch[aria-checked="true"] .act-switch__knob { left: calc(100% - 11px); background: var(--sh-ground); }
-.act-switch[aria-checked="false"] { color: var(--sh-muted); }
-.act-switch__glyph { font-size: 15px; line-height: 1; }
-@media (prefers-reduced-motion: reduce) { .act-switch__knob { transition: none; } }
+/* Replay switch: a labelled button with an On / Off pill (on = filled, off = outlined: readable without colour). No lime. */
+.act-switch__pill { flex: none; box-sizing: border-box; width: 30px; padding: 1px 0; border-radius: 999px; border: 1px solid var(--sh-muted); font: 700 var(--sh-text-micro) var(--sh-font-mono); text-align: center; text-transform: uppercase; color: var(--sh-muted); }
+.act-switch[aria-checked="true"] { border-color: var(--sh-text); }
+.act-switch[aria-checked="true"] .act-switch__pill { background: var(--sh-text); border-color: var(--sh-text); color: var(--sh-ground); }
+@media (pointer: coarse) { .act-switch__pill { width: 40px; font-size: var(--sh-text-sm); } }
+.act-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.act-btn:disabled:hover { background: transparent; }
 /* The row's passive replay mark (never a button). */
 .event-row__replay { flex: none; color: var(--sh-muted); font-size: var(--sh-text-sm); line-height: 1; }
 .act-btn--delete:hover { color: var(--sh-text); border-color: var(--sh-text); }
@@ -1207,6 +1216,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 @container event-log (max-width: 360px) {
   .event-actions__label, .tag-warn__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .act-btn { min-width: 36px; padding: 0 6px; }
+  .act-switch::before { content: '\21BB'; font-size: 15px; line-height: 1; }
   .act-btn--touch { min-width: 44px; }
 }
 
@@ -1329,6 +1339,9 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .review__goaltime { margin: 0; font-size: var(--sh-text-md); }
 .review__range { font-size: var(--sh-text-sm); color: var(--sh-muted); }
 .review__btn { min-height: 44px; }
+.review-rail { display: flex; align-items: center; gap: 4px; }
+.review-rail__dismiss { flex: none; min-width: 36px; min-height: 36px; padding: 0; font-size: var(--sh-text-lg); line-height: 1; color: var(--sh-muted); }
+@media (pointer: coarse) { .review-rail__dismiss { min-width: 44px; min-height: 44px; } }
 .review__btn kbd { margin-left: 6px; font-family: var(--sh-font-mono); font-size: var(--sh-text-xs); color: var(--sh-muted); }
 .review__status { display: flex; flex-direction: column; gap: 8px; }
 .review__bar { height: 4px; background: var(--sh-line); border-radius: 2px; overflow: hidden; }
@@ -1666,12 +1679,15 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   background: var(--sh-ground); color: var(--sh-text); outline: none; overscroll-behavior: contain;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
-.gs-head { display: grid; gap: 4px; padding: 8px 12px 6px; }
+.gs-head { display: grid; gap: 6px; padding: 10px 12px 8px; }
 .gs-head__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .gs-title { margin: 0; font-size: var(--sh-text-lg); font-weight: 700; line-height: 1.25; }
 .gs-instruction, .gs-prompt, .gs-note, .gs-hint { margin: 0; font-size: var(--sh-text-md); color: var(--sh-muted); }
 .gs-prompt { color: var(--sh-text); }
-.gs-dots { display: flex; gap: 6px; margin: 2px 0 0; padding: 0; list-style: none; }
+.gs-note { font-size: var(--sh-text-sm); }
+.gs-note--goal { color: var(--sh-text); }
+.gs-instruction { max-width: 60ch; line-height: 1.4; }
+.gs-dots { display: flex; gap: 6px; margin: 0 0 4px; padding: 0; list-style: none; }
 .gs-dots__dot { width: 22px; height: 4px; border-radius: 2px; background: var(--sh-line); }
 .gs-dots__dot--done { background: var(--sh-muted); }
 .gs-dots__dot--now { background: var(--sh-text); }
@@ -1689,13 +1705,19 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .gs-hint { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .gs .btn-quiet, .gs .btn-primary { min-height: 44px; }
 .gs .btn-text { min-height: 44px; padding-inline: 10px; font-size: var(--sh-text-md); }
-.gs-head__point { display: flex; align-items: center; gap: 10px; }
-.gs-diagram { flex: none; width: 56px; height: 42px; }
+.gs-head__point { display: grid; gap: 6px; }
+.gs-diagram { display: block; width: 100%; height: auto; max-height: 144px; overflow: visible; }
+@media (orientation: portrait) { .gs-diagram { max-height: 104px; } }
 .gs-diagram__frame { fill: none; stroke: var(--sh-text); stroke-width: 3; stroke-linejoin: round; }
 .gs-diagram__net { fill: color-mix(in srgb, var(--sh-muted) 25%, transparent); stroke: var(--sh-muted); stroke-width: 1; }
-.gs-diagram__dot { fill: var(--sh-surface); stroke: var(--sh-muted); stroke-width: 1.5; }
-.gs-diagram__dot--done { fill: var(--sh-muted); }
-.gs-diagram__dot--now { fill: var(--sh-text); stroke: var(--sh-ground); stroke-width: 2; }
+.gs-diagram__dot { fill: var(--sh-surface); stroke: var(--sh-muted); stroke-width: 2; stroke-dasharray: 3 3; }
+.gs-diagram__no { fill: var(--sh-muted); font: 700 13px var(--sh-font-mono, monospace); }
+.gs-diagram__pt--done .gs-diagram__dot { fill: var(--sh-muted); stroke: var(--sh-muted); stroke-dasharray: none; }
+.gs-diagram__tick { fill: none; stroke: var(--sh-ground); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.gs-diagram__pt--now .gs-diagram__dot { fill: var(--sh-text); stroke: var(--sh-ground); stroke-width: 3; stroke-dasharray: none; }
+.gs-diagram__pt--now .gs-diagram__no { fill: var(--sh-ground); font-size: 15px; }
+.gs-diagram__halo { fill: none; stroke: var(--sh-text); stroke-width: 2.5; }
+.gs-cursorlabel { position: absolute; left: 0; top: 0; display: none; padding: 3px 8px; border-radius: var(--sh-radius-sm); background: rgb(0 0 0 / 0.78); color: var(--sh-on-video); font-size: var(--sh-text-sm); font-weight: 600; white-space: nowrap; pointer-events: none; z-index: 2; }
 
 /* picture choice */
 .gs-thumbs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
@@ -1736,14 +1758,14 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .gs-zoom__btn { background: color-mix(in srgb, var(--sh-surface) 88%, transparent); }
 
 /* replay zoom */
-.gs-zoomwrap { display: grid; justify-items: center; align-content: center; gap: 8px; padding: 8px 12px; min-height: 0; }
+.gs-zoomwrap { display: grid; justify-items: center; align-content: center; gap: 14px; padding: 12px; min-height: 0; }
 .gs-zoomview { position: relative; width: min(100cqw - 24px, (100cqh - 100px) * var(--aspect, 1.7778)); aspect-ratio: var(--aspect, 1.7778); max-width: 100%; align-self: center; overflow: hidden; background: var(--sh-video); border-radius: var(--sh-radius-sm); touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; }
 .gs-zoomview:focus-visible { outline: 3px solid var(--sh-on-video); outline-offset: 2px; }
 .gs-zoomview__img { position: absolute; max-width: none; pointer-events: none; }
 .gs-map { position: relative; flex: none; width: 96px; overflow: hidden; border: 2px solid var(--sh-on-video); border-radius: 3px; background: var(--sh-video); cursor: pointer; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.7); }
 .gs-map img { display: block; width: 100%; height: 100%; opacity: 0.8; pointer-events: none; }
 .gs-map__box { position: absolute; box-sizing: border-box; border: 2px solid var(--sh-on-video); box-shadow: 0 0 0 1px rgb(0 0 0 / 0.8); pointer-events: none; }
-.gs-zoombar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
+.gs-zoombar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; }
 .gs-zoombar__zoom { min-width: 4ch; font-size: var(--sh-text-sm); color: var(--sh-muted); }
 
 /* summary */

@@ -42,7 +42,7 @@ export function ZoomFramer({ frame, rect, home, onChange }: ZoomFramerProps) {
         if (!el) return
         const onWheel = (e: WheelEvent): void => {
             e.preventDefault()
-            onChange(pinchBox(rectRef.current, wheelZoomFactor(e.deltaY)))
+            onChange(pinchBox(rectRef.current, wheelZoomFactor(e.deltaY, e.deltaMode)))
         }
         el.addEventListener('wheel', onWheel, { passive: false })
         return () => el.removeEventListener('wheel', onWheel)

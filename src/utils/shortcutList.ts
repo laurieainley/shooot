@@ -47,7 +47,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
         title: 'Find goals review',
         rows: [
             { keys: ['M'], what: 'In the review: mark the exact moment (pauses; overrides mute)' },
-            { keys: ['G', 'O', 'S', 'H'], what: 'In the review: choose goal, own goal, save, highlight' },
+            { keys: ['G', 'O', 'S', 'H'], what: 'In the review: choose goal, own goal, save, highlight (marks the playhead first if you have not marked)' },
             { keys: ['X'], what: 'In the review: discard the moment and go to the next' },
             { keys: ['1', '2'], what: 'In the review: choose the team' },
             { keys: ['⏎'], what: 'In the review: confirm and go to the next' },

@@ -26,8 +26,8 @@ describe('GoalSetupSection', () => {
 
     it('should say what marking the goals is for: Find goals accuracy and replay zoom', () => {
         render(<GoalSetupSection />)
-        expect(screen.getByText(/Find goals spots goals more accurately/)).toBeInTheDocument()
-        expect(screen.getByText(/Slow-mo replays zoom in on the action at either end/)).toBeInTheDocument()
+        expect(screen.getByText(/Find goals catches more goals: it watches each goal for the ball/)).toBeInTheDocument()
+        expect(screen.getByText(/Goal replays zoom in on the right end/)).toBeInTheDocument()
     })
 
     it('should offer Set up goals first, and open the layer at the picture step', async () => {
@@ -43,7 +43,7 @@ describe('GoalSetupSection', () => {
         render(<GoalSetupSection />)
         expect(screen.getByRole('group', { name: "Whites' goal" })).toBeInTheDocument()
         expect(screen.getByRole('group', { name: "Colours' goal" })).toBeInTheDocument()
-        expect(screen.getByText(/labelled by the team defending them at Kick off/)).toBeInTheDocument()
+        expect(screen.getByText(/named for the team defending it at kick-off/)).toBeInTheDocument()
         expect(document.body.textContent).not.toMatch(/attacking/i)
     })
 

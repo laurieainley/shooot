@@ -41,7 +41,7 @@ function Shirt({ color }: { color: string }) {
 }
 
 /**
- * A roster, laid out as a lineup: a field with an Add button (Enter, comma or Tab adds; pasting several names adds several; Enter keeps
+ * A roster, laid out as a lineup: a field with an Add button (only Enter or the Add button adds; a name typed and left in the field stays there as a draft; pasting several names adds several; Enter keeps
  * focus in the field so the next name can be typed), previous players suggested under it, and the roster as chips
  * below, one player per line with a shirt in the team colour (click a name to fix it, × to remove it). Names are de-duplicated ignoring case.
  */
@@ -50,6 +50,7 @@ export function RosterTags({ label, names: unsorted, onChange: emit, known = [],
     const onChange = (next: string[]): void => emit(sortNames(next))
     const [draft, setDraft] = useState('')
     const [focused, setFocused] = useState(false)
+    const [typing, setTyping] = useState(false)
     const [editing, setEditing] = useState<number | null>(null)
     const [editText, setEditText] = useState('')
     const inputRef = useRef<HTMLInputElement | null>(null)
@@ -84,18 +85,16 @@ export function RosterTags({ label, names: unsorted, onChange: emit, known = [],
 
     const onKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
         if (e.nativeEvent.isComposing || e.keyCode === 229) return
-        if (isEnter(e) || e.key === ',') {
+        if (isEnter(e)) {
             e.preventDefault()
             commitAndStay()
-        } else if (e.key === 'Tab' && !e.shiftKey && draft.trim()) {
-            commitDraft() // focus moves on as normal
         } else if (e.key === 'ArrowDown' && suggestions.length) {
             e.preventDefault()
             suggestRef.current?.querySelector<HTMLButtonElement>('.roster-suggest__name')?.focus()
         }
     }
     const onChangeDraft = (value: string): void => {
-        if (/[,\n]/.test(value)) { add(value); setDraft(''); return } // keyboards that skip the key events
+        if (/\n/.test(value)) { add(value); setDraft(''); return } // keyboards that put the line break in the text
         setDraft(value)
     }
     const onPaste = (e: ClipboardEvent<HTMLInputElement>): void => {
@@ -104,10 +103,6 @@ export function RosterTags({ label, names: unsorted, onChange: emit, known = [],
         e.preventDefault()
         add(`${draft}\n${text}`)
         setDraft('')
-    }
-    const onInputBlur = (e: FocusEvent<HTMLInputElement>): void => {
-        if (suggestRef.current?.contains(e.relatedTarget as Node | null)) return // moving into the suggestions keeps the draft
-        commitDraft()
     }
     const onInputFocus = (): void => {
         entryRef.current?.scrollIntoView?.({ block: 'center', behavior: matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
@@ -165,8 +160,8 @@ export function RosterTags({ label, names: unsorted, onChange: emit, known = [],
                         onChange={(e) => onChangeDraft(e.target.value)}
                         onKeyDown={onKeyDown}
                         onPaste={onPaste}
-                        onFocus={onInputFocus}
-                        onBlur={onInputBlur}
+                        onFocus={() => { setTyping(true); onInputFocus() }}
+                        onBlur={() => setTyping(false)}
                         className="field roster__input"
                     />
                     <button
@@ -177,6 +172,8 @@ export function RosterTags({ label, names: unsorted, onChange: emit, known = [],
                         onClick={commitAndStay}
                     >Add</button>
                 </div>
+                {/* Leaving the field never adds (user decision): say so, so a typed name isn't lost on Next / Done. */}
+                {!typing && draft.trim() && <p role="status" className="roster__unadded">{draft.trim()} isn’t added yet: press Enter or Add.</p>}
                 {suggestions.length > 0 && (
                     <div ref={suggestRef} role="group" aria-label="Previous players" data-owns-escape className="roster-suggest" onKeyDown={onSuggestKeyDown}>
                         <span className="roster-suggest__title" aria-hidden="true">Previous players</span>

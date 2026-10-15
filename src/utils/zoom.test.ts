@@ -115,6 +115,18 @@ describe('wheelZoomFactor', () => {
     it('should be reversible', () => {
         expect(wheelZoomFactor(40) * wheelZoomFactor(-40)).toBeCloseTo(1)
     })
+    it('should change the zoom by about 10% at most per wheel event, however hard the wheel is flung', () => {
+        expect(wheelZoomFactor(-100)).toBeLessThanOrEqual(1.106)
+        expect(wheelZoomFactor(100)).toBeGreaterThanOrEqual(0.9)
+        expect(wheelZoomFactor(-1000)).toBe(wheelZoomFactor(-100))
+    })
+    it('should leave small trackpad deltas alone', () => {
+        expect(wheelZoomFactor(-4)).toBeCloseTo(Math.exp(0.04))
+    })
+    it('should treat a line-based wheel delta as pixels (one line is about 16 px) and a page as 100', () => {
+        expect(wheelZoomFactor(0.5, 1)).toBeCloseTo(Math.exp(-0.08))
+        expect(wheelZoomFactor(1, 2)).toBe(wheelZoomFactor(100, 0))
+    })
 })
 
 describe('a custom maximum', () => {

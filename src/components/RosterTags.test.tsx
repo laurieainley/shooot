@@ -16,21 +16,44 @@ function Harness({ initial = [] as string[], known = [] as KnownPlayer[], exclud
 const kp = (name: string, lastUsed: number): KnownPlayer => ({ name, lastUsed })
 
 describe('RosterTags', () => {
-    it('should add a tag on Enter and on comma, and clear the field', async () => {
+    it('should add a tag on Enter and clear the field', async () => {
         render(<Harness />)
         const input = screen.getByLabelText('Team 1 roster')
         await userEvent.type(input, 'Jo{Enter}')
-        await userEvent.type(input, 'Alex,')
-        expect(latest).toEqual(['Alex', 'Jo'])
+        expect(latest).toEqual(['Jo'])
         expect(input).toHaveValue('')
         expect(screen.getByRole('button', { name: 'Remove Jo' })).toBeInTheDocument()
     })
 
-    it('should add the typed name when focus leaves the field', async () => {
+    it('should keep a typed name as a draft, not add it, when focus leaves the field', async () => {
         render(<Harness />)
-        await userEvent.type(screen.getByLabelText('Team 1 roster'), 'Sam')
+        const input = screen.getByLabelText('Team 1 roster')
+        await userEvent.type(input, 'Sam')
         await userEvent.tab()
+        expect(latest).toEqual([])
+        expect(input).toHaveValue('Sam')
+    })
+
+    it('should say a name left typed in the field is not added yet, and drop the note once it is', async () => {
+        render(<Harness />)
+        const input = screen.getByLabelText('Team 1 roster')
+        await userEvent.type(input, 'Sam')
+        expect(screen.queryByText(/isn’t added yet/)).toBeNull()
+        await userEvent.tab()
+        expect(screen.getByText('Sam isn’t added yet: press Enter or Add.')).toBeInTheDocument()
+        await userEvent.click(screen.getByRole('button', { name: 'Add' }))
         expect(latest).toEqual(['Sam'])
+        expect(screen.queryByText(/isn’t added yet/)).toBeNull()
+    })
+
+    it('should not add on a typed comma or on Tab', async () => {
+        render(<Harness />)
+        const input = screen.getByLabelText('Team 1 roster')
+        await userEvent.type(input, 'Alex,')
+        expect(latest).toEqual([])
+        await userEvent.tab()
+        expect(latest).toEqual([])
+        expect(input).toHaveValue('Alex,')
     })
 
     it('should add several tags from a pasted list', async () => {
@@ -154,12 +177,12 @@ describe('RosterTags', () => {
         expect(document.activeElement).toBe(input)
     })
 
-    it('should add a name that arrives with a comma in the value (IMEs that skip key events)', () => {
+    it('should not add a name that arrives with a comma in the value', () => {
         render(<Harness />)
         const input = screen.getByLabelText('Team 1 roster')
         fireEvent.change(input, { target: { value: 'Jo,' } })
-        expect(latest).toEqual(['Jo'])
-        expect(input).toHaveValue('')
+        expect(latest).toEqual([])
+        expect(input).toHaveValue('Jo,')
     })
 
     it('should add with the Add button, which is disabled while the field is empty, and keep focus in the field', async () => {

@@ -78,13 +78,13 @@ describe('GoalSetup', () => {
         mount()
         await userEvent.click(screen.getByRole('button', { name: 'Next' }))
         expect(screen.getByText("Identify goal posts — Whites' goal")).toBeInTheDocument()
-        expect(screen.getByText('The goal Whites defend at Kick off')).toBeInTheDocument()
+        expect(screen.getByText("Whites' goal: the end Whites defend at kick-off.")).toBeInTheDocument()
         expect(screen.queryByTestId('goal-setup-replay-view')).toBeNull()
         expect(screen.queryByRole('group', { name: /box/ })).toBeNull()
         clickRequired()
         await userEvent.click(screen.getByRole('button', { name: 'Next' }))
         expect(screen.getByText("Identify goal posts — Colours' goal")).toBeInTheDocument()
-        expect(screen.getByText('The goal Colours defend at Kick off')).toBeInTheDocument()
+        expect(screen.getByText("Colours' goal: the end Colours defend at kick-off.")).toBeInTheDocument()
         expect(screen.queryByTestId('goal-setup-replay-view')).toBeNull()
         expect(document.body.textContent).not.toMatch(/attacking/i)
         expect(document.body.textContent).not.toMatch(/Set goal posts/)
@@ -142,14 +142,41 @@ describe('GoalSetup', () => {
             expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled()
         })
 
-        it('should offer the back corners of the net after the four points, and save them when placed', async () => {
+        it('should go straight on to the back corners after the four points, and save them when placed', async () => {
             mount({ startAt: 'posts1' })
             clickRequired()
-            await userEvent.click(screen.getByRole('button', { name: 'Add the back corners of the net' }))
-            expect(screen.getByText(/back-left corner/)).toBeInTheDocument()
+            expect(screen.getByText(/5 of 6 · Click the back-left corner/)).toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: /back corners/i })).toBeNull()
             clickAt(0.15, 0.7); clickAt(0.45, 0.7)
             await userEvent.click(screen.getByRole('button', { name: 'Next' }))
             expect(useAppState.getState().goalMarks!.team1!.backR!.x).toBeCloseTo(0.45, 3)
+        })
+
+        it('should skip the back corners with Next once the four points are set', async () => {
+            mount({ startAt: 'posts1' })
+            clickRequired()
+            clickAt(0.15, 0.7) // only one back corner: not saved
+            await userEvent.click(screen.getByRole('button', { name: 'Next' }))
+            const m = useAppState.getState().goalMarks!.team1!
+            expect(m.backL).toBeUndefined(); expect(m.backR).toBeUndefined()
+        })
+
+        it('should name the next point beside the cursor and say how to zoom and move the picture', () => {
+            mount({ startAt: 'posts1' })
+            const tag = screen.getByTestId('goal-setup-cursor-label')
+            expect(tag).toHaveTextContent('Left post bottom')
+            fireEvent.pointerMove(view(), { clientX: 100, clientY: 100 })
+            expect(tag.style.display).toBe('block')
+            fireEvent.pointerLeave(view())
+            expect(tag.style.display).toBe('none')
+            clickAt(0.2, 0.6)
+            expect(tag).toHaveTextContent('Right post bottom')
+            expect(screen.getByText(/Scroll to zoom\. Right-drag, or hold Space and drag/)).toBeInTheDocument()
+        })
+
+        it('should say inside the tool which end the goal is', () => {
+            mount({ startAt: 'posts1' })
+            expect(screen.getByText("Whites' goal: the end Whites defend at kick-off.")).toBeInTheDocument()
         })
 
         it('should leave the goal without marks when Skip this goal is pressed', async () => {
@@ -235,7 +262,8 @@ describe('GoalSetup', () => {
             useAppState.setState({ goalAreas: { team1: { x: 0.1, y: 0.2, w: 0.3, h: 0.3 }, team2: defaultGoalAreas().team2 } })
             mount({ startAt: 'zoom1' })
             expect(screen.getByText("Replay zoom — goals scored into Whites' goal")).toBeInTheDocument()
-            expect(screen.getByText('Replays of goals at this end show this view.')).toBeInTheDocument()
+            expect(screen.getByText(/Goal replays at this end zoom to this view\. To frame one goal more exactly, use Framing/)).toBeInTheDocument()
+            expect(screen.getByText("Whites' goal: the end Whites defend at kick-off.")).toBeInTheDocument()
             expect(screen.getByTestId('goal-setup-replay-view')).toBeInTheDocument()
             expect(screen.getByText(/A very small box zooms in a lot/)).toBeInTheDocument()
         })
@@ -245,7 +273,7 @@ describe('GoalSetup', () => {
             const before = defaultGoalAreas().team1!
             await userEvent.click(screen.getByRole('button', { name: 'Closer' }))
             await userEvent.click(screen.getByRole('button', { name: 'Next' }))
-            expect(useAppState.getState().goalAreas!.team1!.w).toBeCloseTo(before.w * 0.8, 4)
+            expect(useAppState.getState().goalAreas!.team1!.w).toBeCloseTo(1 / (1 / before.w + 0.1), 4)
             cleanup()
             mount({ startAt: 'zoom1' })
             await userEvent.click(screen.getByRole('button', { name: 'Wider' }))

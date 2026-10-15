@@ -54,7 +54,18 @@ export function classifyPointer(distancePx: number, durationMs: number): 'click'
     return distancePx < CLICK_MAX_DISTANCE_PX && durationMs < CLICK_MAX_DURATION_MS ? 'click' : 'drag'
 }
 
-/** Multiplicative zoom step for a wheel / trackpad-pinch delta (exponential, so in and out are symmetric). */
-export function wheelZoomFactor(deltaY: number): number {
-    return Math.exp(-Math.max(-30, Math.min(30, deltaY)) * 0.01)
+const WHEEL_MAX_PX = 10
+
+/** A wheel delta in pixels: line-based wheels (Firefox, some mice) report lines (~16 px each) or pages (~100 px). */
+export function wheelDeltaPx(delta: number, deltaMode = 0): number {
+    return deltaMode === 1 ? delta * 16 : deltaMode === 2 ? delta * 100 : delta
+}
+
+/**
+ * Multiplicative zoom step for a wheel / trackpad-pinch delta (exponential, so in and out are symmetric). One event is
+ * at most about 10%, so a free-spinning wheel that fires many events still zooms smoothly.
+ */
+export function wheelZoomFactor(deltaY: number, deltaMode = 0): number {
+    const px = wheelDeltaPx(deltaY, deltaMode)
+    return Math.exp(-Math.max(-WHEEL_MAX_PX, Math.min(WHEEL_MAX_PX, px)) * 0.01)
 }

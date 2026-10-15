@@ -9,6 +9,20 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ---
 
+## 2026-10-15
+
+- **Batch from user feedback** (user): only Enter / Add adds a player (blur, Tab, comma no longer), with a note when a typed name
+  isn't added; Match setup can remove the league logo (stored as `'none'` in the logo IDB key; graphics already handle no logo);
+  TNF graphics drop the league sky blue for dark purple plates, charcoal kept as a one-line swap (`tnf/colors.ts`); in the Find
+  goals review a type key before M marks the playhead first (same as M then G); the event row's Replay is a text toggle with an
+  ON/OFF pill and Framing is disabled rather than removed, so nothing moves; Download clip options say what they do; Review moments
+  can be dismissed per run. Goal set-up: wheel zoom capped at ~10% per wheel event (a free-spin Logitech wheel jumped 1×→5×;
+  shared with the player), Closer/Wider in 0.1× steps, back-of-net corners always in the sequence (6 points; they feed the
+  near-goal ball check), cursor label, desktop hint, in-tool goal naming, rewritten copy. *Where:* feat/ux-round5.
+- **Ball check decode moved to a worker** (agent, user asked for smooth playback while it runs): synthetic 4K HEVC test, main-thread
+  long tasks 57–61 (11–19 s) → 4–5 (<0.5 s), check 84–117 s → 67–71 s. Pacing while playing made it slower with no fewer
+  stalls, so it was dropped. Unverified on real GoPro footage. *Where:* feat/detectjank, scratchpad report.
+
 ## 2026-10-14
 
 - **No general AI embedding model or video "judge" for Find goals; the audio score stays** (user's bar: "dropping multiple

@@ -165,8 +165,11 @@ npm run lint       # baseline: 12 known problems — add none
 - **Goal areas / goal set-up:** per team (`team1`/`team2`), each the goal that team defends at kick-off ("Whites'
   goal", never "attacking"); `replayGoalFor()` picks the replay crop. Set in a guided full-screen layer
   (`components/goalSetup/GoalSetup.tsx`): choose the picture (6 thumbnails + scrubber) → Identify goal posts for each
-  goal (touch: move the picture under a fixed crosshair, Set point; desktop: click) → Replay zoom for each goal (the
-  replay view is the editor: drag / pinch, Closer / Wider / Reset, a frame map beside the buttons) → summary
+  goal, six points: post bottoms, bar ends, then the two back-of-net corners (used by the ball check for a goal near the
+  camera; skip them with Next) (touch: move the picture under a fixed crosshair, Set point; desktop: click, the next point's name
+  follows the cursor, a line explains wheel zoom and right-drag / Space-drag; the diagram highlights the current point; a line
+  under the title says which end the goal is) → Replay zoom for each goal (the
+  replay view is the editor: drag / pinch, Closer / Wider in 0.1× steps / Reset, a frame map beside the buttons) → summary
   (`GoalSetupSummary`, also compact in New match and Match setup; cards use the team's kit colour). Persisted
   `goalMarks` / `goalAreas` unchanged; maths in `utils/goalSetup.ts`. Entry points: New match Goals step, Match setup,
   Find goals "Identify the goal posts first". The layer owns Esc and pushes a history entry so Android Back closes it.
@@ -183,7 +186,7 @@ npm run lint       # baseline: 12 known problems — add none
   toast when tagging reaches it (`useAllGoalsToast` in `SuggestionReview`). Not on the scorebug, rail or cards; graphics
   and file names keep using the tagged goals.
 - **Roster entry:** `RosterTags` = text field + Add button, "Previous players" suggestions under it, roster chips
-  below (A–Z; tap to fix, × to remove). Enter / comma / Add / Tab add a name; Enter keeps focus so the phone keyboard
+  below (A–Z; tap to fix, × to remove). Only Enter or Add adds a name (leaving the field, Tab or a comma never do; a name left typed shows "X isn’t added yet: press Enter or Add."; a pasted list adds several); Enter keeps focus so the phone keyboard
   stays up (`enterKeyHint="enter"`, key or keyCode 13, `beforeinput` `insertLineBreak`). `knownPlayers` (persist v26,
   `utils/knownPlayers.ts`) are this device's remembered names: recorded by `setTeams` / `addToRoster`, forgotten only via
   the × on a suggestion, capped at 200, not in project files or transfer links, kept by `newMatch()`.
@@ -244,6 +247,9 @@ npm run lint       # baseline: 12 known problems — add none
   /bench forces the old path. The scale path used is in the encoder notes.
 - **Mixed frame sizes:** output = first used file's size; others are scaled to cover + centre-cropped (re-encoded),
   with a pre-render notice and time estimate.
+- **Ball check decoding** runs in a worker (`detect/frameSource.worker.ts`; `frameSource.ts` is a proxy with the same API, at
+  most 2 frames ahead): decoding 4K on the main thread froze the page and the playing video. Pacing inference while the video
+  plays was measured and didn't help.
 - **Reading files:** always through `render/fileSource.ts` (8 MB aligned blocks), never `BlobSource` — Android USB
   storage costs ~0.25 s per read. Exception: the Find goals audio pass plans its own small audio-only byte ranges
   (`utils/readPlan.ts`, a few reads in flight) so it doesn't drag 4K video through 8 MB blocks; it reads the proxy/LRV
@@ -349,7 +355,8 @@ npm run lint       # baseline: 12 known problems — add none
 - **Events rail:** rows = clock · team dot · icon · name (body font, weight 600, normal case — not the shirt face) ·
   note (inline, muted) · passive muted ↻ when the replay is on · score · ▶ (`utils/eventRow.ts`); no assist, no file
   number (only a "file missing" warning). The selected row expands into an action row (`EventActions`): Slow-mo replay
-  switch shown as the ↻ icon beside the track (`role=switch`, aria-label "Slow-mo replay", R) · person-icon Edit · ⌖ Framing (when replay is on) · [Download clip slot] · × Delete;
+  toggle reading "Replay" with an ON/OFF pill (`role=switch`, aria-label "Slow-mo replay", R) · person-icon Edit · ⌖ Framing (always shown; disabled while
+  Replay is off) · [Download clip slot] · × Delete (icon-only with a mouse). A fixed, left-aligned set: toggling never moves buttons;
   markers get Edit + Delete. Edit opens the event sheet's details (no replay toggle there); Framing opens only its
   "Replay framing" view (`editEvent(id, 'framing')`, `editingView`, not persisted; closes if the replay is switched
   off). All five fit one line on desktop; touch wraps 3 + 2 at rail widths 361–440px. Labels hide (icon-only) when the rail is ≤ 360px; the row wraps rather than clips. An expanded row scrolls the
@@ -395,7 +402,7 @@ npm run lint       # baseline: 12 known problems — add none
   **Top picks** (lime star; ball seen in a goal mouth) and **Other moments**. Opens on Top picks while any are left;
   moves on to Other moments automatically only when the last top pick is decided; never jumps when tags arrive. Header
   tally "Goals tagged: Whites 3 – 2 Colours" (whole match). After closing, the rail shows "Review moments (N left ·
-  M top picks)". Suggestion rings sit in their own faint lane at the bottom of the match strip (only those still to
+  M top picks)" with a × that hides it for that run (`components/reviewDismiss.ts`, localStorage `shooot-review-dismissed`, Undo toast). Suggestion rings sit in their own faint lane at the bottom of the match strip (only those still to
   review; only a click on the ring opens the review).
 - **Touch fullscreen** (UI state in `components/fullscreenUi.ts`, not persisted): column panels render into the
   fullscreen element; the tag box (`event-picker--compact`) and the review are a right-hand column (portrait: bottom

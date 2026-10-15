@@ -1,6 +1,8 @@
 import { useAppState } from '../state'
 import { useDetectJob } from '../detectJobs'
 import { reopenReview, useSuggestionsCurrent } from './findGoals'
+import { setReviewDismissed, useDismissedRun } from './reviewDismiss'
+import { showToast } from '../toasts'
 import { reviewRailLabel } from '../utils/reviewLanes'
 import { findGoalsProgress } from '../utils/findGoalsProgress'
 
@@ -29,12 +31,20 @@ export function ReviewRailButton() {
     const panel = useAppState((s) => s.panel)
     const phase = useDetectJob((s) => s.phase)
     const current = useSuggestionsCurrent()
-    if (panel === 'review' || phase === 'running' || !current) return null
+    const runAt = useAppState((s) => s.suggestionRun?.createdAt ?? null)
+    const dismissed = useDismissedRun()
+    if (panel === 'review' || phase === 'running' || !current || (runAt !== null && dismissed === runAt)) return null
+    const dismiss = (): void => {
+        if (runAt === null) return
+        setReviewDismissed(runAt)
+        showToast('Review moments hidden', { label: 'Undo', run: () => setReviewDismissed(null) })
+    }
     const label = reviewRailLabel(suggestions, new Set(events.map((e) => e.id)))
     if (!label) return null
     return (
-        <div className="find-progress px-3 py-1">
+        <div className="find-progress review-rail px-3 py-1">
             <button type="button" className="btn-quiet review__btn" onClick={reopenReview}>{label}</button>
+            <button type="button" className="btn-quiet review-rail__dismiss" aria-label="Dismiss" title="Dismiss (the moments stay on the strip and in ⋯)" onClick={dismiss}>×</button>
         </div>
     )
 }

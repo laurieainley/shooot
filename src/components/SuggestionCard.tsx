@@ -162,7 +162,8 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
             }
             if (k === 'x') { e.preventDefault(); if (!rejected) discard(); return }
             const type = KEY_TO_TYPE[k]
-            if (type) { e.preventDefault(); select(type); return }
+            // A type key before marking marks the playhead first (same result as M then the key); once marked it only sets the type.
+            if (type) { e.preventDefault(); if (moment.current() === null) mark(); select(type); return }
             // [ ] move between suggestions here (elsewhere they step between files); ← → seek like the editor.
             if (e.key === '[') { e.preventDefault(); if (index > 0) onPrev(); return }
             if (e.key === ']') { e.preventDefault(); onNext(); return }
