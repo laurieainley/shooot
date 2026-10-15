@@ -205,6 +205,12 @@ npm run lint       # baseline: 12 known problems — add none
   (`match-handles:<id>`). `openMatch` / `startNewMatch` / `removeMatch` (`components/matchSwitch.ts`) save first, never
   ask to save/discard; only a running render or Find goals asks ("Exporting — switching stops it."). Undo resets on
   switching. New match no longer asks to clear (the old match stays in Matches).
+- **Match step look (team sheet):** `MatchDetails` (New match Match step and Match setup) reads like a matchday poster:
+  the Title is an inline poster heading (shirt font, 2xl, dotted underline, no box), a fixture line "Whites v Colours"
+  under it, each team card leads with a big `KitShirt` (`components/KitShirt.tsx`; lettering black/white by
+  `utils/kitText.ts`) carrying the initials, the roster is a numbered lineup of mini shirts with an empty state
+  ("No one’s turned up yet"), and the final score is a scoreboard (mono digits, −/+ steppers, still typeable; + from
+  empty starts at 0–0). Presentation only: no persisted change.
 - **New match window:** Videos · Match · Goals all visible from the start; persistent (outside click and Esc don't
   close it, only ✕). The Videos step reuses the Files sheet's `FileList` (reorder, durations by the name). Rosters are a
   lineup: one player per line with a mini shirt in the kit colour and "N players". Fields are sized for their content.
