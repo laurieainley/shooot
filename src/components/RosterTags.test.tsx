@@ -16,6 +16,21 @@ function Harness({ initial = [] as string[], known = [] as KnownPlayer[], exclud
 const kp = (name: string, lastUsed: number): KnownPlayer => ({ name, lastUsed })
 
 describe('RosterTags', () => {
+    it('should show a quiet empty state when no one is on the sheet', () => {
+        render(<Harness />)
+        expect(screen.getByText('No one’s turned up yet')).toBeInTheDocument()
+        expect(screen.queryByText(/players?$/)).toBeNull()
+    })
+
+    it('should number the shirts in A-Z order', () => {
+        render(<Harness initial={['Zed', 'Amy', 'Moe']} />)
+        const items = within(screen.getByRole('list', { name: 'Team 1 roster players' })).getAllByRole('listitem')
+        expect(items.map((li) => li.querySelector('svg')?.textContent)).toEqual(['1', '2', '3'])
+        expect(items[0]).toHaveTextContent('Amy')
+        expect(screen.queryByText('No one’s turned up yet')).toBeNull()
+        expect(screen.getByText('3 players')).toBeInTheDocument()
+    })
+
     it('should add a tag on Enter and clear the field', async () => {
         render(<Harness />)
         const input = screen.getByLabelText('Team 1 roster')

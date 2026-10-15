@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ClipboardEvent, type FocusEvent, type KeyboardEvent } from 'react'
 import { parseRoster, sortNames } from '../utils/roster'
-import { solidTeamColor } from '../utils/teamColor'
+import { KitShirt } from './KitShirt'
 import { suggestPlayers, type KnownPlayer } from '../utils/knownPlayers'
 
 interface RosterTagsProps {
@@ -26,16 +26,6 @@ function Cross() {
     return (
         <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true" focusable="false">
             <path d="M2 2l8 8M10 2L2 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
-    )
-}
-
-/** A mini shirt in the kit colour; the outline keeps a white kit visible on a light background. */
-function Shirt({ color }: { color: string }) {
-    return (
-        <svg className="roster-shirt" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
-            <path fill={color} stroke="var(--sh-muted)" strokeWidth="1.2" strokeLinejoin="round"
-                d="M8.5 3.5 3 6.2l1.8 4.6 2.7-1V20.5h9V9.8l2.7 1L21 6.2l-5.5-2.7c-.5 1.4-1.8 2.2-3.5 2.2s-3-.8-3.5-2.2z" />
         </svg>
     )
 }
@@ -200,13 +190,14 @@ export function RosterTags({ label, names: unsorted, onChange: emit, known = [],
                     </div>
                 )}
             </div>
+            {names.length === 0 && <p className="roster__empty">No one’s turned up yet</p>}
             {names.length > 0 && (
                 <>
                 <p className="roster__count">{names.length === 1 ? '1 player' : `${names.length} players`}</p>
                 <ul className="roster__list" aria-label={`${label} players`}>
                     {names.map((name, i) => (
                         <li key={name.toLowerCase()} className="roster-player">
-                            <Shirt color={solidTeamColor(color, 'var(--sh-surface-2)')} />
+                            <KitShirt className="roster-shirt" color={color} label={String(i + 1)} size={32} />
                             {editing === i ? (
                                 <input
                                     autoFocus
