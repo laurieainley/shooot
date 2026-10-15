@@ -11,6 +11,9 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-15
 
+- **User: TNF keeps the dark purple plates** (charcoal shown side by side and not chosen; the `PALETTES.charcoal` swap stays
+  available in `graphics/themes/tnf/colors.ts`). Why: user preference after comparing stills.
+
 - **User: the Match step becomes a team sheet** (poster Title, fixture line, kit shirts with initials, numbered lineup,
   scoreboard final score with −/+). Why: the form felt cramped and samey ("how do we bring back a bit of fun?").
   Presentation only, no persist change. Detail: AGENTS.md §4 "Match step look", commit on feat/teamsheet.
