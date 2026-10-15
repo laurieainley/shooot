@@ -212,7 +212,6 @@ function FinalScoreField() {
                     aria-label={`${name(i)} final score`}
                     inputMode="numeric"
                     autoComplete="off"
-                    placeholder="–"
                     value={vals[i]}
                     onChange={(e) => setVals((cur) => (i === 0 ? [digits(e.target.value), cur[1]] : [cur[0], digits(e.target.value)]))}
                     onKeyDown={(e) => { if (e.key === 'Enter') { setLeft(true); save(vals) } }}

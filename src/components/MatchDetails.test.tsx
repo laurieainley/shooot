@@ -214,9 +214,9 @@ describe('MatchDetails final score (if you know it)', () => {
         expect(s().knownFinalScore).toBeNull()
         expect(first()).toHaveValue('')
     })
-    it('should show a dash in empty boxes and step from empty to 1-0 with +', async () => {
+    it('should leave empty boxes blank and step from empty to 1-0 with +', async () => {
         render(<MatchDetails />)
-        expect(first()).toHaveAttribute('placeholder', '–')
+        expect(first()).not.toHaveAttribute('placeholder')
         await userEvent.click(screen.getByRole('button', { name: "One more for Ryan's Rovers" }))
         expect(s().knownFinalScore).toEqual([1, 0])
         expect(first()).toHaveValue('1')

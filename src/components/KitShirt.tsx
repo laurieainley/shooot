@@ -17,7 +17,7 @@ export function KitShirt({ color, label, size = 24, className }: KitShirtProps) 
     const gid = useId()
     const multi = isMultiColor(color)
     const text = kitTextColor(color)
-    const fontSize = !label ? 0 : label.length <= 1 ? 10 : label.length === 2 ? 8.6 : 7
+    const fontSize = !label ? 0 : label.length <= 1 ? 10 : label.length === 2 ? 7 : 5.4
     return (
         <svg className={className} viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" focusable="false">
             {multi && (
