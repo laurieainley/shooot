@@ -23,6 +23,9 @@ import { previewVolume, shouldAdvance, shouldShowSpeedIndicator } from '../utils
 import { setGraphGain } from './previewGain'
 import { playQuietly } from '../utils/playQuietly'
 import { reportedTime, seekNow, type PendingSeek } from './pendingSeek'
+import { attachPlaybackLogging, playbackLog, playbackReportText } from '../playbackDiagnostics'
+import { endActivity, startActivity } from '../crashNoteRuntime'
+import { CopyDiagnostics } from './CopyDiagnostics'
 
 // video.js shows "0:05 / 24:00"; every time on screen uses the project's fixed width format instead.
 videojs.setFormatTime((seconds: number, guide: number) => formatClock(seconds, selectClockLong(useAppState.getState()) || guide >= 3600))
@@ -36,6 +39,7 @@ export function Player() {
     const setCurrentFileIndex = useAppState((s) => s.setCurrentFileIndex)
     const [isFullscreen, setIsFullscreen] = useState(false)
     const [paused, setPaused] = useState(true)
+    const [playerError, setPlayerError] = useState(false) // video.js is showing its "media could not be loaded" box
     const [speedIndicator, setSpeedIndicator] = useState<number | null>(null)
     const speedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const quietRateUntilRef = useRef(0) // the preview's own rate changes (restoring the rate when it ends) don't flash the overlay
@@ -107,7 +111,20 @@ export function Player() {
             if (pending.play) playQuietly(p)
             else p.pause()
         })
-        p.on('error', () => { pendingSeekRef.current = null })
+        p.on('error', () => { pendingSeekRef.current = null; setPlayerError(true) })
+        p.on('loadstart', () => setPlayerError(false))
+        // Diagnostics (playback log + crash breadcrumb): events and timers only, nothing per frame.
+        const media = videoRef.current
+        if (media) {
+            const detach = attachPlaybackLogging(media, { onEvent: (name) => {
+                if (name === 'play') {
+                    const st = useAppState.getState()
+                    const f = st.files[st.currentFileIndex]
+                    startActivity('playback', { kind: 'playback', files: f?.file ? [{ name: f.name, sizeBytes: f.file.size, codec: f.codec, kind: f.kind }] : [] }, () => ({ currentTime: media.currentTime }))
+                } else if (name === 'pause' || name === 'ended' || name === 'emptied' || name === 'error') endActivity('playback')
+            } })
+            p.on('dispose', () => { detach(); endActivity('playback') })
+        }
         p.on('ratechange', () => {
             if (!shouldShowSpeedIndicator(useAppState.getState().isPreviewMode, performance.now(), quietRateUntilRef.current)) return
             const rate = p.playbackRate() ?? 1
@@ -125,7 +142,9 @@ export function Player() {
         const p = playerRef.current
         if (!p || files.length === 0) return
         metadataLoadedRef.current = false
-        p.src({ src: files[currentFileIndex]?.url, type: 'video/mp4' })
+        const f = files[currentFileIndex]
+        if (f) playbackLog.addSource({ name: f.name, sizeBytes: f.file?.size ?? 0, kind: f.kind, codec: f.codec })
+        p.src({ src: f?.url, type: 'video/mp4' })
     }, [files, currentFileIndex])
 
     /** Seek anywhere on the timeline. Into another file: the playhead shows the target at once and the seek waits for that file to load. */
@@ -134,7 +153,9 @@ export function Player() {
         const p = playerRef.current
         const st = useAppState.getState()
         if (!p || fileIndex < 0 || fileIndex >= st.files.length) return
-        if (seekNow(fileIndex, st.currentFileIndex, metadataLoadedRef.current, pendingSeekRef.current)) {
+        const direct = seekNow(fileIndex, st.currentFileIndex, metadataLoadedRef.current, pendingSeekRef.current)
+        playbackLog.add({ type: 'note', name: 'jump', detail: `file ${fileIndex} @ ${timeSec.toFixed(1)} s${play ? ', play' : ''}${direct ? '' : fileIndex !== st.currentFileIndex ? ', switching file' : ', waiting for metadata'}` })
+        if (direct) {
             p.currentTime(timeSec)
             if (play) playQuietly(p)
             else p.pause()
@@ -234,6 +255,7 @@ export function Player() {
         }
         if (step.sourceIndex !== useAppState.getState().currentFileIndex) {
             previewLoadingRef.current = true
+            playbackLog.add({ type: 'note', name: 'preview file switch', detail: `step ${currentPreviewSegment} -> file ${step.sourceIndex}` })
             p.pause()
             p.one('loadedmetadata', go)
             setCurrentFileIndex(step.sourceIndex)
@@ -335,6 +357,11 @@ export function Player() {
             {speedIndicator !== null && (
                 <div className="speed-indicator" key={speedIndicator + '-' + Date.now()}>
                     {speedIndicator.toFixed(2)}x
+                </div>
+            )}
+            {playerError && (
+                <div className="player-error-copy">
+                    <CopyDiagnostics getText={playbackReportText} label="Copy details" ariaLabel="Playback diagnostics" />
                 </div>
             )}
             <PlayIndicator visible={paused} />

@@ -1,3 +1,4 @@
+import { markIntentionalReload } from './crashNoteRuntime'
 import { isStaleChunkError, shouldReload } from './utils/staleBuild'
 
 const KEY = 'shooot-stale-reload-at'
@@ -16,6 +17,7 @@ export function reloadForNewVersion(): boolean {
     const now = Date.now()
     if (!shouldReload(lastReload(), now)) return false
     try { sessionStorage.setItem(KEY, String(now)) } catch { /* private mode: still reload once */ }
+    markIntentionalReload()
     window.location.reload()
     return true
 }

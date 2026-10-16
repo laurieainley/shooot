@@ -23,6 +23,8 @@ import { useRenderJobs } from '../renderJobs'
 import { useDetectJob } from '../detectJobs'
 import { useLeaveWarning } from './useLeaveWarning'
 import { useMatchAutosave } from './useMatchAutosave'
+import { useCrashBreadcrumbs } from './useCrashBreadcrumbs'
+import { CrashNotice } from './CrashNotice'
 
 /**
  * Edit bay. Desktop (≥ 900px): one screen, no page scroll — player and match strip on the left, the event
@@ -68,6 +70,7 @@ export function AppShell() {
     const detecting = useDetectJob((s) => s.phase === 'running' || s.ballPhase === 'running')
     useLeaveWarning(rendering || detecting)
     useMatchAutosave()
+    useCrashBreadcrumbs()
 
     // Side by side: the preview bar floats over the top of the picture. Portrait phone: it sits below the video.
     const stage = (
@@ -108,6 +111,7 @@ export function AppShell() {
                 </aside>
             </main>
             <Panels />
+            <CrashNotice />
         </div>
     )
 }
