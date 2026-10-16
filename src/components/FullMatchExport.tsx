@@ -6,15 +6,16 @@ import { formatBytes, PHONE_SIZE_WARNING } from '../utils/fullMatch'
 import { finalWhistleSec } from '../utils/matchClock'
 import { linkedEvents } from '../utils/relink'
 import type { RenderQuality } from '../utils/renderSources'
-import { applyStorageFit, qualityOptions } from '../utils/outputQuality'
-import { fullMatchSummary, renderButtonLabel, renderSummaryLine } from '../utils/renderSummary'
+import { applyStorageFit, qualityOptions, QUALITY_LABEL, saveToFileQuality } from '../utils/outputQuality'
+import { hasSavePicker } from '../utils/savePicker'
+import { fullMatchSummary, renderButtonLabel, renderSummaryLine, SAVE_TO_FILE_HINT } from '../utils/renderSummary'
 import { MAX_INTERVAL_MIN, MIN_INTERVAL_MIN, type ScoreBugMode } from '../utils/scoreBug'
 import { ExportDisclosure } from './ExportDisclosure'
 import { OutputQualityField } from './OutputQualityField'
 import { MissingFullFiles } from './MissingFullFiles'
 import { RenderStatus } from './RenderStatus'
 import { ResumeOffer } from './ResumeOffer'
-import { startExport } from './renderRequest'
+import { saveExportToFile, startExport } from './renderRequest'
 import { useRenderJobs } from '../renderJobs'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 import { useSavedJob } from './useSavedJob'
@@ -65,6 +66,16 @@ export function FullMatchExport() {
     const disabled = plan.cuts.length === 0
     const chosen = options.find((o) => o.id === effective) ?? options[0]
 
+    // Save to file… writes straight to disk, so it keeps the chosen quality even when that is too big for the browser's storage.
+    const canSave = hasSavePicker()
+    const saveQuality = canSave ? saveToFileQuality(options, fullMatch.quality, effective) : effective
+    const saveToFile = (): void => {
+        const p = fullMatchExport(useAppState.getState(), 'full', planOutput(saveQuality))
+        if (p.missing.length > 0) { setMissing(p.missing); return }
+        setMissing([])
+        void saveExportToFile('fullMatch', p, true) // the picker opens first, inside the click
+    }
+
     const run = (quality: RenderQuality, output?: PlanOutput): void => {
         const p = fullMatchExport(useAppState.getState(), quality, quality === 'full' ? output : undefined)
         if (p.missing.length > 0) { setMissing(p.missing); return }
@@ -91,13 +102,19 @@ export function FullMatchExport() {
                 <p role="alert" className="export-note">This file will be over 2 GB ({formatBytes(plan.bytes)}): make sure the phone has room, or render the preview from the proxies.</p>
             )}
 
-            <OutputQualityField name="full-match-quality" options={options} effective={effective} onChange={(q) => setFullMatch({ quality: q })} fitNote={fitNote}>
+            <OutputQualityField name="full-match-quality" options={options} effective={effective} saveToFile={canSave ? { selected: saveQuality } : undefined} onChange={(q) => setFullMatch({ quality: q })} fitNote={fitNote}>
                 {privateHint && <span className="toggle-row__hint">Private windows have very little storage; use a normal window for a full match.</span>}
             </OutputQualityField>
             <button type="button" onClick={() => run('full', planOutput(effective))} disabled={disabled} className="btn-primary w-full justify-center">
                 {renderButtonLabel('full match', effective)}
             </button>
             <p className="export-hint render-estimate m-0">{renderSummaryLine({ bytes: chosen.bytes, timeRange: chosen.timeRange, basis: chosen.timeBasis, seconds: firstSource.seconds })}</p>
+            {canSave && (
+                <>
+                    <button type="button" onClick={saveToFile} disabled={disabled || busy} className="btn-quiet w-full justify-center">Save to file… ({QUALITY_LABEL[saveQuality]})</button>
+                    <p className="export-hint m-0">{SAVE_TO_FILE_HINT}</p>
+                </>
+            )}
             {job && (
                 <ResumeOffer job={job} matches={!!matching} filesLoaded={files.length > 0} busy={busy}
                     onResume={() => run(matching!.quality, matching!.output)} onDiscard={() => void saved.discard()} />

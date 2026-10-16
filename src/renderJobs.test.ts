@@ -210,3 +210,36 @@ describe('learned render rates', () => {
         expect(rates).toBeNull()
     })
 })
+
+describe('render job saved straight to a file', () => {
+    const handle = { name: 'match.mp4' } as FileSystemFileHandle
+    const saved = (): RenderRequest => ({ ...req('full.mp4'), targetFile: handle })
+
+    it('should not download or make an object URL, and say where it was saved', async () => {
+        const { store, deps } = setup(async () => new File(['x'], 'match.mp4'))
+        await store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => saved())
+        const job = store.getState().job!
+        expect(job.phase).toBe('done')
+        expect(job.result?.savedTo).toBe('match.mp4')
+        expect(job.result?.file.name).toBe('match.mp4')
+        expect(deps.download).not.toHaveBeenCalled()
+        expect(deps.createUrl).not.toHaveBeenCalled()
+        expect(deps.notify).toHaveBeenCalledTimes(1)
+        store.getState().downloadAgain()
+        expect(deps.download).not.toHaveBeenCalled()
+    })
+    it('should hand the engine the file and no resumable / reuse', async () => {
+        let opts: Parameters<RenderJobDeps['render']>[2] | undefined
+        const { store } = setup(async (_c, _s, o) => { opts = o; return new File(['x'], 'match.mp4') })
+        await store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => saved())
+        expect(opts?.experiments?.targetFile).toBe(handle)
+        expect(opts?.resumable).toBeUndefined()
+        expect(opts?.reuse).toBeUndefined()
+    })
+    it('should not revoke a URL it never made when the next render starts', async () => {
+        const { store, deps } = setup(async () => new File(['x'], 'match.mp4'))
+        await store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => saved())
+        await store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => saved())
+        expect(deps.revokeUrl).not.toHaveBeenCalled()
+    })
+})

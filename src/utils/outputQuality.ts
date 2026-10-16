@@ -145,3 +145,12 @@ export function applyStorageFit(options: QualityOption[], room: { quota: number;
     const pick = !lostToRoom && usable(original) ? original : marked.filter(usable).sort((a, b) => b.bytes - a.bytes)[0]!
     return { options: marked, effective: pick.id, privateHint, note: lostToRoom ? `${QUALITY_LABEL[chosen]} would not fit in this browser’s storage, so ${QUALITY_LABEL[pick.id]} is selected.` : null }
 }
+
+/**
+ * The quality "Save to file…" uses. It needs no browser storage, so the chosen quality stands even when it was greyed out as too big
+ * for storage (`noRoom`); any other problem (footage, codec) still falls back to `effective`.
+ */
+export function saveToFileQuality(options: QualityOption[], chosen: OutputQuality, effective: OutputQuality): OutputQuality {
+    const c = options.find((o) => o.id === chosen)
+    return c?.noRoom ? c.id : effective
+}

@@ -235,3 +235,25 @@ describe('RenderHighlights', () => {
         })
     })
 })
+
+describe('RenderHighlights save to file', () => {
+    afterEach(() => { delete (globalThis as { showSaveFilePicker?: unknown }).showSaveFilePicker })
+    it('should not offer it without the save picker', () => {
+        render(<RenderHighlights />)
+        expect(screen.queryByRole('button', { name: /save to file/i })).toBeNull()
+    })
+    it('should open the picker and render into the chosen file', async () => {
+        const handle = { name: 'mine.mp4' }
+        const picker = vi.fn(async () => handle)
+        ;(globalThis as { showSaveFilePicker?: unknown }).showSaveFilePicker = picker
+        useAppState.setState({ files: [{ ...proxy, kind: 'full' }] })
+        renderReel.mockResolvedValue(new File(['x'], 'mine.mp4'))
+        render(<RenderHighlights />)
+        await userEvent.click(screen.getByRole('button', { name: /save to file/i }))
+        await waitFor(() => expect(renderReel).toHaveBeenCalled())
+        expect(picker).toHaveBeenCalled()
+        const opts = renderReel.mock.calls[0][2]
+        expect(opts.experiments.targetFile).toBe(handle)
+        expect(opts.resumable).toBeUndefined()
+    })
+})

@@ -115,7 +115,7 @@ function RenderStatusBody({ kind, onStopped }: RenderStatusProps & { onStopped: 
             </>
         )
     }
-    const canShare = job.result != null && typeof navigator.canShare === 'function' && navigator.canShare({ files: [job.result.file] })
+    const canShare = job.result != null && typeof navigator.canShare === 'function' && !job.result.savedTo && navigator.canShare({ files: [job.result.file] })
     const skipped = dedupeSkipped(job.report?.skipped ?? job.diagnostics?.graphics.skipped ?? [])
     if (job.phase === 'running' && job.notice) {
         return (
@@ -143,13 +143,13 @@ function RenderStatusBody({ kind, onStopped }: RenderStatusProps & { onStopped: 
                         <span className="render-ready__text">
                             <span className="voice-heading">{REEL_READY}</span>
                             {/* What happened to the file, as a sentence: not a pill next to the buttons, where it read like one. */}
-                            <span className="render-ready__file">{job.result.downloaded ? 'Downloading' : 'Ready to download:'} <span className="tc">{job.result.file.name}</span></span>
+                            <span className="render-ready__file">{job.result.savedTo ? 'Saved to' : job.result.downloaded ? 'Downloading' : 'Ready to download:'} <span className="tc">{job.result.savedTo ?? job.result.file.name}</span></span>
                         </span>
                     </p>
-                    <a href={job.result.url} download={job.result.file.name} className={job.result.downloaded ? 'btn-quiet no-underline' : 'btn-primary no-underline'}
+                    {!job.result.savedTo && <a href={job.result.url} download={job.result.file.name} className={job.result.downloaded ? 'btn-quiet no-underline' : 'btn-primary no-underline'}
                         onClick={(e) => { e.preventDefault(); jobs.downloadAgain() }}>
                         {job.result.downloaded ? 'Download again' : 'Download'}
-                    </a>
+                    </a>}
                     {canShare && (
                         <button type="button" onClick={() => navigator.share({ files: [job.result!.file] }).catch(() => undefined)} className="btn-quiet">Share</button>
                     )}

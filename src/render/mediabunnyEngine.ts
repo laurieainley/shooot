@@ -247,6 +247,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
 
         let direct: { output: Output; vOut: EncodedVideoPacketSource; aOut: EncodedAudioPacketSource | null; result: () => Promise<File | Blob>; discard: () => Promise<void> } | null = null
         if (!journal) {
+            if (opts.experiments?.targetFile) diag.note('Output: written straight to a file the user picked (no browser storage)')
             const { target, result, discard } = await makeTarget(outputName, opts.experiments?.targetFile)
             const output = new Output({ format: new Mp4OutputFormat({ fastStart: false }), target })
             const vOut = new EncodedVideoPacketSource(first.video.codec!)
