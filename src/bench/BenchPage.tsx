@@ -6,7 +6,7 @@ import { experimentRows, formatResult, summaryText, type BenchReport, type Exper
 import { EXPERIMENTS, EXPERIMENT_MINUTES, runExperiment, warmUp } from './experiments'
 import { clearKept } from './expCommon'
 import { clearAllOpfs, clearBenchFiles, listOpfs, mb, type OpfsEntry } from './storageInspect'
-import { hasSavePicker } from './experiments/directSave'
+import { hasSavePicker } from '../utils/savePicker'
 import { ALL_EXPERIMENTS, PRESETS, detectPreset, type PresetId } from './presets'
 import { VIDEO_BITRATE } from '../utils/outputQuality'
 

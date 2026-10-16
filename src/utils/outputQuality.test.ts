@@ -141,3 +141,13 @@ describe('highlights time hints', () => {
         expect(timeHint([1, 1.2], 600, 'reel', 'this device')).toBe('roughly 10–12 min for a 10 min reel, going by your last renders')
     })
 })
+
+describe('saveToFileQuality', () => {
+    const opt = (id: 'original' | '4k' | '1080p', extra: object = {}) => ({ id, label: id, disabled: false, reason: null, bytes: 1, timeRange: null, ...extra }) as QualityOption
+    it('should keep the chosen quality when only storage rules it out', () => {
+        expect(saveToFileQuality([opt('original', { disabled: true, noRoom: true }), opt('4k'), opt('1080p')], 'original', '1080p')).toBe('original')
+    })
+    it('should fall back when the footage or browser rules it out', () => {
+        expect(saveToFileQuality([opt('original'), opt('4k', { disabled: true, reason: 'not 4K' }), opt('1080p')], '4k', 'original')).toBe('original')
+    })
+})

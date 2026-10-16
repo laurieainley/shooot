@@ -2,10 +2,11 @@ import { useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppState } from '../state'
 import { estimatePlanTime, highlightsExport, planOutput, sourceFactsFor, type ExportState, type PlanOutput } from '../utils/exportPlans'
-import { startExport } from './renderRequest'
+import { saveExportToFile, startExport } from './renderRequest'
 import { useRenderJobs } from '../renderJobs'
 import type { RenderQuality } from '../utils/renderSources'
-import { applyStorageFit, qualityOptions, resolveHighlightsQuality } from '../utils/outputQuality'
+import { applyStorageFit, qualityOptions, QUALITY_LABEL, resolveHighlightsQuality, saveToFileQuality } from '../utils/outputQuality'
+import { hasSavePicker } from '../utils/savePicker'
 import { MissingFullFiles } from './MissingFullFiles'
 import { OutputQualityField } from './OutputQualityField'
 import { RenderStatus } from './RenderStatus'
@@ -15,7 +16,7 @@ import { useReencodeSupport } from './useReencodeSupport'
 import { useSavedJob } from './useSavedJob'
 import { useReusableParts } from './useReusableParts'
 import { useStorageRoom } from './useStorageRoom'
-import { renderButtonLabel, renderSummaryLine } from '../utils/renderSummary'
+import { renderButtonLabel, renderSummaryLine, SAVE_TO_FILE_HINT } from '../utils/renderSummary'
 
 /** Export highlights: quality (Original / 4K / 1080p), the Render button with its size and time, preview with proxies, and the render's progress. */
 export function RenderHighlights() {
@@ -59,6 +60,19 @@ export function RenderHighlights() {
 
     const chosen = options.find((o) => o.id === effective) ?? options[0]
 
+    // Save to file… writes straight to disk, so it keeps the chosen quality even when that is too big for the browser's storage.
+    const canSave = hasSavePicker()
+    const saveQuality = canSave ? saveToFileQuality(options, resolveHighlightsQuality(choice, phone), effective) : effective
+    const saveToFile = (): void => {
+        const plan = highlightsExport(useAppState.getState(), 'full', planOutput(saveQuality))
+        if (plan.missing.length > 0) {
+            setMissing(plan.missing)
+            return
+        }
+        setMissing([])
+        void saveExportToFile('highlights', plan, false) // the picker opens first, inside the click
+    }
+
     const run = (quality: RenderQuality, output?: PlanOutput): void => {
         const plan = highlightsExport(useAppState.getState(), quality, output)
         if (plan.missing.length > 0) {
@@ -76,13 +90,19 @@ export function RenderHighlights() {
 
     return (
         <div className="flex flex-col gap-2">
-            <OutputQualityField name="highlights-quality" options={options} effective={effective} onChange={setQuality} fitNote={fitNote}>
+            <OutputQualityField name="highlights-quality" options={options} effective={effective} saveToFile={canSave ? { selected: saveQuality } : undefined} onChange={setQuality} fitNote={fitNote}>
                 {privateHint && <span className="toggle-row__hint">Private windows have very little storage; use a normal window for a long reel.</span>}
             </OutputQualityField>
             <button onClick={() => run('full', planOutput(effective))} disabled={disabled} className="btn-primary w-full justify-center">
                 {renderButtonLabel('highlights', effective)}
             </button>
             <p className="export-hint render-estimate m-0">{renderSummaryLine({ bytes: chosen.bytes, timeRange: chosen.timeRange, basis: chosen.timeBasis, seconds: base.seconds })}</p>
+            {canSave && (
+                <>
+                    <button onClick={saveToFile} disabled={disabled || busy} className="btn-quiet w-full justify-center">Save to file… ({QUALITY_LABEL[saveQuality]})</button>
+                    <p className="export-hint m-0">{SAVE_TO_FILE_HINT}</p>
+                </>
+            )}
             {job && (
                 <ResumeOffer job={job} matches={!!matching} filesLoaded={files.length > 0} busy={busy}
                     onResume={() => run(matching!.quality, matching!.output)} onDiscard={() => void saved.discard()} />

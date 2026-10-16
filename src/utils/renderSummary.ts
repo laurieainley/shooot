@@ -57,3 +57,6 @@ export const QUALITY_EXPLANATION: Record<OutputQuality, string> = {
     '4k': 'Re-encoded to H.264 4K, cut exactly at each clip.',
     '1080p': 'Re-encoded to H.264 1080p, cut exactly at each clip. Smallest file.',
 }
+
+/** The line under the "Save to file…" button. */
+export const SAVE_TO_FILE_HINT = 'Writes straight to a file you choose — no browser storage. Chrome/Edge on a computer. Can’t resume if interrupted.'

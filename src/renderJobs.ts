@@ -30,6 +30,8 @@ export type RenderRequest = {
     output?: { quality: '4k' | '1080p'; videoBitrate: number }
     /** Re-encodes: what the engine needs to reuse parts of the last export of this kind (see render/unitCache). */
     reuse?: ReuseKeys
+    /** "Save to file…": the engine streams the MP4 straight into this file (no resumable journal, no reused parts, no download). */
+    targetFile?: FileSystemFileHandle
 }
 
 /** A first progress reading above this share means the render resumed a saved one. */
@@ -54,7 +56,8 @@ export type RenderJob = {
     report: GraphicsReport | null
     /** Diagnostics of this render, set when it ends (done, failed or cancelled). */
     diagnostics?: DiagnosticsReport | null
-    result: { file: File; url: string; downloaded: boolean } | null
+    /** `savedTo`: the name of the file the render was written into ("Save to file…"); then there is no object URL (`url` is empty) and nothing to download. */
+    result: { file: File; url: string; downloaded: boolean; savedTo?: string } | null
     error: string | null
     /** Waiting for the user: footage of another frame size will be re-encoded (Render / Cancel). */
     notice?: string | null
@@ -120,7 +123,7 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                 }
                 if (get().running()) { set({ conflict: true }); return 'busy' }
                 const old = get().job?.result
-                if (old) deps.revokeUrl(old.url)
+                if (old?.url) deps.revokeUrl(old.url)
                 const id = ++seq
                 const startedAt = deps.now()
                 controller = new AbortController()
@@ -156,6 +159,7 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                         ...(req.resumable ? { resumable: req.resumable } : {}),
                         ...(req.output ? { output: req.output } : {}),
                         ...(req.reuse ? { reuse: req.reuse } : {}),
+                        ...(req.targetFile ? { experiments: { targetFile: req.targetFile } } : {}),
                         // Reports also come for replay crops, which are drawn even when there are no graphics.
                         onGraphics: (report) => patch(id, { report }),
                         onDiagnostics: (diagnostics) => patch(id, { diagnostics }),
@@ -164,14 +168,15 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                     // Cancelled while it was finishing: the user said stop, so no file, no download, no notification.
                     if (signal.aborted) throw new DOMException('Render cancelled', 'AbortError')
                     if (timeline && req.signature && kind !== 'clip') saveTimeline(kind, req.signature, timeline)
-                    const file = out instanceof File && out.name === req.outputName ? out : new File([out], req.outputName, { type: 'video/mp4' })
-                    const url = deps.createUrl(file)
+                    const file = out instanceof File && (req.targetFile || out.name === req.outputName) ? out : new File([out], req.outputName, { type: 'video/mp4' })
                     const elapsed = deps.now() - startedAt
                     const priced = get().job?.id === id ? get().job!.estimateSec : undefined
                     // A run that reused parts of the last export is faster than the device is: it must not teach the learned rate.
-                    if (priced && engine.started && engine.resumed === false && !get().job?.reused?.units) recordRender(output, priced, (deps.now() - engine.at) / 1000)
-                    const downloaded = deps.download(url, file.name)
-                    patch(id, { phase: 'done', fraction: 1, status: `Done in ${Math.max(1, Math.round(elapsed / 1000))} s`, result: { file, url, downloaded }, finishedAt: deps.now() })
+                    // A render into a picked file runs one unit at a time (parallel units need the journal): it must not teach the learned rate.
+                    if (priced && engine.started && engine.resumed === false && !get().job?.reused?.units && !req.targetFile) recordRender(output, priced, (deps.now() - engine.at) / 1000)
+                    // Saved straight to disk: no object URL, no download.
+                    const result = req.targetFile ? { file, url: '', downloaded: false, savedTo: req.targetFile.name } : (() => { const url = deps.createUrl(file); return { file, url, downloaded: deps.download(url, file.name) } })()
+                    patch(id, { phase: 'done', fraction: 1, status: `Done in ${Math.max(1, Math.round(elapsed / 1000))} s`, result, finishedAt: deps.now() })
                     deps.notify(get().job!, elapsed)
                 } catch (e) {
                     if (signal.aborted || (e instanceof DOMException && e.name === 'AbortError')) {
@@ -208,7 +213,7 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
             clearConflict: () => set({ conflict: false }),
             downloadAgain: () => {
                 const r = get().job?.result
-                if (r) deps.download(r.url, r.file.name)
+                if (r && !r.savedTo) deps.download(r.url, r.file.name)
             },
         }
     })

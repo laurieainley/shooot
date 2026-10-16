@@ -4,7 +4,7 @@ import { measureDeliver } from '../deliver'
 import { excerptLen, pair, plainPlan, run, type ExpCtx } from '../expCommon'
 import type { ExperimentRow } from '../results'
 
-export const hasSavePicker = (): boolean => typeof (window as unknown as { showSaveFilePicker?: unknown }).showSaveFilePicker === 'function'
+import { hasSavePicker } from '../../utils/savePicker'
 
 /** Streams a finished output to a file handle, like the browser's download does. Returns ms. */
 async function deliverToHandle(file: Blob, handle: FileSystemFileHandle): Promise<number> {

@@ -1,5 +1,5 @@
-// Engine switches for the /bench "Experiments" section. Every field is optional and nothing here is reachable from the editor:
-// with `RenderOptions.experiments` omitted the engines use their defaults (including parallel units, #1).
+// Engine switches for the /bench "Experiments" section. Every field is optional. Only `targetFile` is reachable from the editor (the
+// "Save to file…" buttons); with `RenderOptions.experiments` omitted the engines use their defaults (including parallel units, #1).
 
 export type RenderExperiments = {
     /** #1: units encoded at the same time. The engine's default is PARALLEL_UNITS (2) for journaled renders; the bench forces 1, 2 or 3 here. */
@@ -14,7 +14,7 @@ export type RenderExperiments = {
     decodeAhead?: number
     /** #2: false turns the unit cache off for this render (it is on whenever the caller supplies `RenderOptions.reuse`). */
     unitCache?: boolean
-    /** #4: write the final MP4 straight into this user-chosen file instead of OPFS. */
+    /** #4: write the final MP4 straight into this user-chosen file instead of OPFS. The editor's "Save to file…" uses it too, with a non-resumable render (a journaled one stages every unit in OPFS). */
     targetFile?: FileSystemFileHandle
     /** #6: Original highlights only re-encode the GOPs under the part of an overlay that is actually visible. */
     tightSpans?: boolean

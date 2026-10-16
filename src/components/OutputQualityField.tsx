@@ -9,6 +9,8 @@ interface OutputQualityFieldProps {
     options: QualityOption[]
     /** The option in use (after availability and storage fit). */
     effective: OutputQuality
+    /** "Save to file…" is offered: options greyed out only for lack of storage can still be picked (it needs none), and `selected` is the one shown. */
+    saveToFile?: { selected: OutputQuality }
     onChange: (q: OutputQuality) => void
     /** Said when the choice was changed for lack of storage. */
     fitNote?: string | null
@@ -17,7 +19,7 @@ interface OutputQualityFieldProps {
 }
 
 /** Quality: Original / 4K / 1080p as a segmented control with each option's size under its label (or a short reason when unavailable). Shared by both Export tabs. */
-export function OutputQualityField({ name, options, effective, onChange, fitNote, children }: OutputQualityFieldProps) {
+export function OutputQualityField({ name, options, effective, saveToFile, onChange, fitNote, children }: OutputQualityFieldProps) {
     const [explaining, setExplaining] = useState(false)
     const explainId = useId()
     return (
@@ -28,7 +30,7 @@ export function OutputQualityField({ name, options, effective, onChange, fitNote
                     const reason = qualityShortReason(o)
                     return (
                         <label key={o.id} className="segmented__option" title={o.disabled ? (o.reason ?? undefined) : undefined}>
-                            <input type="radio" name={name} value={o.id} checked={effective === o.id} disabled={o.disabled} onChange={() => onChange(o.id)} />
+                            <input type="radio" name={name} value={o.id} checked={(saveToFile?.selected ?? effective) === o.id} disabled={o.disabled && !(saveToFile && o.noRoom)} onChange={() => onChange(o.id)} />
                             <span className="segmented__stack">
                                 <b className="segmented__label">{o.label}</b>
                                 <em className="segmented__sub tc">{reason ?? formatBytes(o.bytes)}</em>
@@ -46,6 +48,7 @@ export function OutputQualityField({ name, options, effective, onChange, fitNote
                 </ul>
             )}
             {fitNote && <span role="note" className="export-hint">{fitNote}</span>}
+            {saveToFile && saveToFile.selected !== effective && <span role="note" className="export-hint">{QUALITY_LABEL[saveToFile.selected]} is too big for the Render button; only Save to file… can write it.</span>}
             {children}
         </fieldset>
     )
