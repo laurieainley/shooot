@@ -36,11 +36,11 @@ describe('ThumbnailMaker', () => {
     it('should flip between goals with the buttons and the arrow keys, and fine-tune the frame', async () => {
         render(<ThumbnailMaker kind="highlights" />)
         await userEvent.click(screen.getByRole('button', { name: /make a thumbnail/i }))
-        expect(screen.getByText(/Goal 1 of 2 · 2' Sam/)).toBeInTheDocument()
-        await userEvent.click(screen.getByRole('button', { name: 'Next goal' }))
-        expect(screen.getByText(/Goal 2 of 2/)).toBeInTheDocument()
+        expect(screen.getByText(/1 of 2 · Goal · 2' Sam/)).toBeInTheDocument()
+        await userEvent.click(screen.getByRole('button', { name: 'Next moment' }))
+        expect(screen.getByText(/2 of 2 · Goal/)).toBeInTheDocument()
         fireEvent.keyDown(screen.getByRole('group', { name: 'Choose the frame' }), { key: 'ArrowLeft' })
-        expect(screen.getByText(/Goal 1 of 2/)).toBeInTheDocument()
+        expect(screen.getByText(/1 of 2 · Goal/)).toBeInTheDocument()
         await userEvent.click(screen.getByRole('button', { name: /later by a quarter second/i }))
         expect(screen.getByText('+0.25 s', { selector: 'span' })).toBeInTheDocument()
         expect(grab).toHaveBeenLastCalledWith('blob:a', expect.closeTo(100, 5), 1920)
@@ -50,6 +50,21 @@ describe('ThumbnailMaker', () => {
         render(<ThumbnailMaker kind="fullMatch" />)
         await userEvent.click(screen.getByRole('button', { name: /make a thumbnail/i }))
         expect(screen.getByRole('checkbox', { name: /zoom to the goal/i })).toBeDisabled()
+    })
+
+    it('should offer the zoom for a highlight when goal areas exist, and reset a pan', async () => {
+        useAppState.setState({
+            events: [{ id: 'h1', type: 'highlight', matchTimeSec: 100, sourceFileIndex: 0, scorer: 'Thom' }],
+            goalAreas: { team2: { x: 0.6, y: 0.2, w: 0.3, h: 0.4 } },
+        })
+        render(<ThumbnailMaker kind="highlights" />)
+        await userEvent.click(screen.getByRole('button', { name: /make a thumbnail/i }))
+        expect(screen.getByText(/1 of 1 · Highlight · 2' Thom/)).toBeInTheDocument()
+        const box = screen.getByRole('checkbox', { name: /zoom to the goal/i })
+        expect(box).toBeEnabled()
+        expect(screen.getByText(/drag the picture to adjust/i)).toBeInTheDocument()
+        await userEvent.click(box)
+        expect(screen.queryByRole('button', { name: /reset position/i })).toBeNull()
     })
 
     it('should show the team line read-only, then let custom text replace it', async () => {

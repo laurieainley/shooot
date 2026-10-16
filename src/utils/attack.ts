@@ -64,6 +64,21 @@ export function replayCropResolver(ctx: AttackContext): (e: MatchEvent) => CropR
     }
 }
 
+/**
+ * Where a thumbnail zoom starts for `e`: its replay crop, else the goal its team attacks (the goal a goal by that team
+ * would go in, after any Half time marker), else the first goal area drawn. null only when no area is drawn at all.
+ */
+export function thumbnailZoomCrop(ctx: AttackContext, e: MatchEvent | null): CropRect | null {
+    if (e) {
+        const own = replayCropResolver(ctx)(e)
+        if (own) return own
+        const goal = replayGoalFor({ type: 'goal', team: e.team, timeSec: absTime(e, ctx.cumulativeOffsets) }, ctx.teams, halfTimeSec(linkedEvents(ctx.events), ctx.cumulativeOffsets))
+        const area = goal === 'full' ? null : ctx.areas?.[goal] ?? null
+        if (area && !isFullFrame(area)) return area
+    }
+    return ctx.areas?.team1 ?? ctx.areas?.team2 ?? null
+}
+
 export type ReplayState = {
     replayBeforeSec: number
     replayAfterSec: number

@@ -1,14 +1,18 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppState } from '../state'
 import { ensureGraphicsFonts, loadLogo } from '../graphics/assets'
 import { loadCustomLogo } from '../graphics/logoStore'
 import { getTheme } from '../graphics/themes'
 import { canvasMeasure, drawCover, paintThumbnailOps } from '../graphics/thumbnail/paint'
+import type { CropRect } from '../types'
 import { thumbnailLayoutFor } from '../graphics/thumbnail/registry'
 import { THUMB_H, THUMB_W, type ThumbSpec } from '../graphics/thumbnail/types'
-import { replayCropResolver } from '../utils/attack'
-import { THUMB_FINE_MAX_SEC, THUMB_FINE_STEP_SEC, pickTime, thumbnailFileName, thumbnailPicks } from '../utils/thumbnailPicks'
+import { thumbnailZoomCrop } from '../utils/attack'
+import {
+    NO_PAN, THUMB_FINE_MAX_SEC, THUMB_FINE_STEP_SEC, clampPan, coverSpan, defaultPickIndex, panCrop, pickTime, thumbnailFileName, thumbnailPicks, type CropPan,
+} from '../utils/thumbnailPicks'
+import { ThumbnailPreview } from './ThumbnailPreview'
 import { useThumbFrame } from './thumbnailFrame'
 
 interface ThumbnailMakerProps {
@@ -34,9 +38,10 @@ async function jpegUnderLimit(canvas: HTMLCanvasElement): Promise<Blob | null> {
 }
 
 /**
- * Export, YouTube thumbnail: a frame of a goal (the ball just before it crosses the line) with the video kind in the
- * corner and the teams' names (never the score), drawn in the chosen graphics style. Flip between goals, nudge the
- * frame, download a 1280×720 JPEG.
+ * Export, YouTube thumbnail: a frame of any tagged moment (for a goal, the ball just before it crosses the line) with
+ * the video kind in the corner and the teams' names (never the score), drawn in the chosen graphics style. Flip between
+ * moments, nudge the frame, zoom to a goal area and drag the picture to place it, look at it larger, download a
+ * 1280×720 JPEG.
  */
 export function ThumbnailMaker({ kind }: ThumbnailMakerProps) {
     const st = useAppState(useShallow((s) => ({
@@ -44,7 +49,10 @@ export function ThumbnailMaker({ kind }: ThumbnailMakerProps) {
         themeId: s.graphics.theme, areas: s.goalAreas,
     })))
     const [open, setOpen] = useState(false)
-    const [index, setIndex] = useState(0)
+    const [index, setIndex] = useState<number | null>(null)
+    const [pans, setPans] = useState<Record<string, CropPan>>({})
+    const [dragging, setDragging] = useState(false)
+    const [preview, setPreview] = useState<string | null>(null)
     const [fine, setFine] = useState(0)
     const [zoom, setZoom] = useState(false)
     const [busy, setBusy] = useState(false)
@@ -54,16 +62,22 @@ export function ThumbnailMaker({ kind }: ThumbnailMakerProps) {
     const [ready, setReady] = useState(false)
     const canvasRef = useRef<HTMLCanvasElement | null>(null)
     const logoRef = useRef<{ done: boolean; bitmap: ImageBitmap | null }>({ done: false, bitmap: null })
+    const dragRef = useRef<{ x: number; y: number; pan: CropPan } | null>(null)
+    // What a redraw needs, kept current each render so the drag can repaint without waiting for React.
+    const paintRef = useRef<{ image: HTMLImageElement | null; spec: ThumbSpec; theme: ReturnType<typeof getTheme>; crop: CropRect | null; zoomed: boolean }>(null!)
 
     const picks = useMemo(() => thumbnailPicks(st.events, st.cumulativeOffsets, st.files), [st.events, st.cumulativeOffsets, st.files])
-    const cur = picks[Math.min(index, Math.max(0, picks.length - 1))] ?? null
+    const at = Math.min(index ?? defaultPickIndex(picks), Math.max(0, picks.length - 1))
+    const cur = picks[at] ?? null
     const file = cur ? st.files[cur.fileIndex] : undefined
     const atSec = cur && file ? (cur.event ? pickTime(cur.event.matchTimeSec, file.durationSec, fine) : pickTime(cur.timeSec + 0.25, file.durationSec, fine)) : null
-    const crop = useMemo(
-        () => (cur?.event ? replayCropResolver({ events: st.events, teams: st.teams, cumulativeOffsets: st.cumulativeOffsets, areas: st.areas })(cur.event) : null),
+    const baseCrop = useMemo(
+        () => thumbnailZoomCrop({ events: st.events, teams: st.teams, cumulativeOffsets: st.cumulativeOffsets, areas: st.areas }, cur?.event ?? null),
         [cur, st.events, st.teams, st.cumulativeOffsets, st.areas],
     )
-    const zoomed = zoom && crop !== null
+    const zoomed = zoom && baseCrop !== null
+    const pan = baseCrop && cur ? clampPan(baseCrop, pans[cur.id] ?? NO_PAN) : NO_PAN
+    const crop = baseCrop ? panCrop(baseCrop, pan) : null
 
     // Full-quality file first when a proxy is playing; then whatever is playing.
     const urls = useMemo(() => {
@@ -84,37 +98,74 @@ export function ThumbnailMaker({ kind }: ThumbnailMakerProps) {
     }
     const specKey = JSON.stringify(spec)
 
-    useEffect(() => {
+    const theme = getTheme(st.themeId)
+    paintRef.current = { image: frame.image, spec, theme, crop: zoomed ? crop : null, zoomed }
+
+    /** Paints the current picture and graphics at once, with the theme's fonts and the logo already loaded. */
+    const paintNow = (cropOverride?: CropRect): boolean => {
         const canvas = canvasRef.current
+        const { image, spec: sp, theme: th, crop: c } = paintRef.current
+        const ctx = canvas?.getContext('2d')
+        if (!canvas || !ctx || !image || !logoRef.current.done) return false
+        ctx.clearRect(0, 0, THUMB_W, THUMB_H)
+        drawCover(ctx, image, image.naturalWidth, image.naturalHeight, cropOverride ?? c)
+        const logo = logoRef.current.bitmap
+        paintThumbnailOps(ctx, thumbnailLayoutFor(th.id)({ ...sp, hasLogo: !!logo }, canvasMeasure(ctx)), logo)
+        return true
+    }
+
+    useEffect(() => {
         const image = frame.image
-        if (!open || !canvas || !image) return
+        if (!open || !canvasRef.current || !image) return
         let live = true
         void (async () => {
-            const theme = getTheme(st.themeId)
-            await ensureGraphicsFonts(theme)
+            await ensureGraphicsFonts(getTheme(st.themeId))
             if (!logoRef.current.done) {
                 logoRef.current = { done: true, bitmap: await loadLogo(await loadCustomLogo()) }
             }
             if (!live) return
-            const ctx = canvas.getContext('2d')
-            if (!ctx) return
-            ctx.clearRect(0, 0, THUMB_W, THUMB_H)
-            drawCover(ctx, image, image.naturalWidth, image.naturalHeight, zoomed ? crop : null)
-            const logo = logoRef.current.bitmap
-            const ops = thumbnailLayoutFor(theme.id)({ ...spec, hasLogo: !!logo }, canvasMeasure(ctx))
-            paintThumbnailOps(ctx, ops, logo)
-            setReady(true)
+            if (paintNow()) setReady(true)
         })()
         return () => { live = false }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, frame.image, specKey, st.themeId, zoomed, crop])
+    }, [open, frame.image, specKey, st.themeId, zoomed, crop?.x, crop?.y, crop?.w, crop?.h])
 
     if (st.files.length === 0) return <p className="export-body text-muted m-0">Load the match videos first.</p>
 
-    const go = (d: number): void => { setIndex((i) => (i + d + picks.length) % picks.length); setFine(0) }
+    const go = (d: number): void => { setIndex((at + d + picks.length) % picks.length); setFine(0) }
     const onKey = (e: KeyboardEvent<HTMLDivElement>): void => {
         if (picks.length < 2 || (e.target as HTMLElement).tagName === 'INPUT') return
         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); go(e.key === 'ArrowRight' ? 1 : -1) }
+    }
+    const setPan = (p: CropPan): void => { if (cur) setPans((m) => ({ ...m, [cur.id]: p })) }
+    const onDragStart = (e: PointerEvent<HTMLCanvasElement>): void => {
+        if (!zoomed || e.button > 0) return
+        e.currentTarget.setPointerCapture(e.pointerId)
+        dragRef.current = { x: e.clientX, y: e.clientY, pan }
+        setDragging(true)
+    }
+    const onDragMove = (e: PointerEvent<HTMLCanvasElement>): void => {
+        const d = dragRef.current
+        const image = paintRef.current.image
+        if (!d || !baseCrop || !image) return
+        const box = e.currentTarget.getBoundingClientRect()
+        if (box.width === 0 || box.height === 0) return
+        // The picture follows the pointer: the part of the frame on show spans the canvas, so one canvas pixel is span / width.
+        const span = coverSpan(baseCrop, image.naturalWidth, image.naturalHeight)
+        const next = clampPan(baseCrop, {
+            x: d.pan.x - ((e.clientX - d.x) / box.width) * span.w,
+            y: d.pan.y - ((e.clientY - d.y) / box.height) * span.h,
+        })
+        setPan(next)
+        paintNow(panCrop(baseCrop, next))
+    }
+    const onDragEnd = (e: PointerEvent<HTMLCanvasElement>): void => {
+        if (e.currentTarget.hasPointerCapture?.(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId)
+        dragRef.current = null
+        setDragging(false)
+    }
+    const openPreview = (): void => {
+        const canvas = canvasRef.current
+        if (canvas && ready) setPreview(canvas.toDataURL('image/jpeg', 0.92))
     }
     const nudge = (d: number): void => setFine((f) => Math.max(-THUMB_FINE_MAX_SEC, Math.min(THUMB_FINE_MAX_SEC, Math.round((f + d) * 100) / 100)))
     const fileName = thumbnailFileName({ kind, title: st.matchdayLabel, teams: st.teams })
@@ -158,12 +209,23 @@ export function ThumbnailMaker({ kind }: ThumbnailMakerProps) {
     return (
         <div className="thumb-maker flex flex-col gap-2" onKeyDown={onKey}>
             <div className="thumb-maker__pick" role="group" aria-label="Choose the frame">
-                <button type="button" className="btn-quiet" aria-label="Previous goal" disabled={picks.length < 2} onClick={() => go(-1)}>‹</button>
+                <button type="button" className="btn-quiet" aria-label="Previous moment" disabled={picks.length < 2} onClick={() => go(-1)}>‹</button>
                 <span className="thumb-maker__label" aria-live="polite">{cur?.label ?? ''}</span>
-                <button type="button" className="btn-quiet" aria-label="Next goal" disabled={picks.length < 2} onClick={() => go(1)}>›</button>
+                <button type="button" className="btn-quiet" aria-label="Next moment" disabled={picks.length < 2} onClick={() => go(1)}>›</button>
             </div>
-            <canvas ref={canvasRef} width={THUMB_W} height={THUMB_H} className="thumb-maker__canvas" role="img"
-                aria-label={`${kind === 'fullMatch' ? 'Full match' : 'Highlights'} thumbnail preview`} />
+            <div className="thumb-maker__stage">
+                <canvas ref={canvasRef} width={THUMB_W} height={THUMB_H} role="img"
+                    className={`thumb-maker__canvas${zoomed ? ' thumb-maker__canvas--zoomed' : ''}${dragging ? ' thumb-maker__canvas--dragging' : ''}`}
+                    aria-label={`${kind === 'fullMatch' ? 'Full match' : 'Highlights'} thumbnail preview`}
+                    onPointerDown={onDragStart} onPointerMove={onDragMove} onPointerUp={onDragEnd} onPointerCancel={onDragEnd} />
+                <button type="button" className="thumb-maker__magnify" aria-label="Preview larger" disabled={!ready} onClick={openPreview}>
+                    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+                        <circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" strokeWidth="2" />
+                        <path d="M15 15l5.5 5.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                    </svg>
+                </button>
+            </div>
+            {preview && <ThumbnailPreview src={preview} onClose={() => setPreview(null)} />}
             {frame.status === 'error' && <p role="alert" className="export-note">This browser cannot show that frame. Try the other file or a different moment.</p>}
             {frame.status === 'loading' && <p className="export-hint" role="status">Grabbing the frame…</p>}
             <div className="thumb-maker__tune" role="group" aria-label="Fine-tune the frame">
@@ -172,9 +234,10 @@ export function ThumbnailMaker({ kind }: ThumbnailMakerProps) {
                 <button type="button" className="btn-quiet" aria-label="Later by a quarter second" disabled={fine >= THUMB_FINE_MAX_SEC} onClick={() => nudge(THUMB_FINE_STEP_SEC)}>+0.25 s</button>
             </div>
             <label className="toggle-row">
-                <input type="checkbox" checked={zoomed} disabled={crop === null} onChange={(e) => setZoom(e.target.checked)} />
-                <span className="toggle-row__text">Zoom to the goal<span className="toggle-row__hint">{crop === null ? 'Draw the goal areas in Match setup to use this' : 'Crops to the replay framing'}</span></span>
+                <input type="checkbox" checked={zoomed} disabled={baseCrop === null} onChange={(e) => setZoom(e.target.checked)} />
+                <span className="toggle-row__text">Zoom to the goal<span className="toggle-row__hint">{baseCrop === null ? 'Draw the goal areas in Match setup to use this' : 'Crops to the replay framing. Drag the picture to adjust.'}</span></span>
             </label>
+            {zoomed && (pan.x !== 0 || pan.y !== 0) && <button type="button" className="btn-quiet self-start" onClick={() => setPan(NO_PAN)}>Reset position</button>}
             <label className="toggle-row">
                 <input type="checkbox" checked={customOn} onChange={(e) => {
                     setCustomOn(e.target.checked)
