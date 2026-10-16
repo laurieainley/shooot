@@ -1,3 +1,4 @@
+import type { SmoothPlayback } from './player/msePlan'
 import { showToast } from './toasts'
 import { markerSetCopy, matchClock } from './utils/toastCopy'
 import { create } from 'zustand'
@@ -184,6 +185,9 @@ export type AppState = {
     /** Highlights output quality as chosen: 'auto' = the device's default (1080p on a phone, else Original) until the user picks one. */
     highlightsQuality: HighlightsQualityChoice
     setHighlightsQuality: (q: HighlightsQualityChoice) => void
+    /** Smooth playback: play big files through small remuxed pieces (Media Source). 'large' = files over 500 MB, 'always' = every file, 'off' = classic whole-file playback. */
+    smoothPlayback: SmoothPlayback
+    setSmoothPlayback: (v: SmoothPlayback) => void
     /** Remembered options of the per-event clip download (device preference, not part of a project). */
     clipOptions: ClipOptions
     setClipOptions: (patch: Partial<ClipOptions>) => void
@@ -576,6 +580,8 @@ export const useAppState = create<AppState>()(
             exportTab: 'highlights',
             setExportTab: (tab) => set({ exportTab: tab }),
             highlightsQuality: 'auto',
+            smoothPlayback: 'large',
+            setSmoothPlayback: (v) => set({ smoothPlayback: v }),
             setHighlightsQuality: (q) => set({ highlightsQuality: q }),
             clipOptions: { score: true, replay: true },
             setClipOptions: (patch) => set({ clipOptions: { ...get().clipOptions, ...patch } }),
@@ -751,6 +757,7 @@ export const useAppState = create<AppState>()(
                 fullMatch: state.fullMatch,
                 clipOptions: state.clipOptions,
                 highlightsQuality: state.highlightsQuality,
+                smoothPlayback: state.smoothPlayback,
                 matchdayLabel: state.matchdayLabel,
                 knownFinalScore: state.knownFinalScore,
                 goalAreas: state.goalAreas,
