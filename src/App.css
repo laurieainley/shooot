@@ -1887,3 +1887,12 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .thumb-preview__close { position: fixed; top: 8px; right: 8px; color: #fff; }
 .thumb-preview--fill { padding: 0; }
 .thumb-preview--fill .thumb-preview__img { width: min(100vw, calc(100dvh * 16 / 9)); border-radius: 0; }
+
+/* Crash note: shown once after the browser reloaded the page by itself during heavy work. */
+.crash-notice { position: fixed; z-index: 60; left: 12px; right: 12px; bottom: 12px; max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid var(--sh-line); border-radius: var(--sh-radius-md); background: var(--sh-surface); color: var(--sh-text); font-size: var(--sh-text-md); line-height: 1.35; box-shadow: 0 4px 18px rgb(0 0 0 / .35); }
+.crash-notice__text { margin: 0; }
+.crash-notice__actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; }
+@media (pointer: coarse) { .crash-notice .btn-quiet { min-height: 44px; } }
+/* Playback error: copy link sits over video.js' error box. */
+.player-error-copy { position: absolute; z-index: 5; left: 50%; bottom: 56px; transform: translateX(-50%); }
+.menu-diag { padding: 6px 12px; }

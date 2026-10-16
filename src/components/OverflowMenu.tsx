@@ -7,6 +7,8 @@ import { openFindGoals, useSuggestionsCurrent } from './findGoals'
 import { FloatingPanel } from './FloatingPanel'
 import { ProjectIO } from './ProjectIO'
 import { blockerText, startNewMatch, stopBlocker, switchBlocker, type SwitchBlocker } from './matchSwitch'
+import { CopyDiagnostics } from './CopyDiagnostics'
+import { playbackReportText } from '../playbackDiagnostics'
 import type { Layout } from './useMediaQuery'
 
 interface OverflowMenuProps {
@@ -91,6 +93,7 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
             <button type="button" role="menuitem" onClick={() => useAppState.getState().openPanel('import')}>Import…</button>
             <ProjectIO />
             <button type="button" role="menuitem" onClick={() => useAppState.getState().openPanel('shortcuts')}>Shortcuts</button>
+            <div className="menu-diag"><CopyDiagnostics getText={playbackReportText} label="Copy playback diagnostics" ariaLabel="Playback diagnostics" /></div>
             {(labs || labsSeen) && <button type="button" role="menuitem" onClick={() => { useAppState.getState().setLabs(!labs); useAppState.getState().closePanel() }}>{labs ? 'Labs: on' : 'Labs: off'}</button>}
         </div>
     )
