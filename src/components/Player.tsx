@@ -26,6 +26,8 @@ import { reportedTime, seekNow, type PendingSeek } from './pendingSeek'
 import { attachPlaybackLogging, playbackLog, playbackReportText } from '../playbackDiagnostics'
 import { endActivity, startActivity } from '../crashNoteRuntime'
 import { CopyDiagnostics } from './CopyDiagnostics'
+import { attachMse, mseAvailability, type MseHandle } from '../player/msePlayback'
+import { chooseBackend } from '../player/msePlan'
 
 // video.js shows "0:05 / 24:00"; every time on screen uses the project's fixed width format instead.
 videojs.setFormatTime((seconds: number, guide: number) => formatClock(seconds, selectClockLong(useAppState.getState()) || guide >= 3600))
@@ -138,14 +140,51 @@ export function Player() {
         })
     }, [isPreviewMode])
 
+    // The source: a Media Source fed small remuxed pieces (smooth playback for large files), or the whole file as a blob URL.
+    // MSE falls back to the blob URL on any problem; the reason goes to the playback log.
+    const smooth = useAppState((s) => s.smoothPlayback)
     useEffect(() => {
         const p = playerRef.current
         if (!p || files.length === 0) return
         metadataLoadedRef.current = false
         const f = files[currentFileIndex]
-        if (f) playbackLog.addSource({ name: f.name, sizeBytes: f.file?.size ?? 0, kind: f.kind, codec: f.codec })
-        p.src({ src: f?.url, type: 'video/mp4' })
-    }, [files, currentFileIndex])
+        const fileIndex = currentFileIndex
+        let cancelled = false
+        let handle: MseHandle | null = null
+        const choice = chooseBackend({ setting: smooth, fileBytes: f?.file?.size ?? 0, ...mseAvailability() })
+        const info = { name: f?.name ?? '', sizeBytes: f?.file?.size ?? 0, kind: f?.kind, codec: f?.codec }
+        const classic = (reason?: string): void => {
+            if (reason) playbackLog.add({ type: 'note', name: 'fallback to blob', detail: reason })
+            p.src({ src: f?.url, type: 'video/mp4' })
+        }
+        if (choice.backend === 'blob' || !f?.file) {
+            playbackLog.addSource({ ...info, path: 'blob' })
+            classic()
+            return
+        }
+        playbackLog.addSource({ ...info, path: choice.backend })
+        void attachMse(videoRef.current as HTMLVideoElement, f.file, {
+            backend: choice.backend,
+            setSource: (url) => { if (!cancelled) p.src({ src: url, type: 'video/mp4' }) },
+            log: (detail) => playbackLog.add({ type: 'note', name: 'mse', detail }),
+            onFailure: (reason) => {
+                if (cancelled) return
+                const at = p.currentTime() || 0
+                handle?.dispose(); handle = null
+                // After the player's own error handling (which clears a pending seek): resume where it was.
+                setTimeout(() => {
+                    if (cancelled) return
+                    if (!pendingSeekRef.current && at > 0) pendingSeekRef.current = { fileIndex, timeSec: at, play: false }
+                    classic(reason)
+                }, 0)
+            },
+        }).then((r) => {
+            if (cancelled) { if (r.ok) r.handle.dispose(); return }
+            if (r.ok) handle = r.handle
+            else classic(r.reason)
+        })
+        return () => { cancelled = true; handle?.dispose(); handle = null }
+    }, [files, currentFileIndex, smooth])
 
     /** Seek anywhere on the timeline. Into another file: the playhead shows the target at once and the seek waits for that file to load. */
     const seekRef = useRef<(fileIndex: number, timeSec: number, play: boolean) => void>(() => {})

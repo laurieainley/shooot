@@ -19,7 +19,7 @@ export type LogEntry = {
     buffered?: string
 }
 
-export type SourceInfo = { at: number; name: string; sizeBytes: number; kind?: string; codec?: string }
+export type SourceInfo = { at: number; name: string; sizeBytes: number; kind?: string; codec?: string; /** How it was handed to the player: blob, mse or managed-mse. */ path?: string }
 
 export type PlaybackLogData = { sources: SourceInfo[]; entries: LogEntry[] }
 
@@ -128,7 +128,7 @@ export function formatPlaybackReport(data: PlaybackLogData, env: PlaybackEnv): s
         `MediaSource: ${env.mse ? 'yes' : 'NO'}   ManagedMediaSource: ${env.managedMse ? 'yes' : 'NO'}`)
     L.push('', 'SOURCES')
     if (data.sources.length === 0) L.push('(none played)')
-    for (const s of data.sources) L.push(`${hms(s.at)}  ${s.name} (${mb(s.sizeBytes)})${s.kind ? `, ${s.kind}` : ''}${s.codec ? `, ${s.codec}` : ''}`)
+    for (const s of data.sources) L.push(`${hms(s.at)}  ${s.name} (${mb(s.sizeBytes)})${s.kind ? `, ${s.kind}` : ''}${s.codec ? `, ${s.codec}` : ''}${s.path ? `, ${s.path}` : ''}`)
     L.push('', `EVENTS (${data.entries.length}, oldest first)`)
     if (data.entries.length === 0) L.push('(none recorded)')
     for (const e of data.entries) {

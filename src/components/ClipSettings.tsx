@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import { useAppState } from '../state'
+import { smoothSetting } from '../player/msePlan'
 
 export function ClipSettings() {
     const lengthBeforeGoalSec = useAppState((s) => s.lengthBeforeGoalSec)
@@ -11,6 +12,8 @@ export function ClipSettings() {
     const replaySpeed = useAppState((s) => s.replaySpeed)
     const setReplayWindow = useAppState((s) => s.setReplayWindow)
     const setReplaySpeed = useAppState((s) => s.setReplaySpeed)
+    const smooth = useAppState((s) => s.smoothPlayback)
+    const setSmooth = useAppState((s) => s.setSmoothPlayback)
     const id = useId()
 
     return (
@@ -50,6 +53,18 @@ export function ClipSettings() {
                     <select id={`${id}-5`} value={replaySpeed} onChange={(e) => setReplaySpeed(parseFloat(e.target.value))} className="field tc">
                         <option value="0.5">0.5×</option>
                         <option value="0.25">0.25×</option>
+                    </select>
+                </div>
+            </fieldset>
+
+            <fieldset className="settings-group">
+                <legend>Playback</legend>
+                <div className="settings-field">
+                    <label htmlFor={`${id}-6`}>Smooth playback for large files</label>
+                    <select id={`${id}-6`} value={smooth} onChange={(e) => setSmooth(smoothSetting(e.target.value))} className="field">
+                        <option value="large">On for large files</option>
+                        <option value="always">On for all files</option>
+                        <option value="off">Off (classic)</option>
                     </select>
                 </div>
             </fieldset>
