@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AUDIO_BITRATE, VIDEO_BITRATE, estimateEncodedBytes, applyStorageFit, qualityOptions, resolveHighlightsQuality, timeHint } from './outputQuality'
+import { AUDIO_BITRATE, VIDEO_BITRATE, estimateEncodedBytes, applyStorageFit, qualityOptions, resolveHighlightsQuality, saveToFileQuality, timeHint, type QualityOption } from './outputQuality'
 import type { CodecSupport } from '../render/transcodeSupport'
 
 const ok: CodecSupport = { decode: true, encode: { '4k': true, '1080p': true } }
