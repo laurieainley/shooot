@@ -1,5 +1,5 @@
-import type { MatchEvent, Team } from '../types'
-import { eventLabel, isMarker } from './eventTypes'
+import type { CropRect, MatchEvent, Team } from '../types'
+import { eventLabel, isMarker, shortNote } from './eventTypes'
 import { finalWhistleSec, kickOffSec, matchMinute } from './matchClock'
 import { clean, shortTitle } from './outputName'
 import { linkedEvents } from './relink'
@@ -16,7 +16,7 @@ export type ThumbnailPick = {
     fileIndex: number
     /** Seconds into that file for the default frame. */
     timeSec: number
-    /** "Goal 2 of 5 · 34' Sam" */
+    /** "3 of 12 · Goal · 34' Sam" */
     label: string
 }
 
@@ -31,28 +31,23 @@ export function pickTime(matchTimeSec: number, durationSec: number | undefined, 
 }
 
 /**
- * The frames to choose from, in time order: goals and own goals, else other tagged moments (saves, missed
- * penalties, highlights ...), else a frame from the middle of the match.
+ * The frames to choose from, in time order: every tagged moment that is not a marker (goals, own goals, highlights,
+ * saves, penalties, fouls), else a frame from the middle of the match.
  */
 export function thumbnailPicks(events: MatchEvent[], offsets: number[], files: FileInfo[]): ThumbnailPick[] {
     if (files.length === 0) return []
     const linked = linkedEvents(events).filter((e) => e.globalTimeSec === undefined)
     const abs = (e: MatchEvent): number => (offsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec
-    const byTime = (a: MatchEvent, b: MatchEvent): number => abs(a) - abs(b)
-    const inFile = (e: MatchEvent): boolean => (e.sourceFileIndex ?? 0) < files.length
-    const goals = linked.filter((e) => (e.type === 'goal' || e.type === 'own_goal') && inFile(e)).sort(byTime)
-    const others = linked.filter((e) => !isMarker(e) && e.type !== 'goal' && e.type !== 'own_goal' && inFile(e))
-    const chosen = goals.length > 0 ? goals : others.sort(byTime)
+    const chosen = linked.filter((e) => !isMarker(e) && (e.sourceFileIndex ?? 0) < files.length).sort((a, b) => abs(a) - abs(b))
     const kick = kickOffSec(linked, offsets)
     if (chosen.length > 0) {
-        const isGoals = goals.length > 0
         return chosen.map((e, i) => {
             const idx = e.sourceFileIndex ?? 0
             const who = e.scorer?.trim()
-            const what = isGoals ? (e.type === 'own_goal' ? 'Own goal' : 'Goal') : eventLabel(e)
+            const note = shortNote(e.notes, 30)
             return {
                 id: e.id, event: e, fileIndex: idx, timeSec: pickTime(e.matchTimeSec, files[idx]?.durationSec),
-                label: `${what} ${i + 1} of ${chosen.length} · ${matchMinute(abs(e), kick)}'${who ? ` ${who}` : ''}`,
+                label: `${i + 1} of ${chosen.length} · ${eventLabel(e)} · ${matchMinute(abs(e), kick)}'${who ? ` ${who}` : ''}${note ? ` — ${note}` : ''}`,
             }
         })
     }
@@ -73,4 +68,34 @@ export function thumbnailFileName(a: { kind: 'highlights' | 'fullMatch'; title: 
     const versus = named ? `${clean(a.teams[0].name)} v ${clean(a.teams[1].name)}` : ''
     const base = [title, versus].filter(Boolean).join(' - ') || 'Match'
     return `${base} (${a.kind === 'fullMatch' ? 'full match' : 'highlights'} thumbnail).jpg`
+}
+
+/** Where the picker opens: the first goal (so the opening frame is still a goal), else the first pick. */
+export function defaultPickIndex(picks: ThumbnailPick[]): number {
+    const i = picks.findIndex((p) => p.event?.type === 'goal' || p.event?.type === 'own_goal')
+    return i < 0 ? 0 : i
+}
+
+/** How far the crop is moved from its starting place, in fractions of the source frame. */
+export type CropPan = { x: number; y: number }
+export const NO_PAN: CropPan = { x: 0, y: 0 }
+
+/** `pan` limited so the crop (same size, moved) stays inside the frame. */
+export function clampPan(crop: CropRect, pan: CropPan): CropPan {
+    return {
+        x: clamp(pan.x, -crop.x, 1 - crop.w - crop.x),
+        y: clamp(pan.y, -crop.y, 1 - crop.h - crop.y),
+    }
+}
+
+/** The crop moved by `pan` (clamped): same size, new position. */
+export function panCrop(crop: CropRect, pan: CropPan): CropRect {
+    const p = clampPan(crop, pan)
+    return { ...crop, x: crop.x + p.x, y: crop.y + p.y }
+}
+
+/** The part of the frame, as fractions, that drawing `crop` cover-fitted into a 16:9 canvas shows (the crop trimmed to 16:9 about its centre). */
+export function coverSpan(crop: CropRect, iw: number, ih: number, aspect = 16 / 9): { w: number; h: number } {
+    const sw = crop.w * iw, sh = crop.h * ih
+    return sw / sh > aspect ? { w: (sh * aspect) / iw, h: crop.h } : { w: crop.w, h: sw / aspect / ih }
 }

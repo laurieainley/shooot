@@ -1868,3 +1868,22 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 /* Find goals summary: the Details toggle (diagnostics for reporting a problem) stays small and out of the way; 44px on touch. */
 .review__details-toggle { align-self: flex-start; font-size: var(--sh-text-sm); font-weight: 600; color: var(--sh-muted); }
 @media (pointer: coarse) { .review__details-toggle { min-height: 44px; font-size: var(--sh-text-sm); } }
+
+/* YouTube thumbnail: drag to reposition the zoomed crop, a magnifier for a larger look. */
+.thumb-maker__stage { position: relative; }
+.thumb-maker__canvas--zoomed { touch-action: none; cursor: grab; }
+.thumb-maker__canvas--dragging { cursor: grabbing; }
+.thumb-maker__magnify {
+  position: absolute; right: 8px; bottom: 8px; width: 44px; height: 44px; display: grid; place-items: center; padding: 0; cursor: pointer;
+  color: #fff; background: rgb(0 0 0 / 0.6); border: 1px solid rgb(255 255 255 / 0.35); border-radius: 50%;
+  opacity: 0; transition: opacity 0.12s;
+}
+.thumb-maker__stage:hover .thumb-maker__magnify, .thumb-maker__stage:focus-within .thumb-maker__magnify, .thumb-maker__magnify:focus-visible { opacity: 1; }
+@media (hover: none) { .thumb-maker__magnify { opacity: 1; } }
+.thumb-preview { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 24px; background: rgb(0 0 0 / 0.92); overscroll-behavior: contain; }
+.thumb-preview__dialog { position: relative; display: grid; place-items: center; width: 100%; height: 100%; }
+.thumb-preview__dialog:focus { outline: none; }
+.thumb-preview__img { display: block; width: min(calc(100vw - 48px), calc((100dvh - 48px) * 16 / 9)); aspect-ratio: 16 / 9; border-radius: 8px; }
+.thumb-preview__close { position: fixed; top: 8px; right: 8px; color: #fff; }
+.thumb-preview--fill { padding: 0; }
+.thumb-preview--fill .thumb-preview__img { width: min(100vw, calc(100dvh * 16 / 9)); border-radius: 0; }
