@@ -24,6 +24,7 @@ import { makeSilentAudio, type SilentAudio } from './silentAudio'
 import { makeTarget, openSource, type OpenSource } from './sourceInput'
 import { MIN_PARALLEL_UNIT_SEC, PARALLEL_UNITS, aacConfig, cutFrames, keyEvery, outputDimensions, outputFrameSec, planSegments, sourceTimeOf, type Segment } from './transcodePlan'
 import { runPool } from './unitPool'
+import { OrderedSink } from './orderedSink'
 import { pickH264Encoder, type H264Encoder } from './transcodeSupport'
 import type { Cut, CutTiming, GraphicsReport, RenderCard, RenderGraphics, RenderOptions, RenderOverlay, RenderSource } from './types'
 import { waitForQueue } from './yield'
@@ -139,10 +140,11 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         const planCuts = valid.map((v) => v.cut)
         // Units run PARALLEL_UNITS at a time when the render is journaled (the bench can force 1, 2 or 3); the plan then makes sure there are enough of them.
         const journaled = opts.resumable ? await canJournal(jobKind) : false
-        const parallelN = journaled ? Math.max(1, Math.floor(exp?.parallelUnits ?? PARALLEL_UNITS)) : 1
+        // "Save to file…" has no journal but runs units in parallel too: the unit in line streams into the file, the others buffer in memory (see orderedSink).
+        const parallelN = journaled || exp?.targetFile ? Math.max(1, Math.floor(exp?.parallelUnits ?? PARALLEL_UNITS)) : 1
         // Units of the last export of this kind that no edit touched are reused (journaled re-encodes only); their boundaries must then not shift with the edit.
         const reuse = journaled && exp?.unitCache !== false ? opts.reuse : undefined
-        if (!journaled && (exp?.parallelUnits ?? 1) > 1) diag.note('Parallel units need a resumable (journaled) render: running one unit at a time')
+        if (!journaled && !exp?.targetFile && (exp?.parallelUnits ?? 1) > 1) diag.note('Parallel units need a resumable (journaled) render or a file to save into: running one unit at a time')
         const segments = planSegments(planCuts, frameSec, Math.round((exp?.segmentSec ?? SEGMENT_SEC) / frameSec), parallelN > 1 ? { units: parallelN, minFrames: Math.round(MIN_PARALLEL_UNIT_SEC / frameSec), ...(reuse ? { stable: true } : {}) } : undefined)
         const units: Unit[] = [{ kind: 'intro' }, ...segments.map((segment): Unit => ({ kind: 'segment', segment })), { kind: 'outro' }]
         const cardFrames = (c: RenderCard | undefined): number => (c ? Math.max(1, Math.round(c.durationSec / frameSec)) : 0)
@@ -318,7 +320,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         }
         let direct: { output: Output; vOut: EncodedVideoPacketSource; aOut: EncodedAudioPacketSource | null; result: () => Promise<File | Blob>; discard: () => Promise<void> } | null = null
         if (!journal) {
-            if (exp?.targetFile) diag.note('Output: written straight to a file the user picked (no browser storage)')
+            if (exp?.targetFile) diag.note(`Output: written straight to a file the user picked (no browser storage)${parallelN > 1 ? `; up to ${parallelN} units at once, those ahead buffered in memory` : ''}`)
             const { target, result, discard } = await makeTarget(outputName, exp?.targetFile)
             const output = new Output({ format: new Mp4OutputFormat({ fastStart: false }), target })
             const vOut = new EncodedVideoPacketSource('avc')
@@ -337,6 +339,13 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         const emitAudio = async (env: UnitEnv, p: EncodedPacket): Promise<void> => {
             if (env.writer) await env.writer.write({ track: 1, key: true, timestamp: p.timestamp, duration: p.duration, data: p.data })
             else { await direct!.aOut!.add(p, aFirst ? { decoderConfig: aConfig! } : undefined); aFirst = false }
+        }
+
+        /** Writes one packet of a unit that was held back (parallel "Save to file…") into the output, where the head unit's own packets go through emitVideo / emitAudio. */
+        const emitRecord = async (r: LogRecord): Promise<void> => {
+            const p = new EncodedPacket(r.data, r.key ? 'key' : 'delta', r.timestamp, r.duration)
+            if (r.track === 0) { await direct!.vOut.add(p, vFirst ? { decoderConfig: vConfig! } : undefined); vFirst = false }
+            else if (direct!.aOut) { await direct!.aOut.add(p, aFirst ? { decoderConfig: aConfig! } : undefined); aFirst = false }
         }
 
         const makeEnv = (scaler: GlScaler | null): UnitEnv => {
@@ -681,6 +690,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             let prefix = 0 // jobs[0 .. prefix) are all finished: what a reload may keep
             let saving: Promise<void> = Promise.resolve()
             const saveProgress = (): void => {
+                if (!journal) return
                 const before = prefix
                 while (prefix < jobs.length && finished.has(jobs[prefix])) prefix++
                 if (prefix === before) return
@@ -690,6 +700,10 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 saving = saving.then(() => saveJob(state))
             }
             diag.note(`Running up to ${parallelN} units at a time`)
+            // Without a journal the units meet in an ordered sink: the head streams into the file, the rest wait in memory.
+            const sink = journal ? null : new OrderedSink(jobs.map((j) => j.u), emitRecord)
+            const onAbort = (): void => sink?.cancel(new DOMException('Render cancelled', 'AbortError'))
+            signal?.addEventListener('abort', onAbort)
             const pool = await runPool<Job>({
                 jobs, width: parallelN, isAbort,
                 run: async (job) => {
@@ -697,7 +711,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                     envs.add(env)
                     const t1 = now()
                     try {
-                        env.writer = await openUnit(jobKind, job.u)
+                        env.writer = sink ? sink.open(job.u) : await openUnit(jobKind, job.u)
                         const fromCache = await restoreUnit(job.u, job.start, env)
                         if (!fromCache) {
                             const endCut = diag.begin('cuts')
@@ -714,7 +728,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                     } catch (e) {
                         // Whatever this unit credited is taken back (the unit goes again, or the render stops): the shown progress only waits.
                         done -= env.work
-                        await env.writer?.abort().catch(() => undefined)
+                        await env.writer?.abort(e).catch(() => undefined)
                         env.writer = null
                         throw e
                     } finally {
@@ -724,8 +738,10 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 },
                 onFallback: (job, e) => diag.note(`Unit ${job.u} failed while ${parallelN} ran at once (${errorText(e)}): running one unit at a time for the rest of this render`),
                 retrySerial: (job, e) => switchToSoftware(job.u, e),
-                onFatal: () => { for (const env of envs) env.cancelled = true },
+                onFatal: () => { for (const env of envs) env.cancelled = true; sink?.cancel(new DOMException('Render cancelled', 'AbortError')) },
+                order: (a, b) => a.u - b.u,
             })
+            signal?.removeEventListener('abort', onAbort)
             await saving
             if (pool.fellBack) diag.note('Parallel units: fell back to one at a time')
             cursorFrames = startAt
@@ -736,7 +752,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         try {
             for (let u = startUnit; u < units.length; u++) {
                 if (signal?.aborted) throw new DOMException('Render cancelled', 'AbortError')
-                if (parallelN > 1 && units[u].kind === 'segment' && journal) {
+                if (parallelN > 1 && units[u].kind === 'segment') {
                     let last = u
                     while (last + 1 < units.length && units[last + 1].kind === 'segment') last++
                     await runParallel(u, last)

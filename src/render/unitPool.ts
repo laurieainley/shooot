@@ -15,6 +15,8 @@ export type PoolOptions<J> = {
     retrySerial?: (job: J, e: unknown) => Promise<boolean>
     /** Called once when the pool gives up, so running units can stop early. */
     onFatal?: () => void
+    /** Order in which units waiting to go again are taken (default: the order they failed in). */
+    order?: (a: J, b: J) => number
 }
 
 export async function runPool<J>(o: PoolOptions<J>): Promise<{ width: number; fellBack: boolean }> {
@@ -45,6 +47,7 @@ export async function runPool<J>(o: PoolOptions<J>): Promise<{ width: number; fe
                     if (width > 1) { width = 1; fellBack = true; o.onFallback(job, e) }
                     overlapped.delete(job)
                     retry.push(job)
+                    if (o.order) retry.sort(o.order)
                     continue
                 }
                 let again = false

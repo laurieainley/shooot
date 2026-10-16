@@ -2,7 +2,7 @@
 // "Save to file…" buttons); with `RenderOptions.experiments` omitted the engines use their defaults (including parallel units, #1).
 
 export type RenderExperiments = {
-    /** #1: units encoded at the same time. The engine's default is PARALLEL_UNITS (2) for journaled renders; the bench forces 1, 2 or 3 here. */
+    /** #1: units encoded at the same time. The engine's default is PARALLEL_UNITS (2) for journaled renders and "Save to file…" renders; the bench forces 1, 2 or 3 here. */
     parallelUnits?: number
     /** #1: split cuts into units of this many seconds of output instead of SEGMENT_SEC (so there is something to run in parallel). */
     segmentSec?: number
