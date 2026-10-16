@@ -81,4 +81,10 @@ describe('runPool', () => {
         await expect(runPool({ jobs: [0, 1], width: 2, run: h.run, isAbort: abort, onFallback: () => undefined, onFatal: () => { fatal++ } })).rejects.toBeDefined()
         expect(fatal).toBe(1)
     })
+    it('should take units waiting to go again in the given order', async () => {
+        const order: number[] = []
+        const run = async (job: number): Promise<void> => { await tick(); if (job < 2 && !order.includes(-job - 1)) { order.push(-job - 1); throw new Error('x') } order.push(job) }
+        await runPool({ jobs: [0, 1], width: 2, run, isAbort: abort, onFallback: () => undefined, order: (a, b) => a - b })
+        expect(order.filter((x) => x >= 0)).toEqual([0, 1])
+    })
 })

@@ -172,8 +172,8 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                     const elapsed = deps.now() - startedAt
                     const priced = get().job?.id === id ? get().job!.estimateSec : undefined
                     // A run that reused parts of the last export is faster than the device is: it must not teach the learned rate.
-                    // A render into a picked file runs one unit at a time (parallel units need the journal): it must not teach the learned rate.
-                    if (priced && engine.started && engine.resumed === false && !get().job?.reused?.units && !req.targetFile) recordRender(output, priced, (deps.now() - engine.at) / 1000)
+                    // A render into a picked file records like any other: its units run in parallel as a journaled render's do (the ones ahead wait in memory), and it is never resumed or reused.
+                    if (priced && engine.started && engine.resumed === false && !get().job?.reused?.units) recordRender(output, priced, (deps.now() - engine.at) / 1000)
                     // Saved straight to disk: no object URL, no download.
                     const result = req.targetFile ? { file, url: '', downloaded: false, savedTo: req.targetFile.name } : (() => { const url = deps.createUrl(file); return { file, url, downloaded: deps.download(url, file.name) } })()
                     patch(id, { phase: 'done', fraction: 1, status: `Done in ${Math.max(1, Math.round(elapsed / 1000))} s`, result, finishedAt: deps.now() })

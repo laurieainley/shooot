@@ -119,7 +119,7 @@ export async function canJournal(kind: JobKind): Promise<boolean> {
 const unitName = (i: number): string => `u-${String(i).padStart(4, '0')}.bin`
 const FLUSH_BYTES = 4 * 1024 * 1024
 
-export type UnitWriter = { write: (r: LogRecord) => Promise<void>; close: () => Promise<void>; abort: () => Promise<void> }
+export type UnitWriter = { write: (r: LogRecord) => Promise<void>; close: () => Promise<void>; abort: (reason?: unknown) => Promise<void> }
 
 export async function openUnit(kind: JobKind, index: number): Promise<UnitWriter> {
     const d = await dir(kind, true)
