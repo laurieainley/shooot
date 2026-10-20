@@ -1,4 +1,5 @@
-import { classifyPointer, wheelZoomFactor } from '../utils/zoom'
+import { classifyPointer } from '../utils/zoom'
+import { wheelPace } from './wheelPace'
 import type { ZoomPan } from './useZoomPan'
 
 /**
@@ -81,13 +82,14 @@ export function attachPictureGestures(el: HTMLElement, zoom: () => ZoomPan, lock
     const onClick = (e: MouseEvent): void => {
         if (dragged) { e.stopPropagation(); e.preventDefault(); dragged = false }
     }
+    const wheelStep = wheelPace()
     const onWheel = (e: WheelEvent): void => {
         if (!onPicture(e)) return
         const z = zoom()
         if (!e.ctrlKey && z.zoom <= 1) return
         const rect = el.getBoundingClientRect()
         if (e.ctrlKey) {
-            z.zoomAt(wheelZoomFactor(e.deltaY, e.deltaMode), { x: e.clientX - rect.left - rect.width / 2, y: e.clientY - rect.top - rect.height / 2 })
+            z.zoomAt(wheelStep(e), { x: e.clientX - rect.left - rect.width / 2, y: e.clientY - rect.top - rect.height / 2 })
         } else {
             z.panBy(-e.deltaX, -e.deltaY)
         }
