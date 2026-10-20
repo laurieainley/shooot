@@ -2113,10 +2113,9 @@ button.tagcol__crumb:active { color: var(--sh-text); border-color: var(--sh-text
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); font-size: var(--sh-text-sm); font-weight: 600; white-space: nowrap; pointer-events: none;
 }
 .tv-moment__meta { color: rgb(243 241 234 / 0.8); }
-.tv-band .tv-moment { position: static; transform: none; order: 2; flex: 1 1 0; min-width: 0; flex-direction: column; align-items: center; gap: 0; padding: 6px 8px; border-radius: 14px; background: var(--sh-surface-2); color: var(--sh-text); border-color: var(--sh-line); white-space: normal; text-align: center; }
+.tv-band { position: relative; }
+.tv-band .tv-moment { position: absolute; transform: none; left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); top: 10px; height: 44px; box-sizing: border-box; justify-content: center; padding: 0 12px; background: var(--sh-surface-2); color: var(--sh-text); border: 1px solid var(--sh-line); border-radius: 999px; -webkit-backdrop-filter: none; backdrop-filter: none; z-index: 2; }
 .tv-band .tv-moment__meta { color: var(--sh-muted); }
-.tv-band .tv-left { order: 1; }
-.tv-band .tv-right { order: 3; }
 .tv-notgoal {
   min-width: 76px; min-height: 44px; padding: 0 12px; border-radius: 14px; border: 1px solid rgb(243 241 234 / 0.18); background: rgb(10 14 12 / 0.72); color: var(--sh-on-video);
   font: inherit; font-size: var(--sh-text-sm); font-weight: 700; cursor: pointer; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); white-space: nowrap;

@@ -20,7 +20,7 @@ export function FindGoalsChip() {
     return (
         <button type="button" className={`control-btn tv-chip tv-chip--${chip.state}`} aria-label={chip.state === 'idle' ? 'Find goals' : `Find goals: ${chip.label}`}
             onPointerDown={poke} onClick={() => openFindGoals()}>
-            {chip.state === 'found' && <span className="tv-chip__star" aria-hidden="true">★</span>}
+            {chip.state === 'found' && chip.label.includes('top') && <span className="tv-chip__star" aria-hidden="true">★</span>}
             <span>{chip.label}</span>
             {chip.state === 'idle' && <AiTag />}
         </button>

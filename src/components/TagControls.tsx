@@ -60,7 +60,7 @@ export function TagControls({ variant }: TagControlsProps) {
             {onMoment && !tagging && (
                 <div className={`tv-moment${fades}${onMoment.moment.ball ? ' tv-moment--top' : ''}`} role="status" aria-label={momentChipText(onMoment.moment, onMoment, matchClock(onMoment.moment.globalTimeSec, kick, long))}>
                     <span className="tv-moment__kind">{onMoment.moment.ball ? <><span className="tv-moment__star" aria-hidden="true">★</span> Top pick</> : 'Found moment'}</span>
-                    <span className="tv-moment__meta tc">{onMoment.index} of {onMoment.total} · {matchClock(onMoment.moment.globalTimeSec, kick, long)}</span>
+                    <span className="tv-moment__meta">{onMoment.index} of {onMoment.total} · <span className="tc">{matchClock(onMoment.moment.globalTimeSec, kick, long)}</span></span>
                 </div>
             )}
             {!tagging && (

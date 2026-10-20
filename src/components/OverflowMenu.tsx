@@ -98,6 +98,14 @@ function MenuBody({ setupInMenu, tagView = false }: MenuBodyProps) {
 
     return (
         <div role="menu" aria-label="Menu" className="menu-list">
+            {touchView && hasFiles && (
+                <div role="group" aria-label="Playback speed" className="menu-speeds">
+                    <span className="menu-speeds__label">Speed</span>
+                    {SPEEDS.map((r) => (
+                        <button key={r} type="button" className="menu-speeds__btn tc" aria-pressed={Math.abs(rate - r) < 0.01} onClick={() => { setPlayerRate(r); setRate(r) }}>{r}×</button>
+                    ))}
+                </div>
+            )}
             {tagView && (
                 <>
                     <button type="button" role="menuitem" onClick={() => { useAppState.getState().closePanel(); useTagUi.getState().setSheet('events') }}>Events list</button>
@@ -106,14 +114,6 @@ function MenuBody({ setupInMenu, tagView = false }: MenuBodyProps) {
                     <button type="button" role="menuitem" onClick={() => useAppState.getState().openPanel('files')}>Files{filesCount > 0 ? ` (${filesCount})` : ''}</button>
                     <button type="button" role="menuitem" onClick={() => { useAppState.getState().closePanel(); runPlayerShortcut('fullscreen') }}>{fullscreen ? 'Exit fullscreen' : 'Fullscreen'}</button>
                 </>
-            )}
-            {touchView && hasFiles && (
-                <div role="group" aria-label="Playback speed" className="menu-speeds">
-                    <span className="menu-speeds__label">Speed</span>
-                    {SPEEDS.map((r) => (
-                        <button key={r} type="button" className="menu-speeds__btn tc" aria-pressed={Math.abs(rate - r) < 0.01} onClick={() => { setPlayerRate(r); setRate(r) }}>{r}×</button>
-                    ))}
-                </div>
             )}
             {setupInMenu && ( // desktop and tablet have New match in the top bar
                 <button type="button" role="menuitem" onClick={() => { const b = switchBlocker(); if (b) setBlocker(b); else void startNewMatch() }}>New match…</button>
