@@ -669,6 +669,18 @@ describe('SuggestionReview', () => {
             fireEvent.click(screen.getByRole('button', { name: /^Find goals/ })) // through the start form
             expect(startDetectionMock).toHaveBeenCalledTimes(1)
         })
+        it('should pause a playing video when Find goals starts', () => {
+            stale(); withRange()
+            const toggle = vi.fn()
+            const off = registerPlayerToggle(toggle)
+            setPlayerPaused(false)
+            render(<SuggestionReview onClose={() => {}} />)
+            fireEvent.click(screen.getByRole('button', { name: 'Find goals' }))
+            fireEvent.click(screen.getByRole('button', { name: 'Clear and find goals' }))
+            fireEvent.click(screen.getByRole('button', { name: /^Find goals/ }))
+            expect(toggle).toHaveBeenCalledTimes(1)
+            off(); setPlayerPaused(true)
+        })
         it('should change nothing on Cancel', () => {
             stale()
             startDetectionMock.mockClear()

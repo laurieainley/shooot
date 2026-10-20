@@ -20,6 +20,8 @@ export function setPlayerPaused(p: boolean): void {
     pausedListeners.forEach((l) => l())
 }
 export function isPlayerPaused(): boolean { return paused }
+/** Pauses the player if it is playing (never starts it). */
+export function pausePlayer(): void { if (!paused) toggle?.() }
 export function usePlayerPaused(): boolean {
     return useSyncExternalStore((cb) => { pausedListeners.add(cb); return () => { pausedListeners.delete(cb) } }, isPlayerPaused, isPlayerPaused)
 }
