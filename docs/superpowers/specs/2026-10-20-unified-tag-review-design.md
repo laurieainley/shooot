@@ -1,6 +1,6 @@
 # Unified tag & review (video first on touch) — design
 
-Date: 2026-10-20 · Status: draft for user review · Prototype: `docs/superpowers/prototypes/review-tag-prototype.html`
+Date: 2026-10-20 · Status: approved (user: "Just build it", 2026-10-20) · Prototype: `docs/superpowers/prototypes/review-tag-prototype.html`
 (published privately at https://claude.ai/artifact/6Bm3A4aGa9jksRsP6QaG9y)
 
 ## Why
@@ -23,6 +23,10 @@ what happened. The user asked for one interface, video first, built around where
 6. **Names stay put.** Person choices are a compact two-column grid anchored at the bottom of the column (next to the thumb), A–Z,
    and never move between questions: on Assist the scorer stays in place, greyed out; a name added with "+ New name" goes at the
    end for this match (A–Z again next time), so nothing reorders while tagging.
+
+7. **A phone held sideways is this layout** (no top bar, no rail; events list, Match setup, Export, Files, Matches in ⋯), in
+   and out of fullscreen. Portrait keeps today's page with the new player band. (Accepted proposal.)
+8. **No replay loop:** jumping to a found moment starts 6 s before it; ⟲5 replays. (Accepted proposal.)
 
 ## The layout (landscape phone; tablet landscape the same with larger targets)
 
@@ -90,7 +94,7 @@ are not over the picture).
 ## Where it applies
 
 - **Phase 1–2: touch layouts** — phone portrait/landscape and tablets, in fullscreen and in the immersive landscape-phone view.
-  **Proposal for review:** on a phone held sideways the editor *is* this layout (no top bar, no rail; the events list and the rest
+  **Decided (7):** on a phone held sideways the editor *is* this layout (no top bar, no rail; the events list and the rest
   live in ⋯), since that is where tagging happens; portrait keeps today's page with the new player band.
 - **Desktop:** unchanged in phases 1–2 (keyboard flow, side panel review). Phase 3 (separate decision): found moments on the main
   strip with jump / discard keys for desktop too, retiring the review card everywhere.
