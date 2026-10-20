@@ -22,6 +22,8 @@ export type PickerInput =
     | { kind: 'key'; key: string }
     | { kind: 'choose'; value: string }
     | { kind: 'text'; value: string }
+    /** Touch Tag column: tap a breadcrumb to answer that question again. */
+    | { kind: 'goto'; step: 'type' | 'team' | 'scorer' }
 
 export type PickerEffect =
     | { kind: 'update'; patch: Partial<MatchEvent> }
@@ -156,6 +158,13 @@ export function pickerReducer(state: PickerState, input: PickerInput, ctx: Picke
             return { state: { ...next, highlighted: firstEnabled(next, ctx) }, effects: [] }
         }
         return state.step === 'text' ? { state: { ...state, query: input.value, highlighted: 0 }, effects: [] } : none
+    }
+
+    if (input.kind === 'goto') {
+        if (input.step === 'type') return { state: { ...state, step: 'type', highlighted: -1, query: '', team: undefined, scorer: undefined }, effects: [] }
+        if (input.step === 'team') return state.option.askTeam && hasTeams(ctx) ? { state: { ...state, step: 'team', highlighted: -1, query: '' }, effects: [] } : none
+        if (!state.option.askScorer || !state.team) return none
+        return { state: { ...state, step: 'scorer', highlighted: 0, query: '', scorer: undefined }, effects: [] }
     }
 
     if (input.kind === 'choose') {

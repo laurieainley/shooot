@@ -395,3 +395,33 @@ describe('pickerReducer — touch skips the optional note', () => {
         expect(r.state.step).toBe('text')
     })
 })
+
+describe('pickerReducer — goto (breadcrumbs on touch)', () => {
+    const choose = (value: string): PickerInput => ({ kind: 'choose', value })
+    it('should go back to the type step and ask for the team again', () => {
+        const r = run([choose('goal'), choose('Whites'), { kind: 'goto', step: 'type' }, choose('save')], touchCtx)
+        expect(r.state.step).toBe('team')
+        expect(r.state.team).toBeUndefined()
+        expect(r.state.option.id).toBe('save')
+    })
+    it('should go back to the team step keeping the type', () => {
+        const r = run([choose('goal'), choose('Whites'), { kind: 'goto', step: 'team' }], touchCtx)
+        expect(r.state.step).toBe('team')
+        expect(r.state.option.id).toBe('goal')
+        expect(r.effects.filter((e) => e.kind === 'close')).toEqual([])
+    })
+    it('should go back to the scorer from the assist step and ask for the assist again after', () => {
+        const r = run([choose('goal'), choose('Whites'), choose('Sam Taylor'), { kind: 'goto', step: 'scorer' }], touchCtx)
+        expect(r.state.step).toBe('scorer')
+        expect(r.state.scorer).toBeUndefined()
+        const again = pickerReducer(r.state, choose('Sandy Wu'), touchCtx)
+        expect(again.state.step).toBe('assist')
+        expect(isDisabledName(again.state, 'Sandy Wu')).toBe(true)
+    })
+    it('should ignore a jump to a question this type does not ask', () => {
+        const r = run([choose('kick_off'), { kind: 'goto', step: 'scorer' }], touchCtx)
+        expect(r.state.step).toBe('type')
+        const noTeam = pickerReducer(initialPickerState, { kind: 'goto', step: 'scorer' }, touchCtx)
+        expect(noTeam.state).toBe(initialPickerState)
+    })
+})
