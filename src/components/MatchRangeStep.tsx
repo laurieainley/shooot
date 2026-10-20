@@ -4,14 +4,15 @@ import { startDetection } from '../detectJobs'
 import { finalWhistleSec, markerGlobalSec } from '../utils/matchClock'
 import { globalToFileTime } from '../utils/matchStrip'
 import { formatClock } from '../utils/timeline'
-import { seekPlayerPaused, togglePlayerPlayback } from './playerControl'
+import { pausePlayer, seekPlayerPaused, togglePlayerPlayback } from './playerControl'
 import { rangeIsValid, setRangeStep } from './findGoals'
 import { FIND_GOALS_INTRO } from '../utils/voice'
 import { GoalSetup } from './goalSetup/GoalSetup'
 
 type Marker = 'kick_off' | 'final_whistle'
 
-const start = (ball: boolean, wholeVideo = false): void => { setRangeStep(false); startDetection({ ...(wholeVideo ? { wholeVideo } : {}), ball }) }
+// Starting pauses playback: the first moment opens at its own time, and a 4K video playing alongside the analysis stutters.
+const start = (ball: boolean, wholeVideo = false): void => { pausePlayer(); setRangeStep(false); startDetection({ ...(wholeVideo ? { wholeVideo } : {}), ball }) }
 
 /** Tags a marker at the playhead (file + time). */
 function tagHere(type: Marker): void {
