@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { DOUBLE_TAP_MS, NO_TAPS, resolveTap, type Tap, type TapMemory, type TapZone } from '../utils/tap'
-import { Fab } from './Fab'
 import { useAppState } from '../state'
 import { effectiveStatus } from '../utils/suggestions'
 import { reopenReview, useSuggestionsCurrent } from './findGoals'
+import { Fab } from './Fab'
+import { OverflowMenu } from './OverflowMenu'
+import { TagControls } from './TagControls'
+import { useTagUi, useTagViewMode } from './tagView'
 import { useFullscreenUi } from './fullscreenUi'
 import { usePlayerPaused } from './playerControl'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
@@ -21,6 +24,7 @@ type OverlayPlayer = {
 
 interface FullscreenControlsProps {
     playerRef: React.MutableRefObject<OverlayPlayer | null>
+    /** The picture fills the screen: real or CSS fullscreen, or the immersive touch view. */
     isFullscreen: boolean
 }
 
@@ -44,6 +48,9 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
     // Touch: the fullscreen tag box is a right-hand column that would cover the top-right buttons (it has its own Cancel).
     const tagging = useAppState((s) => s.picker !== null)
     const reviewShown = useFullscreenUi((s) => s.columnPanel === 'review') // the review has Mark moment / Confirm: a second ＋ would only duplicate them
+    const mode = useTagViewMode()
+    const overlayView = coarse && mode === 'overlay'
+    const poke = useTagUi((s) => s.poke)
     const lockedRef = useRef(locked)
     lockedRef.current = locked
     const paused = usePlayerPaused()
@@ -70,9 +77,13 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
         else player.pause()
     }
 
-    /** A single tap on the picture: play / pause, unless locked (then it only shows the controls). Three in 5 s hint at the lock. */
+    /** A single tap on the picture: play / pause, unless locked (then it only shows / hides the controls). Three in 5 s hint at the lock. */
     const tapToggle = (): void => {
-        if (lockedRef.current) return
+        if (lockedRef.current) {
+            if (overlayView) { const ui = useTagUi.getState(); if (ui.controlsVisible) ui.setControlsVisible(false); else ui.poke() }
+            return
+        }
+        if (overlayView) poke()
         togglePlay()
         if (!coarse || !isFullscreen) return
         const now = Date.now()
@@ -88,6 +99,7 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
     const handleTap = (zone: TapZone): void => {
         const player = playerRef.current
         player?.userActive?.(true) // our layer swallows the tap, so show the control bar ourselves
+        if (overlayView) poke()
         const tap: Tap = { time: Date.now(), zone }
         if (singleTapTimerRef.current) {
             clearTimeout(singleTapTimerRef.current)
@@ -133,7 +145,7 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
 
             {/* Touch: our own button, always visible and hittable (the control bar's is hidden before the first
                 play and swallows the first tap while idle). Enters synchronously inside the tap gesture. */}
-            {coarse && !isFullscreen && (
+            {coarse && !isFullscreen && mode !== 'overlay' && (
                 <div className="overlay-controls top-right">
                     <button type="button" aria-label="Fullscreen" className="control-btn fs-btn" onClick={() => playerRef.current?.requestFullscreen?.()}>
                         <FsIcon />
@@ -143,7 +155,7 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
 
             {isFullscreen && (
                 <>
-                    {!(coarse && tagging) && <div className="overlay-controls top-right">
+                    {!(coarse && tagging) && <div className={`overlay-controls top-right${overlayView ? ' tv-fades tv-top' : ''}`} onPointerDown={overlayView ? poke : undefined}>
                         <button type="button" aria-label="Slower" className="control-btn speed-btn" onClick={() => setRate(Math.max(0.25, currentRate() - 0.25))}>
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 19l-7-7 7-7" /></svg>
                         </button>
@@ -161,13 +173,14 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
                             </button>
                         )}
                         {coarse && <ReviewButton />}
-                        {coarse && (
+                        {coarse && !overlayView && (
                             <button type="button" aria-label="Exit fullscreen" className="control-btn fs-btn" onClick={() => playerRef.current?.exitFullscreen?.()}>
                                 <FsIcon exit />
                             </button>
                         )}
+                        {overlayView && <OverflowMenu layout="landscape" tagView />}
                     </div>}
-                    {!reviewShown && <Fab />}
+                    {overlayView ? <TagControls variant="overlay" /> : !reviewShown && <Fab />}
                 </>
             )}
         </div>

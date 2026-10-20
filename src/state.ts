@@ -130,6 +130,8 @@ export type AppState = {
     commitPending: () => void
     openPicker: (eventId: string) => void
     closePicker: () => void
+    /** Touch Tag column: the frame buttons move the stamped time while it is open (no undo step: the tag itself is one). */
+    retimePicker: (timeInFileSec: number) => void
     /** Landscape phones: the top bar folded away for more picture. */
     barCollapsed: boolean
     setBarCollapsed: (collapsed: boolean) => void
@@ -575,6 +577,14 @@ export const useAppState = create<AppState>()(
             },
             openPicker: (eventId) => set({ picker: { eventId }, panel: get().panel === 'review' ? 'review' : null }),
             closePicker: () => set({ picker: null }),
+            retimePicker: (timeInFileSec) => {
+                const picker = get().picker
+                if (!picker) return
+                const matchTimeSec = Math.max(0, Math.floor(timeInFileSec))
+                const sourceFileIndex = get().currentFileIndex
+                if (picker.pending) { set({ picker: { ...picker, pending: { matchTimeSec, sourceFileIndex } } }); return }
+                set({ events: get().events.map((e) => (e.id === picker.eventId ? { ...e, matchTimeSec, sourceFileIndex } : e)) })
+            },
             setGraphics: (partial) => set({ graphics: normaliseGraphics({ ...get().graphics, ...partial }, get().graphics) }),
             fullMatch: { cards: true, scoreBug: 'goals', intervalMin: 5, captions: true, replays: false, quality: 'original' },
             exportTab: 'highlights',

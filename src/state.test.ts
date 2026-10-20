@@ -120,6 +120,22 @@ describe('teams and picker', () => {
             expect(s().events).toHaveLength(1)
         })
 
+        it('should move the stamped time of a pending mark and of the event once it exists, without undo steps', () => {
+            s().markEvent(10, { deferred: true })
+            s().retimePicker(11.7)
+            expect(s().picker?.pending).toEqual({ matchTimeSec: 11, sourceFileIndex: 0 })
+            s().commitPending()
+            const undo = s().undoStack.length
+            s().retimePicker(9.2)
+            expect(s().events[0].matchTimeSec).toBe(9)
+            expect(s().undoStack).toHaveLength(undo)
+        })
+
+        it('should do nothing on retimePicker with no picker open', () => {
+            s().retimePicker(5)
+            expect(s().events).toEqual([])
+        })
+
         it('should do nothing on commitPending without a pending mark', () => {
             s().commitPending()
             expect(s().events).toEqual([])

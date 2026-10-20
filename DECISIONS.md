@@ -11,6 +11,10 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-20
 
+- **User: unified tag & review, video first on touch** (spec `2026-10-20-unified-tag-review-design.md`, approved "Just build it"): one
+  Tag button (pauses), questions in a column at the right edge, Find goals as rings on the main timeline, thumb-zone controls, names
+  never move; a phone held sideways is this layout; no replay loop. Phase 1 (overlay player, Tag column, person grid) merged. Agent:
+  a tap on the picture stays play/pause so the playback lock keeps its meaning.
 - **User: touch fullscreen panels sit beside the picture, never over it** (left of a right-hand column in landscape; top 40% above a
   60% panel in portrait); the ＋ hides while the Find goals review is visible; the lock icon shows play/pause beside the padlock.
   Supersedes decisions 4–6 of `2026-10-13-mobile-review-fullscreen-design.md` (panels overlay the picture). Why: on a real Android

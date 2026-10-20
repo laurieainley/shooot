@@ -1,6 +1,7 @@
 import { CloseButton } from './CloseButton'
 import { useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { portalRoot } from './portalRoot'
 
 interface SheetProps {
     label: string
@@ -51,6 +52,6 @@ export function Sheet({ label, onClose, children, className = '', badge, persist
                 <div className="sheet__body">{children}</div>
             </div>
         </div>,
-        document.body,
+        portalRoot(),
     )
 }

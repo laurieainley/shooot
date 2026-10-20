@@ -20,8 +20,8 @@ function setWidth(desktop: boolean): void {
 }
 
 /** A phone on its side: short and (for 915×412) possibly wider than 900px. */
-function setLandscape(wide = false): void {
-    setMedia({ desktop: wide, coarse: true, landscape: true })
+function setLandscape(wide = false, coarse = true): void {
+    setMedia({ desktop: wide, coarse, landscape: true })
 }
 
 describe('AppShell', () => {
@@ -46,18 +46,27 @@ describe('AppShell', () => {
         expect(screen.queryByRole('button', { name: 'Tag event' })).not.toBeInTheDocument()
     })
 
-    it('should stack the phone layout with a mark-event button under 900px', async () => {
+    it('should stack the phone layout with the Tag band under the strip under 900px', async () => {
         setWidth(false)
-        render(<AppShell />)
+        const { container } = render(<AppShell />)
+        expect(container.querySelector('.tv-band')).toContainElement(screen.getByRole('button', { name: 'Tag this moment' }))
+        expect(screen.queryByRole('button', { name: 'Tag event' })).not.toBeInTheDocument() // the ＋ is gone on touch
         expect(screen.queryByRole('complementary', { name: 'Event rail' })).not.toBeInTheDocument()
         expect(screen.queryByText('tag')).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Keyboard shortcuts' })).not.toBeInTheDocument()
         expect(screen.getByRole('region', { name: 'Events' })).toBeInTheDocument()
-        await userEvent.click(screen.getByRole('button', { name: 'Tag event' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Tag this moment' }))
         // The time is captured, but no event exists until a type is chosen
         expect(useAppState.getState().events).toEqual([])
         expect(useAppState.getState().picker?.pending).toEqual({ matchTimeSec: 12, sourceFileIndex: 0 })
-        expect(screen.queryByRole('button', { name: 'Tag event' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Tag this moment' })).not.toBeInTheDocument()
+    })
+
+    it('should keep the ＋ and no band for a mouse in a narrow window', () => {
+        setMedia({ desktop: false, coarse: false })
+        const { container } = render(<AppShell />)
+        expect(screen.getByRole('button', { name: 'Tag event' })).toBeInTheDocument()
+        expect(container.querySelector('.tv-band')).toBeNull()
     })
 
     it('should open the files from the top bar and Match setup from the overflow menu on the phone', async () => {
@@ -139,11 +148,32 @@ describe('AppShell', () => {
         expect(screen.getByRole('button', { name: 'Exit' })).toBeInTheDocument()
     })
 
-    describe('landscape phone', () => {
-        it.each([false, true])('should put the video and match strip beside the event rail (wider than 900px: %s)', (wide) => {
+    describe('touch view: a phone held sideways', () => {
+        it.each([false, true])('should be the immersive layout: no top bar, no match strip beside the rail, no ＋ (wider than 900px: %s)', (wide) => {
             setLandscape(wide)
             const { container } = render(<AppShell />)
+            expect(container.firstElementChild).toHaveClass('shell--tagview')
+            expect(container.querySelector('.top-bar')).toBeNull()
+            expect(container.querySelector('.bay__left > .match-strip')).toBeNull() // the strip lives in the player here
+            expect(screen.queryByRole('button', { name: 'Tag event' })).not.toBeInTheDocument()
+            expect(container.querySelector('.bay__left')).toContainElement(screen.getByTestId('player'))
+        })
+
+        it('should keep today\'s layout until a video is loaded (Choose files is in the top bar)', () => {
+            setLandscape()
+            useAppState.setState({ files: [], cumulativeOffsets: [] })
+            const { container } = render(<AppShell />)
+            expect(container.firstElementChild).not.toHaveClass('shell--tagview')
+            expect(container.querySelector('.top-bar')).not.toBeNull()
+        })
+    })
+
+    describe('landscape phone with a mouse (a short window): today\'s layout, unchanged', () => {
+        it.each([false, true])('should put the video and match strip beside the event rail (wider than 900px: %s)', (wide) => {
+            setLandscape(wide, false)
+            const { container } = render(<AppShell />)
             expect(container.firstElementChild).toHaveClass('shell--landscape')
+            expect(container.firstElementChild).not.toHaveClass('shell--tagview')
             const rail = screen.getByRole('complementary', { name: 'Event rail' })
             expect(rail).toContainElement(screen.getByRole('region', { name: 'Events' }))
             const left = container.querySelector('.bay__left')
@@ -152,7 +182,7 @@ describe('AppShell', () => {
         })
 
         it('should use the compact top bar: a Files count, no Setup button, no key hints', () => {
-            setLandscape(true)
+            setLandscape(true, false)
             render(<AppShell />)
             expect(screen.getByRole('button', { name: /^Files/ })).toHaveTextContent(/^1$/)
             expect(screen.queryByRole('button', { name: 'Match setup' })).not.toBeInTheDocument()
@@ -162,7 +192,7 @@ describe('AppShell', () => {
         })
 
         it('should keep the ＋ mark button in the rail, off the video', async () => {
-            setLandscape()
+            setLandscape(false, false)
             const { container } = render(<AppShell />)
             const fab = screen.getByRole('button', { name: 'Tag event' })
             expect(container.querySelector('.stage')).not.toContainElement(fab)
@@ -171,7 +201,7 @@ describe('AppShell', () => {
         })
 
         it('should float the preview bar over the picture rather than stacking it below', () => {
-            setLandscape()
+            setLandscape(false, false)
             useAppState.setState({ isPreviewMode: true, previewSegments: [], previewSteps: [{ sourceIndex: 0, startSec: 0, endSec: 10, speed: 1, gain: 1, replay: false, clipIndex: 0, eventIds: [] }], currentPreviewSegment: 0 })
             const { container } = render(<AppShell />)
             expect(container.querySelector('.stage')).toContainElement(screen.getByRole('group', { name: 'Preview' }))
@@ -218,8 +248,8 @@ describe('AppShell', () => {
     })
 
     describe('top bar out of the way', () => {
-        it('should collapse the top bar in landscape and bring it back from the handle', async () => {
-            setLandscape()
+        it('should collapse the top bar in a short window and bring it back from the handle', async () => {
+            setLandscape(false, false)
             useAppState.setState({ barCollapsed: false })
             const { container } = render(<AppShell />)
             await userEvent.click(screen.getByRole('button', { name: 'Hide top bar' }))

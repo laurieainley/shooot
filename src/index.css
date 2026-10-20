@@ -61,6 +61,14 @@
 
 @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { color-scheme: light; } }
 
+/* The touch view's player (App.css .player-container--tagview): everything over footage is dark in both themes, so the
+   dark brand values apply inside it (token resets only; they add no lime usage, see utils/limeUsage.test.ts). */
+.player-container--tagview {
+  color-scheme: dark;
+  --sh-ground: #0B0F0D; --sh-surface: #141B17; --sh-surface-2: #1A2420; --sh-line: #24302A; --sh-text: #F3F1EA; --sh-muted: #8E9A92;
+  --sh-lime-text: #A8F03C; --sh-lime-edge: var(--sh-lime); --sh-goal-fill: none;
+}
+
 @theme {
   --color-ground: var(--sh-ground);
   --color-surface: var(--sh-surface);

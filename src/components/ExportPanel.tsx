@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useRef, type KeyboardEvent } from 'react'
 import { useAppState } from '../state'
 import { useRenderJobs } from '../renderJobs'
 import { DescriptionCopy } from './DescriptionCopy'
@@ -13,28 +13,14 @@ import { ReelSummary } from './ReelSummary'
 import { ThumbnailMaker } from './ThumbnailMaker'
 import { YouTubeUpload } from './YouTubeUpload'
 import { getTheme } from '../graphics/themes'
+import { useExportButtonStatus } from './useExportButtonStatus'
 import { clipsSummary, graphicsSummary } from '../utils/renderSummary'
-import { exportButtonStatus, SHOW_DONE_MS, type ExportButtonStatus } from '../utils/exportButton'
 
 const TABS = [
     { id: 'highlights', label: 'Highlights' },
     { id: 'fullMatch', label: 'Full match' },
 ] as const
 
-/** The render job as the Export button shows it: percentage while running, briefly "ready" / "failed" after (re-evaluated when that window ends). */
-function useExportButtonStatus(): ExportButtonStatus {
-    const job = useRenderJobs((s) => s.job)
-    const [, tick] = useState(0)
-    const finishedAt = job?.finishedAt ?? null
-    useEffect(() => {
-        if (finishedAt === null) return
-        const left = finishedAt + SHOW_DONE_MS - Date.now()
-        if (left <= 0) return
-        const t = setTimeout(() => tick((n) => n + 1), left + 20)
-        return () => clearTimeout(t)
-    }, [finishedAt])
-    return exportButtonStatus(job, Date.now())
-}
 
 /** The one place output happens: the highlights reel (preview, graphics, render) or the full match, and their YouTube text. */
 export function ExportPanel() {
