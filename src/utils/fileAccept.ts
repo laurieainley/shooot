@@ -50,3 +50,7 @@ export function acceptAttr(): string | undefined {
 export function onIOS(): boolean {
     return isIOS(currentEnv())
 }
+
+export function onAndroid(): boolean {
+    return isAndroid(currentEnv())
+}

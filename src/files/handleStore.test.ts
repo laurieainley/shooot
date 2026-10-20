@@ -7,7 +7,7 @@ vi.mock('idb-keyval', () => ({
     del: vi.fn(async (k: string) => { db.delete(k) }),
 }))
 
-import { clearHandles, loadHandles, reopenHandles, rememberHandles, type StoredHandle } from './handleStore'
+import { clearHandles, filePicker, loadHandles, reopenHandles, rememberHandles, type StoredHandle } from './handleStore'
 
 const handle = (name: string, permission: PermissionState = 'granted', after: PermissionState = permission): StoredHandle => ({
     kind: 'file', name,
@@ -43,5 +43,18 @@ describe('handleStore', () => {
         await rememberHandles([handle('a.mp4')])
         await clearHandles()
         expect(await loadHandles()).toEqual([])
+    })
+})
+
+describe('filePicker', () => {
+    const setUA = (ua: string): void => { vi.stubGlobal('navigator', { userAgent: ua, platform: 'Linux armv8l', maxTouchPoints: 5 }) }
+    beforeEach(() => { vi.unstubAllGlobals(); vi.stubGlobal('window', { showOpenFilePicker: vi.fn() }) })
+    it('should use the system picker on desktop Chrome', () => {
+        setUA('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/141.0 Safari/537.36')
+        expect(filePicker()).not.toBeNull()
+    })
+    it('should not use it on Android, where it greys out .LRV files (no MIME type)', () => {
+        setUA('Mozilla/5.0 (Linux; Android 15; Pixel 8) AppleWebKit/537.36 Chrome/141.0 Mobile Safari/537.36')
+        expect(filePicker()).toBeNull()
     })
 })

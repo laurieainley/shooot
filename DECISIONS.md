@@ -9,6 +9,12 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ---
 
+## 2026-10-20
+
+- **Agent (user OK'd the fix): Android never uses `showOpenFilePicker`** for match videos; Add files opens the plain input with no
+  `accept`. Why: Chrome on Android now has the File System Access picker, and its type filter greyed out `.LRV` proxies when
+  adding new videos. Cost: no handle-based one-click relink on Android (it never worked there). Detail: `files/handleStore.ts`.
+
 ## 2026-10-15
 
 - **User: TNF keeps the dark purple plates** (charcoal shown side by side and not chosen; the `PALETTES.charcoal` swap stays
