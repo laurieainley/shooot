@@ -472,6 +472,7 @@
     width: 100%; max-height: calc(88dvh - var(--kb, 0px)); border-radius: var(--sh-radius-lg) var(--sh-radius-lg) 0 0; border-width: 1px 0 0;
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+  .sheet.sheet--steps { width: 100%; }
   .team-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-height: 500px) {
@@ -589,6 +590,24 @@
   .kb-open .sheet--steps .steps { top: 0; }
 }
 @media (max-height: 700px), (max-width: 899px) { .steps__panel { min-height: 0; } }
+/* Phones (portrait and on their side): New match is a full-screen layer, edge to edge inside the safe areas. The title bar and
+   step tabs stay at the top, the form scrolls, Back / Next stay at the bottom above the keyboard (--kb). The .sheet--steps width
+   (92vw) used to beat the bottom-sheet's 100%, which left the window against the left edge with a gap on the right. */
+.sheet-backdrop:has(.sheet--full) {
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); place-items: stretch;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) calc(env(safe-area-inset-bottom, 0px) + var(--kb, 0px)) env(safe-area-inset-left, 0px);
+  background: var(--sh-surface);
+}
+.sheet.sheet--full {
+  width: 100%; max-width: none; height: 100%; max-height: none; border: 0; border-radius: 0; box-shadow: none; padding-bottom: 0;
+  display: flex; flex-direction: column;
+}
+.sheet--full > .sheet__body { flex: 1 0 auto; display: flex; flex-direction: column; padding: 0 16px; }
+.sheet--full .steps { position: sticky; top: 45px; z-index: 1; margin: 0 -16px; padding: 8px 16px 0; background: var(--sh-surface); }
+.kb-open .sheet--full .steps { top: 0; }
+.sheet--full .steps__panel { flex: 1 0 auto; padding: 16px 0; }
+.sheet--full .steps__nav { margin: 0 -16px; padding: 12px 16px; }
+.sheet.sheet--full { scroll-padding-top: 100px; }
 .steps__lead { margin: 0; max-width: 65ch; font-size: var(--sh-text-md); line-height: 1.5; color: var(--sh-muted); }
 .steps__videos { display: grid; gap: 16px; max-width: 640px; align-content: start; }
 .steps__drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 180px; border: 1px dashed var(--sh-line); border-radius: var(--sh-radius-md); background: var(--sh-surface-2); }

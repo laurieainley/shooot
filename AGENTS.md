@@ -215,6 +215,8 @@ npm run lint       # baseline: 12 known problems — add none
   close it, only ✕). The Videos step reuses the Files sheet's `FileList` (reorder, durations by the name). Rosters are a
   lineup: one player per line with a mini shirt in the kit colour and "N players". Fields are sized for their content.
   Each step opens at its top; on short screens (max-height 560px) the step tabs stay pinned under the title bar.
+  On phone layouts (`phone` / `landscape`) it is a full-screen layer (`sheet--full`: edge to edge inside the safe areas, tabs
+  pinned, Back/Next at the bottom above the keyboard) and Android Back closes it like ✕ (one history entry).
 - **Matches list:** Sort (Last edited default, Least recently edited, Newest / Oldest by match date, A–Z / Z–A; per
   device in localStorage); the open match has an "Open" pill. `updatedAt` moves only on a real edit (`isEdit`: content
   and file keys/order; not a relink, refreshed file details or reformatted events).
@@ -330,7 +332,7 @@ npm run lint       # baseline: 12 known problems — add none
     `prefers-reduced-motion`, never red-vs-green alone to distinguish meanings.
 - **Picture gestures** (`components/pictureGestures.ts`): while zoomed, mouse drag or **one finger** pans (a tap still plays /
   pauses); two fingers pinch-zoom (1×–4×) and pan; wheel / trackpad pinch zooms. Leaving the page while a render or
-  Find goals is running asks first (`useLeaveWarning`).
+  Find goals is running asks first (`useLeaveWarning`). Starting Find goals pauses a playing video (`pausePlayer`).
 - **Keyboard:** one window-level handler (`Player.tsx` + `utils/shortcuts.ts` + `components/playerShortcuts.ts`);
   shortcuts work wherever focus is, except in text fields/menus/tabs, controls inside a dialog (`[role=dialog]`,
   `[aria-modal]` — dialogs own their keys), or while a picker/sheet is open. The event log ignores keys from portalled
@@ -471,6 +473,11 @@ npm run lint       # baseline: 12 known problems — add none
 3. Render changes: real renders of generated media; `ffmpeg -v error -f null -` must print nothing; extract frames and
    look; for splices also check AVFoundation (QuickTime) decoding.
 4. Report what was verified, what wasn't, and anything that needs a real device.
+
+### Agent rules and briefs
+- Shared subagent rules: `docs/superpowers/agents/common-rules.md`; task briefs in `docs/superpowers/agents/briefs/`. Never keep
+  rules, briefs or reusable scripts only in a temp folder (macOS purges /private/tmp): the session scratchpad is for
+  screenshots, logs and test media.
 
 ### Test media, disk, processes
 - Generate small media with ffmpeg in the session scratchpad (≤ 30 s, 720p unless the test needs 4K/HEVC levels).
