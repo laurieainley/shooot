@@ -11,6 +11,9 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-20
 
+- **User: touch view gestures** — turning a phone sideways fills the screen automatically (real fullscreen on the first tap: browsers
+  need a gesture); a single tap only shows/hides the controls (no tap-to-play, no double-tap seek or fullscreen, no Lock); rotating
+  resets zoom so the whole picture shows. Supersedes the 2026-10-20 agent choice to keep tap = play/pause.
 - **Unified tag & review phase 2 merged** (per the approved spec): on touch Find goals is a chip + sheet; found moments are reviewed by
   watching (jump, Tag confirms, Not a goal rejects); the review card stays on desktop only; speeds move into ⋯ on touch. Agent: the
   Not a goal slot is always reserved so Tag never moves.

@@ -34,8 +34,9 @@ const HINT_WINDOW_MS = 5000
 const HINT_GLOW_MS = 1600
 
 /**
- * Touch layer over the picture (touch screens, and fullscreen everywhere): a single tap toggles playback,
- * a double tap on the left / right third seeks −5 s / +5 s. Fullscreen adds speed buttons and the ＋ mark button.
+ * Touch layer over the picture. Touch view (phone / tablet with a video): one tap area, a tap shows or hides the controls; play,
+ * seek and fullscreen have their own buttons. Elsewhere (mouse fullscreen): a single tap toggles playback, a double tap on the
+ * left / right third seeks −5 s / +5 s, and fullscreen adds speed buttons and the ＋ mark button.
  */
 export function FullscreenControls({ playerRef, isFullscreen }: FullscreenControlsProps) {
     const [playbackSpeed, setPlaybackSpeed] = useState(1)
@@ -49,6 +50,7 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
     const reviewShown = useFullscreenUi((s) => s.columnPanel === 'review') // the review has Mark moment / Confirm: a second ＋ would only duplicate them (desktop fullscreen)
     const mode = useTagViewMode()
     const overlayView = coarse && mode === 'overlay'
+    const touchView = coarse && mode !== 'off' // the touch view: explicit buttons, a tap only shows / hides them, no double taps
     const poke = useTagUi((s) => s.poke)
     const lockedRef = useRef(locked)
     lockedRef.current = locked
@@ -95,7 +97,16 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
         }
     }
 
+    /** Touch view: a tap on the picture shows or hides the controls. Nothing plays, seeks or toggles fullscreen. */
+    const tapControls = (): void => {
+        if (!overlayView) return
+        const ui = useTagUi.getState()
+        if (ui.controlsVisible) ui.setControlsVisible(false)
+        else ui.poke()
+    }
+
     const handleTap = (zone: TapZone): void => {
+        if (touchView) { tapControls(); return }
         const player = playerRef.current
         player?.userActive?.(true) // our layer swallows the tap, so show the control bar ourselves
         if (overlayView) poke()
@@ -134,13 +145,17 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
 
     return (
         <div className={`fullscreen-overlay ${isFullscreen ? 'fullscreen-overlay--fullscreen' : 'fullscreen-overlay--normal'}`}>
-            <div className="tap-zone tap-zone-left" onClick={() => handleTap('left')}>
-                {tapFeedback?.side === 'left' && <SeekFeedback side="left" />}
-            </div>
-            <div className="tap-zone tap-zone-centre" onClick={() => handleTap('centre')} />
-            <div className="tap-zone tap-zone-right" onClick={() => handleTap('right')}>
-                {tapFeedback?.side === 'right' && <SeekFeedback side="right" />}
-            </div>
+            {touchView ? <div className="tap-zone tap-zone-all" onClick={() => handleTap('centre')} /> : (
+                <>
+                    <div className="tap-zone tap-zone-left" onClick={() => handleTap('left')}>
+                        {tapFeedback?.side === 'left' && <SeekFeedback side="left" />}
+                    </div>
+                    <div className="tap-zone tap-zone-centre" onClick={() => handleTap('centre')} />
+                    <div className="tap-zone tap-zone-right" onClick={() => handleTap('right')}>
+                        {tapFeedback?.side === 'right' && <SeekFeedback side="right" />}
+                    </div>
+                </>
+            )}
 
             {/* Touch: our own button, always visible and hittable (the control bar's is hidden before the first
                 play and swallows the first tap while idle). Enters synchronously inside the tap gesture. */}
@@ -169,7 +184,7 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
                                 </button>
                             </>
                         )}
-                        {coarse && (
+                        {coarse && !touchView && (
                             <button type="button" aria-label={locked ? 'Unlock playback' : 'Lock playback'} aria-pressed={locked}
                                 className={`control-btn lock-btn${locked ? ' lock-btn--on' : ''}${hint ? ' lock-btn--hint' : ''}`}
                                 onClick={() => useFullscreenUi.getState().setPlaybackLocked(!locked)}>

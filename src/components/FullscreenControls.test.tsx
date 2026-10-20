@@ -6,6 +6,7 @@ import { useAppState } from '../state'
 import { setCoarsePointer, setMedia } from '../test/pointer'
 import { useFullscreenUi } from './fullscreenUi'
 import { setPlayerPaused } from './playerControl'
+import { useTagUi } from './tagView'
 
 function fakePlayer() {
     let paused = true
@@ -254,10 +255,48 @@ describe('FullscreenControls on touch, fullscreen: found moments are on the time
         fireEvent.click(chip)
         expect(useAppState.getState().panel).toBe('review')
     })
-    it('should keep the playback lock and drop the speed buttons (speeds live in the menu)', () => {
-        const { getByRole, queryByRole } = render(<FullscreenControls playerRef={{ current: fs() }} isFullscreen />)
-        expect(getByRole('button', { name: 'Lock playback' })).toBeTruthy()
+    it('should have no playback lock (a tap no longer plays) and no speed buttons (speeds live in the menu)', () => {
+        const { queryByRole } = render(<FullscreenControls playerRef={{ current: fs() }} isFullscreen />)
+        expect(queryByRole('button', { name: /playback/ })).toBeNull()
         expect(queryByRole('button', { name: 'Slower' })).toBeNull()
         expect(queryByRole('button', { name: 'Faster' })).toBeNull()
+    })
+})
+
+describe('FullscreenControls picture taps in the touch view', () => {
+    beforeEach(() => {
+        vi.useFakeTimers()
+        setMedia({ coarse: true, landscape: true })
+        useAppState.setState({ files: [{ id: 'a', name: 'a.mp4', url: '', file: new File([''], 'a.mp4'), durationSec: 600, kind: 'full' }], events: [], suggestions: [], suggestionRun: null, panel: null, picker: null })
+        useTagUi.setState({ controlsVisible: true, pokes: 0 })
+    })
+    afterEach(() => { vi.useRealTimers(); setCoarsePointer(false); useAppState.setState({ files: [] }) })
+
+    it('should not play or pause on a tap, only show the controls', () => {
+        const player = fakePlayer()
+        const { container } = render(<FullscreenControls playerRef={{ current: player }} isFullscreen />)
+        act(() => { useTagUi.setState({ controlsVisible: false }) })
+        fireEvent.click(container.querySelector('.tap-zone')!)
+        act(() => { vi.advanceTimersByTime(400) })
+        expect(player.play).not.toHaveBeenCalled()
+        expect(player.pause).not.toHaveBeenCalled()
+        expect(useTagUi.getState().controlsVisible).toBe(true)
+    })
+    it('should hide the controls on a tap while they are showing', () => {
+        const player = fakePlayer()
+        const { container } = render(<FullscreenControls playerRef={{ current: player }} isFullscreen />)
+        fireEvent.click(container.querySelector('.tap-zone')!)
+        expect(useTagUi.getState().controlsVisible).toBe(false)
+    })
+    it('should have one tap area and no double-tap seek or toggle', () => {
+        const player = fakePlayer()
+        const { container } = render(<FullscreenControls playerRef={{ current: player }} isFullscreen />)
+        expect(container.querySelectorAll('.tap-zone')).toHaveLength(1)
+        expect(container.querySelector('.tap-zone-left')).toBeNull()
+        const zone = container.querySelector('.tap-zone')!
+        fireEvent.click(zone); fireEvent.click(zone); fireEvent.doubleClick(zone)
+        act(() => { vi.advanceTimersByTime(1000) })
+        expect(player.currentTime).not.toHaveBeenCalledWith(expect.any(Number))
+        expect(player.play).not.toHaveBeenCalled()
     })
 })
