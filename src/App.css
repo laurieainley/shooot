@@ -2018,7 +2018,7 @@ html:has(.player-container--tagview), body:has(.player-container--tagview) { ove
 .control-btn.tv-menu-btn { position: relative; min-width: 44px; min-height: 44px; justify-content: center; gap: 6px; font-size: var(--sh-text-sm); }
 .tv-menu-btn__live { display: inline-flex; align-items: center; gap: 4px; font-size: var(--sh-text-sm); }
 .player-container--tagview .zoom-chip { top: calc(72px + env(safe-area-inset-top, 0px)); bottom: auto; left: auto; right: max(10px, env(safe-area-inset-right, 0px)); }
-.player-container--tagview .play-indicator { display: none; } /* the Play button says it */
+.player-container--tagview .play-indicator, .player-container--band .play-indicator { display: none; } /* the Play button says it; a tap only shows the controls */
 @media (pointer: coarse) { .control-btn.tv-menu-btn, .overlay-controls.top-right.tv-top .control-btn { min-height: 44px; min-width: 44px; font-size: var(--sh-text-sm); } }
 
 /* Events list over the picture, from ⋯. */
