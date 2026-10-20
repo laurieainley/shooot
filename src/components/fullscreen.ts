@@ -23,6 +23,30 @@ function unlockOrientation(): void {
     try { (screen.orientation as LockableOrientation | undefined)?.unlock?.() } catch { /* not supported */ }
 }
 
+/**
+ * Ask for real fullscreen on `el` (must run inside a user gesture). A refusal is ignored: the caller stays in CSS immersive mode.
+ * Returns whether a request was made.
+ */
+export function requestRealFullscreen(el: HTMLElement | null): boolean {
+    if (!el || docFullscreenElement() !== null) return false
+    const w = el as WebkitElement
+    try {
+        if (typeof w.requestFullscreen === 'function') {
+            const pending = w.requestFullscreen({ navigationUI: 'hide' }) as Promise<void> | undefined
+            pending?.catch?.(() => undefined)
+            return true
+        }
+        if (typeof w.webkitRequestFullscreen === 'function') { w.webkitRequestFullscreen(); return true }
+    } catch { /* refused */ }
+    return false
+}
+
+/** True when the document's fullscreen element is `el` (real fullscreen, not the CSS mode). */
+export function isRealFullscreen(el: HTMLElement | null): boolean {
+    const f = docFullscreenElement()
+    return f !== null && f === el
+}
+
 /** CSS "immersive" mode: the player fills the viewport without the Fullscreen API (iPhone, or a refused request). */
 export type ImmersiveMode = { get: () => boolean; set: (on: boolean) => void }
 
@@ -62,7 +86,8 @@ export function patchPlayerFullscreen(
         fallBack()
     }
     player.exitFullscreen = () => {
-        if (immersive.get()) { setImmersive(false); return }
+        // Immersive may sit under real fullscreen (a phone turned sideways: CSS fill at once, real fullscreen on the next touch): leave both.
+        if (immersive.get()) { setImmersive(false); if (!containerIsFullscreen()) return }
         unlockOrientation()
         const d = document as WebkitDocument
         if (d.exitFullscreen) void d.exitFullscreen().catch(() => undefined)

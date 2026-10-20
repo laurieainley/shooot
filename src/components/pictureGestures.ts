@@ -3,7 +3,7 @@ import type { ZoomPan } from './useZoomPan'
 
 /**
  * Pan and zoom gestures on the player picture. Mouse: drag the picture to pan while zoomed, wheel / trackpad pinch zooms
- * towards the cursor, two-finger scroll pans. Touch: one finger pans while zoomed (a tap still plays / pauses), two fingers
+ * towards the cursor, two-finger scroll pans. Touch: one finger pans while zoomed (a tap shows or hides the controls in the touch view, plays / pauses elsewhere), two fingers
  * pinch-zoom between 1× and 4× and pan; lifting one finger after a pinch carries on panning with the other.
  * A pan or pinch swallows the click it ends with (no play / pause). While `locked()` (the preview) nothing is handled. Returns the cleanup.
  */

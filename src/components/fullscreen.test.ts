@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { patchPlayerFullscreen, type FullscreenPlayer } from './fullscreen'
+import { isRealFullscreen, patchPlayerFullscreen, requestRealFullscreen, type FullscreenPlayer } from './fullscreen'
 import { setCoarsePointer } from '../test/pointer'
 
 function fakePlayer(): FullscreenPlayer & { classFs: boolean | undefined } {
@@ -175,5 +175,43 @@ describe('patchPlayerFullscreen on phones (real device fixes and the immersive f
         immersive = true
         player.requestFullscreen()
         expect(container.requestFullscreen).not.toHaveBeenCalled()
+    })
+})
+
+describe('immersive under real fullscreen (phone turned sideways)', () => {
+    let fsEl: Element | null = null
+    beforeEach(() => {
+        fsEl = null
+        Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => fsEl })
+        document.exitFullscreen = vi.fn(() => Promise.resolve())
+    })
+
+    it('should leave real fullscreen too when exiting while both are on', () => {
+        const container = document.createElement('div')
+        let on = true
+        const player = fakePlayer()
+        patchPlayerFullscreen(player, () => container, { get: () => on, set: (v) => { on = v } })
+        fsEl = container
+        player.exitFullscreen()
+        expect(on).toBe(false)
+        expect(document.exitFullscreen).toHaveBeenCalled()
+    })
+    it('should only clear immersive when real fullscreen is not on', () => {
+        const container = document.createElement('div')
+        let on = true
+        const player = fakePlayer()
+        patchPlayerFullscreen(player, () => container, { get: () => on, set: (v) => { on = v } })
+        player.exitFullscreen()
+        expect(on).toBe(false)
+        expect(document.exitFullscreen).not.toHaveBeenCalled()
+    })
+    it('should request real fullscreen once and ignore a refusal', async () => {
+        const el = document.createElement('div')
+        el.requestFullscreen = vi.fn(() => Promise.reject(new Error('no')))
+        expect(requestRealFullscreen(el)).toBe(true)
+        await Promise.resolve()
+        fsEl = el
+        expect(requestRealFullscreen(el)).toBe(false) // already fullscreen
+        expect(isRealFullscreen(el)).toBe(true)
     })
 })
