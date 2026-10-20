@@ -166,12 +166,15 @@ npm run lint       # baseline: 12 known problems — add none
   goal", never "attacking"); `replayGoalFor()` picks the replay crop. Set in a guided full-screen layer
   (`components/goalSetup/GoalSetup.tsx`): choose the picture (6 thumbnails + scrubber) → Identify goal posts for each
   goal, six points: post bottoms, bar ends, then the two back-of-net corners (used by the ball check for a goal near the
-  camera; skip them with Next) (touch: move the picture under a fixed crosshair, Set point; desktop: click, the next point's name
+  camera; skip them with Next) (touch: move the picture under a fixed crosshair, then tap the crosshair or Set point; tap a placed dot or its diagram
+  point to move it; the view never jumps between points; on a short landscape screen the text scrolls and the buttons stay pinned; desktop: click, the next point's name
   follows the cursor, a line explains wheel zoom and right-drag / Space-drag; the diagram highlights the current point; a line
   under the title says which end the goal is) → Replay zoom for each goal (the
   replay view is the editor: drag / pinch, Closer / Wider in 0.1× steps / Reset, a frame map beside the buttons) → summary
   (`GoalSetupSummary`, also compact in New match and Match setup; cards use the team's kit colour). Persisted
-  `goalMarks` / `goalAreas` unchanged; maths in `utils/goalSetup.ts`. Entry points: New match Goals step, Match setup,
+  `goalMarks` / `goalAreas` unchanged; maths in `utils/goalSetup.ts`. The sharp still comes from the full MP4 when a proxy (LRV) is playing
+  (falls back to the proxy); thumbnails and scrubbing use the playing file. `grabFrame` waits for the painted frame and retries
+  once if it is black (`utils/blackFrame.ts`): on Android `seeked` can fire before the frame is drawn. Entry points: New match Goals step, Match setup,
   Find goals "Identify the goal posts first". The layer owns Esc and pushes a history entry so Android Back closes it.
 - **Reel order:** segments sort by whole-timeline time (`cumulativeOffsets[file] + matchTimeSec`); the old
   "Adjust timestamps by offset" option is gone (persist v18 deletes it; Kick off defines the match clock).
