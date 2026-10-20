@@ -416,6 +416,15 @@ npm run lint       # baseline: 12 known problems — add none
   tally "Goals tagged: Whites 3 – 2 Colours" (whole match). After closing, the rail shows "Review moments (N left ·
   M top picks)" with a × that hides it for that run (`components/reviewDismiss.ts`, localStorage `shooot-review-dismissed`, Undo toast). Suggestion rings sit in their own faint lane at the bottom of the match strip (only those still to
   review; only a click on the ring opens the review).
+- **Touch view** (2026-10-20, spec `2026-10-20-unified-tag-review-design.md`): on touch, `useTagViewMode()` (`utils/tagView.ts`) is
+  `overlay` (landscape phone, tablet landscape, any fullscreen: picture full screen, no top bar/rail, `TagControls` over the picture —
+  left thumb: ◀/▶ found, frame ‹ ›, ⟲5 · Play · ⟳5 lowest; right thumb: Tag — the MatchStrip `overlay` variant inside the player, ⋯ menu +
+  `EventsSheet`, controls fade 3 s after the last touch while playing), `band` (portrait phone / upright tablet: the same controls in
+  `.tv-band` under the video) or `off` (mouse: desktop unchanged). One lime Tag button (`startTag`: pause, stamp, open the Tag column)
+  replaces the ＋ on touch; the Tag column is the touch presentation of `EventPicker` (`TagColumn`; breadcrumbs via the reducer's `goto`;
+  frame buttons call `retimePicker`). Person choices: two-column grid, A–Z, bottom-anchored, never reordering (the scorer stays,
+  disabled, on Assist; a new name goes last). Sheets/menus portal into the player on touch (`portalRoot`). A tap on the picture still
+  plays/pauses (and shows the controls); with Lock on it only shows/hides them.
 - **Touch fullscreen** (UI state in `components/fullscreenUi.ts`, not persisted): column panels render into the fullscreen element; the tag
   box (`event-picker--compact`) and the review are a right-hand column (landscape) or a 60% bottom panel (portrait), and the picture
   shrinks to the free space beside / above them (`player-container--split`, `fullscreenSplit()`, `--fs-panel-w` / `--fs-panel-h`);
