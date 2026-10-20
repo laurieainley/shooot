@@ -34,6 +34,7 @@ import { endActivity, startActivity } from '../crashNoteRuntime'
 import { CopyDiagnostics } from './CopyDiagnostics'
 import { attachMse, mseAvailability, type MseHandle } from '../player/msePlayback'
 import { chooseBackend } from '../player/msePlan'
+import { mp4FailedToPlay } from './playbackPref'
 
 // video.js shows "0:05 / 24:00"; every time on screen uses the project's fixed width format instead.
 videojs.setFormatTime((seconds: number, guide: number) => formatClock(seconds, selectClockLong(useAppState.getState()) || guide >= 3600))
@@ -119,7 +120,12 @@ export function Player() {
             if (pending.play) playQuietly(p)
             else p.pause()
         })
-        p.on('error', () => { pendingSeekRef.current = null; setPlayerError(true) })
+        p.on('error', () => {
+            pendingSeekRef.current = null
+            setPlayerError(true)
+            const st = useAppState.getState()
+            if (st.files[st.currentFileIndex]?.pair && st.files[st.currentFileIndex].kind === 'full') mp4FailedToPlay(st.currentFileIndex) // a pair falls back to its LRV
+        })
         p.on('loadstart', () => setPlayerError(false))
         // Diagnostics (playback log + crash breadcrumb): events and timers only, nothing per frame.
         const media = videoRef.current
@@ -149,12 +155,19 @@ export function Player() {
     // The source: a Media Source fed small remuxed pieces (smooth playback for large files), or the whole file as a blob URL.
     // MSE falls back to the blob URL on any problem; the reason goes to the playback log.
     const smooth = useAppState((s) => s.smoothPlayback)
+    const lastSourceRef = useRef<{ id: string; url: string } | null>(null)
     useEffect(() => {
         const p = playerRef.current
         if (!p || files.length === 0) return
         metadataLoadedRef.current = false
         const f = files[currentFileIndex]
         const fileIndex = currentFileIndex
+        // Same file, other source (Playback LRV / MP4): carry on from the same time, playing or paused.
+        const was = lastSourceRef.current
+        if (f && was && was.id === f.id && was.url !== f.url && !pendingSeekRef.current) {
+            pendingSeekRef.current = { fileIndex, timeSec: useAppState.getState().currentTimeInFileSec, play: p.paused() === false }
+        }
+        lastSourceRef.current = f ? { id: f.id, url: f.url } : null
         let cancelled = false
         let handle: MseHandle | null = null
         const choice = chooseBackend({ setting: smooth, fileBytes: f?.file?.size ?? 0, ...mseAvailability() })

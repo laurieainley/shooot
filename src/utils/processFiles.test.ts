@@ -52,3 +52,28 @@ describe('processVideoFiles', () => {
         expect(byName.files.map((f) => f.name)).toEqual(['clip2.mp4', 'clip10.mp4'])
     })
 })
+
+describe('processVideoFiles pairs', () => {
+    const probe = async (f: File): Promise<ProbedMetadata> => (f.name.endsWith('LRV') ? { ...ok('h264'), width: 854, height: 480 } : ok('hevc'))
+    it('should keep both files of a pair and play the LRV by default', async () => {
+        const r = await processVideoFiles([file('GX010226.MP4'), file('GL010226.LRV')], probe)
+        expect(r.files[0].pair?.full.file.name).toBe('GX010226.MP4')
+        expect(r.files[0].pair?.proxy).toMatchObject({ name: 'GL010226.LRV', width: 854 })
+    })
+    it('should play the MP4 when asked, and keep the LRV in the pair', async () => {
+        const r = await processVideoFiles([file('GX010226.MP4'), file('GL010226.LRV')], probe, 'mp4')
+        expect(r.files[0]).toMatchObject({ name: 'GX010226.MP4', kind: 'full', width: 1920 })
+        expect(r.files[0].fullFile?.name).toBe('GX010226.MP4')
+        expect(r.files[0].pair?.proxy.name).toBe('GL010226.LRV')
+    })
+    it('should play the LRV when the MP4 is asked for but cannot play', async () => {
+        const bad = async (f: File): Promise<ProbedMetadata> => (f.name.endsWith('LRV') ? ok('h264') : { ...ok('hevc'), playable: false, error: 'no HEVC' })
+        const r = await processVideoFiles([file('GX010226.MP4'), file('GL010226.LRV')], bad, 'mp4')
+        expect(r.files[0]).toMatchObject({ name: 'GL010226.LRV', kind: 'proxy' })
+        expect(r.files[0].pair?.full.playbackIssue).toBe('no HEVC')
+    })
+    it('should not make a pair of a lone file', async () => {
+        const r = await processVideoFiles([file('GX010226.MP4')], probe, 'lrv')
+        expect(r.files[0].pair).toBeUndefined()
+    })
+})

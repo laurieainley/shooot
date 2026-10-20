@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { matchdayText, selectMatchStartSec, useAppState } from './state'
 import type { GoalMarks, MatchEvent, VideoSourceFile } from './types'
+import { fileKeys } from './utils/fileKey'
 import { goalRectFromMarks } from './utils/goalMarks'
 import { effectiveStatus, reviewCounts } from './utils/suggestions'
 
@@ -1081,5 +1082,57 @@ describe('saved events of an unknown type', () => {
         const saved = { events: [{ id: 'k', matchTimeSec: 3, type: 'kickoff' }, { id: 'x', matchTimeSec: 4, type: 'zzz' }, { id: 'g', matchTimeSec: 5, type: 'goal' }] }
         const merged = opts.merge!(saved, useAppState.getState()) as { events: MatchEvent[] }
         expect(merged.events.map((e) => [e.id, e.type])).toEqual([['k', 'kick_off'], ['g', 'goal']])
+    })
+})
+
+describe('Playback LRV / MP4 switch', () => {
+    const mk = (name: string, over: Partial<{ width: number; height: number; codec: 'h264' | 'hevc'; playbackIssue: string }> = {}) =>
+        ({ file: new File([''], name), name, ...over })
+    const paired = (): VideoSourceFile => {
+        const full = mk('GX010042.MP4', { width: 1920, height: 1080, codec: 'hevc' })
+        const proxy = mk('GL010042.LRV', { width: 854, height: 480, codec: 'h264' })
+        return { id: 'p', file: proxy.file, url: 'blob:lrv', name: proxy.name, kind: 'proxy', durationSec: 20, width: 854, height: 480, codec: 'h264', fullFile: full.file, pair: { full, proxy } }
+    }
+    beforeEach(() => {
+        useAppState.setState({ files: [paired()], cumulativeOffsets: [0], currentFileIndex: 0, currentTimeInFileSec: 7.5, events: [], undoStack: [], redoStack: [] })
+        useAppState.getState().addEvent({ id: 'e', matchTimeSec: 5, sourceFileIndex: 0, type: 'goal' })
+    })
+
+    it('should switch to the MP4 keeping the file, time, events and undo history', () => {
+        const before = { events: s().events, undo: s().undoStack, key: s().events[0].sourceFileKey }
+        const keysBefore = fileKeys(s().files)
+        const r = s().applyPlayback('mp4')
+        expect(fileKeys(s().files)).toEqual(keysBefore)
+        expect(r).toEqual({ changed: true, fellBack: false })
+        const f = s().files[0]
+        expect(f).toMatchObject({ id: 'p', name: 'GX010042.MP4', kind: 'full', width: 1920, durationSec: 20 })
+        expect(s().currentFileIndex).toBe(0)
+        expect(s().currentTimeInFileSec).toBe(7.5)
+        expect(s().events).toBe(before.events)
+        expect(s().events[0].sourceFileKey).toBe(before.key)
+        expect(s().undoStack).toBe(before.undo)
+    })
+
+    it('should switch back to the LRV', () => {
+        s().applyPlayback('mp4')
+        s().applyPlayback('lrv')
+        expect(s().files[0]).toMatchObject({ name: 'GL010042.LRV', kind: 'proxy', width: 854 })
+    })
+
+    it('should fall back to the LRV for a file when the player fails on its MP4', () => {
+        s().applyPlayback('mp4')
+        expect(s().fallBackToLrv(0, 'decode error')).toBe(true)
+        expect(s().files[0]).toMatchObject({ name: 'GL010042.LRV', kind: 'proxy' })
+        expect(s().applyPlayback('mp4')).toEqual({ changed: false, fellBack: true })
+    })
+
+    it('should make a pair when a full file is attached with its probed side', () => {
+        const lrv: VideoSourceFile = { id: 'q', file: new File([''], 'GL010043.LRV'), url: '', name: 'GL010043.LRV', kind: 'proxy', width: 854 }
+        useAppState.setState({ files: [lrv] })
+        const full = new File([''], 'GX010043.MP4')
+        s().attachFullFiles([full], new Map([[full, { file: full, name: 'GX010043.MP4', width: 1920 }]]))
+        expect(s().files[0].pair?.full.width).toBe(1920)
+        expect(s().files[0].pair?.proxy.name).toBe('GL010043.LRV')
+        expect(s().files[0].kind).toBe('proxy')
     })
 })

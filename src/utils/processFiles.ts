@@ -1,4 +1,5 @@
 import type { VideoSourceFile } from '../types'
+import { chooseSide, sideOf, type PlaybackPref } from './playbackSource'
 import { probeVideoFile, type ProbedMetadata } from './probe'
 import { pairFiles } from './gopro'
 import { orderEntries } from './fileOrder'
@@ -13,6 +14,7 @@ type Probed = { name: string; file: File; meta: ProbedMetadata }
 export async function processVideoFiles(
     fileList: FileList | File[],
     probe: (f: File) => Promise<ProbedMetadata> = probeVideoFile,
+    pref: PlaybackPref = 'lrv',
 ): Promise<ProcessResult> {
     const probed: Probed[] = []
     let error: string | null = null
@@ -29,7 +31,10 @@ export async function processVideoFiles(
     // Default order: GoPro chapters, else recording time (container date, else lastModified), else name.
     const ordered = orderEntries(pairFiles(probed), (p) => ({ name: p.name, timeMs: p.meta.recordedAtMs ?? (p.file.lastModified || undefined) }))
     for (const [idx, entry] of ordered.entries()) {
-        const useProxy = entry.proxy && (entry.proxy.meta.playable || !entry.full?.meta.playable)
+        const pair = entry.proxy && entry.full ? { full: sideOf(entry.full), proxy: sideOf(entry.proxy) } : undefined
+        const useProxy = pair
+            ? chooseSide(pair, pref).side === 'proxy'
+            : !!entry.proxy && (entry.proxy.meta.playable || !entry.full?.meta.playable)
         const play = (useProxy ? entry.proxy : entry.full)!
         files.push({
             id: `${Date.now()}-${idx}`,
@@ -41,7 +46,8 @@ export async function processVideoFiles(
             height: play.meta.height,
             kind: useProxy ? 'proxy' : 'full',
             codec: play.meta.codec,
-            fullFile: useProxy ? entry.full?.file : undefined,
+            fullFile: entry.full && (useProxy || pair) ? entry.full.file : undefined,
+            pair,
             playbackIssue: play.meta.playable ? undefined : play.meta.error,
             recordedAtMs: play.meta.recordedAtMs ?? (useProxy ? entry.full : entry.proxy)?.meta.recordedAtMs,
         })

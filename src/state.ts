@@ -3,7 +3,7 @@ import { showToast } from './toasts'
 import { markerSetCopy, matchClock } from './utils/toastCopy'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { GoalAreas, GoalMarks, GoalMarksByTeam, GoalTeam, KeepType, MarkerType, MatchEvent, Suggestion, SuggestionRun, Team, VideoSourceFile } from './types'
+import type { GoalAreas, GoalMarks, GoalMarksByTeam, GoalTeam, KeepType, MarkerType, MatchEvent, PairSide, Suggestion, SuggestionRun, Team, VideoSourceFile } from './types'
 import type { ScoredMoment } from './utils/goalAudioScore'
 import type { Score } from './utils/score'
 import { effectiveStatus, firstPendingIndex, mergeSuggestions, runMatchesFiles } from './utils/suggestions'
@@ -16,6 +16,7 @@ import { sanitiseEvents } from './utils/eventTypes'
 import { computeCumulativeOffsets, isLongTimeline } from './utils/timeline'
 import type { HighlightsQualityChoice } from './utils/outputQuality'
 import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/highlights'
+import { applyPlayback as applyPlaybackTo, fallBackToLrv as fallBackToLrvFile, type PlaybackPref } from './utils/playbackSource'
 import { relinkEvents as relinkByKey, linkedEvents } from './utils/relink'
 import { kickOffSec, resolveGlobalEvents, withMigratedKickOff } from './utils/matchClock'
 import { parseGoProName } from './utils/gopro'
@@ -73,7 +74,11 @@ export type AppState = {
     /** Note shown after a pick (iPad large-file hint). */
     pickerNotice: string | null
     setPicker: (partial: { wait?: boolean; notice?: string | null }) => void
-    attachFullFiles: (files: File[]) => string[]
+    attachFullFiles: (files: File[], sides?: Map<File, PairSide>) => string[]
+    /** Plays the side of each GoPro pair that `pref` asks for (same file, same time, same events). True when a pair fell back to its LRV. */
+    applyPlayback: (pref: PlaybackPref) => { changed: boolean; fellBack: boolean }
+    /** The player could not play the MP4 of file `index`: use its LRV. False when there is none. */
+    fallBackToLrv: (index: number, reason: string) => boolean
     setCurrentTimeInFile: (t: number) => void
     setCurrentFileIndex: (idx: number) => void
     setLengthBeforeGoal: (seconds: number) => void
@@ -318,14 +323,32 @@ export const useAppState = create<AppState>()(
                 get().setFiles(next)
                 if (cur === from) set({ currentFileIndex: to })
             },
-            attachFullFiles: (picked) => {
+            applyPlayback: (pref) => {
+                const r = applyPlaybackTo(get().files, pref, (f) => URL.createObjectURL(f), (u) => URL.revokeObjectURL(u))
+                if (r.changed) set({ files: r.files })
+                return { changed: r.changed, fellBack: r.fellBack }
+            },
+            fallBackToLrv: (index, reason) => {
+                const files = get().files
+                const f = files[index]
+                const next = f ? fallBackToLrvFile(f, reason, (x) => URL.createObjectURL(x), (u) => URL.revokeObjectURL(u)) : null
+                if (!next) return false
+                set({ files: files.map((e, i) => (i === index ? next : e)) })
+                return true
+            },
+            attachFullFiles: (picked, sides) => {
                 const unmatched: string[] = []
                 const files = get().files.slice()
                 for (const f of picked) {
                     const key = parseGoProName(f.name)?.key
                     const idx = key ? files.findIndex((e) => e.kind === 'proxy' && parseGoProName(e.name)?.key === key) : -1
                     if (idx === -1) unmatched.push(f.name)
-                    else files[idx] = { ...files[idx], fullFile: f }
+                    else {
+                        const cur = files[idx]
+                        const full = sides?.get(f)
+                        const proxy: PairSide = { file: cur.file, name: cur.name, width: cur.width, height: cur.height, codec: cur.codec, playbackIssue: cur.playbackIssue }
+                        files[idx] = { ...cur, fullFile: f, ...(full && !cur.pair ? { pair: { full, proxy } } : {}) }
+                    }
                 }
                 set({ files })
                 return unmatched

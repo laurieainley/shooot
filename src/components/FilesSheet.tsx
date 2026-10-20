@@ -8,6 +8,7 @@ import { formatHMS } from '../utils/timeline'
 import { filmingOrder, sortByFilmingTime, type FilmingOrder } from '../utils/fileOrder'
 import { replacePickedFile } from './addFiles'
 import { AddFilesButton } from './AddFilesButton'
+import { PlaybackChoice } from './PlaybackChoice'
 import { OpeningStatus } from './OpeningStatus'
 import { Sheet } from './Sheet'
 
@@ -30,6 +31,7 @@ export function FilesSheet({ onClose }: FilesSheetProps) {
         <Sheet label="Files" onClose={onClose} className="sheet--roomy">
             {files.length === 0 && <p className="m-0 py-3 text-ui-md text-muted">No videos loaded.</p>}
             <FileList onPlay={(i) => { useAppState.getState().setCurrentFileIndex(i); onClose() }} onError={setMessage} />
+            <PlaybackChoice variant="sheet" />
             <div className="flex flex-wrap items-center gap-2 pt-3">
                 <AddFilesButton label="Add files" className="btn-quiet" onError={setMessage} />
                 <OpeningStatus />
