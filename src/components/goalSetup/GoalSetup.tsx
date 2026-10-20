@@ -27,7 +27,7 @@ const FRAME_STEP_SEC = 5
 const HINT_KEY = 'shooot-goal-setup-rotate-hint'
 const PHONE_PORTRAIT_QUERY = '(pointer: coarse) and (orientation: portrait) and (max-width: 599px)'
 const NONE_SKIPPED: ReadonlySet<MarkKey> = new Set<MarkKey>()
-const ZOOM_INSTRUCTION = 'Goal replays at this end zoom to this view. To frame one goal more exactly, use Framing on its row in the events list.'
+const ZOOM_INSTRUCTION = 'Replays of goals scored at this end zoom in to this view. To frame one goal’s replay differently, select that goal in the events list and press Framing.'
 const DOTS: SetupStep[] = ['posts1', 'posts2', 'zoom1', 'zoom2']
 const TEAM_OF: Partial<Record<SetupStep, GoalTeam>> = { posts1: 'team1', zoom1: 'team1', posts2: 'team2', zoom2: 'team2' }
 
@@ -71,7 +71,7 @@ export function GoalSetup({ startAt = 'picture', only = false, onClose }: GoalSe
     closeRef.current = onClose
 
     const sharp = step !== 'picture'
-    const picture = useGoalPicture(first?.url, duration, time, sharp)
+    const picture = useGoalPicture(first?.url, duration, time, sharp, first?.fullFile)
     const thumbs = useThumbnails(first?.url, duration, step === 'picture')
 
     // Focus the layer, give focus back on close; the phone's Back button is a history entry.
@@ -97,7 +97,9 @@ export function GoalSetup({ startAt = 'picture', only = false, onClose }: GoalSe
     const team = TEAM_OF[step]
     const label = team ? teamGoalLabel(teams, team) : ''
     const partial: Partial<GoalMarks> = (team && drafts[team]) || {}
-    const current = step === 'posts1' || step === 'posts2' ? nextStep(partial, NONE_SKIPPED) : null
+    // Touch: a placed point picked to move; until it is replaced it is the one being set.
+    const [editKey, setEditKey] = useState<MarkKey | null>(null)
+    const current = step === 'posts1' || step === 'posts2' ? (editKey && partial[editKey] ? editKey : nextStep(partial, NONE_SKIPPED)) : null
     const other = team ? marks?.[team === 'team1' ? 'team2' : 'team1'] ?? null : null
 
     const go = (to: SetupStep): void => setStep(to)
@@ -110,7 +112,8 @@ export function GoalSetup({ startAt = 'picture', only = false, onClose }: GoalSe
         const i = STEP_ORDER.indexOf(step)
         go(solo || i <= 0 ? 'summary' : STEP_ORDER[i - 1])
     }
-    const setPartial = (t: GoalTeam, m: Partial<GoalMarks>): void => setDrafts((d) => ({ ...d, [t]: m }))
+    const setPartial = (t: GoalTeam, m: Partial<GoalMarks>): void => { setEditKey(null); setDrafts((d) => ({ ...d, [t]: m })) }
+    const pick = (key: MarkKey): void => { setEditKey(key); placer.current?.centreOn(key) }
     const undo = (): void => {
         if (!team) return
         const last = [...MARK_STEPS].reverse().find((s) => partial[s.key])
@@ -158,7 +161,7 @@ export function GoalSetup({ startAt = 'picture', only = false, onClose }: GoalSe
     const at = current ? MARK_STEPS.findIndex((s) => s.key === current) : -1
     const pointNo = `${at + 1} of ${MARK_STEPS.length}`
     const pointPrompt = current
-        ? (touch ? `Move the picture until the crosshair is on ${MARK_STEPS.find((s) => s.key === current)!.prompt}, then press Set point.` : promptFor(current, false))
+        ? (touch ? `Move the picture until the crosshair is on ${MARK_STEPS.find((s) => s.key === current)!.prompt}, then tap the crosshair or press Set point.` : promptFor(current, false))
         : null
 
     const placed = MARK_STEPS.filter((s) => partial[s.key]).length
@@ -180,7 +183,7 @@ export function GoalSetup({ startAt = 'picture', only = false, onClose }: GoalSe
                 {instruction && <p className="gs-instruction">{instruction}</p>}
                 {posts && (
                     <div className="gs-head__point">
-                        <GoalDiagram current={current} placed={partial} />
+                        <GoalDiagram current={current} placed={partial} onPick={touch ? pick : undefined} />
                         {pointPrompt && <p className="gs-prompt" role="status">{`${pointNo} · `}{pointPrompt}</p>}
                         {!touch && <p className="gs-note">Scroll to zoom. Right-drag, or hold Space and drag, to move the picture.</p>}
                     </div>
@@ -202,6 +205,7 @@ export function GoalSetup({ startAt = 'picture', only = false, onClose }: GoalSe
                         current={current}
                         other={other}
                         touch={touch}
+                        onPick={pick}
                         startZoom={tablet ? 2 : 3}
                         onMarksChange={(m) => setPartial(team, m)}
                     />
@@ -264,7 +268,7 @@ export function GoalSetup({ startAt = 'picture', only = false, onClose }: GoalSe
                 {posts && team && (
                     <>
                         {complete && current && <p className="gs-note">Back corners are optional: press Next to skip them.</p>}
-                        {complete && !current && <p className="gs-note">All six points set. Drag or nudge a dot if one is off.</p>}
+                        {complete && !current && <p className="gs-note">{touch ? 'All six points set. Tap a dot to move it.' : 'All six points set. Drag or nudge a dot if one is off.'}</p>}
                         <div className="gs-actions">
                             {touch && current
                                 ? <button type="button" className="btn-primary" disabled={!frame} onClick={() => placer.current?.setPoint()}>Set point</button>

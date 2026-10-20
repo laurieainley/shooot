@@ -2,7 +2,7 @@ import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type
 import type { GoalMarks, GoalTeam, Pt } from '../../types'
 import { footprint } from '../../utils/goalMarks'
 import { MARK_STEPS, type MarkKey } from '../../utils/goalMarkSteps'
-import { clampViewPan, guessNextPoint, panToCentre, viewToFrame, zoomViewAt, type View, type Viewport } from '../../utils/goalSetup'
+import { clampViewPan, contentSize, guessNextPoint, panToCentre, viewToFrame, zoomViewAt, type View, type Viewport } from '../../utils/goalSetup'
 import { wheelZoomFactor } from '../../utils/zoom'
 import type { Frame } from '../frameGrab'
 
@@ -11,10 +11,15 @@ const ZOOM_STEP = 1.6
 const NUDGE = 0.002
 const NUDGE_BIG = 0.01
 const DRAG_START_PX = 6
+/** Touch: a tap this close to the crosshair's centre sets the point; this close to a placed dot picks it. */
+const CROSSHAIR_TAP_PX = 44
+const DOT_TAP_PX = 28
 
 export interface PostPlacerHandle {
     /** Touch: place the current point under the crosshair. Returns false when there is nothing to place. */
     setPoint: () => boolean
+    /** Touch: centre the picture on a placed point. */
+    centreOn: (key: MarkKey) => void
 }
 
 interface PostPlacerProps {
@@ -31,6 +36,8 @@ interface PostPlacerProps {
     /** Zoom the picture starts at on touch (the first point is placed from here). */
     startZoom: number
     onMarksChange: (marks: Partial<GoalMarks>) => void
+    /** Touch: a placed dot was tapped, to move it. */
+    onPick?: (key: MarkKey) => void
     ref?: Ref<PostPlacerHandle>
 }
 
@@ -50,7 +57,7 @@ const clamp01 = (v: number): number => Math.min(1, Math.max(0, v))
  * + / − buttons) zoom, and Set point (outside, via the handle) places the point under the crosshair. Mouse: click
  * places, drag a dot to adjust, wheel zooms, Space-drag or right-drag pans, arrow keys nudge a focused dot.
  */
-export function PostPlacer({ frame, loading, team, marks, current, other, touch, startZoom, onMarksChange, ref }: PostPlacerProps) {
+export function PostPlacer({ frame, loading, team, marks, current, other, touch, startZoom, onMarksChange, onPick, ref }: PostPlacerProps) {
     const viewportEl = useRef<HTMLDivElement | null>(null)
     const [vp, setVp] = useState<Viewport>({ width: 1, height: 1 })
     const [view, setView] = useState<View>({ zoom: touch ? startZoom : 1, pan: { x: 0, y: 0 } })
@@ -65,6 +72,8 @@ export function PostPlacer({ frame, loading, team, marks, current, other, touch,
     const dragging = useRef<{ key: MarkKey; startX: number; startY: number; off: Pt } | null>(null)
     const dragMoved = useRef(false)
     const cursorLabel = useRef<HTMLDivElement | null>(null)
+    /** Touch: the single finger now down, until it is known to be a tap or a drag. */
+    const tap = useRef<{ x: number; y: number; lastX: number; lastY: number; panning: boolean } | null>(null)
 
     useLayoutEffect(() => {
         const el = viewportEl.current
@@ -80,17 +89,12 @@ export function PostPlacer({ frame, loading, team, marks, current, other, touch,
         return () => ro.disconnect()
     }, [frame?.src])
 
-    // Touch: after each point the picture jumps to where the next one probably is.
-    const jumped = useRef<string>('')
+    // Touch: the picture starts where the first point probably is, once. After that the view stays put between points.
+    const started = useRef(false)
     useEffect(() => {
-        if (!touch || !frame) return
-        const tag = `${current}|${vp.width}x${vp.height}`
-        if (jumped.current === tag) return
-        jumped.current = tag
-        setView((v) => {
-            if (!current) return v
-            return { zoom: v.zoom, pan: panToCentre(guessNextPoint(current, marksRef.current, other), v.zoom, vp, aspectRef.current) }
-        })
+        if (!touch || !frame || !current || started.current || vp.width <= 1) return
+        started.current = true
+        setView((v) => ({ zoom: v.zoom, pan: panToCentre(guessNextPoint(current, marksRef.current, other), v.zoom, vp, aspectRef.current) }))
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [current, touch, frame, vp])
 
@@ -114,13 +118,33 @@ export function PostPlacer({ frame, loading, team, marks, current, other, touch,
     }
     const place = (key: MarkKey, p: Pt): void => onMarksChange({ ...marksRef.current, [key]: p })
 
-    useImperativeHandle(ref, () => ({
-        setPoint: () => {
-            if (!current || !frame) return false
-            place(current, viewToFrame(viewRef.current, vpRef.current, aspectRef.current))
-            return true
-        },
-    }))
+    const centreOn = (key: MarkKey): void => {
+        const p = marksRef.current[key]
+        if (p) setView((v) => ({ zoom: v.zoom, pan: panToCentre(p, v.zoom, vpRef.current, aspectRef.current) }))
+    }
+    const setPoint = (): boolean => {
+        if (!current || !frame) return false
+        place(current, viewToFrame(viewRef.current, vpRef.current, aspectRef.current))
+        return true
+    }
+    useImperativeHandle(ref, () => ({ setPoint, centreOn }))
+
+    /** Touch: a tap on the crosshair sets the point; a tap on a placed dot picks it to move. */
+    const tapAt = (x: number, y: number): void => {
+        const r = viewportEl.current?.getBoundingClientRect()
+        if (!r || !frame) return
+        const cx = r.left + r.width / 2, cy = r.top + r.height / 2
+        if (current && Math.hypot(x - cx, y - cy) <= CROSSHAIR_TAP_PX) { setPoint(); return }
+        const v = viewRef.current, c = contentSize(vpRef.current, aspectRef.current)
+        let best: { key: MarkKey; d: number } | null = null
+        for (const { key } of MARK_STEPS) {
+            const p = marksRef.current[key]
+            if (!p) continue
+            const d = Math.hypot(cx + v.pan.x + (p.x - 0.5) * c.w * v.zoom - x, cy + v.pan.y + (p.y - 0.5) * c.h * v.zoom - y)
+            if (d <= DOT_TAP_PX && (!best || d < best.d)) best = { key, d }
+        }
+        if (best) { centreOn(best.key); onPick?.(best.key) }
+    }
 
     const dist = (): number => {
         const [a, b] = [...pointers.current.values()]
@@ -132,6 +156,7 @@ export function PostPlacer({ frame, loading, team, marks, current, other, touch,
         e.currentTarget.setPointerCapture?.(e.pointerId)
         pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
         moved.current = false
+        tap.current = touch && pointers.current.size === 1 ? { x: e.clientX, y: e.clientY, lastX: e.clientX, lastY: e.clientY, panning: false } : null
         if (pointers.current.size === 2) { pinch.current = { dist: dist(), zoom: viewRef.current.zoom }; moved.current = true }
     }
     const move = (e: PointerEvent<HTMLDivElement>): void => {
@@ -152,6 +177,15 @@ export function PostPlacer({ frame, loading, team, marks, current, other, touch,
                 const zv = zoomViewAt(v, z / v.zoom, { x: 0, y: 0 }, vpRef.current, aspectRef.current, MAX_PLACER_ZOOM)
                 return { zoom: zv.zoom, pan: clampViewPan(zv.zoom, { x: zv.pan.x + dx / 2, y: zv.pan.y + dy / 2 }, vpRef.current, aspectRef.current) }
             })
+        } else if (touch && tap.current) {
+            // A finger that stays within a few pixels is a tap, not a drag: the picture does not wobble under it.
+            const t = tap.current
+            if (!t.panning && Math.hypot(next.x - t.x, next.y - t.y) < DRAG_START_PX) return
+            t.panning = true
+            moved.current = true
+            const [px, py] = [next.x - t.lastX, next.y - t.lastY]
+            t.lastX = next.x; t.lastY = next.y
+            setView((v) => ({ zoom: v.zoom, pan: clampViewPan(v.zoom, { x: v.pan.x + px, y: v.pan.y + py }, vpRef.current, aspectRef.current) }))
         } else if (touch || space.current || rightPan.current) {
             if (Math.hypot(dx, dy) > 0) moved.current = true
             setView((v) => ({ zoom: v.zoom, pan: clampViewPan(v.zoom, { x: v.pan.x + dx, y: v.pan.y + dy }, vpRef.current, aspectRef.current) }))
@@ -159,6 +193,9 @@ export function PostPlacer({ frame, loading, team, marks, current, other, touch,
     }
     const up = (e: PointerEvent<HTMLDivElement>): void => {
         if (!pointers.current.delete(e.pointerId)) return
+        const t = tap.current
+        if (t && e.type === 'pointerup' && pointers.current.size === 0 && !t.panning && !pinch.current) { tap.current = null; tapAt(t.x, t.y) }
+        if (pointers.current.size === 0) tap.current = null
         if (pointers.current.size === 0) rightPan.current = false
         if (pinch.current && pointers.current.size < 2) pinch.current = null
         if (pointers.current.size === 0 && moved.current) setTimeout(() => { moved.current = false }, 0)
@@ -228,7 +265,7 @@ export function PostPlacer({ frame, loading, team, marks, current, other, touch,
             tabIndex={0}
             role="application"
             aria-label={touch
-                ? 'Goal picture. Drag to move the picture until the crosshair is on the point, then press Set point. Pinch or use + and − to zoom.'
+                ? 'Goal picture. Drag to move the picture until the crosshair is on the point, then tap the crosshair or press Set point. Tap a placed dot to move it. Pinch or use + and − to zoom.'
                 : 'Goal picture. Click to place the point; drag a dot to adjust; arrow keys nudge a focused dot. Scroll to zoom; Space-drag or right-drag to move.'}
             onContextMenu={(e) => e.preventDefault()}
             onPointerDown={down}

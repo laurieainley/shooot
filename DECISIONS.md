@@ -11,6 +11,13 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-20
 
+- **User (Android test): goal set-up on touch** — no auto-pan to the guessed next point (the jump was unhelpful); tapping the
+  crosshair sets the point; tapping a placed dot or diagram point edits it; Set point always visible on a phone on its side;
+  the marking still uses the full MP4 when the LRV is playing. Replay zoom copy says "goals scored" / "one goal’s replay"
+  (user: "frame one goal" was ambiguous). Detail: AGENTS.md §4 Goal areas, `docs/superpowers/agents/briefs/goaltouch-report.md`.
+- **User: starting Find goals pauses playback** (`pausePlayer`).
+- **User: New match is full screen on phones** (it was a misaligned modal); Android Back closes it.
+
 - **Agent (user OK'd the fix): Android never uses `showOpenFilePicker`** for match videos; Add files opens the plain input with no
   `accept`. Why: Chrome on Android now has the File System Access picker, and its type filter greyed out `.LRV` proxies when
   adding new videos. Cost: no handle-based one-click relink on Android (it never worked there). Detail: `files/handleStore.ts`.

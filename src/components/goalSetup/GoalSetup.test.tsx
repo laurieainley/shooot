@@ -211,15 +211,70 @@ describe('GoalSetup', () => {
             expect(parseFloat(dot.style.top) / 100).toBeCloseTo(0.5 + 30 / 3 / 225, 3)
         })
 
-        it('should jump the view to where the next point probably is after each point', () => {
+        it('should keep the view where it is after a point (no jump to a guessed next point)', () => {
             mount({ startAt: 'posts1' })
             fireEvent.click(screen.getByRole('button', { name: 'Set point' }))
             fireEvent.click(screen.getByRole('button', { name: 'Set point' }))
             const [l, r] = [screen.getByRole('button', { name: 'Left post bottom' }), screen.getByRole('button', { name: 'Right post bottom' })]
-            expect(parseFloat(l.style.left)).toBeCloseTo(50, 1)
-            // the second press, with no drag, lands one goal-width along at the same height
-            expect(parseFloat(r.style.left)).toBeGreaterThan(55)
-            expect(parseFloat(r.style.top)).toBeCloseTo(50, 1)
+            // nothing moved the picture between the two presses, so both points are under the crosshair
+            expect(parseFloat(r.style.left)).toBeCloseTo(parseFloat(l.style.left), 3)
+            expect(parseFloat(r.style.top)).toBeCloseTo(parseFloat(l.style.top), 3)
+        })
+
+        it('should set the point when the crosshair itself is tapped, but not when a tap lands far from it', () => {
+            mount({ startAt: 'posts1' })
+            fireEvent.pointerDown(view(), { pointerId: 1, clientX: 260, clientY: 300 })
+            fireEvent.pointerUp(view(), { pointerId: 1, clientX: 260, clientY: 300 })
+            expect(dots()).toHaveLength(0)
+            fireEvent.pointerDown(view(), { pointerId: 2, clientX: 210, clientY: 310 })
+            fireEvent.pointerUp(view(), { pointerId: 2, clientX: 210, clientY: 310 })
+            expect(dots()).toHaveLength(1)
+            expect(parseFloat(dots()[0].style.left) / 100).toBeCloseTo(0.5, 3) // under the crosshair, not under the finger
+        })
+
+        it('should not set a point when a drag starts on the crosshair', () => {
+            mount({ startAt: 'posts1' })
+            fireEvent.pointerDown(view(), { pointerId: 1, clientX: 200, clientY: 300 })
+            fireEvent.pointerMove(view(), { pointerId: 1, clientX: 140, clientY: 300 })
+            fireEvent.pointerUp(view(), { pointerId: 1, clientX: 140, clientY: 300 })
+            expect(dots()).toHaveLength(0)
+        })
+
+        it('should say in the instruction that the crosshair can be tapped', () => {
+            mount({ startAt: 'posts1' })
+            expect(screen.getByRole('status').textContent).toMatch(/tap the crosshair or press Set point/)
+            expect(view().getAttribute('aria-label')).toMatch(/tap the crosshair or press Set point/)
+        })
+
+        it('should let a placed dot be tapped to move it, then carry on with the next unplaced point', () => {
+            mount({ startAt: 'posts1' })
+            fireEvent.click(screen.getByRole('button', { name: 'Set point' })) // Left post bottom at the centre
+            fireEvent.pointerDown(view(), { pointerId: 1, clientX: 200, clientY: 300 })
+            fireEvent.pointerMove(view(), { pointerId: 1, clientX: 100, clientY: 300 })
+            fireEvent.pointerUp(view(), { pointerId: 1, clientX: 100, clientY: 300 })
+            expect(screen.getByRole('status').textContent).toMatch(/Right post bottom|2 of 6/)
+            // the first dot is now at screen x 100: tap it
+            fireEvent.pointerDown(view(), { pointerId: 2, clientX: 100, clientY: 300 })
+            fireEvent.pointerUp(view(), { pointerId: 2, clientX: 100, clientY: 300 })
+            expect(screen.getByRole('status').textContent).toMatch(/1 of 6/)
+            // the picture is centred on it: the crosshair is on the dot
+            fireEvent.pointerDown(view(), { pointerId: 3, clientX: 200, clientY: 300 })
+            fireEvent.pointerMove(view(), { pointerId: 3, clientX: 140, clientY: 300 })
+            fireEvent.pointerUp(view(), { pointerId: 3, clientX: 140, clientY: 300 })
+            fireEvent.click(screen.getByRole('button', { name: 'Set point' }))
+            expect(dots()).toHaveLength(1) // replaced, not added
+            expect(parseFloat(dots()[0].style.left) / 100).toBeCloseTo(0.5 + 60 / 3 / 400, 3)
+            expect(screen.getByRole('status').textContent).toMatch(/2 of 6/)
+        })
+
+        it('should let a placed point be picked from the diagram', () => {
+            mount({ startAt: 'posts1' })
+            fireEvent.click(screen.getByRole('button', { name: 'Set point' }))
+            fireEvent.click(screen.getByRole('button', { name: 'Set point' }))
+            expect(screen.getByRole('status').textContent).toMatch(/3 of 6/)
+            fireEvent.click(screen.getByRole('button', { name: /^Move point 1/ }))
+            expect(screen.getByRole('status').textContent).toMatch(/1 of 6/)
+            expect(screen.queryByRole('button', { name: /^Move point 3/ })).toBeNull() // only placed points can be picked
         })
 
         it('should undo the last point', () => {
@@ -253,6 +308,45 @@ describe('GoalSetup', () => {
         })
     })
 
+    describe('the sharp picture', () => {
+        const proxy = { ...file, url: 'blob:lrv', kind: 'proxy' as const, fullFile: new File([''], 'GX010042.MP4') }
+        let create: ReturnType<typeof vi.fn>, revoke: ReturnType<typeof vi.fn>
+        beforeEach(() => {
+            create = vi.fn(() => 'blob:full'); revoke = vi.fn()
+            URL.createObjectURL = create as unknown as typeof URL.createObjectURL
+            URL.revokeObjectURL = revoke as unknown as typeof URL.revokeObjectURL
+            useAppState.setState({ files: [proxy] })
+        })
+
+        it('should keep the thumbnails and scrub frames on the playing file', async () => {
+            mount()
+            await waitFor(() => expect(grabFrame).toHaveBeenCalledTimes(6))
+            expect(grabFrame.mock.calls.every((c) => c[0] === 'blob:lrv')).toBe(true)
+            expect(useStillAt).toHaveBeenCalledWith('blob:lrv', expect.any(Number), 960)
+            expect(create).not.toHaveBeenCalled()
+        })
+
+        it('should take the sharp still from the full file when the playing file is a proxy', async () => {
+            mount({ startAt: 'posts1' })
+            await waitFor(() => expect(useStillAt).toHaveBeenCalledWith('blob:full', expect.any(Number), 3840))
+            expect(create).toHaveBeenCalledWith(proxy.fullFile)
+            expect(useStillAt).not.toHaveBeenCalledWith('blob:lrv', expect.any(Number), 3840)
+        })
+
+        it('should fall back to the playing file when the full file cannot be shown', async () => {
+            useStillAt.mockImplementation((u: string | null) => (u === 'blob:full' ? { status: 'error', frame: null } : READY))
+            mount({ startAt: 'posts1' })
+            await waitFor(() => expect(useStillAt).toHaveBeenCalledWith('blob:lrv', expect.any(Number), 3840))
+        })
+
+        it('should release the full file URL on leaving', async () => {
+            mount({ startAt: 'posts1' })
+            await waitFor(() => expect(create).toHaveBeenCalled())
+            cleanup()
+            expect(revoke).toHaveBeenCalledWith('blob:full')
+        })
+    })
+
     describe('replay zoom', () => {
         beforeEach(() => {
             useAppState.setState({ goalAreas: defaultGoalAreas() })
@@ -262,7 +356,7 @@ describe('GoalSetup', () => {
             useAppState.setState({ goalAreas: { team1: { x: 0.1, y: 0.2, w: 0.3, h: 0.3 }, team2: defaultGoalAreas().team2 } })
             mount({ startAt: 'zoom1' })
             expect(screen.getByText("Replay zoom — goals scored into Whites' goal")).toBeInTheDocument()
-            expect(screen.getByText(/Goal replays at this end zoom to this view\. To frame one goal more exactly, use Framing/)).toBeInTheDocument()
+            expect(screen.getByText('Replays of goals scored at this end zoom in to this view. To frame one goal’s replay differently, select that goal in the events list and press Framing.')).toBeInTheDocument()
             expect(screen.getByText("Whites' goal: the end Whites defend at kick-off.")).toBeInTheDocument()
             expect(screen.getByTestId('goal-setup-replay-view')).toBeInTheDocument()
             expect(screen.getByText(/A very small box zooms in a lot/)).toBeInTheDocument()
