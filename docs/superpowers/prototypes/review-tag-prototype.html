@@ -1,0 +1,449 @@
+<title>Shooot Tag &amp; Review</title>
+<meta name="description" content="Clickable prototype: one Tag flow for tagging and Find goals, video first, thumb zones on a landscape phone.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,500;0,600;0,700;1,800&family=Big+Shoulders+Display:wght@800&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout concept: the picture fills the screen; controls float over it in the two thumb zones (left = move around, right = act)
+   and fade while playing. Single dark look on purpose: it is a video player. */
+:root {
+  --ground: #050807;      /* letterbox / player ground */
+  --glass: rgba(10, 14, 12, 0.72);
+  --glass-strong: rgba(14, 20, 17, 0.92);
+  --line: rgba(243, 241, 234, 0.18);
+  --chalk: #F3F1EA;
+  --muted: #A9B4AC;
+  --lime: #A8F03C;        /* primary action + goals only */
+  --ink-on-lime: #0A0D12;
+  --rec: #FF3D2E;         /* playhead only */
+  --whites: #F5F5F5;
+  --colours: #7A4FB3;
+  --font-ui: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-shirt: 'Big Shoulders Display', 'Archivo', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  --pad: max(10px, env(safe-area-inset-left, 0px));
+  --padr: max(10px, env(safe-area-inset-right, 0px));
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+:root { padding: 0; }
+body { margin: 0; background: var(--ground); color: var(--chalk); font: 500 15px/1.3 var(--font-ui); overflow: hidden; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; touch-action: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--chalk); outline-offset: 2px; }
+
+.app { position: fixed; inset: 0; }
+.stage { position: absolute; inset: 0; overflow: hidden; }
+canvas#pitch { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* Overlays fade while playing */
+.ov { transition: opacity .25s ease; }
+.app.hide-ui .ov.fades { opacity: 0; pointer-events: none; }
+.app.tagging .right, .app.tagging .tr, .app.tagging .found { opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .ov, .col { transition: none !important; } }
+
+.glass { background: var(--glass); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border: 1px solid var(--line); }
+
+/* Top-left: scorebug */
+.bug { position: absolute; top: max(8px, env(safe-area-inset-top, 0px)); left: var(--pad); display: flex; align-items: center; gap: 0; border-radius: 6px; overflow: hidden; font: 700 13px/1 var(--font-mono); }
+.bug span { padding: 6px 8px; }
+.bug .t { font-family: var(--font-shirt); font-size: 16px; letter-spacing: .06em; }
+.bug .s { background: var(--lime); color: var(--ink-on-lime); }
+.bug .clock { color: var(--muted); }
+
+/* Top-right: status chips */
+.tr { position: absolute; top: max(8px, env(safe-area-inset-top, 0px)); right: var(--padr); display: flex; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+.chip .star { color: var(--lime); }
+.chip.ai b { font: 700 11px var(--font-mono); padding: 2px 4px; border: 1px solid var(--line); border-radius: 4px; }
+
+/* Left thumb: move around */
+.left { position: absolute; left: var(--pad); bottom: 52px; display: grid; grid-template-columns: repeat(3, 48px); gap: 8px; }
+.btn { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+.btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.btn.play svg { fill: currentColor; stroke: none; }
+.btn.play { background: rgba(243,241,234,.92); color: #0A0D12; border-color: transparent; }
+.btn.moment { grid-column: span 1; }
+.btn small { font: 700 10px var(--font-mono); display: block; margin-top: -2px; }
+.btn[disabled] { opacity: .35; cursor: default; }
+
+/* Right thumb: act */
+.right { position: absolute; right: var(--padr); bottom: 52px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.tag { width: 76px; height: 76px; border-radius: 50%; background: var(--lime); color: var(--ink-on-lime); font: italic 800 17px/1 var(--font-ui); text-transform: uppercase; letter-spacing: .02em; box-shadow: 0 6px 20px rgba(0,0,0,.45); display: grid; place-items: center; }
+.tag:active { transform: scale(.96); }
+.discard { min-width: 76px; min-height: 44px; padding: 0 12px; border-radius: 14px; font-size: 14px; font-weight: 700; }
+
+/* Bottom: the one timeline */
+.tl { position: absolute; left: 0; right: 0; bottom: 0; height: 44px; padding: 0 var(--padr) env(safe-area-inset-bottom, 0px) var(--pad); touch-action: none; }
+.tl-track { position: absolute; left: var(--pad); right: var(--padr); bottom: 12px; height: 4px; border-radius: 2px; background: rgba(243,241,234,.22); }
+.tl-played { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(243,241,234,.55); border-radius: 2px; }
+.tl-mark { position: absolute; bottom: 20px; transform: translateX(-50%); width: 14px; height: 14px; pointer-events: none; }
+.tl-mark.ev { border-radius: 50%; background: var(--lime); border: 2px solid var(--ground); }
+.tl-mark.ev.other { background: var(--chalk); width: 10px; height: 10px; bottom: 22px; }
+.tl-mark.ring { border-radius: 50%; border: 2px solid var(--chalk); background: transparent; bottom: 2px; width: 12px; height: 12px; }
+.tl-mark.ring.top { border-color: var(--lime); }
+.tl-mark.ring.here { width: 16px; height: 16px; bottom: 0; box-shadow: 0 0 0 3px rgba(168,240,60,.25); }
+.tl-head { position: absolute; bottom: 4px; width: 2px; height: 22px; background: var(--rec); transform: translateX(-1px); pointer-events: none; }
+.tl-head::after { content: ''; position: absolute; top: -5px; left: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--rec); }
+.tl-bubble { position: absolute; bottom: 34px; transform: translateX(-50%); padding: 3px 7px; border-radius: 6px; font: 700 12px var(--font-mono); white-space: nowrap; pointer-events: none; }
+
+/* Found moment chip: read-only, bottom centre */
+.found { position: absolute; left: 50%; bottom: 52px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.found .star { color: var(--lime); }
+
+/* Tag column: slides in from the right, choices sit low (thumb) */
+.col { position: absolute; top: 0; right: 0; bottom: 0; width: min(36vw, 320px); background: var(--glass-strong); border-left: 1px solid var(--line); transform: translateX(100%); transition: transform .22s ease; display: flex; flex-direction: column; padding: max(8px, env(safe-area-inset-top, 0px)) var(--padr) calc(10px + env(safe-area-inset-bottom, 0px)) 12px; box-sizing: border-box; }
+.app.tagging .col { transform: none; }
+.col-head { display: flex; align-items: center; gap: 6px; min-height: 40px; }
+.col-head h2 { margin: 0; font: italic 800 14px var(--font-ui); text-transform: uppercase; letter-spacing: .04em; flex: 1; }
+.x { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; }
+.x svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 2.2; fill: none; stroke-linecap: round; }
+.crumbs { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 6px; }
+.crumb { padding: 4px 8px; border-radius: 999px; border: 1px solid var(--line); font-size: 12px; font-weight: 600; color: var(--muted); }
+.crumb.time { font-family: var(--font-mono); color: var(--chalk); }
+.crumb:not(.time):hover { color: var(--chalk); }
+.q { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+.col-body { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: flex-end; }
+.choices { display: grid; gap: 8px; overflow-y: auto; max-height: 100%; padding-bottom: 2px; overscroll-behavior: contain; }
+.choices.two { grid-template-columns: 1fr 1fr; }
+.ch { min-height: 48px; border-radius: 12px; border: 1px solid var(--line); background: rgba(243,241,234,.06); display: flex; align-items: center; gap: 8px; padding: 0 12px; font-weight: 700; font-size: 15px; text-align: left; }
+.ch:active { background: rgba(243,241,234,.14); }
+.ch.goal { border-color: rgba(168,240,60,.6); }
+.ch .ico { width: 18px; text-align: center; }
+.ch.team { min-height: 64px; font: 800 20px var(--font-shirt); letter-spacing: .06em; text-transform: uppercase; }
+.ch.team .sw { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(243,241,234,.5); }
+.ch.player { font: 800 16px var(--font-shirt); letter-spacing: .06em; text-transform: uppercase; min-height: 44px; padding: 0 10px; border-radius: 10px; }
+.choices.people { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; align-content: end; }
+.lastrow { grid-column: 1 / -1; display: flex; gap: 6px; min-width: 0; }
+.lastrow .newname { flex: 1; min-width: 0; }
+.lastrow .ch.quiet { flex: none; min-width: 64px; padding: 0 10px; }
+.ch.player[disabled] { opacity: .35; cursor: default; }
+.ch.player { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.choices.people .newname, .choices.people .ch.quiet { grid-column: span 1; }
+.choices.people .wide { grid-column: 1 / -1; }
+.ch.quiet { justify-content: center; color: var(--muted); font-weight: 600; font-size: 14px; background: transparent; }
+.newname { display: flex; gap: 6px; }
+.newname input { flex: 1; min-width: 0; min-height: 44px; border-radius: 10px; border: 1px solid var(--line); background: rgba(0,0,0,.35); color: var(--chalk); font: 600 16px var(--font-ui); padding: 0 10px; }
+.newname input { font-size: 15px; }
+.newname button { min-height: 44px; padding: 0 10px; border-radius: 10px; background: var(--lime); color: var(--ink-on-lime); font-weight: 800; }
+.hint-adjust { font-size: 12px; color: var(--muted); margin: 0 0 6px; }
+
+/* Toast: top-left under the scorebug */
+.toast { position: absolute; top: calc(max(8px, env(safe-area-inset-top, 0px)) + 40px); left: var(--pad); display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; border-radius: 12px; font-size: 14px; font-weight: 600; max-width: min(420px, 60vw); }
+.toast button { min-height: 36px; padding: 0 10px; border-radius: 8px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.zoomchip { min-height: 32px; }
+
+/* Intro card */
+.intro { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(5,8,7,.78); z-index: 10; padding: 16px; }
+.intro .card { max-width: 520px; padding: 18px 20px; border-radius: 16px; background: var(--glass-strong); border: 1px solid var(--line); }
+.intro h1 { margin: 0 0 8px; font: italic 800 20px var(--font-ui); text-transform: uppercase; }
+.intro p { margin: 0 0 8px; color: var(--muted); line-height: 1.45; font-size: 14px; }
+.intro p b { color: var(--chalk); }
+.intro .go { margin-top: 6px; min-height: 48px; padding: 0 18px; border-radius: 12px; background: var(--lime); color: var(--ink-on-lime); font: italic 800 15px var(--font-ui); text-transform: uppercase; }
+.intro .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.intro label { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+
+/* Thumb zone overlay (optional) */
+.zones { position: absolute; inset: 0; pointer-events: none; display: none; }
+.app.show-zones .zones { display: block; }
+.zones i { position: absolute; bottom: -18vh; width: 62vh; height: 62vh; border-radius: 50%; background: radial-gradient(circle, rgba(168,240,60,.22), rgba(168,240,60,0) 70%); }
+.zones i.l { left: -16vh; } .zones i.r { right: -16vh; }
+
+/* Portrait phone: video on top, controls below, questions as a bottom sheet */
+@media (orientation: portrait) {
+  .stage { bottom: auto; height: 56.25vw; top: env(safe-area-inset-top, 0px); }
+  .app { background: #0b100e; }
+  .tl { top: calc(56.25vw + env(safe-area-inset-top, 0px)); bottom: auto; }
+  .left { top: calc(56.25vw + 60px + env(safe-area-inset-top, 0px)); bottom: auto; grid-template-columns: repeat(3, 52px); }
+  .right { top: calc(56.25vw + 60px + env(safe-area-inset-top, 0px)); bottom: auto; }
+  .found { top: calc(56.25vw + 240px + env(safe-area-inset-top, 0px)); bottom: auto; }
+  .app.hide-ui .ov.fades { opacity: 1; pointer-events: auto; }
+  .col { top: auto; left: 0; width: auto; height: 62%; border-left: 0; border-top: 1px solid var(--line); border-radius: 16px 16px 0 0; transform: translateY(100%); padding-left: 12px; }
+  .toast { top: calc(56.25vw + 8px); }
+  .portrait-tip { display: block !important; }
+}
+.portrait-tip { display: none; position: absolute; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); color: var(--muted); font-size: 13px; text-align: center; }
+</style>
+
+<div class="app" id="app">
+  <div class="stage" id="stage"><canvas id="pitch" aria-label="Sample match (simulated)"></canvas></div>
+
+  <div class="zones" aria-hidden="true"><i class="l"></i><i class="r"></i></div>
+
+  <div class="bug glass ov" id="bug"><span class="t">WH</span><span class="s" id="score">1-0</span><span class="t">CO</span><span class="clock" id="clock">00:00</span></div>
+
+  <div class="tr ov fades">
+    <button class="chip glass zoomchip" id="zoomchip" hidden aria-label="Reset zoom"></button>
+    <button class="chip glass ai" id="fgchip"><span class="star">★</span><span id="fgtext">6 found · 3 top picks</span><b>AI</b></button>
+    <button class="chip glass" id="infobtn" aria-label="About this prototype">?</button>
+  </div>
+
+  <div class="found glass ov fades" id="found" hidden></div>
+
+  <div class="left ov fades" aria-label="Move around">
+    <button class="btn glass" id="mprev" aria-label="Previous found moment"><span>◀<small>FOUND</small></span></button>
+    <span></span>
+    <button class="btn glass" id="mnext" aria-label="Next found moment"><span>▶<small>FOUND</small></span></button>
+    <button class="btn glass" id="fprev" aria-label="Previous frame"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <span></span>
+    <button class="btn glass" id="fnext" aria-label="Next frame"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+    <button class="btn glass" id="back5" aria-label="Back 5 seconds"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/></svg></button>
+    <button class="btn glass play" id="play" aria-label="Play"><svg viewBox="0 0 24 24" id="playico"><path d="M7 5l12 7-12 7z"/></svg></button>
+    <button class="btn glass" id="fwd5" aria-label="Forward 5 seconds"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v4h-4"/></svg></button>
+  </div>
+
+  <div class="right ov fades">
+    <button class="tag" id="tag" aria-label="Tag this moment">Tag</button>
+    <button class="discard glass" id="discard" hidden>✕ Not a goal</button>
+  </div>
+
+  <div class="tl ov fades" id="tl" aria-label="Match timeline" role="slider" aria-valuemin="0" aria-valuemax="3000">
+    <div class="tl-track" id="track"><div class="tl-played" id="played"></div></div>
+    <div id="marks"></div>
+    <div class="tl-head" id="head"></div>
+    <div class="tl-bubble glass" id="bubble" hidden></div>
+  </div>
+
+  <div class="toast glass" id="toast" hidden></div>
+
+  <aside class="col" id="col" aria-label="Tag">
+    <div class="col-head"><h2 id="coltitle">Tag</h2><button class="x" id="colx" aria-label="Cancel tagging"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="crumbs" id="crumbs"></div>
+    <div class="col-body"><p class="hint-adjust" id="adjust">Nudge the moment with ‹ › on the left.</p><p class="q" id="q"></p><div class="choices" id="choices"></div></div>
+  </aside>
+
+  <p class="portrait-tip">Prototype tip: turn your phone sideways for the full-screen review.</p>
+
+  <div class="intro" id="intro">
+    <div class="card">
+      <h1>Tag &amp; review prototype</h1>
+      <p>A <b>simulated match</b> (no real video, nothing saved). Hold your phone <b>sideways</b>.</p>
+      <p><b>Left thumb:</b> play, ±5 s, frame ‹ ›, and jump to the previous / next <b>found moment</b> (rings on the timeline). <b>Right thumb:</b> <b>Tag</b>, and <b>Not a goal</b> when you're on a found moment.</p>
+      <p>Tag pauses and asks one question at a time from the right edge. Tap the picture to show or hide the controls; pinch to zoom.</p>
+      <div class="row"><button class="go" id="go">Start</button><label><input type="checkbox" id="zonesbox"> Show thumb zones</label></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const DUR = 50 * 60, FPS = 30
+  const $ = (id) => document.getElementById(id)
+  const app = $('app'), cv = $('pitch'), ctx = cv.getContext('2d')
+  const TEAMS = [{ id: 'w', name: 'Whites', short: 'WH', color: getCss('--whites') }, { id: 'c', name: 'Colours', short: 'CO', color: getCss('--colours') }]
+  const ROSTER = { w: ['Alex', 'Ben', 'Chris', 'DJ', 'Eddie', 'Frank'], c: ['Ade', 'Gary', 'Hal', 'Ian', 'Jo', 'Kev'] } // A–Z
+  const TYPES = [
+    { id: 'goal', label: 'Goal', ico: '⚽', goal: true, flow: ['team', 'scorer', 'assist'] },
+    { id: 'pen', label: 'Pen goal', ico: 'P', goal: true, flow: ['team', 'scorer'] },
+    { id: 'og', label: 'Own goal', ico: 'OG', goal: true, flow: ['team', 'scorer'] },
+    { id: 'save', label: 'Save', ico: '🧤', flow: ['team', 'keeper'] },
+    { id: 'foul', label: 'Foul', ico: '!', flow: ['team'] },
+    { id: 'hl', label: 'Highlight', ico: '★', flow: ['team'] },
+  ]
+  let t = 238, playing = false, last = 0
+  let events = [{ id: 'e1', t: 250, type: 'goal', team: 'w', scorer: 'DJ' }]
+  let found = [
+    { id: 'f1', t: 312, top: true }, { id: 'f2', t: 655, top: false }, { id: 'f3', t: 1021, top: true },
+    { id: 'f4', t: 1490, top: false }, { id: 'f5', t: 2212, top: true }, { id: 'f6', t: 2604, top: false },
+  ].map((f) => ({ ...f, status: 'pending' }))
+  let tag = null // { t, type, team, scorer, assist, keeper, step }
+  let hideTimer = 0, toastTimer = 0
+  let zoom = 1, pan = { x: 0, y: 0 }
+
+  function getCss(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim() }
+  const fmt = (s, frac) => { const m = Math.floor(s / 60), r = s - m * 60; return `${String(m).padStart(2, '0')}:${frac ? r.toFixed(1).padStart(4, '0') : String(Math.floor(r)).padStart(2, '0')}` }
+
+  // ---------- simulated picture ----------
+  function size() { const dpr = Math.min(2, devicePixelRatio || 1); const r = cv.getBoundingClientRect(); cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0) }
+  function ballPos(s) {
+    // the ball drifts around midfield and runs into a goal near each real goal time
+    const goals = [...events.filter((e) => TYPES.find((x) => x.id === e.type)?.goal).map((e) => ({ t: e.t, side: e.team === 'w' ? 1 : -1 })), ...found.map((f) => ({ t: f.t, side: f.top ? (f.t % 2 ? 1 : -1) : 0 }))]
+    let x = 0.5 + 0.28 * Math.sin(s * 0.21) * Math.cos(s * 0.07), y = 0.55 + 0.18 * Math.sin(s * 0.33 + 1)
+    for (const g of goals) { const d = s - g.t; if (g.side && d > -4 && d < 1.5) { const k = Math.min(1, (d + 4) / 4); x = x + (((g.side > 0 ? 0.965 : 0.035)) - x) * k * k; y = y + (0.5 - y) * k } }
+    return { x, y }
+  }
+  function draw() {
+    const W = cv.clientWidth, H = cv.clientHeight
+    ctx.fillStyle = getCss('--ground'); ctx.fillRect(0, 0, W, H)
+    // 16:9 picture, contained
+    let pw = W, ph = W * 9 / 16; if (ph > H) { ph = H; pw = H * 16 / 9 }
+    ctx.save(); ctx.translate(W / 2 + pan.x, H / 2 + pan.y); ctx.scale(zoom, zoom); ctx.translate(-pw / 2, -ph / 2)
+    const g = ctx.createLinearGradient(0, 0, 0, ph); g.addColorStop(0, '#1c3b26'); g.addColorStop(1, '#2c6b3b'); ctx.fillStyle = g; ctx.fillRect(0, 0, pw, ph)
+    // stands / wall
+    ctx.fillStyle = '#20262a'; ctx.fillRect(0, 0, pw, ph * 0.18)
+    // pitch in perspective
+    const P = (u, v) => { const yy = ph * (0.24 + v * 0.7); const half = pw * (0.36 + v * 0.13); return [pw / 2 + (u - 0.5) * 2 * half, yy] }
+    ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 2
+    ctx.beginPath(); [[0, 0], [1, 0], [1, 1], [0, 1]].forEach(([u, v], i) => { const [x, y] = P(u, v); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y) }); ctx.closePath(); ctx.stroke()
+    ctx.beginPath(); { const [a, b] = P(0.5, 0), [c, d] = P(0.5, 1); ctx.moveTo(a, b); ctx.lineTo(c, d) } ctx.stroke()
+    ctx.beginPath(); { const [cx, cy] = P(0.5, 0.5); ctx.ellipse(cx, cy, pw * 0.06, ph * 0.08, 0, 0, Math.PI * 2) } ctx.stroke()
+    // goals
+    for (const side of [0, 1]) { const [x1, y1] = P(side, 0.38), [x2, y2] = P(side, 0.62); const dx = side ? 14 : -14; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1, y1 - 34); ctx.lineTo(x2, y2 - 34); ctx.lineTo(x2, y2); ctx.stroke(); ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1; for (let k = 0; k < 6; k++) { ctx.beginPath(); ctx.moveTo(x1 + dx * k / 6, y1 - 34 + k * 3); ctx.lineTo(x2 + dx * k / 6, y2 - 34 + k * 3); ctx.stroke() } }
+    // players
+    for (let i = 0; i < 10; i++) {
+      const team = i < 5 ? 0 : 1, s = t * (0.35 + i * 0.03) + i * 1.7
+      const u = 0.5 + (team ? 0.12 : -0.12) + 0.32 * Math.sin(s * 0.6 + i), v = 0.5 + 0.38 * Math.sin(s * 0.45 + i * 2.1)
+      const [x, y] = P(Math.min(0.98, Math.max(0.02, u)), Math.min(0.98, Math.max(0.02, v))); const sc = 0.7 + v * 0.6
+      ctx.fillStyle = team ? TEAMS[1].color : TEAMS[0].color; ctx.beginPath(); ctx.ellipse(x, y - 14 * sc, 5 * sc, 11 * sc, 0, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#e8c4a0'; ctx.beginPath(); ctx.arc(x, y - 28 * sc, 4 * sc, 0, Math.PI * 2); ctx.fill()
+    }
+    const b = ballPos(t); const [bx, by] = P(b.x, b.y)
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(bx, by - 4, 4, 0, Math.PI * 2); ctx.fill()
+    // burned-in camera clock, like real footage
+    ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(pw - 118, ph - 26, 112, 20); ctx.fillStyle = '#ffd34d'; ctx.font = '700 12px ' + getCss('--font-mono'); ctx.fillText('CAM ' + fmt(t, true), pw - 112, ph - 11)
+    ctx.restore()
+  }
+
+  // ---------- timeline + UI ----------
+  const pendingFound = () => found.filter((f) => f.status === 'pending')
+  const nearFound = () => pendingFound().find((f) => Math.abs(t - f.t) <= 8)
+  function score() { let w = 0, c = 0; for (const e of events) { const ty = TYPES.find((x) => x.id === e.type); if (!ty?.goal) continue; const forW = e.type === 'og' ? e.team === 'c' : e.team === 'w'; if (e.t <= t) forW ? w++ : c++ } return `${w}-${c}` }
+  function render() {
+    const pct = (s) => (s / DUR) * 100
+    $('played').style.width = pct(t) + '%'
+    const track = $('track').getBoundingClientRect(), tl = $('tl').getBoundingClientRect()
+    const xAt = (s) => track.left - tl.left + track.width * (s / DUR)
+    $('head').style.left = xAt(t) + 'px'
+    const nf = nearFound()
+    $('marks').innerHTML = events.map((e) => `<i class="tl-mark ev${TYPES.find((x) => x.id === e.type)?.goal ? '' : ' other'}" style="left:${xAt(e.t)}px"></i>`).join('') +
+      pendingFound().map((f) => `<i class="tl-mark ring${f.top ? ' top' : ''}${nf && nf.id === f.id ? ' here' : ''}" style="left:${xAt(f.t)}px"></i>`).join('')
+    $('clock').textContent = fmt(t)
+    $('score').textContent = score()
+    const pf = pendingFound(), tops = pf.filter((f) => f.top).length
+    $('fgtext').textContent = pf.length ? `${pf.length} found · ${tops} top pick${tops === 1 ? '' : 's'}` : 'All found moments checked'
+    $('mprev').disabled = !pf.some((f) => f.t < t - 6.5); $('mnext').disabled = !pf.some((f) => f.t > t + 0.5)
+    const foundEl = $('found'), disc = $('discard')
+    if (nf && !tag) { const i = found.indexOf(nf) + 1; foundEl.innerHTML = `${nf.top ? '<span class="star">★</span> Top pick' : 'Found moment'} · ${i} of ${found.length} · ${fmt(nf.t)}`; foundEl.hidden = false; disc.hidden = false }
+    else { foundEl.hidden = true; disc.hidden = true }
+    $('playico').innerHTML = playing ? '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>' : '<path d="M7 5l12 7-12 7z"/>'
+    $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play')
+    const zc = $('zoomchip'); zc.hidden = zoom <= 1.01; zc.textContent = `${zoom.toFixed(1)}× · reset`
+    draw()
+  }
+  function seek(s) { t = Math.max(0, Math.min(DUR - 0.01, s)); if (tag) tag.t = t; render(); if (tag) renderCol() }
+  function setPlaying(p) { playing = p; last = performance.now(); poke(); render() }
+  function poke() { app.classList.remove('hide-ui'); clearTimeout(hideTimer); if (playing && !tag) hideTimer = setTimeout(() => app.classList.add('hide-ui'), 3000) }
+  function loop(now) { if (playing) { t += (now - last) / 1000; last = now; if (t >= DUR) { t = DUR; playing = false } render() } else last = now; requestAnimationFrame(loop) }
+
+  // ---------- toast ----------
+  function toast(html, actions = []) {
+    const el = $('toast'); el.innerHTML = `<span>${html}</span>` + actions.map((a, i) => `<button data-i="${i}">${a.label}</button>`).join('')
+    el.hidden = false; el.querySelectorAll('button').forEach((b) => b.onclick = () => { actions[+b.dataset.i].fn(); el.hidden = true })
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true }, 4000)
+  }
+
+  // ---------- tag flow ----------
+  function startTag() { setPlaying(false); tag = { t, step: 'type' }; app.classList.add('tagging'); renderCol(); poke() }
+  function stopTag() { tag = null; app.classList.remove('tagging'); render(); poke() }
+  function flowOf() { const ty = TYPES.find((x) => x.id === tag.type); return ty ? ty.flow : [] }
+  function nextStep() { const f = flowOf(); const i = f.indexOf(tag.step); if (tag.step === 'type') tag.step = f[0]; else tag.step = f[i + 1] ?? 'done'; if (tag.step === 'done') finish(); else renderCol() }
+  function finish() {
+    const e = { id: 'e' + Date.now(), t: tag.t, type: tag.type, team: tag.team, scorer: tag.scorer, assist: tag.assist, keeper: tag.keeper }
+    events.push(e)
+    const f = pendingFound().find((x) => Math.abs(x.t - e.t) <= 8); if (f) f.status = 'tagged'
+    const ty = TYPES.find((x) => x.id === e.type), team = TEAMS.find((x) => x.id === e.team)
+    const who = e.scorer || e.keeper
+    stopTag()
+    toast(`${ty.label} · ${team?.name ?? ''}${who ? ' · ' + who : ''} · ${fmt(e.t)}`, [
+      { label: 'Undo', fn: () => { events = events.filter((x) => x !== e); if (f) f.status = 'pending'; render() } },
+      { label: 'Add note', fn: () => toast('In the app: opens the note field (keyboard).') },
+    ])
+  }
+  function crumb(label, step, cls = '') { return `<button class="crumb ${cls}" data-step="${step}">${label}</button>` }
+  function renderCol() {
+    const ty = TYPES.find((x) => x.id === tag.type), team = TEAMS.find((x) => x.id === tag.team)
+    let cr = crumb(fmt(tag.t, true), 'time', 'time')
+    if (ty) cr += crumb(ty.label, 'type'); if (team) cr += crumb(team.name, 'team'); if (tag.scorer) cr += crumb(tag.scorer, 'scorer'); if (tag.assist !== undefined && tag.step !== 'assist') cr += crumb(tag.assist ? 'Assist ' + tag.assist : 'No assist', 'assist'); if (tag.keeper) cr += crumb(tag.keeper, 'keeper')
+    $('crumbs').innerHTML = cr
+    $('crumbs').querySelectorAll('.crumb:not(.time)').forEach((b) => b.onclick = () => { tag.step = b.dataset.step; renderCol() })
+    $('adjust').hidden = tag.step !== 'type'
+    const ch = $('choices'); ch.className = 'choices'
+    const set = (q, html, two) => { $('q').textContent = q; ch.innerHTML = html; if (two) ch.classList.add('two'); ch.scrollTop = 0 }
+    const roster = (teamId) => ROSTER[teamId] // A–Z as loaded; a name added here goes at the end so nobody moves
+    if (tag.step === 'type') {
+      $('coltitle').textContent = 'Tag'
+      set('What happened?', TYPES.map((x) => `<button class="ch${x.goal ? ' goal' : ''}" data-v="${x.id}"><span class="ico">${x.ico}</span>${x.label}</button>`).join(''), true)
+      ch.querySelectorAll('.ch').forEach((b) => b.onclick = () => { tag.type = b.dataset.v; tag.team = tag.scorer = tag.assist = tag.keeper = undefined; nextStep() })
+    } else if (tag.step === 'team') {
+      $('coltitle').textContent = ty.label
+      const q = tag.type === 'og' ? 'Whose player put it in?' : tag.type === 'save' ? 'Whose keeper?' : ty.goal ? 'Who scored?' : 'Which team?'
+      set(q, TEAMS.map((x) => `<button class="ch team" data-v="${x.id}"><span class="sw" style="background:${x.color}"></span>${x.name}</button>`).join(''))
+      ch.querySelectorAll('.ch').forEach((b) => b.onclick = () => { tag.team = b.dataset.v; tag.scorer = tag.assist = tag.keeper = undefined; nextStep() })
+    } else if (tag.step === 'scorer' || tag.step === 'keeper' || tag.step === 'assist') {
+      const isA = tag.step === 'assist'
+      const list = roster(tag.team) // same names, same places on every question: the scorer stays (greyed) on Assist
+      const q = isA ? 'Assist?' : tag.step === 'keeper' ? 'Goalkeeper?' : 'Scorer?'
+      set(q, list.map((n) => `<button class="ch player" data-v="${n}"${isA && n === tag.scorer ? ' disabled aria-label="' + n + ' (scorer)"' : ''}>${n}</button>`).join('') + `<div class="lastrow"><div class="newname"><input id="nn" placeholder="+ New name" aria-label="New name"><button id="nnok">Add</button></div>` + (isA ? '<button class="ch quiet" data-v="">None</button>' : '<button class="ch quiet" data-v="">Skip</button>') + '</div>')
+      ch.classList.add('people')
+      ch.querySelectorAll('.ch').forEach((b) => b.onclick = () => { tag[tag.step] = b.dataset.v || (isA ? '' : undefined); nextStep() })
+      $('nnok').onclick = () => { const v = $('nn').value.trim(); if (!v) return; ROSTER[tag.team].push(v); tag[tag.step] = v; nextStep() }
+      $('nn').onkeydown = (e) => { if (e.key === 'Enter') $('nnok').click() }
+      // a long roster scrolls; it starts at the bottom, next to the thumb
+      requestAnimationFrame(() => { ch.scrollTop = ch.scrollHeight })
+    }
+  }
+
+  // ---------- found moments ----------
+  function jump(dir) {
+    const pf = pendingFound().sort((a, b) => a.t - b.t)
+    const target = dir > 0 ? pf.find((f) => f.t > t + 0.5 + 6) ?? pf.find((f) => f.t > t + 0.5) : [...pf].reverse().find((f) => f.t < t - 6.5)
+    if (!target) return
+    seek(target.t - 6); setPlaying(true)
+  }
+  function discard() {
+    const f = nearFound(); if (!f) return
+    f.status = 'discarded'
+    toast('Not a goal · moment removed', [{ label: 'Undo', fn: () => { f.status = 'pending'; seek(f.t - 6); render() } }])
+    const next = pendingFound().sort((a, b) => a.t - b.t).find((x) => x.t > f.t)
+    if (next) { seek(next.t - 6); setPlaying(true) } else { setPlaying(false); render() }
+  }
+
+  // ---------- input ----------
+  $('play').onclick = () => setPlaying(!playing)
+  $('back5').onclick = () => { seek(t - 5); poke() }
+  $('fwd5').onclick = () => { seek(t + 5); poke() }
+  $('fprev').onclick = () => { setPlaying(false); seek(t - 1 / FPS) }
+  $('fnext').onclick = () => { setPlaying(false); seek(t + 1 / FPS) }
+  $('mprev').onclick = () => jump(-1)
+  $('mnext').onclick = () => jump(1)
+  $('tag').onclick = startTag
+  $('discard').onclick = discard
+  $('colx').onclick = stopTag
+  $('fgchip').onclick = () => toast('In the app: Find goals start / progress lives here. Rings on the timeline are what it found.')
+  $('infobtn').onclick = () => { $('intro').hidden = false }
+  $('go').onclick = () => { $('intro').hidden = true; poke() }
+  $('zonesbox').onchange = (e) => app.classList.toggle('show-zones', e.target.checked)
+  $('zoomchip').onclick = () => { zoom = 1; pan = { x: 0, y: 0 }; render() }
+
+  // timeline scrub
+  const tlEl = $('tl'), bubble = $('bubble')
+  let scrubbing = false
+  const tAt = (x) => { const r = $('track').getBoundingClientRect(); return Math.max(0, Math.min(1, (x - r.left) / r.width)) * DUR }
+  const showBubble = (x) => { const s = tAt(x); const near = pendingFound().find((f) => Math.abs(f.t - s) < DUR * 0.008); const ev = events.find((e) => Math.abs(e.t - s) < DUR * 0.008); bubble.textContent = near ? `${near.top ? 'Top pick' : 'Found moment'} · ${fmt(near.t)}` : ev ? `${TYPES.find((x) => x.id === ev.type).label} · ${fmt(ev.t)}` : fmt(s); bubble.style.left = (x - tlEl.getBoundingClientRect().left) + 'px'; bubble.hidden = false }
+  tlEl.addEventListener('pointerdown', (e) => { scrubbing = true; tlEl.setPointerCapture(e.pointerId); seek(tAt(e.clientX)); showBubble(e.clientX); poke() })
+  tlEl.addEventListener('pointermove', (e) => { if (scrubbing) { seek(tAt(e.clientX)); showBubble(e.clientX) } })
+  const endScrub = () => { scrubbing = false; bubble.hidden = true }
+  tlEl.addEventListener('pointerup', endScrub); tlEl.addEventListener('pointercancel', endScrub)
+
+  // picture: tap toggles controls; pinch zooms; one finger pans when zoomed; wheel zooms
+  const stage = $('stage'), pts = new Map(); let pinch = null, moved = false, downAt = 0
+  const clampPan = () => { const W = cv.clientWidth, H = cv.clientHeight; const mx = (W * (zoom - 1)) / 2, my = (H * (zoom - 1)) / 2; pan.x = Math.max(-mx, Math.min(mx, pan.x)); pan.y = Math.max(-my, Math.min(my, pan.y)) }
+  stage.addEventListener('pointerdown', (e) => { stage.setPointerCapture(e.pointerId); pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = false; downAt = performance.now(); if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: zoom } } })
+  stage.addEventListener('pointermove', (e) => {
+    const p = pts.get(e.pointerId); if (!p) return
+    const nx = e.clientX, ny = e.clientY
+    if (pts.size === 2 && pinch) { pts.set(e.pointerId, { x: nx, y: ny }); const [a, b] = [...pts.values()]; zoom = Math.max(1, Math.min(4, pinch.z * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d)); clampPan(); moved = true; render(); return }
+    if (Math.hypot(nx - p.x, ny - p.y) > 4) moved = true
+    if (zoom > 1) { pan.x += nx - p.x; pan.y += ny - p.y; clampPan(); render() }
+    pts.set(e.pointerId, { x: nx, y: ny })
+  })
+  const up = (e) => { if (!pts.delete(e.pointerId)) return; if (pts.size < 2) pinch = null; if (pts.size === 0 && !moved && performance.now() - downAt < 300) { if (app.classList.contains('hide-ui')) poke(); else if (playing) { clearTimeout(hideTimer); app.classList.add('hide-ui') } } }
+  stage.addEventListener('pointerup', up); stage.addEventListener('pointercancel', up)
+  stage.addEventListener('wheel', (e) => { e.preventDefault(); zoom = Math.max(1, Math.min(4, zoom * Math.exp(-Math.max(-10, Math.min(10, e.deltaY)) * 0.01))); clampPan(); render() }, { passive: false })
+  document.addEventListener('pointerdown', (e) => { if (!stage.contains(e.target)) poke() }, true)
+  window.addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT') return; if (e.key === ' ') { e.preventDefault(); setPlaying(!playing) } else if (e.key === 'g' && !tag) startTag(); else if (e.key === 'Escape' && tag) stopTag() })
+
+  addEventListener('resize', () => { size(); render() })
+  size(); render(); requestAnimationFrame(loop)
+})()
+</script>
