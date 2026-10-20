@@ -379,7 +379,7 @@ npm run lint       # baseline: 12 known problems — add none
   "Replay framing" view (`editEvent(id, 'framing')`, `editingView`, not persisted; closes if the replay is switched
   off). All five fit one line on desktop; touch wraps 3 + 2 at rail widths 361–440px. Labels hide (icon-only) when the rail is ≤ 360px; the row wraps rather than clips. An expanded row scrolls the
   list (the page only when the list can't scroll, phone portrait); touch layouts keep room below the last row so the
-  + never covers it. Touch: a tap expands (Edit opens the sheet). Esc collapses, then leaves the log.
+  + never covers it. Touch: a tap expands (Edit opens the sheet). A second click / tap on the expanded row (not its action row) collapses it; Esc collapses, then leaves the log.
   Header: "+ Tag event" (quiet, red REC dot), undo/redo, "?" shortcuts. No rail footer and no key-hint bar.
 - **Export:** right-hand drawer over a scrim (`FloatingPanel variant="drawer"`; full screen on phones; a 480px side drawer on upright touch tablets 600–899px wide), tabs
   Highlights / Full match, one pattern: summary line (Highlights "6:12 reel · 14 clips" + Preview in player; Full match

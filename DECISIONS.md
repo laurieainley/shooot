@@ -9,6 +9,11 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ---
 
+## 2026-10-21
+
+- **User: a second click / tap on an expanded event row collapses it** (clicks in its action row don't). Why: there was no way to
+  close a row except Esc or opening another. Detail: `EventLog.tsx` row `onSelect`.
+
 ## 2026-10-20
 
 - **User: LRV / MP4 playback switch** for paired GoPro files (per device; default LRV on touch, MP4 on desktop; exports always MP4).
