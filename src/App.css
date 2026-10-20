@@ -1655,7 +1655,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
    Landscape: the tag box and the review are a right-hand column (about 40 % wide, own scroll, safe-area aware).
    Portrait: a bottom sheet of at most 60 % of the height. Both sit above the tap zones and the mark button. */
 .event-picker--compact {
-  display: flex; flex-direction: column; top: 0; right: 0; bottom: 0; left: auto; z-index: 60; width: clamp(300px, 40%, 440px); max-height: none; box-sizing: border-box;
+  display: flex; flex-direction: column; top: 0; right: 0; bottom: 0; left: auto; z-index: 60; width: var(--fs-panel-w); max-height: none; box-sizing: border-box;
   border-width: 0 0 0 1px; border-radius: 0; box-shadow: -6px 0 22px rgb(0 0 0 / 0.35); font-size: var(--sh-text-md);
   padding: max(8px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px)) 0 10px;
 }
@@ -1669,13 +1669,13 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .event-picker--compact .person-chip { font-size: var(--sh-text-md); }
 @media (orientation: portrait) {
   .event-picker--compact {
-    top: auto; left: 0; width: auto; max-height: 60%; border-width: 1px 0 0; border-radius: var(--sh-radius-md) var(--sh-radius-md) 0 0;
+    top: auto; left: 0; width: auto; height: var(--fs-panel-h); max-height: none; border-width: 1px 0 0; border-radius: var(--sh-radius-md) var(--sh-radius-md) 0 0;
     box-shadow: 0 -8px 24px rgb(0 0 0 / 0.3); padding: 8px max(10px, env(safe-area-inset-right, 0px)) 0 max(10px, env(safe-area-inset-left, 0px));
   }
 }
 
 .column-panel--fs {
-  position: absolute; top: 56px; right: 0; bottom: 0; z-index: 55; flex: none; width: clamp(300px, 40%, 440px); box-sizing: border-box; min-height: 0;
+  position: absolute; top: 0; right: 0; bottom: 0; z-index: 55; flex: none; width: var(--fs-panel-w); box-sizing: border-box; min-height: 0;
   border-top: 0; border-left: 1px solid var(--sh-line); box-shadow: -6px 0 22px rgb(0 0 0 / 0.35); padding-right: env(safe-area-inset-right, 0px);
 }
 .column-panel--fs .column-panel__head { padding-block: 0; }
@@ -1687,7 +1687,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .column-panel--fs-hidden { display: none; }
 @media (orientation: portrait) {
   .column-panel--fs {
-    top: auto; left: 0; width: auto; height: auto; max-height: 60%; border-left: 0; border-top: 1px solid var(--sh-line);
+    top: auto; left: 0; width: auto; height: var(--fs-panel-h); max-height: none; border-left: 0; border-top: 1px solid var(--sh-line);
     border-radius: var(--sh-radius-md) var(--sh-radius-md) 0 0; box-shadow: 0 -8px 24px rgb(0 0 0 / 0.3); padding-left: env(safe-area-inset-left, 0px);
   }
   .column-panel--fs .column-panel__body { flex: 1 1 auto; }
@@ -1697,7 +1697,20 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .toast-host--fs { position: absolute; top: 64px; left: max(10px, env(safe-area-inset-left, 0px)); z-index: 10001; max-width: min(380px, calc(100% - 20px)); pointer-events: none; }
 
 /* Playback lock and Review buttons in the top-right group. */
-.lock-btn { position: relative; padding: 0 6px; }
+.lock-btn { position: relative; padding: 0 6px; min-width: 62px; }
+/* Touch fullscreen with a panel or the tag box open: the picture takes the free space (left in landscape, top in portrait), never sits behind the panel. */
+.player-container { --fs-panel-w: clamp(300px, 40vw, 440px); --fs-panel-h: 60%; }
+.player-container.player-container--split .video-js.video-js { width: calc(100% - var(--fs-panel-w)) !important; } /* beats video.js's own fullscreen sizing */
+.player-container--split .fullscreen-overlay--fullscreen { width: calc(100vw - var(--fs-panel-w)); }
+/* Things centred on the picture follow it. */
+.player-container--split .play-indicator, .player-container--split .speed-indicator { left: calc((100% - var(--fs-panel-w)) / 2); }
+.player-container--split .render-chip--overlay { left: calc((100% - var(--fs-panel-w)) / 2); }
+@media (orientation: portrait) {
+  .player-container--split .play-indicator, .player-container--split .speed-indicator { left: 50%; top: calc((100% - var(--fs-panel-h)) / 2); }
+  .player-container--split .render-chip--overlay { left: 50%; }
+  .player-container.player-container--split .video-js.video-js { width: 100% !important; height: calc(100% - var(--fs-panel-h)) !important; }
+  .player-container--split .fullscreen-overlay--fullscreen { width: 100vw; height: 40dvh; }
+}
 .lock-btn--on { background: var(--sh-on-video); color: var(--sh-video); }
 .lock-btn--on:active { background: var(--sh-on-video); }
 .review-btn { padding: 0 12px; font-size: var(--sh-text-sm); white-space: nowrap; }

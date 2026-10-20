@@ -8,7 +8,8 @@ import { runShortcut, seekBy, stepFrame, type ShortcutPlayer } from './playerSho
 import { FullscreenControls } from './FullscreenControls'
 import { EventPicker } from './EventPicker'
 import { Toast } from './Toast'
-import { useFullscreenUi } from './fullscreenUi'
+import { fullscreenSplit, useFullscreenUi } from './fullscreenUi'
+import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 import { patchPlayerFullscreen, type FullscreenPlayer } from './fullscreen'
 import { cropTransform } from '../utils/crop'
 import { attachPictureGestures } from './pictureGestures'
@@ -359,6 +360,11 @@ export function Player() {
         ui.setReviewHidden(false)
         return () => { useFullscreenUi.getState().setHost(null) }
     }, [inFullscreen])
+    // Touch fullscreen with a panel or the tag box open: the picture sits beside / above it, never behind it.
+    const coarseFs = useMediaQuery(COARSE_QUERY)
+    const columnPanel = useFullscreenUi((s) => s.columnPanel)
+    const tagging = useAppState((s) => s.picker !== null)
+    const split = fullscreenSplit({ inFullscreen, coarse: coarseFs, tagging, columnPanel })
     // Fullscreen has no event list to edit from: leaving the edit panel open would only be hidden behind the picture.
     useEffect(() => { if (isFullscreen || immersive) { const st = useAppState.getState(); if (st.panel === 'event') st.closePanel() } }, [isFullscreen, immersive])
     useEffect(() => {
@@ -391,7 +397,7 @@ export function Player() {
     }, [])
 
     return (
-        <div ref={containerRef} className={`player-container${zoomPan.zoom > 1 ? ' player-container--zoomed' : ''}${immersive ? ' player-container--immersive' : ''}`}>
+        <div ref={containerRef} className={`player-container${zoomPan.zoom > 1 ? ' player-container--zoomed' : ''}${immersive ? ' player-container--immersive' : ''}${split ? ' player-container--split' : ''}`}>
             <video ref={videoRef} className="video-js vjs-default-skin" />
             {speedIndicator !== null && (
                 <div className="speed-indicator" key={speedIndicator + '-' + Date.now()}>
