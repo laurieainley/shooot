@@ -11,6 +11,9 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-20
 
+- **User: LRV / MP4 playback switch** for paired GoPro files (per device; default LRV on touch, MP4 on desktop; exports always MP4).
+  Why: the LRV is smoother and lighter on phones, the MP4 sharper; before, choosing the MP4 dropped the LRV. Detail:
+  `docs/superpowers/agents/briefs/playsrc-report.md`.
 - **User: touch view gestures** — turning a phone sideways fills the screen automatically (real fullscreen on the first tap: browsers
   need a gesture); a single tap only shows/hides the controls (no tap-to-play, no double-tap seek or fullscreen, no Lock); rotating
   resets zoom so the whole picture shows. Supersedes the 2026-10-20 agent choice to keep tap = play/pause.

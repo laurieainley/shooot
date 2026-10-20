@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { useAppState, type Panel } from '../state'
+import { PlaybackChoice } from './PlaybackChoice'
 import { AiTag } from './AiTag'
 import { useDetectJob } from '../detectJobs'
 import { findGoalsProgress } from '../utils/findGoalsProgress'
@@ -106,6 +107,7 @@ function MenuBody({ setupInMenu, tagView = false }: MenuBodyProps) {
                     ))}
                 </div>
             )}
+            {hasFiles && <PlaybackChoice variant="menu" />}
             {tagView && (
                 <>
                     <button type="button" role="menuitem" onClick={() => { useAppState.getState().closePanel(); useTagUi.getState().setSheet('events') }}>Events list</button>

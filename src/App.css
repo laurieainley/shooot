@@ -2130,3 +2130,20 @@ button.tagcol__crumb:active { color: var(--sh-text); border-color: var(--sh-text
 .menu-speeds__btn { min-width: 44px; min-height: 44px; padding: 0 8px; border-radius: var(--sh-radius-sm); border: 1px solid var(--sh-line); background: transparent; color: var(--sh-text); font: inherit; font-size: var(--sh-text-sm); font-weight: 700; cursor: pointer; }
 .menu-speeds__btn[aria-pressed="true"] { background: var(--sh-surface-2); box-shadow: 0 0 0 2px var(--sh-text); }
 @media (pointer: coarse) { .control-btn.tv-chip, .tv-notgoal, .menu-speeds__btn { font-size: 14px; } .menu-speeds__label { font-size: 14px; } .tv-moment { font-size: 14px; } }
+
+/* Playback LRV / MP4 (paired GoPro files): segmented choice in the ⋯ menu and the Files sheet */
+.playback-choice { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; padding: 6px 4px; }
+.playback-choice__label { font-size: var(--sh-text-xs); color: var(--sh-muted); flex: 1 0 100%; padding: 0 4px; }
+.playback-choice--sheet { padding: 10px 0 0; }
+.playback-choice--sheet .playback-choice__label { font-size: var(--sh-text-sm); color: var(--sh-text); font-weight: 600; }
+.playback-choice__options { display: inline-flex; border: 1px solid var(--sh-line); border-radius: var(--sh-radius-sm); overflow: hidden; }
+.playback-choice__btn { min-width: 64px; min-height: 36px; padding: 0 14px; border: 0; border-left: 1px solid var(--sh-line); background: transparent; color: var(--sh-text); font: inherit; font-size: var(--sh-text-sm); font-weight: 700; cursor: pointer; }
+.playback-choice__btn:first-child { border-left: 0; }
+.playback-choice__btn[aria-pressed="true"] { background: var(--sh-text); color: var(--sh-ground); }
+.playback-choice__btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.playback-choice__btn:focus-visible { outline: 2px solid var(--sh-text); outline-offset: -2px; }
+.playback-choice__hint { flex: 1 0 100%; font-size: var(--sh-text-xs); color: var(--sh-muted); padding: 0 4px; }
+@media (pointer: coarse) {
+  .playback-choice__btn { min-height: 44px; min-width: 72px; font-size: 14px; }
+  .playback-choice__label, .playback-choice__hint { font-size: 14px; }
+}

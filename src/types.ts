@@ -1,3 +1,16 @@
+/** One of the two files of a GoPro pair (the full MP4 or its LRV proxy): what it is and whether this browser plays it. */
+export type PairSide = {
+    file: File
+    name: string
+    width?: number
+    height?: number
+    codec?: 'h264' | 'hevc'
+    playbackIssue?: string
+}
+
+/** A GoPro MP4 and its LRV, both kept so playback can use either (exports always use `full`). Not persisted. */
+export type SourcePair = { full: PairSide; proxy: PairSide }
+
 export type VideoSourceFile = {
     id: string
     file: File            // played in the editor (proxy if one is available and playable)
@@ -10,6 +23,7 @@ export type VideoSourceFile = {
     codec?: 'h264' | 'hevc'
     fullFile?: File       // full-quality file used for render when `file` is a proxy
     playbackIssue?: string // set when this browser cannot play `file`
+    pair?: SourcePair      // both files of a GoPro MP4 + LRV pair; `file`/`url`/`kind` say which one is playing
     recordedAtMs?: number  // when filming started, from the container's metadata (not the file's modified date)
 }
 
