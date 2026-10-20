@@ -3,7 +3,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
-import { NewMatchFlow } from './NewMatchFlow'
+import { NewMatchFlow, isFullScreenLayout } from './NewMatchFlow'
+import * as media from './useMediaQuery'
 
 vi.mock('./goalSetup/GoalSetupSection', () => ({ GoalSetupSection: () => <section aria-label="Goal areas" /> }))
 vi.mock('./AddFilesButton', () => ({ AddFilesButton: ({ label }: { label: string }) => <button type="button">{label}</button> }))
@@ -106,5 +107,36 @@ describe('NewMatchFlow', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Next' }))
         await userEvent.click(screen.getByRole('button', { name: 'Done' }))
         expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    describe('on phones', () => {
+        it('should be full screen only on phone layouts', () => {
+            expect(['phone', 'landscape', 'tablet', 'desktop'].map(isFullScreenLayout)).toEqual([true, true, false, false])
+        })
+
+        it('should render the full-screen layer on a phone and the centred window otherwise', () => {
+            const spy = vi.spyOn(media, 'useLayout').mockReturnValue('phone')
+            const { unmount } = render(<NewMatchFlow onClose={() => {}} />)
+            expect(screen.getByRole('dialog', { name: 'New match' })).toHaveClass('sheet--full')
+            unmount()
+            spy.mockReturnValue('tablet')
+            render(<NewMatchFlow onClose={() => {}} />)
+            expect(screen.getByRole('dialog', { name: 'New match' })).not.toHaveClass('sheet--full')
+            spy.mockRestore()
+        })
+
+        it('should close on the Back button (a history entry) and still ignore Esc', async () => {
+            const spy = vi.spyOn(media, 'useLayout').mockReturnValue('phone')
+            const onClose = vi.fn()
+            await new Promise((r) => setTimeout(r, 20)) // let the previous test's layer finish dropping its history entry
+            render(<NewMatchFlow onClose={onClose} />)
+            expect((history.state as { newMatch?: boolean } | null)?.newMatch).toBe(true)
+            await userEvent.keyboard('{Escape}')
+            expect(onClose).not.toHaveBeenCalled()
+            history.replaceState(null, '')
+            window.dispatchEvent(new PopStateEvent('popstate'))
+            expect(onClose).toHaveBeenCalledTimes(1)
+            spy.mockRestore()
+        })
     })
 })

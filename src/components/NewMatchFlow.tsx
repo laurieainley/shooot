@@ -6,11 +6,39 @@ import { GoalSetupSection } from './goalSetup/GoalSetupSection'
 import { MatchDetails } from './MatchDetails'
 import { OpeningStatus } from './OpeningStatus'
 import { Sheet } from './Sheet'
+import { useLayout } from './useMediaQuery'
 
 const STEPS = ['Videos', 'Match', 'Goals'] as const
 
 interface NewMatchFlowProps {
     onClose: () => void
+}
+
+interface NewMatchEntry { newMatch?: boolean }
+
+/** Phone layouts (portrait and landscape) show New match edge to edge; tablets and desktop keep the centred window. */
+export function isFullScreenLayout(layout: string): boolean { return layout === 'phone' || layout === 'landscape' }
+
+let openLayers = 0
+
+/** Android Back closes the full-screen layer like the ✕: it sits on one history entry (as the goal set-up layer does). */
+function useBackCloses(active: boolean, onClose: () => void): void {
+    const closeRef = useRef(onClose)
+    closeRef.current = onClose
+    useEffect(() => {
+        if (!active) return
+        const has = (): boolean => !!(history.state as NewMatchEntry | null)?.newMatch
+        openLayers += 1
+        if (!has()) history.pushState({ ...(history.state as object | null), newMatch: true }, '')
+        const onPop = (): void => { if (!has()) closeRef.current() }
+        window.addEventListener('popstate', onPop)
+        return () => {
+            window.removeEventListener('popstate', onPop)
+            // Deferred so a Strict Mode re-mount keeps the entry; a close by ✕ or Done drops it.
+            openLayers -= 1
+            setTimeout(() => { if (openLayers === 0 && has()) history.back() }, 0)
+        }
+    }, [active])
 }
 
 /**
@@ -23,13 +51,15 @@ export function NewMatchFlow({ onClose }: NewMatchFlowProps) {
     const [step, setStep] = useState(0)
     const [message, setMessage] = useState<string | null>(null)
     const last = step >= STEPS.length - 1
+    const full = isFullScreenLayout(useLayout())
+    useBackCloses(full, onClose)
     const stepsRef = useRef<HTMLOListElement>(null)
     // A new step starts at its top: the window keeps its scroll otherwise, and on a phone on its side the next step
     // would open half-way down.
     useEffect(() => { const sheet = stepsRef.current?.closest('.sheet'); if (sheet) sheet.scrollTop = 0 }, [step])
 
     return (
-        <Sheet label="New match" onClose={onClose} className="sheet--wide sheet--steps" persistent>
+        <Sheet label="New match" onClose={onClose} className={`sheet--wide sheet--steps${full ? ' sheet--full' : ''}`} persistent>
             <ol ref={stepsRef} className="steps" aria-label="Steps">
                 {STEPS.map((name, i) => (
                     <li key={name} className="steps__item" aria-current={i === step ? 'step' : undefined} data-done={i < step || undefined}>
