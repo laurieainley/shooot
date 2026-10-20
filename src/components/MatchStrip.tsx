@@ -4,6 +4,8 @@ import { buildMatchStrip, globalToFileTime, stackLanes } from '../utils/matchStr
 import { formatClock, formatEventClock } from '../utils/timeline'
 import { suggestionMarks } from '../utils/suggestions'
 import { useSuggestionsCurrent } from './findGoals'
+import { jumpToMoment } from './foundMoments'
+import { useTagViewMode } from './tagView'
 import { EventIcon } from './icons/EventIcon'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 
@@ -60,6 +62,13 @@ export function MatchStrip({ variant }: MatchStripProps = {}) {
     const matchStartSec = useAppState(selectMatchStartSec)
     const suggestions = useAppState((s) => s.suggestions)
     const suggestionsCurrent = useSuggestionsCurrent()
+    const touchView = useTagViewMode() !== 'off'
+    // Touch: a ring jumps to the moment (6 s before, playing); there is no review card to open. Desktop opens the review.
+    const openRing = (id: string): void => {
+        const m = useAppState.getState().suggestions.find((x) => x.id === id)
+        if (touchView && m) jumpToMoment(m)
+        else useAppState.getState().openReviewAt(id)
+    }
     const clockLong = useAppState(selectClockLong)
     const currentFileIndex = useAppState((s) => s.currentFileIndex)
     const currentTimeSec = useAppState((s) => s.currentTimeInFileSec)
@@ -219,7 +228,7 @@ export function MatchStrip({ variant }: MatchStripProps = {}) {
                             const tap = dragging.current && takeTap(ev)
                             const ring = tap ? ringAt(ev)?.id ?? null : null
                             const icon = tap && !ring && isTouchLike(ev.pointerType) ? iconAt(ev) : null
-                            if (ring) useAppState.getState().openReviewAt(ring)
+                            if (ring) openRing(ring)
                             else if (icon) jumpToEvent(icon)
                             else if (dragging.current && ev.pointerType === 'touch') { const frac = fracAt(ev); if (frac !== null) seekFrac(frac) }
                             dragging.current = false
@@ -252,7 +261,7 @@ export function MatchStrip({ variant }: MatchStripProps = {}) {
                                 className={`strip-suggestion${m.top ? ' strip-suggestion--top' : ''}`}
                                 style={{ left: `${m.leftPct}%` }}
                                 aria-label={`Found moment at ${formatEventClock(m.timeSec, m.timeSec, matchStartSec, clockLong)}`}
-                                onClick={() => useAppState.getState().openReviewAt(m.id)}
+                                onClick={() => openRing(m.id)}
                             >
                                 {m.top && <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" focusable="false" fill="currentColor"><path d="M12 2.9l2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 16.7l-5.4 3 1.1-6.1-4.5-4.3 6.1-.8z" /></svg>}
                             </button>

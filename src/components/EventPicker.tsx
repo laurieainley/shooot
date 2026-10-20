@@ -12,6 +12,8 @@ import { PersonStep } from './PersonStep'
 import { TagColumn } from './TagColumn'
 import { breadcrumbs, nearWarning, questionFor } from '../utils/tagFlow'
 import { useTagViewMode } from './tagView'
+import { momentAt } from '../utils/foundMoments'
+import { pendingMoments } from '../utils/tagView'
 import { PICKER_GROUPS, PICKER_OPTIONS, assistOf, isMarker, controlLabel, type PickerOption } from '../utils/eventTypes'
 import { SKIP, initialPickerState, pickerReducer, touchPickerState, scorerCandidates, isDisabledName, type PickerInput, type PickerState } from '../utils/eventPicker'
 import { teamShortcuts } from '../utils/roster'
@@ -63,6 +65,17 @@ export function EventPicker() {
         // Tagged while reviewing, inside the current suggestion's loop: it counts for that suggestion, like Confirm.
         const sug = st.panel === 'review' ? st.suggestions[st.reviewIndex] : undefined
         const taken = !!sug && effectiveStatus(sug, new Set(st.events.map((x) => x.id))) === 'kept' // already confirmed: leave it, no duplicate link
+        // Touch view (no review card): tagging while on a pending found moment resolves it, like Confirm.
+        if (tagViewMode !== 'off' && (e.type === 'goal' || e.type === 'own_goal' || e.type === 'save' || e.type === 'highlight')) {
+            const at = eventGlobalSec(e, st.cumulativeOffsets)
+            const onMoment = momentAt(pendingMoments(st.suggestions, new Set(st.events.map((x) => x.id))), at)
+            if (onMoment) {
+                st.linkSuggestionEvent(onMoment.id, id)
+                showToast(confirmedCopy(e.type, e.team, matchClock(at, kick, selectClockLong(st))),
+                    { label: 'Undo', run: () => { const s2 = useAppState.getState(); if (s2.events.some((x) => x.id === id)) s2.removeEvent(id) } })
+                return
+            }
+        }
         if (sug && !taken && (e.type === 'goal' || e.type === 'own_goal' || e.type === 'save' || e.type === 'highlight')) {
             const w = getReviewWindow()
             const at = eventGlobalSec(e, st.cumulativeOffsets)

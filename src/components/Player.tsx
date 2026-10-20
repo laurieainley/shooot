@@ -3,7 +3,8 @@ import videojs from 'video.js'
 import 'video.js/dist/video-js.css'
 import { selectClockLong, useAppState } from '../state'
 import { shortcutFor, shouldHandleShortcut } from '../utils/shortcuts'
-import { registerPlayerSeekPaused, registerPlayerShortcut, registerPlayerStep, registerPlayerToggle, setPlayerPaused } from './playerControl'
+import { FindGoalsLine } from './FindGoalsChip'
+import { registerPlayerRate, registerPlayerSeekPaused, registerPlayerShortcut, registerPlayerStep, registerPlayerToggle, setPlayerPaused } from './playerControl'
 import { runShortcut, seekBy, stepFrame, type ShortcutPlayer } from './playerShortcuts'
 import { FullscreenControls } from './FullscreenControls'
 import { EventPicker } from './EventPicker'
@@ -251,6 +252,8 @@ export function Player() {
         if (p) runShortcut(action, p, zoomRef.current)
     }), [])
 
+    useEffect(() => registerPlayerRate(() => playerRef.current?.playbackRate() ?? 1, (r) => { playerRef.current?.playbackRate(r) }), [])
+
     // Scrubbing the review timeline: seek (switching file if needed) and stay paused.
     useEffect(() => registerPlayerSeekPaused((f, t) => seekRef.current(f, t, false)), [])
 
@@ -441,7 +444,7 @@ export function Player() {
             <ZoomChip zoom={zoomPan.zoom} onReset={zoomPan.reset} />
             {inFullscreen && <RenderChip variant="overlay" />}
             <FullscreenControls playerRef={playerRef} isFullscreen={inFullscreen} />
-            {overlayView && <div className="tv-fades tv-strip" onPointerDown={() => useTagUi.getState().poke()}><MatchStrip variant="overlay" /></div>}
+            {overlayView && <div className="tv-fades tv-strip" onPointerDown={() => useTagUi.getState().poke()}><FindGoalsLine /><MatchStrip variant="overlay" /></div>}
             {overlayView && <EventsSheet />}
             <EventPicker />
             {inFullscreen && <div className="toast-host toast-host--fs"><Toast /></div>}

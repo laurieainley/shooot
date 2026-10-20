@@ -13,7 +13,8 @@ import type { Layout } from './useMediaQuery'
 import { ExportPanel } from './ExportPanel'
 import { useExportButtonStatus } from './useExportButtonStatus'
 import { useTagUi } from './tagView'
-import { runPlayerShortcut } from './playerControl'
+import { getPlayerRate, runPlayerShortcut, setPlayerRate } from './playerControl'
+import { useTagViewMode } from './tagView'
 
 interface OverflowMenuProps {
     /** Desktop and tablet have a Match setup button in the bar; narrower layouts keep it in here. */
@@ -56,6 +57,8 @@ function DotsIcon() {
     )
 }
 
+const SPEEDS = [0.25, 0.5, 1, 1.5, 2]
+
 type MenuItem = { label: string; panel: Panel; aria?: string }
 
 interface MenuBodyProps {
@@ -73,6 +76,8 @@ function MenuBody({ setupInMenu, tagView = false }: MenuBodyProps) {
     const labsSeen = useAppState((s) => s.labsSeen)
     const [blocker, setBlocker] = useState<SwitchBlocker>(null)
     const fullscreen = useAppState((s) => s.playerFullscreen || s.immersive)
+    const touchView = useTagViewMode() !== 'off'
+    const [rate, setRate] = useState(getPlayerRate)
     const filesCount = useAppState((s) => s.files.length)
     const items: MenuItem[] = [
         ...(setupInMenu ? [{ label: 'Match setup', panel: 'match' as const }] : []),
@@ -101,6 +106,14 @@ function MenuBody({ setupInMenu, tagView = false }: MenuBodyProps) {
                     <button type="button" role="menuitem" onClick={() => useAppState.getState().openPanel('files')}>Files{filesCount > 0 ? ` (${filesCount})` : ''}</button>
                     <button type="button" role="menuitem" onClick={() => { useAppState.getState().closePanel(); runPlayerShortcut('fullscreen') }}>{fullscreen ? 'Exit fullscreen' : 'Fullscreen'}</button>
                 </>
+            )}
+            {touchView && hasFiles && (
+                <div role="group" aria-label="Playback speed" className="menu-speeds">
+                    <span className="menu-speeds__label">Speed</span>
+                    {SPEEDS.map((r) => (
+                        <button key={r} type="button" className="menu-speeds__btn tc" aria-pressed={Math.abs(rate - r) < 0.01} onClick={() => { setPlayerRate(r); setRate(r) }}>{r}×</button>
+                    ))}
+                </div>
             )}
             {setupInMenu && ( // desktop and tablet have New match in the top bar
                 <button type="button" role="menuitem" onClick={() => { const b = switchBlocker(); if (b) setBlocker(b); else void startNewMatch() }}>New match…</button>

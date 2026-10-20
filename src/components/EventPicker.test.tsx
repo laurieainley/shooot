@@ -268,6 +268,27 @@ describe('EventPicker on touch', () => {
         expect(s().editingFocus).toBe('note')
     })
 
+    it('should confirm the found moment you are on when you tag (touch view, no review card open)', () => {
+        useAppState.getState().setSuggestions({ createdAt: 1, source: 'audio', configVersion: 1, analysedSec: 600, total: 2 }, [{ timeSec: 100, score: 5 }, { timeSec: 400, score: 4 }])
+        render(<EventPicker />)
+        fireEvent.click(screen.getByRole('option', { name: /^goal$/i }))
+        fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+        const [near, far] = s().suggestions
+        expect(near).toMatchObject({ status: 'kept', keptAs: 'goal', eventId: s().events[0].id })
+        expect(far.status).toBe('pending')
+        expect(s().events).toHaveLength(1)
+        expect(toastStore.getState().toast?.text).toMatch(/confirmed/)
+    })
+
+    it('should leave a found moment pending when the tag is nowhere near it', () => {
+        useAppState.getState().setSuggestions({ createdAt: 1, source: 'audio', configVersion: 1, analysedSec: 600, total: 1 }, [{ timeSec: 300, score: 5 }])
+        render(<EventPicker />)
+        fireEvent.click(screen.getByRole('option', { name: /^goal$/i }))
+        fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+        expect(s().suggestions[0].status).toBe('pending')
+        expect(toastStore.getState().toast?.text).toMatch(/tagged/)
+    })
+
     it('should offer no Add note when the note was typed (desktop)', () => {
         setCoarsePointer(false)
         act(() => useAppState.setState({ picker: null, events: [], teams: [{ name: 'Whites', color: '#fff', roster: ['Sam'] }, { name: 'Colours', color: '#f00', roster: [] }] }))

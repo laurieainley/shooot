@@ -17,6 +17,7 @@ export function useTagViewMode(): TagViewMode {
 export function startTag(): void {
     const st = useAppState.getState()
     if (st.files.length === 0 || st.picker) return
+    if (st.panel === 'review') st.closePanel() // the Find goals sheet is not part of tagging
     pausePlayer()
     st.markEvent(st.currentTimeInFileSec, { deferred: true })
 }
