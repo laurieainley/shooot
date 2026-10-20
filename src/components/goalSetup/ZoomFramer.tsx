@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } fr
 import type { CropRect } from '../../types'
 import { MIN_BOX_W, isSoft } from '../../utils/crop'
 import { cropImageStyle, mapTapToBox, panBox, pinchBox, stepBox } from '../../utils/goalSetup'
-import { wheelZoomFactor } from '../../utils/zoom'
+import { wheelPace } from '../wheelPace'
 import type { Frame } from '../frameGrab'
 
 interface ZoomFramerProps {
@@ -40,9 +40,10 @@ export function ZoomFramer({ frame, rect, home, onChange }: ZoomFramerProps) {
     useEffect(() => {
         const el = view.current
         if (!el) return
+        const wheelStep = wheelPace()
         const onWheel = (e: WheelEvent): void => {
             e.preventDefault()
-            onChange(pinchBox(rectRef.current, wheelZoomFactor(e.deltaY, e.deltaMode)))
+            onChange(pinchBox(rectRef.current, wheelStep(e)))
         }
         el.addEventListener('wheel', onWheel, { passive: false })
         return () => el.removeEventListener('wheel', onWheel)

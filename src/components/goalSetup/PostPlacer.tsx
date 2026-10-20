@@ -3,7 +3,7 @@ import type { GoalMarks, GoalTeam, Pt } from '../../types'
 import { footprint } from '../../utils/goalMarks'
 import { MARK_STEPS, type MarkKey } from '../../utils/goalMarkSteps'
 import { clampViewPan, contentSize, guessNextPoint, panToCentre, viewToFrame, zoomViewAt, type View, type Viewport } from '../../utils/goalSetup'
-import { wheelZoomFactor } from '../../utils/zoom'
+import { wheelPace } from '../wheelPace'
 import type { Frame } from '../frameGrab'
 
 export const MAX_PLACER_ZOOM = 15
@@ -102,10 +102,12 @@ export function PostPlacer({ frame, loading, team, marks, current, other, touch,
     useEffect(() => {
         const el = viewportEl.current
         if (!el) return
+        const wheelStep = wheelPace()
         const onWheel = (e: WheelEvent): void => {
             e.preventDefault()
             const r = el.getBoundingClientRect()
-            setView((v) => zoomViewAt(v, wheelZoomFactor(e.deltaY, e.deltaMode), { x: e.clientX - (r.left + r.width / 2), y: e.clientY - (r.top + r.height / 2) }, vpRef.current, aspectRef.current, MAX_PLACER_ZOOM))
+            const f = wheelStep(e) // outside the updater: React may run an updater twice
+            setView((v) => zoomViewAt(v, f, { x: e.clientX - (r.left + r.width / 2), y: e.clientY - (r.top + r.height / 2) }, vpRef.current, aspectRef.current, MAX_PLACER_ZOOM))
         }
         el.addEventListener('wheel', onWheel, { passive: false })
         return () => el.removeEventListener('wheel', onWheel)

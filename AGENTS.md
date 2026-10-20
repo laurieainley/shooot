@@ -340,7 +340,7 @@ npm run lint       # baseline: 12 known problems — add none
   - touch targets ≥ 44 px, text ≥ 14 px on touch (base rules later in App.css beat the touch block: restate 14px in the `pointer: coarse` block at the end of the file), contrast ≥ 4.5:1 (`node scripts/check-contrast.mjs`), respect
     `prefers-reduced-motion`, never red-vs-green alone to distinguish meanings.
 - **Picture gestures** (`components/pictureGestures.ts`): while zoomed, mouse drag or **one finger** pans (a tap still plays /
-  pauses); two fingers pinch-zoom (1×–4×) and pan; wheel / trackpad pinch zooms. Leaving the page while a render or
+  pauses); two fingers pinch-zoom (1×–4×) and pan; wheel / trackpad pinch zooms (~10% per wheel event; events within 40 ms of the last — a pinch or a smooth-scrolling mouse such as Mos — ~3% each, so one notch is ~1.25×; `wheelPace`). Leaving the page while a render or
   Find goals is running asks first (`useLeaveWarning`). Starting Find goals pauses a playing video (`pausePlayer`).
 - **Keyboard:** one window-level handler (`Player.tsx` + `utils/shortcuts.ts` + `components/playerShortcuts.ts`);
   shortcuts work wherever focus is, except in text fields/menus/tabs, controls inside a dialog (`[role=dialog]`,

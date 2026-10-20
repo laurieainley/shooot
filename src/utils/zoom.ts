@@ -55,6 +55,10 @@ export function classifyPointer(distancePx: number, durationMs: number): 'click'
 }
 
 const WHEEL_MAX_PX = 10
+/** Events closer together than this are one gesture streamed frame by frame (a pinch, or a smooth-scrolling wheel such as Mos). */
+const WHEEL_STREAM_MS = 40
+/** Per-event cap inside such a stream: one smooth-scrolled notch (~5 events) is about 1.25x, not 1.6x. */
+const WHEEL_STREAM_MAX_PX = 3
 
 /** A wheel delta in pixels: line-based wheels (Firefox, some mice) report lines (~16 px each) or pages (~100 px). */
 export function wheelDeltaPx(delta: number, deltaMode = 0): number {
@@ -63,11 +67,13 @@ export function wheelDeltaPx(delta: number, deltaMode = 0): number {
 
 /**
  * Multiplicative zoom step for a wheel / trackpad-pinch delta (exponential, so in and out are symmetric). One event is
- * at most about 10%, so a free-spinning wheel that fires many events still zooms smoothly.
+ * at most about 10%, so a free-spinning wheel that fires many events still zooms smoothly. `sinceLastMs` is the time since the
+ * previous wheel event: inside a quick stream each event is capped at about 3% (small pinch deltas are unaffected).
  */
-export function wheelZoomFactor(deltaY: number, deltaMode = 0): number {
+export function wheelZoomFactor(deltaY: number, deltaMode = 0, sinceLastMs = Infinity): number {
     const px = wheelDeltaPx(deltaY, deltaMode)
-    return Math.exp(-Math.max(-WHEEL_MAX_PX, Math.min(WHEEL_MAX_PX, px)) * 0.01)
+    const max = sinceLastMs < WHEEL_STREAM_MS ? WHEEL_STREAM_MAX_PX : WHEEL_MAX_PX
+    return Math.exp(-Math.max(-max, Math.min(max, px)) * 0.01)
 }
 
 /** The pan is stored in pixels of the old viewport, so any change of size (rotation, entering fullscreen) makes it wrong: the zoom starts again. */
