@@ -3,7 +3,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
-import { NewMatchFlow, isFullScreenLayout } from './NewMatchFlow'
+import { NewMatchFlow } from './NewMatchFlow'
+import { isFullScreenLayout } from './newMatchLayout'
 import * as media from './useMediaQuery'
 
 vi.mock('./goalSetup/GoalSetupSection', () => ({ GoalSetupSection: () => <section aria-label="Goal areas" /> }))

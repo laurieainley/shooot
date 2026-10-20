@@ -215,6 +215,8 @@ npm run lint       # baseline: 12 known problems — add none
   close it, only ✕). The Videos step reuses the Files sheet's `FileList` (reorder, durations by the name). Rosters are a
   lineup: one player per line with a mini shirt in the kit colour and "N players". Fields are sized for their content.
   Each step opens at its top; on short screens (max-height 560px) the step tabs stay pinned under the title bar.
+  On phone layouts (`phone` / `landscape`) it is a full-screen layer (`sheet--full`: edge to edge inside the safe areas, tabs
+  pinned, Back/Next at the bottom above the keyboard) and Android Back closes it like ✕ (one history entry).
 - **Matches list:** Sort (Last edited default, Least recently edited, Newest / Oldest by match date, A–Z / Z–A; per
   device in localStorage); the open match has an "Open" pill. `updatedAt` moves only on a real edit (`isEdit`: content
   and file keys/order; not a relink, refreshed file details or reformatted events).

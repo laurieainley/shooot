@@ -7,6 +7,7 @@ import { MatchDetails } from './MatchDetails'
 import { OpeningStatus } from './OpeningStatus'
 import { Sheet } from './Sheet'
 import { useLayout } from './useMediaQuery'
+import { isFullScreenLayout } from './newMatchLayout'
 
 const STEPS = ['Videos', 'Match', 'Goals'] as const
 
@@ -15,9 +16,6 @@ interface NewMatchFlowProps {
 }
 
 interface NewMatchEntry { newMatch?: boolean }
-
-/** Phone layouts (portrait and landscape) show New match edge to edge; tablets and desktop keep the centred window. */
-export function isFullScreenLayout(layout: string): boolean { return layout === 'phone' || layout === 'landscape' }
 
 let openLayers = 0
 
