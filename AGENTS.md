@@ -277,7 +277,8 @@ npm run lint       # baseline: 12 known problems — add none
   proxies; `accept` must be omitted on iOS or `.LRV` is greyed out; `HTMLMediaElement.volume` is read-only (use a Web
   Audio gain); Safari answers `canPlayType('')` for `hev1` — decide playability by loading the file.
 - **Android:** Chrome reads files live from USB (fast open, slow random reads — see fileSource). `accept` is omitted
-  on Android too, or `.LRV` is greyed out in the picker. Keyboard overlays fields (`useKeyboardInset`).
+  on Android too, or `.LRV` is greyed out in the picker. Chrome 132+ on Android also has `showOpenFilePicker`, which greys out `.LRV` the same
+  way (it maps extensions to MIME types), so `filePicker()` returns null on Android and Add files uses the plain input. Keyboard overlays fields (`useKeyboardInset`).
 - **Desktop Chrome/Edge:** File System Access handles allow one-click relink after reload.
 - **Benchmark page:** `/bench` (`bench.html`, `src/bench/`) runs the real render modules on a file or a synthetic clip and
   reports timings; not linked from the editor, `noindex`. Use it on a phone/iPad to measure export speed and catch errors.

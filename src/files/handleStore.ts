@@ -1,8 +1,9 @@
 // File System Access handles (desktop Chrome / Edge) kept in IndexedDB so the match's videos can be reopened after a
-// reload with one click (and one permission prompt). Not available on Android Chrome or Safari: there, Relink opens
-// the normal picker and events find their files again by name.
+// reload with one click (and one permission prompt). Not used on Android (Chrome 132+ has showOpenFilePicker, but it
+// maps the accepted extensions to MIME types and greys out .LRV) or Safari: there, the plain input picks the files
+// and Relink finds them again by name.
 import { del, get, set } from 'idb-keyval'
-import { VIDEO_EXTENSIONS } from '../utils/fileAccept'
+import { VIDEO_EXTENSIONS, onAndroid } from '../utils/fileAccept'
 import { openMatchStore } from '../components/openMatch'
 
 const LEGACY_KEY = 'file-handles'
@@ -24,8 +25,9 @@ type OpenFilePicker = (options: {
     excludeAcceptAllOption?: boolean
 }) => Promise<StoredHandle[]>
 
-/** showOpenFilePicker, where the browser has it. */
+/** showOpenFilePicker, where the browser has it (never on Android: see the top of this file). */
 export function filePicker(): OpenFilePicker | null {
+    if (onAndroid()) return null
     const w = typeof window !== 'undefined' ? (window as Window & { showOpenFilePicker?: OpenFilePicker }) : null
     return w && typeof w.showOpenFilePicker === 'function' ? w.showOpenFilePicker.bind(w) : null
 }
