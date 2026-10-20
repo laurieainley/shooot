@@ -193,6 +193,12 @@ npm run lint       # baseline: 12 known problems — add none
   stays up (`enterKeyHint="enter"`, key or keyCode 13, `beforeinput` `insertLineBreak`). `knownPlayers` (persist v26,
   `utils/knownPlayers.ts`) are this device's remembered names: recorded by `setTeams` / `addToRoster`, forgotten only via
   the × on a suggestion, capped at 200, not in project files or transfer links, kept by `newMatch()`.
+- **Playback source (GoPro pairs):** when an MP4 and its LRV are both loaded, `VideoSourceFile.pair` keeps both (`{ full, proxy }`, not
+  persisted) and `file`/`url`/`kind`/`name`/size/codec describe the one playing; `fullFile` is always the MP4 for exports, ball check and
+  goal set-up. Preference `'lrv' | 'mp4'` in localStorage `shooot-playback` (outside `vhm-state`); default LRV on touch, MP4 with a mouse.
+  `state.applyPlayback(pref)` swaps every pair in place (same id, duration, keys, events, time; old URL revoked); `Player` carries time
+  and play state across the swap. Refused while a render or Find goals runs (`switchBlocker`). An unplayable MP4 (probe or player error)
+  falls back to the LRV with a toast. UI: `PlaybackChoice` in the ⋯ menu and the Files sheet, only when a pair exists. Previews follow it.
 - **Highlights preview:** plays the render plan's steps (`utils/preview.ts`). Zoom is locked (Z/0, wheel, pinch and drag
   do nothing; 1× on entry and exit); ▶ / Enter on a row or a strip event dot jumps to that clip inside the preview
   (`jumpToPreviewEvent`, `previewStepForEvent`) — events not in the reel leave the preview and seek as before; no
