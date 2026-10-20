@@ -458,6 +458,10 @@ npm run lint       # baseline: 12 known problems — add none
 - **Toasts** (`src/toasts.ts`, `Toast`): one at a time, 4 s, top-right of the video (phone portrait: under the video);
   confirm, discard (Undo), tag (Undo + "Add note" when it has none → edit sheet with the note focused), delete (Undo),
   marker set. A toast has an optional quiet `secondary` action.
+- **Tag box keys (2026-10-21):** team step 1 / 2; Scorer / Assist 1–9 pick the Nth listed name (after the filter; the scorer stays listed and
+  numbered but inert on Assist); ⌫ on an empty field goes back one question (⌫ on the type step still cancels); a ‹ Back button in the header from the
+  second question (touch: in the Tag column header, 44 px). Scorer reserves the Skip row's space so names never move between Scorer and Assist.
+  The desktop review card picks names with 1–9 too.
 - **Tagging on touch:** the optional note step is skipped (no keyboard); a Highlight's "What happened" step stays but
   doesn't autofocus (Done button). The picker dialog is named "Tag event" while tagging and "Edit event" when editing. A toast's Undo only acts while its action is still the
   latest undo step.
