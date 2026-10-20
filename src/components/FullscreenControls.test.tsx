@@ -87,6 +87,15 @@ describe('FullscreenControls', () => {
         expect(player.play).not.toHaveBeenCalled()
     })
 
+    it('should hide the ＋ while the review panel is visible in fullscreen and bring it back when it is tucked away', () => {
+        useAppState.setState({ picker: null, files: [{ id: 'a', name: 'a.mp4', url: '', file: new File([''], 'a.mp4'), kind: 'full' }] })
+        useFullscreenUi.setState({ columnPanel: 'review' })
+        const { queryByRole } = render(<FullscreenControls playerRef={{ current: fakePlayer() }} isFullscreen />)
+        expect(queryByRole('button', { name: 'Tag event' })).toBeNull()
+        act(() => { useFullscreenUi.setState({ columnPanel: null }) })
+        expect(queryByRole('button', { name: 'Tag event' })).not.toBeNull()
+    })
+
     it('should mark events with the ＋ button in fullscreen, not the old Event overlay', () => {
         const player = fakePlayer()
         useAppState.setState({ events: [], picker: null, currentFileIndex: 0, currentTimeInFileSec: 20, files: [{ id: 'a', name: 'a.mp4', url: '', file: new File([''], 'a.mp4'), kind: 'full' }] })
@@ -164,7 +173,7 @@ describe('FullscreenControls playback lock (touch, fullscreen)', () => {
         fireEvent.click(on)
         expect(getByRole('button', { name: 'Lock playback' })).toHaveAttribute('aria-pressed', 'false')
     })
-    it('should show a pause icon with a closed padlock badge while playing and locked, a play icon with an open one while paused and unlocked', () => {
+    it('should show a pause icon beside a closed padlock while playing and locked, a play icon beside an open one while paused and unlocked', () => {
         const { getByRole, rerender } = render(<FullscreenControls playerRef={{ current: withFs() }} isFullscreen />)
         const btn = getByRole('button', { name: 'Lock playback' })
         expect(btn.querySelector('[data-icon="play"]')).not.toBeNull()

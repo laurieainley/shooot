@@ -43,6 +43,7 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
     const locked = useFullscreenUi((s) => s.playbackLocked)
     // Touch: the fullscreen tag box is a right-hand column that would cover the top-right buttons (it has its own Cancel).
     const tagging = useAppState((s) => s.picker !== null)
+    const reviewShown = useFullscreenUi((s) => s.columnPanel === 'review') // the review has Mark moment / Confirm: a second ＋ would only duplicate them
     const lockedRef = useRef(locked)
     lockedRef.current = locked
     const paused = usePlayerPaused()
@@ -166,7 +167,7 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
                             </button>
                         )}
                     </div>}
-                    <Fab />
+                    {!reviewShown && <Fab />}
                 </>
             )}
         </div>
@@ -202,14 +203,14 @@ interface LockIconProps {
     locked: boolean
 }
 
-/** Play or pause (the playback state), with a padlock badge: closed when locked, open when not. */
+/** Play or pause (the playback state) and, clearly apart from it, a padlock: closed when locked, open when not. */
 function LockIcon({ paused, locked }: LockIconProps) {
     return (
-        <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg width="50" height="26" viewBox="0 0 50 26" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             {paused
                 ? <path data-icon="play" d="M6 4.5v13l10.5-6.5z" fill="currentColor" />
                 : <g data-icon="pause" fill="currentColor"><rect x="5.5" y="4.5" width="3.5" height="13" rx="1" /><rect x="12" y="4.5" width="3.5" height="13" rx="1" /></g>}
-            <g data-lock={locked ? 'closed' : 'open'} strokeWidth="1.8">
+            <g data-lock={locked ? 'closed' : 'open'} strokeWidth="1.5" transform="translate(13 -9.5) scale(1.3)">
                 <rect x="13.5" y="16" width="9" height="7" rx="1.5" fill="var(--sh-video)" />
                 <path d={locked ? 'M15.5 16v-2a2.5 2.5 0 0 1 5 0v2' : 'M15.5 16v-2a2.5 2.5 0 0 1 4.6-1.4'} />
             </g>

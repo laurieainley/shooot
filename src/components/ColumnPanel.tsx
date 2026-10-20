@@ -38,6 +38,13 @@ export function ColumnPanel({ label, onClose, children, className = '', badge, h
         target.appendChild(box)
         return () => { box.remove() }
     }, [target, box])
+    const visible = inFullscreen && !(hidden && className.includes('review'))
+    const kind = className.includes('review') ? 'review' : 'other'
+    useEffect(() => {
+        if (!visible) return
+        useFullscreenUi.getState().setColumnPanel(kind)
+        return () => { useFullscreenUi.getState().setColumnPanel(null) }
+    }, [visible, kind])
     if (!target) return <Sheet label={label} onClose={onClose} className={className} badge={badge}>{children}</Sheet>
     const cls = inFullscreen ? `${className} column-panel--fs${hidden && className.includes('review') ? ' column-panel--fs-hidden' : ''}` : className
     return createPortal(<ColumnPanelBody label={label} onClose={onClose} className={cls} badge={badge} headNote={headNote}>{children}</ColumnPanelBody>, box)
