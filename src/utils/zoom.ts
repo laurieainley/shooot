@@ -69,3 +69,8 @@ export function wheelZoomFactor(deltaY: number, deltaMode = 0): number {
     const px = wheelDeltaPx(deltaY, deltaMode)
     return Math.exp(-Math.max(-WHEEL_MAX_PX, Math.min(WHEEL_MAX_PX, px)) * 0.01)
 }
+
+/** The pan is stored in pixels of the old viewport, so any change of size (rotation, entering fullscreen) makes it wrong: the zoom starts again. */
+export function viewportChanged(prev: { width: number; height: number } | null, next: { width: number; height: number }): boolean {
+    return prev !== null && (Math.abs(prev.width - next.width) > 1 || Math.abs(prev.height - next.height) > 1)
+}

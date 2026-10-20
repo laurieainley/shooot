@@ -423,8 +423,11 @@ npm run lint       # baseline: 12 known problems — add none
   `.tv-band` under the video) or `off` (mouse: desktop unchanged). One lime Tag button (`startTag`: pause, stamp, open the Tag column)
   replaces the ＋ on touch; the Tag column is the touch presentation of `EventPicker` (`TagColumn`; breadcrumbs via the reducer's `goto`;
   frame buttons call `retimePicker`). Person choices: two-column grid, A–Z, bottom-anchored, never reordering (the scorer stays,
-  disabled, on Assist; a new name goes last). Sheets/menus portal into the player on touch (`portalRoot`). A tap on the picture still
-  plays/pauses (and shows the controls); with Lock on it only shows/hides them.
+  disabled, on Assist; a new name goes last). Sheets/menus portal into the player on touch (`portalRoot`). A tap on the picture only
+  shows/hides the controls: no tap-to-play, no double-tap (seek zones or fullscreen) and no playback Lock in the touch view. Turning
+  a phone sideways (video loaded) fills the screen at once (CSS immersive) and the first tap asks for real fullscreen
+  (`useLandscapeFill`, `utils/landscapeFill.ts`); turning back leaves a fill the app made; leaving it while sideways stays out until
+  the next rotation. Clusters sit at `--tv-clear` (76px) above the bottom edge. Any player resize resets zoom to 1× and pan to 0.
 - **Find goals on touch** (2026-10-20): in the touch view (`useTagViewMode() !== 'off'`) there is no review card, Review (N) button or
   rail Review button. `FindGoalsChip` (top right / band) shows not run / % / "N found · M top picks" / "All found moments checked";
   tapping opens `FindGoalsSheet` (panel `'review'` renders it on touch: start form, progress, summary). Found moments are pending

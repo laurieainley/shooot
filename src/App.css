@@ -690,6 +690,7 @@
 .tap-zone-left { left: 0; }
 .tap-zone-centre { left: 33.333%; }
 .tap-zone-right { right: 0; }
+.tap-zone-all { left: 0; right: 0; width: auto; } /* touch view: one area, a tap shows / hides the controls */
 .tap-feedback { display: flex; flex-direction: column; align-items: center; gap: 8px; animation: tapFeedbackAnimation 0.5s ease-out; pointer-events: none; }
 .tap-feedback svg { filter: drop-shadow(0 0 8px rgb(0 0 0 / 0.5)); }
 .tap-feedback-text { color: var(--sh-on-video); font-family: var(--sh-font-mono); font-size: 20px; font-weight: 500; text-shadow: 0 0 8px rgb(0 0 0 / 0.7); }
@@ -1957,6 +1958,8 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   position: fixed; inset: 0; z-index: 20; width: auto; height: auto; border-radius: 0; background: var(--sh-video);
 }
 html:has(.player-container--tagview), body:has(.player-container--tagview) { overflow: hidden; }
+/* The clusters sit above the timeline's touch area (44px) and the event icons stacked above its track (3 lanes reach 64px), with a gap. */
+.player-container--tagview { --tv-clear: 76px; }
 .player-container--tagview .vjs-control-bar, .player-container--band .vjs-control-bar { display: none !important; } /* the clusters replace it */
 .player-container--tagview .tap-zone { bottom: 44px; }
 /* Sheets and menus opened from the touch view live inside the player (portalRoot): above the controls. */
@@ -1970,7 +1973,7 @@ html:has(.player-container--tagview), body:has(.player-container--tagview) { ove
 /* Left thumb: ⟲5 · Play · ⟳5 lowest, frame ‹ › above, ◀ Found / Found ▶ on top. */
 .tv-left { --tv: 48px; display: grid; grid-template-columns: repeat(3, var(--tv)); gap: 8px; pointer-events: auto; touch-action: manipulation; }
 .player-container--tagview .tv-left {
-  position: absolute; z-index: 30; left: max(10px, env(safe-area-inset-left, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+  position: absolute; z-index: 30; left: max(10px, env(safe-area-inset-left, 0px)); bottom: calc(var(--tv-clear) + env(safe-area-inset-bottom, 0px));
 }
 .tv-found-row { grid-column: 1 / -1; display: flex; gap: 8px; }
 .tv-btn {
@@ -1988,7 +1991,7 @@ html:has(.player-container--tagview), body:has(.player-container--tagview) { ove
 /* Right thumb: Tag. Lime (the one primary action), via .btn-primary; only the size is set here. */
 .tv-right { display: flex; flex-direction: column; align-items: center; gap: 10px; pointer-events: auto; touch-action: manipulation; }
 .player-container--tagview .tv-right {
-  position: absolute; z-index: 30; right: max(10px, env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+  position: absolute; z-index: 30; right: max(10px, env(safe-area-inset-right, 0px)); bottom: calc(var(--tv-clear) + env(safe-area-inset-bottom, 0px));
 }
 .btn-primary.tv-tag { width: 76px; height: 76px; min-height: 76px; padding: 0; border-radius: 50%; font-size: 17px; box-shadow: inset 0 0 0 1px var(--sh-lime-edge), 0 6px 20px rgb(0 0 0 / 0.5); }
 @media (min-height: 600px) { .tv-left { --tv: 56px; } .btn-primary.tv-tag { width: 88px; height: 88px; min-height: 88px; } }
@@ -2015,7 +2018,7 @@ html:has(.player-container--tagview), body:has(.player-container--tagview) { ove
 .control-btn.tv-menu-btn { position: relative; min-width: 44px; min-height: 44px; justify-content: center; gap: 6px; font-size: var(--sh-text-sm); }
 .tv-menu-btn__live { display: inline-flex; align-items: center; gap: 4px; font-size: var(--sh-text-sm); }
 .player-container--tagview .zoom-chip { top: calc(72px + env(safe-area-inset-top, 0px)); bottom: auto; left: auto; right: max(10px, env(safe-area-inset-right, 0px)); }
-.player-container--tagview .play-indicator { display: none; } /* the Play button says it */
+.player-container--tagview .play-indicator, .player-container--band .play-indicator { display: none; } /* the Play button says it; a tap only shows the controls */
 @media (pointer: coarse) { .control-btn.tv-menu-btn, .overlay-controls.top-right.tv-top .control-btn { min-height: 44px; min-width: 44px; font-size: var(--sh-text-sm); } }
 
 /* Events list over the picture, from ⋯. */
@@ -2108,7 +2111,7 @@ button.tagcol__crumb:active { color: var(--sh-text); border-color: var(--sh-text
 
 /* Read-only chip while the playhead is on a found moment, bottom centre; Not a goal sits under Tag. */
 .tv-moment {
-  position: absolute; z-index: 30; left: 50%; bottom: calc(52px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: flex; align-items: center; gap: 8px;
+  position: absolute; z-index: 30; left: 50%; bottom: calc(var(--tv-clear) + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: flex; align-items: center; gap: 8px;
   padding: 7px 14px; border-radius: 999px; background: rgb(10 14 12 / 0.72); color: var(--sh-on-video); border: 1px solid rgb(243 241 234 / 0.18);
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); font-size: var(--sh-text-sm); font-weight: 600; white-space: nowrap; pointer-events: none;
 }

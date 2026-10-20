@@ -53,7 +53,7 @@ describe('settleZoom', () => {
     })
 })
 
-import { zoomTowards, dragPan, classifyPointer, wheelZoomFactor, CLICK_MAX_DISTANCE_PX, CLICK_MAX_DURATION_MS } from './zoom'
+import { zoomTowards, dragPan, classifyPointer, wheelZoomFactor, CLICK_MAX_DISTANCE_PX, CLICK_MAX_DURATION_MS, viewportChanged } from './zoom'
 
 const VP = { width: 1000, height: 600 }
 
@@ -134,5 +134,17 @@ describe('a custom maximum', () => {
         expect(clampZoom(50, 10)).toBe(10)
         expect(clampZoom(50)).toBe(MAX_ZOOM)
         expect(settleZoom(50, 10)).toBe(10)
+    })
+})
+
+describe('viewportChanged', () => {
+    it('should be false for the first size and for the same size', () => {
+        expect(viewportChanged(null, { width: 844, height: 390 })).toBe(false)
+        expect(viewportChanged({ width: 844, height: 390 }, { width: 844, height: 390 })).toBe(false)
+        expect(viewportChanged({ width: 844, height: 390 }, { width: 844.5, height: 390 })).toBe(false)
+    })
+    it('should be true after a rotation or a resize', () => {
+        expect(viewportChanged({ width: 844, height: 390 }, { width: 390, height: 844 })).toBe(true)
+        expect(viewportChanged({ width: 844, height: 390 }, { width: 844, height: 300 })).toBe(true)
     })
 })
