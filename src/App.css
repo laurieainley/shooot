@@ -2120,6 +2120,7 @@ button.tagcol__crumb:active { color: var(--sh-text); border-color: var(--sh-text
   min-width: 76px; min-height: 44px; padding: 0 12px; border-radius: 14px; border: 1px solid rgb(243 241 234 / 0.18); background: rgb(10 14 12 / 0.72); color: var(--sh-on-video);
   font: inherit; font-size: var(--sh-text-sm); font-weight: 700; cursor: pointer; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); white-space: nowrap;
 }
+.tv-notgoal--slot { visibility: hidden; pointer-events: none; }
 .tv-band .tv-notgoal { background: var(--sh-surface-2); color: var(--sh-text); border-color: var(--sh-line); -webkit-backdrop-filter: none; backdrop-filter: none; }
 .menu-speeds { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; padding: 6px 4px; }
 .menu-speeds__label { flex: 1 0 100%; font-size: var(--sh-text-xs); color: var(--sh-muted); padding: 0 4px; }

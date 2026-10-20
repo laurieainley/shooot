@@ -44,6 +44,13 @@ describe('Not a goal (touch view)', () => {
         expect(screen.queryByRole('status', { name: /Found moment/ })).toBeNull()
     })
 
+    it('should keep the Not a goal slot when off a moment so Tag never moves', () => {
+        seed(200)
+        const { container } = render(<TagControls variant="overlay" />)
+        expect(screen.queryByRole('button', { name: /Not a goal/ })).toBeNull()
+        expect(container.querySelector('.tv-right .tv-notgoal--slot')).not.toBeNull()
+    })
+
     it('should reject the moment, offer Undo, and jump 6 s before the next pending one', () => {
         seed(100)
         render(<TagControls variant="overlay" />)

@@ -66,7 +66,10 @@ export function TagControls({ variant }: TagControlsProps) {
             {!tagging && (
                 <div className={`tv-right${fades}`} onPointerDown={poke}>
                     <button type="button" className="btn-primary tv-tag" aria-label="Tag this moment" onClick={startTag}>Tag</button>
-                    {onMoment && <button type="button" className="tv-notgoal" onClick={() => rejectMoment(onMoment.moment)}><span aria-hidden="true">✕ </span>Not a goal</button>}
+                    {/* The slot is always there so Tag never moves when Not a goal appears (a moving target invites mis-taps). */}
+                    {onMoment
+                        ? <button type="button" className="tv-notgoal" onClick={() => rejectMoment(onMoment.moment)}><span aria-hidden="true">✕ </span>Not a goal</button>
+                        : <span className="tv-notgoal tv-notgoal--slot" aria-hidden="true">✕ Not a goal</span>}
                 </div>
             )}
         </>
