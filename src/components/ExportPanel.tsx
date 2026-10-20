@@ -22,7 +22,7 @@ const TABS = [
 ] as const
 
 /** The render job as the Export button shows it: percentage while running, briefly "ready" / "failed" after (re-evaluated when that window ends). */
-function useExportButtonStatus(): ExportButtonStatus {
+export function useExportButtonStatus(): ExportButtonStatus {
     const job = useRenderJobs((s) => s.job)
     const [, tick] = useState(0)
     const finishedAt = job?.finishedAt ?? null

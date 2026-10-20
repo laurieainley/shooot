@@ -50,6 +50,24 @@ describe('PersonStep with name chips (touch)', () => {
         rerender(<PersonStep {...base} label="Assist" chips showLabel candidates={['Sam']} onQuery={() => {}} onChoose={() => {}} />)
         expect(container.querySelector('.person-chips__label')?.textContent).toBe('Assist')
     })
+    it('should keep names after the A-Z ones when they were added during this tag', () => {
+        render(<PersonStep {...base} chips candidates={['Zed', 'Sam', 'Alex']} appended={['Zed']} onQuery={() => {}} onChoose={() => {}} />)
+        const group = screen.getByRole('group', { name: 'Scorer' })
+        expect([...group.querySelectorAll('.person-chip--name')].map((b) => b.textContent)).toEqual(['Alex', 'Sam', 'Zed'])
+    })
+    it('should keep the grid in the same order on Assist, with the scorer disabled in place', () => {
+        const names = ['Zed', 'Sam', 'Alex']
+        const { rerender } = render(<PersonStep {...base} chips candidates={names} onQuery={() => {}} onChoose={() => {}} />)
+        const order = (): (string | null)[] => [...screen.getByRole('group', { name: /Scorer|Assist/ }).querySelectorAll('.person-chip--name')].map((b) => b.textContent)
+        const first = order()
+        rerender(<PersonStep {...base} label="Assist" chips candidates={names} isDisabled={(n) => n === 'Sam'} onQuery={() => {}} onChoose={() => {}} />)
+        expect(order()).toEqual(first)
+    })
+    it('should keep + New name and Skip as the last two buttons', () => {
+        render(<PersonStep {...base} chips candidates={['Sam']} onSkip={() => {}} onQuery={() => {}} onChoose={() => {}} />)
+        const buttons = [...screen.getByRole('group', { name: 'Scorer' }).querySelectorAll('button')].map((b) => b.textContent)
+        expect(buttons.slice(-2)).toEqual(['+ New name', 'Skip'])
+    })
     it('should keep the typed field and name list without chips (fine pointer)', () => {
         render(<PersonStep {...base} candidates={['Sam']} onQuery={() => {}} onChoose={() => {}} />)
         expect(screen.getByRole('textbox', { name: 'Scorer' })).toBeTruthy()

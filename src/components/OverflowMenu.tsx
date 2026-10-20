@@ -10,26 +10,37 @@ import { blockerText, startNewMatch, stopBlocker, switchBlocker, type SwitchBloc
 import { CopyDiagnostics } from './CopyDiagnostics'
 import { playbackReportText } from '../playbackDiagnostics'
 import type { Layout } from './useMediaQuery'
+import { ExportPanel, useExportButtonStatus } from './ExportPanel'
+import { useTagUi } from './tagView'
+import { runPlayerShortcut } from './playerControl'
 
 interface OverflowMenuProps {
     /** Desktop and tablet have a Match setup button in the bar; narrower layouts keep it in here. */
     layout?: Layout
+    /** The touch player's ⋯ (top right over the picture): also holds the events list, Matches, Files, Export and fullscreen, and shows render progress. */
+    tagView?: boolean
 }
 
 /** The top bar's ⋯: every secondary action in one place (desktop and phone). */
-export function OverflowMenu({ layout = 'desktop' }: OverflowMenuProps) {
+export function OverflowMenu({ layout = 'desktop', tagView = false }: OverflowMenuProps) {
     const open = useAppState((s) => s.panel === 'menu')
     const anchorRef = useRef<HTMLButtonElement | null>(null)
+    const status = useExportButtonStatus()
+    const rendering = tagView && status.kind === 'running'
 
     return (
         <>
-            <button ref={anchorRef} type="button" aria-label="Menu" aria-haspopup="menu" aria-expanded={open}
+            <button ref={anchorRef} type="button" aria-label={rendering ? `Menu, rendering ${status.percent}%` : 'Menu'} aria-haspopup="menu" aria-expanded={open}
                 onClick={() => { const st = useAppState.getState(); if (open) st.closePanel(); else st.openPanel('menu') }}
-                className="top-btn top-btn--quiet top-btn--icon"><DotsIcon /></button>
+                className={tagView ? 'control-btn tv-menu-btn' : 'top-btn top-btn--quiet top-btn--icon'}>
+                <DotsIcon />
+                {rendering && <span className="tv-menu-btn__live tc" aria-hidden="true"><i className="export-btn__dot" />{status.percent}%</span>}
+            </button>
+            {tagView && <span hidden><ExportPanel /></span> /* its drawer opens from the menu's Export item */}
             {open && (
                 <FloatingPanel label="Menu" anchorRef={anchorRef} placement="below" className="floating--menu"
                     onClose={() => useAppState.getState().closePanel()}>
-                    <MenuBody setupInMenu={layout !== 'desktop' && layout !== 'tablet'} />
+                    <MenuBody setupInMenu={layout !== 'desktop' && layout !== 'tablet'} tagView={tagView} />
                 </FloatingPanel>
             )}
         </>
@@ -48,9 +59,10 @@ type MenuItem = { label: string; panel: Panel; aria?: string }
 
 interface MenuBodyProps {
     setupInMenu: boolean
+    tagView?: boolean
 }
 
-function MenuBody({ setupInMenu }: MenuBodyProps) {
+function MenuBody({ setupInMenu, tagView = false }: MenuBodyProps) {
     const anySuggestions = useAppState((s) => s.suggestions.length > 0)
     const suggestionsCurrent = useSuggestionsCurrent()
     const running = findGoalsProgress(useDetectJob((j) => j))
@@ -59,6 +71,8 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
     const labs = useAppState((s) => s.labs)
     const labsSeen = useAppState((s) => s.labsSeen)
     const [blocker, setBlocker] = useState<SwitchBlocker>(null)
+    const fullscreen = useAppState((s) => s.playerFullscreen || s.immersive)
+    const filesCount = useAppState((s) => s.files.length)
     const items: MenuItem[] = [
         ...(setupInMenu ? [{ label: 'Match setup', panel: 'match' as const }] : []),
         { label: 'Advanced settings', panel: 'settings' },
@@ -78,6 +92,15 @@ function MenuBody({ setupInMenu }: MenuBodyProps) {
 
     return (
         <div role="menu" aria-label="Menu" className="menu-list">
+            {tagView && (
+                <>
+                    <button type="button" role="menuitem" onClick={() => { useAppState.getState().closePanel(); useTagUi.getState().setSheet('events') }}>Events list</button>
+                    <button type="button" role="menuitem" onClick={() => { useAppState.getState().closePanel(); useTagUi.getState().setSheet('matches') }}>Matches</button>
+                    <button type="button" role="menuitem" onClick={() => useAppState.getState().openPanel('export')}>Export</button>
+                    <button type="button" role="menuitem" onClick={() => useAppState.getState().openPanel('files')}>Files{filesCount > 0 ? ` (${filesCount})` : ''}</button>
+                    <button type="button" role="menuitem" onClick={() => { useAppState.getState().closePanel(); runPlayerShortcut('fullscreen') }}>{fullscreen ? 'Exit fullscreen' : 'Fullscreen'}</button>
+                </>
+            )}
             {setupInMenu && ( // desktop and tablet have New match in the top bar
                 <button type="button" role="menuitem" onClick={() => { const b = switchBlocker(); if (b) setBlocker(b); else void startNewMatch() }}>New match…</button>
             )}

@@ -1943,3 +1943,154 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 /* Playback error: copy link sits over video.js' error box. */
 .player-error-copy { position: absolute; z-index: 5; left: 50%; bottom: 56px; transform: translateX(-50%); }
 .menu-diag { padding: 6px 12px; }
+
+/* ======================================================================================================================
+   Touch view (docs/superpowers/specs/2026-10-20-unified-tag-review-design.md, phase 1)
+   overlay: the picture fills the screen (a phone held sideways, tablets on their side, any touch fullscreen); the controls float
+   over it, left thumb moves around, right thumb acts (Tag), and fade 3 s after the last touch while playing.
+   band: portrait phone / upright tablet keep the page; the same controls sit in a band under the picture.
+   Everything drawn over footage is dark in both themes.
+   ====================================================================================================================== */
+.shell.shell--tagview { display: block; height: 100dvh; overflow: hidden; background: var(--sh-video); }
+.shell--tagview .rail { display: none; }
+.player-container--tagview {
+  position: fixed; inset: 0; z-index: 20; width: auto; height: auto; border-radius: 0; background: var(--sh-video);
+}
+html:has(.player-container--tagview), body:has(.player-container--tagview) { overflow: hidden; }
+.player-container--tagview .vjs-control-bar, .player-container--band .vjs-control-bar { display: none !important; } /* the clusters replace it */
+.player-container--tagview .tap-zone { bottom: 44px; }
+/* Sheets and menus opened from the touch view live inside the player (portalRoot): above the controls. */
+.player-container--tagview .drawer-scrim { z-index: 19999; }
+.player-container--tagview .floating, .player-container--tagview .sheet-backdrop { z-index: 20000; }
+
+.tv-fades { transition: opacity 0.25s ease; }
+.player-container--faded .tv-fades { opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .tv-fades, .tagcol { transition: none !important; animation: none !important; } }
+
+/* Left thumb: ⟲5 · Play · ⟳5 lowest, frame ‹ › above, ◀ Found / Found ▶ on top. */
+.tv-left { --tv: 48px; display: grid; grid-template-columns: repeat(3, var(--tv)); gap: 8px; pointer-events: auto; touch-action: manipulation; }
+.player-container--tagview .tv-left {
+  position: absolute; z-index: 30; left: max(10px, env(safe-area-inset-left, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+}
+.tv-found-row { grid-column: 1 / -1; display: flex; gap: 8px; }
+.tv-btn {
+  display: grid; place-items: center; width: var(--tv); height: var(--tv); padding: 0; border: 1px solid rgb(243 241 234 / 0.18); border-radius: 14px;
+  background: rgb(10 14 12 / 0.72); color: var(--sh-on-video); font: inherit; font-size: var(--sh-text-sm); font-weight: 700; cursor: pointer;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); -webkit-tap-highlight-color: transparent;
+}
+.tv-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.tv-btn:active:not(:disabled) { transform: scale(0.95); }
+.tv-btn:disabled { opacity: 0.35; cursor: default; }
+.tv-btn--found { flex: 1 1 0; width: auto; min-width: 0; padding: 0 8px; white-space: nowrap; }
+.tv-btn--play { background: rgb(243 241 234 / 0.92); color: #0A0D12; border-color: transparent; }
+.tv-btn--play svg { fill: currentColor; stroke: none; }
+
+/* Right thumb: Tag. Lime (the one primary action), via .btn-primary; only the size is set here. */
+.tv-right { display: flex; flex-direction: column; align-items: center; gap: 10px; pointer-events: auto; touch-action: manipulation; }
+.player-container--tagview .tv-right {
+  position: absolute; z-index: 30; right: max(10px, env(safe-area-inset-right, 0px)); bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+}
+.btn-primary.tv-tag { width: 76px; height: 76px; min-height: 76px; padding: 0; border-radius: 50%; font-size: 17px; box-shadow: inset 0 0 0 1px var(--sh-lime-edge), 0 6px 20px rgb(0 0 0 / 0.5); }
+@media (min-height: 600px) { .tv-left { --tv: 56px; } .btn-primary.tv-tag { width: 88px; height: 88px; min-height: 88px; } }
+
+/* The one timeline, thin, along the bottom of the picture. */
+.tv-strip { position: absolute; z-index: 30; left: 0; right: 0; bottom: 0; height: 44px; pointer-events: auto; }
+.match-strip--overlay { display: block; height: 44px; background: linear-gradient(transparent, rgb(5 7 6 / 0.7)); border: 0; padding: 0 max(10px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(10px, env(safe-area-inset-left, 0px)); box-sizing: border-box; }
+.match-strip--overlay .strip-label { display: none; }
+.match-strip--overlay .strip-wrap { height: 100%; }
+.match-strip--overlay .strip-track { background: transparent; overflow: visible; }
+.match-strip--overlay .strip-track::before { content: ""; position: absolute; left: 0; right: 0; bottom: 10px; height: 4px; border-radius: 2px; background: rgb(243 241 234 / 0.22); }
+.match-strip--overlay .strip-file { background: transparent; border-right: 0; }
+.match-strip--overlay .strip-file__num, .match-strip--overlay .strip-clip { display: none; }
+.match-strip--overlay .strip-dot { bottom: calc(14px + var(--lane, 0) * var(--lane-step)); }
+.match-strip--overlay .strip-flag { top: auto; bottom: 8px; }
+.match-strip--overlay .strip-flag::after { top: auto; height: 14px; }
+.match-strip--overlay .strip-head { top: auto; bottom: 4px; height: 20px; }
+.match-strip--overlay .strip-head::before { top: -5px; }
+.match-strip--overlay .strip-suggestion { bottom: 6px; }
+.match-strip--overlay .strip-bubble { bottom: 100%; }
+
+/* Top right: speed, lock, ⋯; the zoom chip sits under them while zoomed. */
+.overlay-controls.top-right.tv-top { padding-top: max(8px, env(safe-area-inset-top, 0px)); padding-right: max(10px, env(safe-area-inset-right, 0px)); }
+.control-btn.tv-menu-btn { position: relative; min-width: 44px; min-height: 44px; justify-content: center; gap: 6px; font-size: var(--sh-text-sm); }
+.tv-menu-btn__live { display: inline-flex; align-items: center; gap: 4px; font-size: var(--sh-text-sm); }
+.player-container--tagview .zoom-chip { top: calc(72px + env(safe-area-inset-top, 0px)); bottom: auto; left: auto; right: max(10px, env(safe-area-inset-right, 0px)); }
+.player-container--tagview .play-indicator { display: none; } /* the Play button says it */
+@media (pointer: coarse) { .control-btn.tv-menu-btn, .overlay-controls.top-right.tv-top .control-btn { min-height: 44px; min-width: 44px; font-size: var(--sh-text-sm); } }
+
+/* Events list over the picture, from ⋯. */
+.tv-scrim { position: absolute; inset: 0; z-index: 40; background: rgb(0 0 0 / 0.45); }
+.tv-sheet {
+  position: absolute; z-index: 41; top: 0; right: 0; bottom: 0; width: min(62vw, 440px); box-sizing: border-box; display: flex; flex-direction: column;
+  background: var(--sh-surface); color: var(--sh-text); border-left: 1px solid var(--sh-line); padding-right: env(safe-area-inset-right, 0px); box-shadow: -6px 0 22px rgb(0 0 0 / 0.35);
+}
+.tv-sheet__head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: max(4px, env(safe-area-inset-top, 0px)) 6px 4px 8px; border-bottom: 1px solid var(--sh-line); }
+.tv-sheet__tabs { display: flex; gap: 2px; }
+.tv-sheet__tabs button { min-height: 44px; padding: 0 14px; border: 0; border-radius: var(--sh-radius-sm); background: transparent; color: var(--sh-muted); font: inherit; font-size: var(--sh-text-sm); font-weight: 700; cursor: pointer; }
+.tv-sheet__tabs button[aria-selected="true"] { background: var(--sh-surface-2); color: var(--sh-text); box-shadow: 0 0 0 1px var(--sh-line); }
+.tv-sheet__body { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+.tv-sheet__body > .event-log, .tv-sheet__body > .match-list { flex: 1 1 0; min-height: 0; }
+
+/* The band under the picture (portrait phone, upright tablet). */
+.tv-band { flex: none; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; box-sizing: border-box; padding: 10px max(12px, env(safe-area-inset-right, 0px)) 10px max(12px, env(safe-area-inset-left, 0px)); background: var(--sh-surface); border-bottom: 1px solid var(--sh-line); }
+.tv-band .tv-left { --tv: 52px; }
+.tv-band .tv-btn { background: var(--sh-surface-2); color: var(--sh-text); border-color: var(--sh-line); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.tv-band .tv-btn--play { background: var(--sh-text); color: var(--sh-ground); }
+.tv-band .tv-right { align-self: center; }
+.shell:has(.tagcol) .tv-band .tv-found-row { display: none; } /* while tagging, room for the question */
+
+/* The Tag column: from the right edge over the picture (landscape) or the panel under the band (portrait); choices sit low, by the thumb. */
+.tagcol {
+  box-sizing: border-box; display: flex; flex-direction: column; min-height: 0; font-size: var(--sh-text-md); font-family: var(--sh-font);
+  background: rgb(14 20 17 / 0.92); color: var(--sh-text); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.tagcol--compact {
+  position: absolute; z-index: 60; top: 0; right: 0; bottom: 0; width: min(36vw, 320px); border: 0; border-left: 1px solid rgb(243 241 234 / 0.18); border-radius: 0;
+  padding: max(6px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) 10px;
+  animation: tagcol-in 0.22s ease;
+}
+@keyframes tagcol-in { from { transform: translateX(100%); } to { transform: none; } }
+@media (orientation: portrait) {
+  .tagcol--compact { top: auto; left: 0; width: auto; height: var(--fs-panel-h, 60%); max-height: 62%; border-left: 0; border-top: 1px solid rgb(243 241 234 / 0.18); border-radius: 16px 16px 0 0; padding-left: max(10px, env(safe-area-inset-left, 0px)); animation-name: tagcol-up; }
+  @keyframes tagcol-up { from { transform: translateY(100%); } to { transform: none; } }
+}
+.tagcol--column { flex: 1 1 0; background: var(--sh-surface); border-top: 1px solid var(--sh-line); padding: 6px max(12px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.tagcol__head { flex: none; display: flex; align-items: center; gap: 4px; min-height: 44px; }
+.tagcol__crumbs { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.tagcol__crumb { display: inline-flex; align-items: center; min-height: 32px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--sh-line); border-radius: 999px; background: transparent; color: var(--sh-muted); font: inherit; font-size: var(--sh-text-sm); font-weight: 600; }
+button.tagcol__crumb { cursor: pointer; }
+button.tagcol__crumb:active { color: var(--sh-text); border-color: var(--sh-text); }
+.tagcol__crumb--time { color: var(--sh-text); }
+.tagcol__done { flex: none; min-height: 44px; padding: 0 10px; border: 0; background: transparent; color: var(--sh-text); font: inherit; font-size: var(--sh-text-sm); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.tagcol__x { flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--sh-text); cursor: pointer; }
+.tagcol__q { flex: none; margin: 2px 0 6px; color: var(--sh-muted); font-size: var(--sh-text-sm); }
+.tagcol__body { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; justify-content: flex-end; overflow-y: auto; overscroll-behavior: contain; }
+.tagcol__body > * { flex: none; }
+.tagcol__warn { margin: 0 0 8px; font-size: var(--sh-text-sm); color: var(--sh-text); }
+.tagcol__hint { margin: 8px 0 0; font-size: var(--sh-text-sm); color: var(--sh-muted); }
+.tagcol__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.tagcol__teams { display: grid; gap: 8px; }
+.tagcol__choice {
+  display: flex; align-items: center; gap: 8px; min-height: 48px; box-sizing: border-box; padding: 0 12px; border: 1px solid var(--sh-line); border-radius: 12px;
+  background: rgb(243 241 234 / 0.06); color: var(--sh-text); font: inherit; font-size: var(--sh-text-md); font-weight: 700; cursor: pointer; text-align: left; min-width: 0;
+}
+.tagcol__choice:active { background: rgb(243 241 234 / 0.14); }
+.tagcol__choice .ev-label { min-width: 0; }
+.tagcol__choice .ev-label__text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tagcol__choice--quiet { justify-content: center; background: transparent; color: var(--sh-muted); font-weight: 600; }
+.tagcol__choice--team { min-height: 64px; font-size: 20px; letter-spacing: 0.04em; }
+.tagcol__choice--team .team-dot { width: 22px; height: 22px; border: 2px solid rgb(243 241 234 / 0.5); }
+.tagcol__text { display: flex; flex-direction: column; gap: 8px; }
+.tagcol .event-picker__input { font-size: var(--sh-text-input); min-height: 44px; padding: 0 10px; margin: 0; box-sizing: border-box; border-radius: 10px; border: 1px solid var(--sh-line); background: rgb(0 0 0 / 0.35); color: var(--sh-text); }
+.tagcol .btn-primary { min-height: 44px; }
+/* The stable name grid: two columns of compact shirt-font buttons, bottom-anchored, + New name and Skip as the last row. */
+.tagcol .person-chips__list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.tagcol .person-chip--name {
+  min-height: 44px; padding: 0 8px; border-radius: 10px; justify-content: flex-start; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; line-height: 44px; text-align: left;
+  font-family: var(--sh-font-shirt); font-size: 16px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; background: rgb(243 241 234 / 0.06);
+}
+.tagcol .person-chip--new, .tagcol .person-chip--skip { min-height: 44px; border-radius: 10px; font-size: var(--sh-text-sm); padding: 0 8px; white-space: nowrap; }
+.tagcol .person-chips__new { grid-column: 1 / -1; display: flex; gap: 6px; }
+.tagcol .person-chips__add { min-height: 44px; padding: 0 14px; }
+.tagcol--column .tagcol__choice { background: var(--sh-surface-2); }
+.tagcol--column .person-chip--name { background: var(--sh-surface-2); }

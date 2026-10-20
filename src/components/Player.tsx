@@ -7,9 +7,13 @@ import { registerPlayerSeekPaused, registerPlayerShortcut, registerPlayerStep, r
 import { runShortcut, seekBy, stepFrame, type ShortcutPlayer } from './playerShortcuts'
 import { FullscreenControls } from './FullscreenControls'
 import { EventPicker } from './EventPicker'
+import { EventsSheet } from './EventsSheet'
+import { MatchStrip } from './MatchStrip'
+import { useTagUi, useTagViewMode } from './tagView'
+import { fadeDelayMs } from '../utils/tagView'
 import { Toast } from './Toast'
 import { fullscreenSplit, useFullscreenUi } from './fullscreenUi'
-import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
+import { COARSE_QUERY, PORTRAIT_QUERY, useMediaQuery } from './useMediaQuery'
 import { patchPlayerFullscreen, type FullscreenPlayer } from './fullscreen'
 import { cropTransform } from '../utils/crop'
 import { attachPictureGestures } from './pictureGestures'
@@ -232,8 +236,12 @@ export function Player() {
         return registerPlayerStep((kind, direction) => {
             const p = playerRef.current as ShortcutPlayer | null
             if (!p) return
-            if (kind === 'frame') stepFrame(p, direction)
-            else seekBy(p, direction)
+            if (kind === 'frame') {
+                stepFrame(p, direction)
+                // The Tag column is open: the frame buttons move its stamped time with the picture.
+                const st = useAppState.getState()
+                if (st.picker) st.retimePicker(p.currentTime() || 0)
+            } else seekBy(p, direction)
         })
     }, [])
 
@@ -353,20 +361,39 @@ export function Player() {
     const immersive = useAppState((s) => s.immersive)
     useEffect(() => () => { useAppState.getState().setImmersive(false); useAppState.getState().setPlayerFullscreen(false) }, [])
     // Column panels (the review) and toasts render inside the fullscreen element, the only thing on screen in real fullscreen.
-    const inFullscreen = isFullscreen || immersive
+    // The touch overlay view (a phone held sideways, tablets on their side) is fullscreen in all but name: the picture fills the screen
+    // and everything (column panels, toasts, sheets, controls) lives inside the player.
+    const tagViewMode = useTagViewMode()
+    const overlayView = tagViewMode === 'overlay'
+    const inFullscreen = isFullscreen || immersive || overlayView
     useEffect(() => {
         const ui = useFullscreenUi.getState()
         ui.setHost(inFullscreen ? containerRef.current : null)
         ui.setReviewHidden(false)
         return () => { useFullscreenUi.getState().setHost(null) }
     }, [inFullscreen])
+    // The overlay controls fade 3 s after the last touch while playing; never while paused, tagging or with a menu / sheet open.
+    const sheetOpen = useTagUi((s) => s.sheet !== null)
+    const busy = useAppState((s) => s.picker !== null || s.panel !== null) || sheetOpen
+    const fadeMs = fadeDelayMs({ mode: tagViewMode, paused, tagging: busy })
+    const controlsVisible = useTagUi((s) => s.controlsVisible)
+    const pokes = useTagUi((s) => s.pokes)
+    useEffect(() => {
+        if (fadeMs === null) { useTagUi.getState().setControlsVisible(true); return }
+        if (!controlsVisible) return
+        const t = setTimeout(() => useTagUi.getState().setControlsVisible(false), fadeMs)
+        return () => clearTimeout(t)
+    }, [fadeMs, controlsVisible, pokes])
     // Touch fullscreen with a panel or the tag box open: the picture sits beside / above it, never behind it.
     const coarseFs = useMediaQuery(COARSE_QUERY)
     const columnPanel = useFullscreenUi((s) => s.columnPanel)
     const tagging = useAppState((s) => s.picker !== null)
-    const split = fullscreenSplit({ inFullscreen, coarse: coarseFs, tagging, columnPanel })
-    // Fullscreen has no event list to edit from: leaving the edit panel open would only be hidden behind the picture.
-    useEffect(() => { if (isFullscreen || immersive) { const st = useAppState.getState(); if (st.panel === 'event') st.closePanel() } }, [isFullscreen, immersive])
+    // The Tag column floats over the picture in landscape; in portrait it is a sheet that would cover a 16:9 picture, so the picture sits above it.
+    const portrait = useMediaQuery(PORTRAIT_QUERY)
+    const split = fullscreenSplit({ inFullscreen, coarse: coarseFs, tagging: tagging && portrait, columnPanel })
+    // Mouse fullscreen has no event list to edit from: leaving the edit panel open would only be hidden behind the picture.
+    // (On touch, sheets open inside the player: see portalRoot.)
+    useEffect(() => { if ((isFullscreen || immersive) && !coarseFs) { const st = useAppState.getState(); if (st.panel === 'event') st.closePanel() } }, [isFullscreen, immersive, coarseFs])
     useEffect(() => {
         if (!immersive) return
         const onKey = (e: KeyboardEvent): void => {
@@ -397,7 +424,7 @@ export function Player() {
     }, [])
 
     return (
-        <div ref={containerRef} className={`player-container${zoomPan.zoom > 1 ? ' player-container--zoomed' : ''}${immersive ? ' player-container--immersive' : ''}${split ? ' player-container--split' : ''}`}>
+        <div ref={containerRef} className={`player-container${zoomPan.zoom > 1 ? ' player-container--zoomed' : ''}${immersive ? ' player-container--immersive' : ''}${overlayView ? ' player-container--tagview' : ''}${tagViewMode === 'band' ? ' player-container--band' : ''}${overlayView && !controlsVisible ? ' player-container--faded' : ''}${split ? ' player-container--split' : ''}`}>
             <video ref={videoRef} className="video-js vjs-default-skin" />
             {speedIndicator !== null && (
                 <div className="speed-indicator" key={speedIndicator + '-' + Date.now()}>
@@ -412,8 +439,10 @@ export function Player() {
             <PlayIndicator visible={paused} />
             <Scorebug />
             <ZoomChip zoom={zoomPan.zoom} onReset={zoomPan.reset} />
-            {(isFullscreen || immersive) && <RenderChip variant="overlay" />}
-            <FullscreenControls playerRef={playerRef} isFullscreen={isFullscreen || immersive} />
+            {inFullscreen && <RenderChip variant="overlay" />}
+            <FullscreenControls playerRef={playerRef} isFullscreen={inFullscreen} />
+            {overlayView && <div className="tv-fades tv-strip" onPointerDown={() => useTagUi.getState().poke()}><MatchStrip variant="overlay" /></div>}
+            {overlayView && <EventsSheet />}
             <EventPicker />
             {inFullscreen && <div className="toast-host toast-host--fs"><Toast /></div>}
         </div>

@@ -47,7 +47,12 @@ function useWidth(ref: React.RefObject<HTMLElement | null>): number {
  * the red playhead and the current time. Click or drag to seek (touch drags preview and seek on release), hover shows the time
  * under the pointer, Tab focuses it and ← / → seek like everywhere else.
  */
-export function MatchStrip() {
+interface MatchStripProps {
+    /** overlay: the thin timeline along the bottom of the picture on touch (no clock label; the scorebug has the clock). */
+    variant?: 'overlay'
+}
+
+export function MatchStrip({ variant }: MatchStripProps = {}) {
     const files = useAppState((s) => s.files)
     const cumulativeOffsets = useAppState((s) => s.cumulativeOffsets)
     const events = useAppState((s) => s.events)
@@ -163,7 +168,7 @@ export function MatchStrip() {
     const playheadPct = touchDrag && pointerFrac !== null ? pointerFrac * 100 : strip.playheadPct
 
     return (
-        <div className="match-strip">
+        <div className={`match-strip${variant ? ` match-strip--${variant}` : ''}`}>
             <div className="strip-label">
                 {isPreviewMode ? (
                     <>

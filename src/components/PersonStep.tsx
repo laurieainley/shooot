@@ -1,4 +1,5 @@
 import { useState, type KeyboardEvent } from 'react'
+import { orderNames } from '../utils/tagFlow'
 
 interface PersonStepProps {
     /** Accessible name of the field: "Scorer", "Assist", "Own goal by"… */
@@ -25,6 +26,8 @@ interface PersonStepProps {
     onSkip?: () => void
     /** Chips only: show the step's name ("Scorer", "Assist") above the chips, for hosts with no header of their own. */
     showLabel?: boolean
+    /** Chips only: names added during this tag, shown after the A–Z names so nothing reorders while tagging. */
+    appended?: string[]
 }
 
 /** The optional person step shared by the event picker and the review card: a field that filters the team roster, plus the matching names. */
@@ -32,28 +35,32 @@ export function PersonStep(props: PersonStepProps) {
     return props.chips ? <PersonChips {...props} /> : <PersonTyped {...props} />
 }
 
-/** Touch: the team's roster as chips (44 px targets), + New name for a typed one, and a skip button. */
-function PersonChips({ label, placeholder, query, candidates, onQuery, onChoose, isDisabled, onKeyDown, skipLabel = 'Skip', onSkip, showLabel }: PersonStepProps) {
+/**
+ * Touch: the roster as a stable two-column grid of compact name buttons (44 px tall, A–Z, names added during this tag at the end),
+ * then a last row with + New name (the only thing that opens the keyboard) and the skip button. A disabled name (the scorer on
+ * Assist) stays in its place, so the grid never moves between questions.
+ */
+function PersonChips({ label, placeholder, query, candidates, onQuery, onChoose, isDisabled, onKeyDown, skipLabel = 'Skip', onSkip, showLabel, appended }: PersonStepProps) {
     const [typing, setTyping] = useState(false)
-    const names = [...candidates].sort((a, b) => a.localeCompare(b))
+    const names = orderNames(candidates, appended)
     const typed = query.trim()
     return (
         <div className="person-chips">
             {showLabel && <p className="person-chips__label" aria-hidden="true">{label}</p>}
             <div className="person-chips__list" role="group" aria-label={label}>
                 {names.map((n) => (
-                    <button key={n} type="button" className="person-chip" disabled={isDisabled?.(n) ?? false} onClick={() => onChoose(n)}>{n}</button>
+                    <button key={n} type="button" className="person-chip person-chip--name" disabled={isDisabled?.(n) ?? false} onClick={() => onChoose(n)}>{n}</button>
                 ))}
+                {typing && (
+                    <div className="person-chips__new">
+                        <input autoFocus aria-label={label} className="event-picker__input" placeholder={placeholder} value={query} enterKeyHint="done" autoComplete="off"
+                            onChange={(e) => onQuery(e.target.value)} onKeyDown={onKeyDown} />
+                        <button type="button" className="btn-primary person-chips__add" disabled={!typed} onClick={() => onChoose(typed)}>Add</button>
+                    </div>
+                )}
                 {!typing && <button type="button" className="person-chip person-chip--new" onClick={() => setTyping(true)}>+ New name</button>}
                 {onSkip && <button type="button" className="person-chip person-chip--skip" onClick={onSkip}>{skipLabel}</button>}
             </div>
-            {typing && (
-                <div className="person-chips__new">
-                    <input autoFocus aria-label={label} className="event-picker__input" placeholder={placeholder} value={query} enterKeyHint="done" autoComplete="off"
-                        onChange={(e) => onQuery(e.target.value)} onKeyDown={onKeyDown} />
-                    <button type="button" className="btn-primary person-chips__add" disabled={!typed} onClick={() => onChoose(typed)}>Add</button>
-                </div>
-            )}
         </div>
     )
 }

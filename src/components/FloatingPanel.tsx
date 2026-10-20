@@ -1,6 +1,7 @@
 import { CloseButton } from './CloseButton'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
+import { portalRoot } from './portalRoot'
 
 interface FloatingPanelProps {
     label: string
@@ -55,7 +56,7 @@ export function FloatingPanel({ label, anchorRef, placement, onClose, children, 
         }
     }, [anchorRef])
 
-    // Portalled to <body> so no ancestor stacking context (sticky top bar, rail) can put it under other layers.
+    // Portalled to <body> (the player on touch while it fills the screen: see portalRoot) so no ancestor stacking context (sticky top bar, rail) can put it under other layers.
     const drawer = variant === 'drawer'
     return createPortal(
         <>
@@ -68,6 +69,6 @@ export function FloatingPanel({ label, anchorRef, placement, onClose, children, 
                 <div className="floating__body">{children}</div>
             </div>
         </>,
-        document.body,
+        portalRoot(),
     )
 }

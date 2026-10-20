@@ -9,6 +9,9 @@ import { confirmedCopy, eventGlobalSec, matchClock, taggedCopy } from '../utils/
 import { nearbyMark } from '../utils/duplicates'
 import { EventTag } from './EventTag'
 import { PersonStep } from './PersonStep'
+import { TagColumn, nearWarning } from './TagColumn'
+import { breadcrumbs, questionFor } from '../utils/tagFlow'
+import { useTagViewMode } from './tagView'
 import { PICKER_GROUPS, PICKER_OPTIONS, assistOf, isMarker, controlLabel, type PickerOption } from '../utils/eventTypes'
 import { SKIP, initialPickerState, pickerReducer, touchPickerState, scorerCandidates, isDisabledName, type PickerInput, type PickerState } from '../utils/eventPicker'
 import { teamShortcuts } from '../utils/roster'
@@ -27,7 +30,10 @@ export function EventPicker() {
     const storedEvent = useAppState((s) => s.events.find((e) => e.id === s.picker?.eventId))
     const teams = useAppState((s) => s.teams)
     const events = useAppState((s) => s.events)
-    const fullscreen = useAppState((s) => s.playerFullscreen || s.immersive)
+    const storeFullscreen = useAppState((s) => s.playerFullscreen || s.immersive)
+    // The immersive touch view puts the picture full screen even outside fullscreen: the column then sits over the picture.
+    const tagViewMode = useTagViewMode()
+    const fullscreen = storeFullscreen || tagViewMode === 'overlay'
     const slot = usePanelSlot((s) => s.el)
     const coarse = useMediaQuery(COARSE_QUERY)
     const placement = panelPlacement(coarse, fullscreen)
@@ -43,7 +49,9 @@ export function EventPicker() {
     const stateRef = useRef(state)
     stateRef.current = state
 
-    useEffect(() => { setState(startState(!!useAppState.getState().picker?.pending)) }, [picker?.eventId])
+    // Names typed in during this tag: they sit after the A–Z names so the grid never reorders while tagging.
+    const [added, setAdded] = useState<string[]>([])
+    useEffect(() => { setState(startState(!!useAppState.getState().picker?.pending)); setAdded([]) }, [picker?.eventId])
 
     // Closing a fresh tag announces it (with Undo); closing an edit, a marker or an empty mark says nothing here.
     const finish = (fresh: boolean, id: string): void => {
@@ -75,6 +83,11 @@ export function EventPicker() {
         const current = store.picker
         if (!current) return
         const id = current.eventId
+        if (coarse && input.kind === 'choose' && input.value !== SKIP && (stateRef.current.step === 'scorer' || stateRef.current.step === 'assist')) {
+            const roster = scorerCandidates({ ...stateRef.current, query: '' }, { teams: store.teams, touch: coarse })
+            const name = input.value.trim()
+            if (name && !roster.some((r) => r.toLowerCase() === name.toLowerCase())) setAdded((a) => [...a, name])
+        }
         const { state: next, effects } = pickerReducer(stateRef.current, input, { teams: store.teams, touch: coarse })
         stateRef.current = next
         setState(next)
@@ -149,6 +162,40 @@ export function EventPicker() {
         : canSkip ? 'Tab skip · Esc to finish' : 'Esc to finish'
     const prompt = state.step === 'type' ? 'What happened?' : state.step === 'team' ? 'Which team?' : state.step === 'scorer' || state.step === 'assist' ? personLabel : textLabel
     const highlightedId = state.highlighted >= 0 ? PICKER_OPTIONS[state.highlighted]?.id : undefined
+
+    if (coarse) {
+        const finishEarly = !(pending && state.step === 'type')
+        const personSkip = state.step === 'assist' ? { label: 'None', run: () => dispatch({ kind: 'choose', value: SKIP }) }
+            : state.step === 'scorer' ? { label: 'Skip', run: () => dispatch(option.personOptional ? { kind: 'choose', value: SKIP } : { kind: 'key', key: 'Escape' }) }
+            : state.step === 'team' && option.teamOptional ? { label: 'Skip', run: () => dispatch({ kind: 'choose', value: SKIP }) }
+            : null
+        return inSlot(placement, slot, (
+            <TagColumn
+                label={picker.fresh || pending ? 'Tag event' : 'Edit event'}
+                placement={placement === 'compact' ? 'compact' : 'column'}
+                crumbs={breadcrumbs({ clock: title, option: state.step === 'type' ? undefined : option, team: state.team, scorer: event.scorer, step: state.step, scorerSkipped: state.step === 'assist' && !event.scorer })}
+                step={state.step}
+                question={questionFor(state.step, option)}
+                teams={teams}
+                candidates={candidates}
+                added={added}
+                query={state.query}
+                textLabel={textLabel}
+                textPlaceholder={textPlaceholder}
+                warning={near && state.step === 'type' ? nearWarning(near) : undefined}
+                personLabel={personLabel}
+                isDisabled={(name) => isDisabledName(state, name)}
+                skipLabel={personSkip?.label ?? 'Skip'}
+                onSkip={personSkip?.run}
+                onDone={finishEarly ? () => dispatch({ kind: 'key', key: 'Escape' }) : undefined}
+                onCancel={cancel}
+                onGoto={(step) => dispatch({ kind: 'goto', step })}
+                onChoose={(value) => dispatch({ kind: 'choose', value })}
+                onQuery={(value) => dispatch({ kind: 'text', value })}
+                onTextDone={() => dispatch({ kind: 'key', key: 'Escape' })}
+            />
+        ))
+    }
 
     const ui = (
         <div className={`event-picker event-picker--${placement}`} role="dialog" aria-label={picker.fresh || pending ? 'Tag event' : 'Edit event'}>
