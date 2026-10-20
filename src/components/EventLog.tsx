@@ -196,7 +196,7 @@ export function EventLog() {
                             clock={formatEventClock((offsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec, e.matchTimeSec, matchStartTimeSec, clockLong)}
                             score={scores.get(e.id)}
                             editing={editing?.id === e.id ? editing.field : null}
-                            onSelect={() => setSelectedId(e.id)}
+                            onSelect={() => setSelectedId((id) => (id === e.id ? null : e.id))}
                             onWatch={() => { setSelectedId(e.id); watch(e) }}
                             onEdit={(field) => { setSelectedId(e.id); setEditing(field ? { id: e.id, field } : null) }}
                             onToggleReplay={() => toggleReplay(e)}

@@ -642,6 +642,18 @@ describe('EventLog action row', () => {
         expect(within(rows()[1]).getByRole('group', { name: 'Event actions' })).toBeInTheDocument()
     })
 
+    it('should collapse an expanded row when it is clicked again, but not from its action row', async () => {
+        setup([goal('a', 100), goal('b', 200)])
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        const actions = within(rows()[0]).getByRole('group', { name: 'Event actions' })
+        await userEvent.click(within(actions).getByRole('switch', { name: 'Slow-mo replay' }))
+        expect(within(rows()[0]).getByRole('group', { name: 'Event actions' })).toBeInTheDocument()
+        await userEvent.click(rows()[0])
+        expect(screen.queryByRole('group', { name: 'Event actions' })).toBeNull()
+        expect(rows()[0]).toHaveAttribute('aria-selected', 'false')
+    })
+
     it('should toggle replay, open edit and delete from the action row', async () => {
         setup([goal('a', 100), goal('b', 200)])
         render(<EventLog />)
