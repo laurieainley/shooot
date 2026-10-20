@@ -4,6 +4,8 @@ import { MARK_STEPS, type MarkKey } from '../../utils/goalMarkSteps'
 interface GoalDiagramProps {
     current: MarkKey | null
     placed: Partial<GoalMarks>
+    /** Touch: placed points can be tapped to move them. */
+    onPick?: (key: MarkKey) => void
 }
 
 const CORNER: Record<MarkKey, { x: number; y: number }> = {
@@ -11,8 +13,10 @@ const CORNER: Record<MarkKey, { x: number; y: number }> = {
     backL: { x: 26, y: 98 }, backR: { x: 294, y: 98 },
 }
 
+const LABELS: Record<MarkKey, string> = { postL: 'Left post bottom', postR: 'Right post bottom', barL: 'Left post top', barR: 'Right post top', backL: 'Back-left corner', backR: 'Back-right corner' }
+
 /** A goal drawing across the column: the point being placed is ringed, points already placed are filled and ticked, the rest hollow. */
-export function GoalDiagram({ current, placed }: GoalDiagramProps) {
+export function GoalDiagram({ current, placed, onPick }: GoalDiagramProps) {
     return (
         <svg className="gs-diagram" viewBox="-4 -8 328 130" role="img" aria-label={current ? `Diagram of a goal: the ${current.startsWith('back') ? 'back corner' : 'post corner'} to place is highlighted` : 'Diagram of a goal'}>
             <path className="gs-diagram__net" d="M70 74L26 98L294 98L250 74Z" />
@@ -21,7 +25,13 @@ export function GoalDiagram({ current, placed }: GoalDiagramProps) {
                 const { x, y } = CORNER[key]
                 const state = key === current ? 'now' : placed[key] ? 'done' : 'todo'
                 return (
-                    <g key={key} className={`gs-diagram__pt gs-diagram__pt--${state}`} data-state={state}>
+                    <g
+                        key={key}
+                        className={`gs-diagram__pt gs-diagram__pt--${state}${onPick && placed[key] ? ' gs-diagram__pt--pick' : ''}`}
+                        data-state={state}
+                        {...(onPick && placed[key] ? { role: 'button', tabIndex: 0, 'aria-label': `Move point ${i + 1}: ${LABELS[key]}`, onClick: () => onPick(key), onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(key) } } } : {})}
+                    >
+                        {onPick && placed[key] && <circle className="gs-diagram__hit" cx={x} cy={y} r={22} />}
                         {state === 'now' && <circle className="gs-diagram__halo" cx={x} cy={y} r={20} />}
                         <circle className="gs-diagram__dot" cx={x} cy={y} r={state === 'now' ? 14 : 11} />
                         {state === 'done'

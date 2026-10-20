@@ -1756,6 +1756,10 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .gs-diagram__tick { fill: none; stroke: var(--sh-ground); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
 .gs-diagram__pt--now .gs-diagram__dot { fill: var(--sh-text); stroke: var(--sh-ground); stroke-width: 3; stroke-dasharray: none; }
 .gs-diagram__pt--now .gs-diagram__no { fill: var(--sh-ground); font-size: 15px; }
+.gs-diagram__pt--pick { cursor: pointer; }
+.gs-diagram__hit { fill: transparent; stroke: none; }
+.gs-diagram__pt--pick:focus { outline: none; }
+.gs-diagram__pt--pick:focus-visible .gs-diagram__dot { stroke: var(--sh-text); stroke-width: 3; }
 .gs-diagram__halo { fill: none; stroke: var(--sh-text); stroke-width: 2.5; }
 .gs-cursorlabel { position: absolute; left: 0; top: 0; display: none; padding: 3px 8px; border-radius: var(--sh-radius-sm); background: rgb(0 0 0 / 0.78); color: var(--sh-on-video); font-size: var(--sh-text-sm); font-weight: 600; white-space: nowrap; pointer-events: none; z-index: 2; }
 
@@ -1833,7 +1837,18 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .gs-actions--quiet { justify-content: flex-start; }
   .gs-zoomview { width: min(100cqw - 24px, (100cqh - 90px) * var(--aspect, 1.7778)); }
 }
-@media (orientation: landscape) and (max-height: 500px) { .gs { --gs-col: 280px; } .gs-title { font-size: 15px; } }
+@media (orientation: landscape) and (max-height: 500px) {
+  .gs { --gs-col: 280px; } .gs-title { font-size: 15px; }
+  /* The text column scrolls; the buttons under it stay pinned, so Set point / Next are always on screen. */
+  .gs { grid-template-rows: minmax(0, 1fr) auto; }
+  .gs-head { min-height: 0; overflow-y: auto; align-content: start; overscroll-behavior: contain; }
+  .gs-controls { overflow-y: visible; border-top: 1px solid var(--sh-line); }
+  .gs-head { padding-block: 8px 4px; gap: 4px; } .gs-controls { padding-block: 8px; gap: 6px; }
+  .gs--posts1 .gs-diagram, .gs--posts2 .gs-diagram { max-height: 76px; }
+  .gs-controls > .gs-note { display: none; } /* the prompt already says the back corners are optional */
+  .gs-actions { flex-wrap: nowrap; gap: 6px; } .gs-actions > .btn-primary { flex: 1 1 90px; min-width: 0; padding-inline: 8px; }
+  .gs-actions--quiet { gap: 12px; }
+}
 @media (min-width: 1024px) { .gs { --gs-col: 360px; } .gs-title { font-size: var(--sh-text-lg); } .gs-head, .gs-controls { padding-inline: 16px; } }
 @media (prefers-reduced-motion: reduce) { .gs *, .gs *::before { transition: none !important; animation: none !important; } }
 
