@@ -282,10 +282,17 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
                         skipLabel={people.pk?.step === 'assist' ? 'No assist' : 'Skip'}
                         onSkip={() => setPeople((p) => stepPeople(p, { kind: 'key', key: 'Tab' }, teams))}
                         placeholder={coarse ? 'Type a new name' : `${peopleLabel(people)} (optional) — type to filter, Enter to pick, Tab to skip`}
-                        query={people.pk?.query ?? ''} candidates={peopleCandidates(people, teams)} highlighted={people.pk?.highlighted ?? 0} showHighlight isDisabled={(n) => peopleDisabled(people, n)}
+                        query={people.pk?.query ?? ''} candidates={peopleCandidates(people, teams)} highlighted={people.pk?.highlighted ?? 0} showHighlight numbered={!coarse} isDisabled={(n) => peopleDisabled(people, n)}
                         onQuery={(value) => setPeople((p) => stepPeople(p, { kind: 'text', value }, teams))}
                         onChoose={(value) => setPeople((p) => stepPeople(p, { kind: 'choose', value }, teams))}
                         onKeyDown={(e) => {
+                            // 1-9 pick the name at that number (never typed into the filter); the scorer row on Assist does nothing.
+                            if (/^[1-9]$/.test(e.key) && !e.shiftKey) {
+                                e.preventDefault(); e.stopPropagation()
+                                const name = peopleCandidates(people, teams)[Number(e.key) - 1]
+                                if (name !== undefined && !peopleDisabled(people, name)) setPeople((p) => stepPeople(p, { kind: 'choose', value: name }, teams))
+                                return
+                            }
                             // Typing is text here; Enter picks / skips, Tab and Esc skip, the arrows move.
                             if (['Enter', 'Tab', 'Escape', 'ArrowDown', 'ArrowUp'].includes(e.key)) { e.preventDefault(); e.stopPropagation(); setPeople((p) => stepPeople(p, { kind: 'key', key: e.key === 'Escape' ? 'Tab' : e.key }, teams)) }
                         }} />

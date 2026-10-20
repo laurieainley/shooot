@@ -77,7 +77,7 @@ describe('pickerReducer — type step', () => {
 
 describe('pickerReducer — team step', () => {
     it('should choose a team by shortcut letter', () => {
-        const r = run([key('Enter'), key('c')])
+        const r = run([key('Enter'), key('2')])
         expect(r.effects.at(-1)).toEqual({ kind: 'update', patch: { team: 'Colours' } })
         expect(r.state).toMatchObject({ step: 'scorer', team: 'Colours' })
     })
@@ -91,18 +91,18 @@ describe('pickerReducer — team step', () => {
         const a = run([key('a')])
         expect(a.effects).toEqual([{ kind: 'update', patch: { type: 'penalty_conceded', pen: undefined } }])
         expect(a.state.step).toBe('team')
-        const t = run([key('a'), key('c')])
+        const t = run([key('a'), key('2')])
         expect(t.state).toMatchObject({ step: 'scorer', team: 'Colours' })
         expect(scorerCandidates(t.state, ctx)).toEqual(['Alex Wu', 'Jo'])
-        const p = run([key('a'), key('c'), { kind: 'text', value: 'jo' }, key('Enter')])
+        const p = run([key('a'), key('2'), { kind: 'text', value: 'jo' }, key('Enter')])
         expect(p.effects.at(-1)).toEqual({ kind: 'update', patch: { scorer: 'Jo' } })
         expect(p.state.step).toBe('text')
-        expect(run([key('a'), key('c'), { kind: 'text', value: 'jo' }, key('Enter'), key('Enter')]).effects.at(-1)).toEqual({ kind: 'close' })
+        expect(run([key('a'), key('2'), { kind: 'text', value: 'jo' }, key('Enter'), key('Enter')]).effects.at(-1)).toEqual({ kind: 'close' })
     })
 
     it('should let Conceded by be skipped and add a new name to the conceding roster', () => {
-        expect(run([key('a'), key('c'), key('Tab')]).state.step).toBe('text')
-        const r = run([key('a'), key('c'), { kind: 'text', value: 'Newbie' }, key('Enter')])
+        expect(run([key('a'), key('2'), key('Tab')]).state.step).toBe('text')
+        const r = run([key('a'), key('2'), { kind: 'text', value: 'Newbie' }, key('Enter')])
         expect(r.effects).toContainEqual({ kind: 'addToRoster', team: 'Colours', name: 'Newbie' })
     })
 
@@ -113,12 +113,12 @@ describe('pickerReducer — team step', () => {
 
 describe('pickerReducer — scorer step', () => {
     it('should filter by typed text and pick the highlighted match', () => {
-        const r = run([key('Enter'), key('w'), { kind: 'text', value: 'sa' }, key('ArrowDown'), key('Enter'), key('Tab'), key('Enter')])
+        const r = run([key('Enter'), key('1'), { kind: 'text', value: 'sa' }, key('ArrowDown'), key('Enter'), key('Tab'), key('Enter')])
         expect(r.effects.slice(-2)).toEqual([{ kind: 'update', patch: { scorer: 'Sandy Wu' } }, { kind: 'close' }])
     })
 
     it('should add an unknown name to the roster', () => {
-        const r = run([key('Enter'), key('w'), { kind: 'text', value: 'New Guy' }, key('Enter'), key('Tab'), key('Enter')])
+        const r = run([key('Enter'), key('1'), { kind: 'text', value: 'New Guy' }, key('Enter'), key('Tab'), key('Enter')])
         expect(r.effects.slice(-3)).toEqual([
             { kind: 'addToRoster', team: 'Whites', name: 'New Guy' },
             { kind: 'update', patch: { scorer: 'New Guy' } },
@@ -127,21 +127,21 @@ describe('pickerReducer — scorer step', () => {
     })
 
     it('should use the other team roster for own goals', () => {
-        const r = run([key('o'), key('w')])
+        const r = run([key('o'), key('1')])
         expect(scorerCandidates(r.state, ctx)).toEqual(['Alex Wu', 'Jo'])
-        const added = run([key('o'), key('w'), { kind: 'text', value: 'Zed' }, key('Enter')])
+        const added = run([key('o'), key('1'), { kind: 'text', value: 'Zed' }, key('Enter')])
         expect(added.effects).toContainEqual({ kind: 'addToRoster', team: 'Colours', name: 'Zed' })
     })
 
     it('should ignore letter keys (they go to the text field) and close on Escape', () => {
-        const r = run([key('Enter'), key('w'), key('h')])
+        const r = run([key('Enter'), key('1'), key('h')])
         expect(r.state.step).toBe('scorer')
-        expect(run([key('Enter'), key('w'), key('Escape')]).effects.at(-1)).toEqual({ kind: 'close' })
+        expect(run([key('Enter'), key('1'), key('Escape')]).effects.at(-1)).toEqual({ kind: 'close' })
     })
 
     it('should close without a scorer on Enter with empty text and no roster', () => {
         const empty: PickerContext = { teams: [{ ...teams[0], roster: [] }, teams[1]], touch: false }
-        const r = run([key('Enter'), key('w'), key('Enter')], empty)
+        const r = run([key('Enter'), key('1'), key('Enter')], empty)
         expect(r.effects.at(-1)).toEqual({ kind: 'close' })
         expect(r.effects).not.toContainEqual(expect.objectContaining({ kind: 'addToRoster' }))
     })
@@ -171,7 +171,7 @@ const updates = (effects: ReturnType<typeof run>['effects']) =>
 
 describe('pickerReducer — per-type details', () => {
     it('should take a highlight through team → who → text and save the text on Enter', () => {
-        const r = run([key('h'), key('w'), text('sa'), key('Enter'), text('nutmeg on the wing'), key('Enter')])
+        const r = run([key('h'), key('1'), text('sa'), key('Enter'), text('nutmeg on the wing'), key('Enter')])
         expect(updates(r.effects)).toEqual([
             { type: 'highlight', pen: undefined }, { team: 'Whites' }, { scorer: 'Sam Taylor' }, { notes: 'nutmeg on the wing' },
         ])
@@ -179,7 +179,7 @@ describe('pickerReducer — per-type details', () => {
     })
 
     it('should move to the text step after the person step without closing', () => {
-        const r = run([key('h'), key('w'), choose('Jo')])
+        const r = run([key('h'), key('1'), choose('Jo')])
         expect(r.state.step).toBe('text')
         expect(r.effects.at(-1)).toEqual({ kind: 'update', patch: { scorer: 'Jo' } })
     })
@@ -193,12 +193,12 @@ describe('pickerReducer — per-type details', () => {
     })
 
     it('should let a highlight skip the person and keep the team', () => {
-        const r = run([key('h'), key('c'), key('Tab')])
+        const r = run([key('h'), key('2'), key('Tab')])
         expect(r.state).toMatchObject({ step: 'text', team: 'Colours' })
     })
 
     it('should record a foul with a note', () => {
-        const r = run([key('f'), key('c'), choose(SKIP), text('late tackle'), key('Enter')])
+        const r = run([key('f'), key('2'), choose(SKIP), text('late tackle'), key('Enter')])
         expect(updates(r.effects)).toEqual([{ type: 'foul', pen: undefined }, { team: 'Colours' }, { notes: 'late tackle' }])
         expect(r.effects.at(-1)).toEqual({ kind: 'close' })
     })
@@ -212,7 +212,7 @@ describe('pickerReducer — per-type details', () => {
     })
 
     it('should treat letters on the text step as typing', () => {
-        const r = run([key('h'), key('Tab'), key('w'), key('g')])
+        const r = run([key('h'), key('Tab'), key('1'), key('g')])
         expect(r.state.step).toBe('text')
         expect(r.effects).toHaveLength(1)
     })
@@ -224,18 +224,18 @@ describe('pickerReducer — per-type details', () => {
     })
 
     it('should let a save skip the goalkeeper and close', () => {
-        const r = run([key('s'), key('w'), key('Tab'), key('Enter')])
+        const r = run([key('s'), key('1'), key('Tab'), key('Enter')])
         expect(updates(r.effects)).toEqual([{ type: 'save', pen: undefined }, { team: 'Whites' }])
         expect(r.effects.at(-1)).toEqual({ kind: 'close' })
     })
 
     it('should not skip a required step', () => {
         expect(run([key('Enter'), key('Tab')]).state.step).toBe('team')
-        expect(run([key('Enter'), key('w'), choose(SKIP)]).state.step).toBe('scorer')
+        expect(run([key('Enter'), key('1'), choose(SKIP)]).state.step).toBe('scorer')
     })
 
     it('should pick the own-goal person from the other team', () => {
-        const r = run([key('o'), key('c'), choose('Sam Taylor')])
+        const r = run([key('o'), key('2'), choose('Sam Taylor')])
         expect(updates(r.effects).at(-1)).toEqual({ scorer: 'Sam Taylor' })
         expect(r.effects).not.toContainEqual(expect.objectContaining({ kind: 'addToRoster' }))
     })
@@ -268,7 +268,7 @@ describe('pickerReducer — touch start (nothing preselected)', () => {
 })
 
 describe('pickerReducer — assist step', () => {
-    const toScorer = [key('g'), key('w')] // G, team Whites (shortcut w)
+    const toScorer = [key('g'), key('1')] // G, team Whites (shortcut w)
     const afterScorer = [...toScorer, { kind: 'choose', value: 'Sam Taylor' } as PickerInput]
 
     it('should offer an assist step after the scorer of a normal goal', () => {
@@ -307,7 +307,7 @@ describe('pickerReducer — assist step', () => {
         }
         const noOne = run([...afterScorer, { kind: 'text', value: 'zzz' }, key('Backspace')])
         expect(noOne.state.step).toBe('assist')
-        const enter = run([key('g'), key('c'), { kind: 'choose', value: 'Jo' }, { kind: 'text', value: '' }, key('ArrowDown'), key('Enter'), key('Enter')])
+        const enter = run([key('g'), key('2'), { kind: 'choose', value: 'Jo' }, { kind: 'text', value: '' }, key('ArrowDown'), key('Enter'), key('Enter')])
         expect(enter.effects.at(-1)).toEqual({ kind: 'close' })
     })
 
@@ -327,8 +327,8 @@ describe('pickerReducer — assist step', () => {
     })
 
     it('should not offer an assist for penalty goals or own goals', () => {
-        expect(run([key('p'), key('w'), { kind: 'choose', value: 'Sam Taylor' }, key('Enter')]).effects.at(-1)).toEqual({ kind: 'close' })
-        expect(run([key('o'), key('w'), { kind: 'choose', value: 'Jo' }, key('Enter')]).effects.at(-1)).toEqual({ kind: 'close' })
+        expect(run([key('p'), key('1'), { kind: 'choose', value: 'Sam Taylor' }, key('Enter')]).effects.at(-1)).toEqual({ kind: 'close' })
+        expect(run([key('o'), key('1'), { kind: 'choose', value: 'Jo' }, key('Enter')]).effects.at(-1)).toEqual({ kind: 'close' })
     })
 
     it('should still close after the assist when the goal has no team step (no teams)', () => {
@@ -342,21 +342,21 @@ describe('pickerReducer — assist step', () => {
 
 describe('pickerReducer — optional note on every event', () => {
     it('should ask for an optional note after the goalkeeper on a save and store it', () => {
-        const r = run([key('s'), key('w'), key('Tab'), text('great stop'), key('Enter')])
+        const r = run([key('s'), key('1'), key('Tab'), text('great stop'), key('Enter')])
         expect(r.state.step).toBe('text')
         expect(updates(r.effects)).toEqual([{ type: 'save', pen: undefined }, { team: 'Whites' }, { notes: 'great stop' }])
         expect(r.effects.at(-1)).toEqual({ kind: 'close' })
     })
 
     it('should keep a goal note after the assist step', () => {
-        const r = run([key('g'), key('w'), choose('Sam Taylor'), key('Tab'), text('top corner'), key('Enter')])
+        const r = run([key('g'), key('1'), choose('Sam Taylor'), key('Tab'), text('top corner'), key('Enter')])
         expect(updates(r.effects)).toContainEqual({ notes: 'top corner' })
         expect(r.effects.at(-1)).toEqual({ kind: 'close' })
     })
 
     it('should let Skip-style keys (Tab, Escape, empty Enter) leave no note', () => {
         for (const k of ['Enter', 'Escape']) {
-            const r = run([key('s'), key('w'), key('Tab'), key(k)])
+            const r = run([key('s'), key('1'), key('Tab'), key(k)])
             expect(updates(r.effects).some((u) => 'notes' in u)).toBe(false)
             expect(r.effects.at(-1)).toEqual({ kind: 'close' })
         }
@@ -369,13 +369,13 @@ describe('pickerReducer — optional note on every event', () => {
 
 describe('pickerReducer — touch skips the optional note', () => {
     it('should close after the assist on touch instead of asking for a note', () => {
-        const r = run([key('Enter'), key('w'), { kind: 'choose', value: 'Sam Taylor' }, { kind: 'choose', value: 'Sandy Wu' }], touchCtx)
+        const r = run([key('Enter'), key('1'), { kind: 'choose', value: 'Sam Taylor' }, { kind: 'choose', value: 'Sandy Wu' }], touchCtx)
         expect(r.state.step).toBe('assist')
         expect(r.effects.at(-1)).toEqual({ kind: 'close' })
     })
 
     it('should close instead of the note step when skipping the assist on touch', () => {
-        const r = run([key('Enter'), key('w'), { kind: 'choose', value: 'Sam Taylor' }, { kind: 'choose', value: SKIP }], touchCtx)
+        const r = run([key('Enter'), key('1'), { kind: 'choose', value: 'Sam Taylor' }, { kind: 'choose', value: SKIP }], touchCtx)
         expect(r.effects.at(-1)).toEqual({ kind: 'close' })
     })
 
@@ -423,5 +423,97 @@ describe('pickerReducer — goto (breadcrumbs on touch)', () => {
         expect(r.state.step).toBe('type')
         const noTeam = pickerReducer(initialPickerState, { kind: 'goto', step: 'scorer' }, touchCtx)
         expect(noTeam.state).toBe(initialPickerState)
+    })
+})
+
+describe('pickerReducer — back', () => {
+    const choose = (value: string): PickerInput => ({ kind: 'choose', value })
+    const back: PickerInput = { kind: 'back' }
+
+    it('should do nothing on the type step', () => {
+        const r = pickerReducer(initialPickerState, back, ctx)
+        expect(r.state).toBe(initialPickerState)
+        expect(r.effects).toEqual([])
+    })
+    it('should go team -> type, forgetting the team, without effects', () => {
+        const r = run([choose('goal'), back])
+        expect(r.state).toMatchObject({ step: 'type', team: undefined, highlighted: 0 })
+        expect(r.effects.filter((e) => e.kind === 'close' || e.kind === 'remove')).toEqual([])
+    })
+    it('should go scorer -> team and let a different team be picked', () => {
+        const r = run([choose('goal'), choose('Whites'), back])
+        expect(r.state).toMatchObject({ step: 'team', highlighted: 0 })
+        const again = pickerReducer(r.state, key('2'), ctx)
+        expect(again.effects).toEqual([{ kind: 'update', patch: { team: 'Colours' } }])
+        expect(again.state).toMatchObject({ step: 'scorer', team: 'Colours' })
+    })
+    it('should go assist -> scorer, clearing the scorer so the assist rule follows the new pick', () => {
+        const r = run([choose('goal'), choose('Whites'), choose('Sam Taylor'), back])
+        expect(r.state).toMatchObject({ step: 'scorer', scorer: undefined, query: '' })
+        const again = pickerReducer(r.state, choose('Sandy Wu'), ctx)
+        expect(isDisabledName(again.state, 'Sandy Wu')).toBe(true)
+        expect(isDisabledName(again.state, 'Sam Taylor')).toBe(false)
+    })
+    it('should go text -> assist for a goal, -> scorer when there is no assist, -> team without a scorer', () => {
+        const goal = run([choose('goal'), choose('Whites'), choose('Sam Taylor'), key('Tab')])
+        expect(goal.state.step).toBe('text')
+        expect(pickerReducer(goal.state, back, ctx).state.step).toBe('assist')
+        const fouled = run([choose('foul'), choose('Whites'), choose('Jo'), key('Enter')])
+        expect(fouled.state.step).toBe('text')
+        expect(pickerReducer(fouled.state, back, ctx).state.step).toBe('scorer')
+        const hl = run([choose('highlight'), choose('Whites'), key('Tab')])
+        expect(hl.state.step).toBe('text')
+    })
+    it('should go text -> type for a type that asks no team', () => {
+        const r = run([choose('goal')], noTeams)
+        expect(r.state.step).toBe('text')
+        expect(pickerReducer(r.state, back, noTeams).state.step).toBe('type')
+    })
+    it('should use nothing preselected on touch', () => {
+        const r = run([choose('goal'), back], touchCtx)
+        expect(r.state.highlighted).toBe(-1)
+    })
+    it('should go back on Backspace when the field is empty, edit text otherwise', () => {
+        expect(run([choose('goal'), key('Backspace')]).state.step).toBe('type')
+        expect(run([choose('goal'), choose('Whites'), key('Backspace')]).state.step).toBe('team')
+        expect(run([choose('goal'), choose('Whites'), choose('Sam Taylor'), key('Backspace')]).state.step).toBe('scorer')
+        const typed = run([choose('goal'), choose('Whites'), { kind: 'text', value: 'sa' }, key('Backspace')])
+        expect(typed.state).toMatchObject({ step: 'scorer', query: 'sa' })
+        const note = run([choose('goal'), choose('Whites'), choose('Sam Taylor'), key('Tab'), key('Backspace')])
+        expect(note.state.step).toBe('assist')
+        const noteTyped = run([choose('goal'), choose('Whites'), choose('Sam Taylor'), key('Tab'), { kind: 'text', value: 'x' }, key('Backspace')])
+        expect(noteTyped.state.step).toBe('text')
+    })
+    it('should keep Backspace on the type step as cancel', () => {
+        expect(run([key('Backspace')]).effects).toEqual([{ kind: 'remove' }, { kind: 'close' }])
+    })
+})
+
+describe('pickerReducer — number keys', () => {
+    const choose = (value: string): PickerInput => ({ kind: 'choose', value })
+    it('should choose the first and second team on 1 and 2, and ignore letters and 3', () => {
+        expect(run([key('Enter'), key('2')]).state.team).toBe('Colours')
+        expect(run([key('Enter'), key('1')]).state.team).toBe('Whites')
+        expect(run([key('Enter'), key('3')]).state.step).toBe('team')
+        expect(run([key('Enter'), key('w')]).state.step).toBe('team')
+    })
+    it('should pick the Nth displayed scorer', () => {
+        const r = run([choose('goal'), choose('Whites'), key('2')])
+        expect(r.effects).toContainEqual({ kind: 'update', patch: { scorer: 'Sandy Wu' } })
+        expect(r.state.step).toBe('assist')
+    })
+    it('should count rows after the typed filter', () => {
+        const r = run([choose('goal'), choose('Colours'), { kind: 'text', value: 'jo' }, key('1')])
+        expect(r.effects).toContainEqual({ kind: 'update', patch: { scorer: 'Jo' } })
+    })
+    it('should ignore a number with no row', () => {
+        const r = run([choose('goal'), choose('Whites'), key('5')])
+        expect(r.state.step).toBe('scorer')
+    })
+    it('should pick the Nth assist, and ignore the disabled scorer row', () => {
+        const base = [choose('goal'), choose('Whites'), choose('Sam Taylor')]
+        expect(run([...base, key('1')]).state.step).toBe('assist') // Sam Taylor is row 1, disabled
+        const r = run([...base, key('2')])
+        expect(r.effects.at(-1)).toEqual({ kind: 'update', patch: { assist: 'Sandy Wu' } })
     })
 })

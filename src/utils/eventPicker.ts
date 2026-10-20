@@ -1,7 +1,7 @@
 import type { MarkerType, MatchEvent, Team } from '../types'
 import { PICKER_OPTIONS, optionForKey, type PickerOption } from './eventTypes'
 import { assistEdit, optionPatch, personEdit } from './eventEdit'
-import { filterRoster, rosterTeamFor, sortNames, teamShortcuts } from './roster'
+import { filterRoster, rosterTeamFor, sortNames } from './roster'
 
 export type PickerStep = 'type' | 'team' | 'scorer' | 'assist' | 'text'
 
@@ -24,6 +24,8 @@ export type PickerInput =
     | { kind: 'text'; value: string }
     /** Touch Tag column: tap a breadcrumb to answer that question again. */
     | { kind: 'goto'; step: 'type' | 'team' | 'scorer' }
+    /** Back to the question before this one (the Back button; Backspace on an empty field). */
+    | { kind: 'back' }
 
 export type PickerEffect =
     | { kind: 'update'; patch: Partial<MatchEvent> }
@@ -143,6 +145,33 @@ function skip(state: PickerState, ctx: PickerContext): Result {
     return { state, effects: [] }
 }
 
+/** The question asked before `state.step` for this type, or null on the first step. */
+export function previousStep(state: PickerState, ctx: PickerContext): PickerStep | null {
+    const o = state.option
+    const teamAsked = !!o.askTeam && hasTeams(ctx)
+    switch (state.step) {
+        case 'type': return null
+        case 'team': return 'type'
+        case 'scorer': return teamAsked ? 'team' : 'type'
+        case 'assist': return 'scorer'
+        case 'text':
+            if (o.askAssist && teamAsked && o.askScorer) return 'assist'
+            if (teamAsked && o.askScorer) return 'scorer'
+            return teamAsked ? 'team' : 'type'
+    }
+}
+
+/** Go back one question. What is already saved on the event stays until the user picks again; the scorer is forgotten so the assist list follows the new pick. */
+function back(state: PickerState, ctx: PickerContext): Result {
+    const to = previousStep(state, ctx)
+    if (!to) return { state, effects: [] }
+    const top = ctx.touch ? -1 : 0
+    if (to === 'type') return { state: { ...state, step: 'type', highlighted: top, query: '', team: undefined, scorer: undefined }, effects: [] }
+    if (to === 'team') return { state: { ...state, step: 'team', highlighted: top, query: '', scorer: undefined }, effects: [] }
+    if (to === 'scorer') return { state: { ...state, step: 'scorer', highlighted: 0, query: '', scorer: undefined }, effects: [] }
+    return { state: { ...state, step: to, highlighted: 0, query: '' }, effects: [] }
+}
+
 /** Leave the text step, keeping whatever was typed. */
 function finishText(state: PickerState): Result {
     const notes = state.query.trim()
@@ -159,6 +188,8 @@ export function pickerReducer(state: PickerState, input: PickerInput, ctx: Picke
         }
         return state.step === 'text' ? { state: { ...state, query: input.value, highlighted: 0 }, effects: [] } : none
     }
+
+    if (input.kind === 'back') return back(state, ctx)
 
     if (input.kind === 'goto') {
         if (input.step === 'type') return { state: { ...state, step: 'type', highlighted: -1, query: '', team: undefined, scorer: undefined }, effects: [] }
@@ -179,7 +210,10 @@ export function pickerReducer(state: PickerState, input: PickerInput, ctx: Picke
     }
 
     const k = input.key
-    if (state.step === 'text') return k === 'Enter' || k === 'Escape' ? finishText(state) : none
+    if (state.step === 'text') {
+        if (k === 'Backspace') return state.query === '' ? back(state, ctx) : none
+        return k === 'Enter' || k === 'Escape' ? finishText(state) : none
+    }
     if (k === 'Escape') return { state, effects: [CLOSE] }
     if (k === 'Tab') return skip(state, ctx)
 
@@ -198,8 +232,9 @@ export function pickerReducer(state: PickerState, input: PickerInput, ctx: Picke
         if (k === 'ArrowDown') return { state: { ...state, highlighted: wrap(state.highlighted + 1, names.length) }, effects: [] }
         if (k === 'ArrowUp') return { state: { ...state, highlighted: wrap(state.highlighted - 1, names.length) }, effects: [] }
         if (k === 'Enter') return chooseTeam(state, names[state.highlighted], ctx)
-        const idx = k.length === 1 ? teamShortcuts(names).indexOf(k.toLowerCase()) : -1
-        return idx >= 0 ? chooseTeam(state, names[idx], ctx) : none
+        if (k === 'Backspace') return back(state, ctx)
+        const idx = /^[1-9]$/.test(k) ? Number(k) - 1 : -1
+        return idx >= 0 && idx < names.length ? chooseTeam(state, names[idx], ctx) : none
     }
 
     // scorer / assist step — letters go to the text field
@@ -210,6 +245,12 @@ export function pickerReducer(state: PickerState, input: PickerInput, ctx: Picke
     }
     if (k === 'ArrowDown') return move(1)
     if (k === 'ArrowUp') return move(-1)
+    if (k === 'Backspace') return state.query === '' ? back(state, ctx) : none
+    if (/^[1-9]$/.test(k)) {
+        const row = candidates[Number(k) - 1]
+        if (row === undefined || isDisabledName(state, row)) return none
+        return state.step === 'assist' ? chooseAssist(state, row, ctx) : chooseScorer(state, row, ctx)
+    }
     if (k === 'Enter') {
         const row = candidates[state.highlighted]
         const pick = state.query.trim() && candidates.length === 0 ? state.query.trim() : row !== undefined && !isDisabledName(state, row) ? row : undefined

@@ -11,6 +11,10 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-21
 
+- **User: tag box — names never move, Back, teams on 1 / 2, players on 1–9.** Why: on desktop the box grew a Skip row on Assist and,
+  being bottom-anchored, every name jumped up a row; letter shortcuts for teams were slower than numbers while tagging live. Detail:
+  `docs/superpowers/agents/briefs/pickerkeys-report.md`.
+
 - **User: wheel zoom about 1.25x per notch with smooth-scrolling mice.** Ctrl+wheel events within 40 ms of the previous one (Mos splits
   one notch into ~5 events; a trackpad pinch streams too) zoom at most ~3% each; a lone event still zooms ~10%. Why: with a Logitech
   mouse + Mos one notch jumped to 1.6x. Applies to the player, goal posts and replay zoom. Detail: `utils/zoom.ts`, `components/wheelPace.ts`.
