@@ -10,7 +10,8 @@ import { blockerText, startNewMatch, stopBlocker, switchBlocker, type SwitchBloc
 import { CopyDiagnostics } from './CopyDiagnostics'
 import { playbackReportText } from '../playbackDiagnostics'
 import type { Layout } from './useMediaQuery'
-import { ExportPanel, useExportButtonStatus } from './ExportPanel'
+import { ExportPanel } from './ExportPanel'
+import { useExportButtonStatus } from './useExportButtonStatus'
 import { useTagUi } from './tagView'
 import { runPlayerShortcut } from './playerControl'
 

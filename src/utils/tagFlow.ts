@@ -1,4 +1,4 @@
-import type { PickerOption } from './eventTypes'
+import { controlLabel, type PickerOption } from './eventTypes'
 import type { PickerStep } from './eventPicker'
 import { sortNames } from './roster'
 
@@ -66,4 +66,10 @@ export function orderNames(roster: readonly string[], added: readonly string[] =
     const rest = roster.filter((r) => !addedKeys.includes(r.trim().toLowerCase()))
     const tail = added.filter(inRoster).map((n) => roster.find((r) => r.trim().toLowerCase() === n.trim().toLowerCase()) as string)
     return [...sortNames(rest), ...tail]
+}
+
+/** Plain text for the duplicate-mark warning. */
+export function nearWarning(near: { event: Parameters<typeof controlLabel>[0]; deltaSec: number }): string {
+    const when = near.deltaSec === 0 ? 'at this same second' : `${Math.abs(near.deltaSec)} s ${near.deltaSec < 0 ? 'before' : 'after'} this`
+    return `You tagged ${controlLabel(near.event)} ${when}. Cancel if that was a double tap.`
 }

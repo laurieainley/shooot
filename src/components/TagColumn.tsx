@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Team } from '../types'
-import { PICKER_OPTIONS, controlLabel, type PickerOption, type PickerOptionId } from '../utils/eventTypes'
+import { PICKER_OPTIONS, type PickerOption, type PickerOptionId } from '../utils/eventTypes'
 import type { PickerStep } from '../utils/eventPicker'
 import type { Crumb } from '../utils/tagFlow'
 import { teamBackground } from '../utils/teamColor'
@@ -10,6 +10,8 @@ import { PersonStep } from './PersonStep'
 /** The first page of "What happened?": a two-column grid; the rest sit behind More…. */
 const MAIN_IDS: PickerOptionId[] = ['goal', 'goal_pen', 'own_goal', 'save', 'foul', 'highlight']
 const MORE_IDS: PickerOptionId[] = ['penalty_conceded', 'penalty_missed', 'kick_off', 'half_time', 'final_whistle']
+/** The grid is narrow: "Penalty goal" is "Pen goal" there (the breadcrumb keeps the full name). */
+const gridLabel = (o: PickerOption): string => (o.id === 'goal_pen' ? 'Pen goal' : o.label)
 const optionById = (id: PickerOptionId): PickerOption => PICKER_OPTIONS.find((o) => o.id === id) as PickerOption
 
 interface TagColumnProps {
@@ -81,7 +83,7 @@ export function TagColumn(p: TagColumnProps) {
                                 return (
                                     <div key={o.id} role="option" aria-selected={false} tabIndex={-1} className={`tagcol__choice${o.type === 'goal' ? ' tagcol__choice--goal' : ''}`}
                                         onClick={() => p.onChoose(o.id)}>
-                                        <EventTag event={{ type: o.type, pen: o.pen }}>{o.label}</EventTag>
+                                        <EventTag event={{ type: o.type, pen: o.pen }}>{gridLabel(o)}</EventTag>
                                     </div>
                                 )
                             })}
@@ -129,10 +131,4 @@ export function TagColumn(p: TagColumnProps) {
             </div>
         </div>
     )
-}
-
-/** Plain text for the duplicate-mark warning. */
-export function nearWarning(near: { event: Parameters<typeof controlLabel>[0]; deltaSec: number }): string {
-    const when = near.deltaSec === 0 ? 'at this same second' : `${Math.abs(near.deltaSec)} s ${near.deltaSec < 0 ? 'before' : 'after'} this`
-    return `You tagged ${controlLabel(near.event)} ${when}. Cancel if that was a double tap.`
 }

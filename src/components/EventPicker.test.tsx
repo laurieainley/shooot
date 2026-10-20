@@ -335,7 +335,7 @@ describe('EventPicker on touch', () => {
 
     it('should create the event when a type is tapped, then move to the team step', () => {
         render(<EventPicker />)
-        fireEvent.click(screen.getByRole('option', { name: /^penalty goal/i }))
+        fireEvent.click(screen.getByRole('option', { name: /^pen goal/i }))
         expect(s().events).toHaveLength(1)
         expect(s().events[0]).toMatchObject({ type: 'goal', pen: true, matchTimeSec: 100 })
         expect(screen.getByRole('option', { name: /whites/i })).toBeInTheDocument()
@@ -368,7 +368,7 @@ describe('EventPicker on touch', () => {
         render(<EventPicker />)
         expect(screen.getByText('What happened?')).toBeInTheDocument()
         const options = screen.getAllByRole('option')
-        expect(options.map((o) => o.textContent)).toEqual(['Goal', 'Penalty goal', 'Own goal', 'Save', 'Foul', 'Highlight'])
+        expect(options.map((o) => o.textContent)).toEqual(['Goal', 'Pen goal', 'Own goal', 'Save', 'Foul', 'Highlight'])
         expect(options.map((o) => o.querySelector('[data-icon]')?.getAttribute('data-icon')).slice(0, 3)).toEqual(['goal', 'penalty_goal', 'own_goal'])
     })
 
