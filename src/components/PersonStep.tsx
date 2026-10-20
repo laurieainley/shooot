@@ -17,6 +17,8 @@ interface PersonStepProps {
     onChoose: (name: string) => void
     /** Rows shown but not selectable (the scorer in the assist list: dimmed, in place, so the other names do not shift). */
     isDisabled?: (name: string) => boolean
+    /** Typed list: show 1-9 beside the first nine rows (the host's key handler picks them). */
+    numbered?: boolean
     /** Only for hosts that handle keys on the field itself (the event picker listens on the window instead). */
     onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void
     /** Touch: tappable name chips instead of a typed field (the field opens only for "+ New name"). */
@@ -65,7 +67,7 @@ function PersonChips({ label, placeholder, query, candidates, onQuery, onChoose,
     )
 }
 
-function PersonTyped({ label, placeholder, query, candidates, highlighted, showHighlight, autoFocus, onQuery, onChoose, isDisabled, onKeyDown }: PersonStepProps) {
+function PersonTyped({ label, placeholder, query, candidates, highlighted, showHighlight, autoFocus, onQuery, onChoose, isDisabled, onKeyDown, numbered }: PersonStepProps) {
     return (
         <div className="event-picker__person">
             <input
@@ -86,6 +88,7 @@ function PersonTyped({ label, placeholder, query, candidates, highlighted, showH
                         <li key={n} role="option" aria-selected={!off && showHighlight && i === highlighted} aria-disabled={off || undefined}
                             className={`event-picker__item${off ? ' event-picker__item--disabled' : ''}`} onClick={off ? undefined : () => onChoose(n)}>
                             <span className="voice-shirt event-picker__person-name">{n}</span>
+                            {numbered && i < 9 && <kbd>{i + 1}</kbd>}
                         </li>
                     )
                 })}

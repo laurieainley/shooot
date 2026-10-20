@@ -29,18 +29,6 @@ export function filterRoster(roster: string[], query: string): string[] {
     })
 }
 
-export function teamShortcuts(names: string[]): string[] {
-    const lower = names.map((n) => n.trim().toLowerCase())
-    const firsts = lower.map((n) => n[0] ?? '')
-    if (new Set(firsts).size === firsts.length && firsts.every(Boolean)) return firsts
-    const len = Math.min(...lower.map((n) => n.length))
-    for (let i = 1; i < len; i++) {
-        const chars = lower.map((n) => n[i])
-        if (new Set(chars).size === chars.length) return chars
-    }
-    return names.map((_, i) => String(i + 1))
-}
-
 /** The roster a scorer is picked from: the credited team, or the other team for an own goal. */
 export function rosterTeamFor(teams: Team[], team: string | undefined, type: EventType): Team | undefined {
     const idx = teams.findIndex((t) => t.name === team)
