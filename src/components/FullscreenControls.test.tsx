@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, fireEvent, act } from '@testing-library/react'
 import { FullscreenControls } from './FullscreenControls'
 import { useAppState } from '../state'
-import { setCoarsePointer } from '../test/pointer'
+import { setCoarsePointer, setMedia } from '../test/pointer'
 import { useFullscreenUi } from './fullscreenUi'
 import { setPlayerPaused } from './playerControl'
 
@@ -234,45 +234,30 @@ describe('FullscreenControls playback lock (touch, fullscreen)', () => {
     })
 })
 
-describe('FullscreenControls Review button (touch, fullscreen)', () => {
+describe('FullscreenControls on touch, fullscreen: found moments are on the timeline (no Review button, no speed buttons)', () => {
     beforeEach(() => {
-        setCoarsePointer(true)
-        useFullscreenUi.setState({ reviewHidden: false })
+        setMedia({ coarse: true, landscape: true }) // the touch overlay view
         const run = { createdAt: 1, source: 'audio' as const, configVersion: 1, analysedSec: 600, total: 3 }
-        useAppState.setState({ files: [], events: [], suggestions: [], suggestionRun: null, panel: null, picker: null })
+        useAppState.setState({ files: [{ id: 'a', name: 'a.mp4', url: '', file: new File([''], 'a.mp4'), durationSec: 600, kind: 'full' }], events: [], suggestions: [], suggestionRun: null, panel: null, picker: null })
         useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }, { timeSec: 300, score: 4 }, { timeSec: 500, score: 3 }])
     })
-    afterEach(() => { setCoarsePointer(false); useAppState.setState({ panel: null, suggestions: [] }) })
+    afterEach(() => { setCoarsePointer(false); useAppState.setState({ panel: null, suggestions: [], files: [] }) })
     const fs = () => ({ ...fakePlayer(), requestFullscreen: vi.fn(), exitFullscreen: vi.fn() })
 
-    it('should show Review (N) with the number left, and nothing when none is left', () => {
-        const { getByRole, queryByRole, rerender } = render(<FullscreenControls playerRef={{ current: fs() }} isFullscreen />)
-        expect(getByRole('button', { name: 'Review (3)' })).toBeTruthy()
-        act(() => { useAppState.getState().decideSuggestion(useAppState.getState().suggestions[0].id, { kind: 'reject' }) })
-        rerender(<FullscreenControls playerRef={{ current: fs() }} isFullscreen />)
-        expect(getByRole('button', { name: 'Review (2)' })).toBeTruthy()
-        for (const sg of useAppState.getState().suggestions) act(() => { useAppState.getState().decideSuggestion(sg.id, { kind: 'reject' }) })
-        rerender(<FullscreenControls playerRef={{ current: fs() }} isFullscreen />)
+    it('should have no Review (N) button however many moments are left', () => {
+        const { queryByRole } = render(<FullscreenControls playerRef={{ current: fs() }} isFullscreen />)
         expect(queryByRole('button', { name: /^Review/ })).toBeNull()
     })
-    it('should open the review, then hide and show its column without leaving fullscreen', () => {
-        const player = fs()
-        const { getByRole } = render(<FullscreenControls playerRef={{ current: player }} isFullscreen />)
-        fireEvent.click(getByRole('button', { name: 'Review (3)' }))
+    it('should show the Find goals chip with what is left, and open the Find goals sheet panel, not a review card column', () => {
+        const { getByRole } = render(<FullscreenControls playerRef={{ current: fs() }} isFullscreen />)
+        const chip = getByRole('button', { name: 'Find goals: 3 found' })
+        fireEvent.click(chip)
         expect(useAppState.getState().panel).toBe('review')
-        expect(useFullscreenUi.getState().reviewHidden).toBe(false)
-        fireEvent.click(getByRole('button', { name: 'Review (3)' }))
-        expect(useFullscreenUi.getState().reviewHidden).toBe(true)
-        expect(useAppState.getState().panel).toBe('review')
-        fireEvent.click(getByRole('button', { name: 'Review (3)' }))
-        expect(useFullscreenUi.getState().reviewHidden).toBe(false)
-        expect(player.exitFullscreen).not.toHaveBeenCalled()
     })
-    it('should not show the button outside fullscreen or with a mouse', () => {
-        const { queryByRole, rerender } = render(<FullscreenControls playerRef={{ current: fs() }} isFullscreen={false} />)
-        expect(queryByRole('button', { name: /^Review/ })).toBeNull()
-        setCoarsePointer(false)
-        rerender(<FullscreenControls playerRef={{ current: fs() }} isFullscreen />)
-        expect(queryByRole('button', { name: /^Review/ })).toBeNull()
+    it('should keep the playback lock and drop the speed buttons (speeds live in the menu)', () => {
+        const { getByRole, queryByRole } = render(<FullscreenControls playerRef={{ current: fs() }} isFullscreen />)
+        expect(getByRole('button', { name: 'Lock playback' })).toBeTruthy()
+        expect(queryByRole('button', { name: 'Slower' })).toBeNull()
+        expect(queryByRole('button', { name: 'Faster' })).toBeNull()
     })
 })

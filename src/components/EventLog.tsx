@@ -22,6 +22,7 @@ import { deletedCopy, eventGlobalSec, matchClock } from '../utils/toastCopy'
 import { RelinkBanner } from './RelinkBanner'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 import { ShortcutsButton } from './ShortcutsButton'
+import { useTagViewMode } from './tagView'
 import { EventActions } from './EventActions'
 import { ClipDownload } from './ClipDownload'
 
@@ -36,7 +37,8 @@ export function EventLog() {
     const events = useAppState((s) => s.events)
     const reviewOpen = useAppState((s) => s.panel === 'review')
     const running = useDetectJob((s) => findGoalsProgress(s) !== null)
-    const finding = !reviewOpen && running
+    const touchView = useTagViewMode() !== 'off' // touch: Find goals lives in the chip over the picture, not in the list
+    const finding = !reviewOpen && running && !touchView
     const files = useAppState((s) => s.files)
     const teams = useAppState((s) => s.teams)
     const offsets = useAppState((s) => s.cumulativeOffsets)
@@ -172,8 +174,8 @@ export function EventLog() {
             <RelinkBanner />
 
             {events.length === 0 && finding ? <FindGoalsProgress /> : null}
-            {events.length > 0 && <FindGoalsProgress />}
-            <ReviewRailButton />
+            {events.length > 0 && !touchView && <FindGoalsProgress />}
+            {!touchView && <ReviewRailButton />}
             {!finding && <FindGoalsPrompt />}
             {events.length === 0 && !finding ? (
                 <>

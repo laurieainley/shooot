@@ -11,6 +11,9 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-20
 
+- **Unified tag & review phase 2 merged** (per the approved spec): on touch Find goals is a chip + sheet; found moments are reviewed by
+  watching (jump, Tag confirms, Not a goal rejects); the review card stays on desktop only; speeds move into ⋯ on touch. Agent: the
+  Not a goal slot is always reserved so Tag never moves.
 - **User: unified tag & review, video first on touch** (spec `2026-10-20-unified-tag-review-design.md`, approved "Just build it"): one
   Tag button (pauses), questions in a column at the right edge, Find goals as rings on the main timeline, thumb-zone controls, names
   never move; a phone held sideways is this layout; no replay loop. Phase 1 (overlay player, Tag column, person grid) merged. Agent:

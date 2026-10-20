@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { DOUBLE_TAP_MS, NO_TAPS, resolveTap, type Tap, type TapMemory, type TapZone } from '../utils/tap'
 import { useAppState } from '../state'
-import { effectiveStatus } from '../utils/suggestions'
-import { reopenReview, useSuggestionsCurrent } from './findGoals'
+import { FindGoalsChip } from './FindGoalsChip'
 import { Fab } from './Fab'
 import { OverflowMenu } from './OverflowMenu'
 import { TagControls } from './TagControls'
@@ -47,7 +46,7 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
     const locked = useFullscreenUi((s) => s.playbackLocked)
     // Touch: the fullscreen tag box is a right-hand column that would cover the top-right buttons (it has its own Cancel).
     const tagging = useAppState((s) => s.picker !== null)
-    const reviewShown = useFullscreenUi((s) => s.columnPanel === 'review') // the review has Mark moment / Confirm: a second ＋ would only duplicate them
+    const reviewShown = useFullscreenUi((s) => s.columnPanel === 'review') // the review has Mark moment / Confirm: a second ＋ would only duplicate them (desktop fullscreen)
     const mode = useTagViewMode()
     const overlayView = coarse && mode === 'overlay'
     const poke = useTagUi((s) => s.poke)
@@ -156,15 +155,20 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
             {isFullscreen && (
                 <>
                     {!(coarse && tagging) && <div className={`overlay-controls top-right${overlayView ? ' tv-fades tv-top' : ''}`} onPointerDown={overlayView ? poke : undefined}>
-                        <button type="button" aria-label="Slower" className="control-btn speed-btn" onClick={() => setRate(Math.max(0.25, currentRate() - 0.25))}>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 19l-7-7 7-7" /></svg>
-                        </button>
-                        <button type="button" aria-label="Normal speed" className="control-btn speed-btn speed-display" onClick={() => setRate(1)}>
-                            {playbackSpeed.toFixed(2)}x
-                        </button>
-                        <button type="button" aria-label="Faster" className="control-btn speed-btn" onClick={() => setRate(Math.min(4, currentRate() + 0.25))}>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13 5l7 7-7 7" /></svg>
-                        </button>
+                        {overlayView && <FindGoalsChip />}
+                        {!overlayView && (
+                            <>
+                                <button type="button" aria-label="Slower" className="control-btn speed-btn" onClick={() => setRate(Math.max(0.25, currentRate() - 0.25))}>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 19l-7-7 7-7" /></svg>
+                                </button>
+                                <button type="button" aria-label="Normal speed" className="control-btn speed-btn speed-display" onClick={() => setRate(1)}>
+                                    {playbackSpeed.toFixed(2)}x
+                                </button>
+                                <button type="button" aria-label="Faster" className="control-btn speed-btn" onClick={() => setRate(Math.min(4, currentRate() + 0.25))}>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13 5l7 7-7 7" /></svg>
+                                </button>
+                            </>
+                        )}
                         {coarse && (
                             <button type="button" aria-label={locked ? 'Unlock playback' : 'Lock playback'} aria-pressed={locked}
                                 className={`control-btn lock-btn${locked ? ' lock-btn--on' : ''}${hint ? ' lock-btn--hint' : ''}`}
@@ -172,7 +176,6 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
                                 <LockIcon paused={paused} locked={locked} />
                             </button>
                         )}
-                        {coarse && <ReviewButton />}
                         {coarse && !overlayView && (
                             <button type="button" aria-label="Exit fullscreen" className="control-btn fs-btn" onClick={() => playerRef.current?.exitFullscreen?.()}>
                                 <FsIcon exit />
@@ -184,30 +187,6 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
                 </>
             )}
         </div>
-    )
-}
-
-/** Fullscreen, touch: "Review (N)" opens / tucks away the review column while suggestions are left. */
-function ReviewButton() {
-    const suggestions = useAppState((s) => s.suggestions)
-    const events = useAppState((s) => s.events)
-    const panel = useAppState((s) => s.panel)
-    const hidden = useFullscreenUi((s) => s.reviewHidden)
-    const current = useSuggestionsCurrent()
-    const ids = new Set(events.map((e) => e.id))
-    const left = current ? suggestions.filter((x) => effectiveStatus(x, ids) === 'pending').length : 0
-    if (left === 0) return null
-    const open = panel === 'review' && !hidden
-    return (
-        <button type="button" aria-label={`Review (${left})`} aria-expanded={open} className="control-btn review-btn"
-            onClick={() => {
-                const ui = useFullscreenUi.getState()
-                if (open) { ui.setReviewHidden(true); return }
-                ui.setReviewHidden(false)
-                if (useAppState.getState().panel !== 'review') reopenReview()
-            }}>
-            Review ({left})
-        </button>
     )
 }
 

@@ -6,6 +6,7 @@ import { EmptyPlayer } from './EmptyPlayer'
 import { EventLog } from './EventLog'
 import { Fab } from './Fab'
 import { TagControls } from './TagControls'
+import { FindGoalsChip, FindGoalsLine } from './FindGoalsChip'
 import { useTagViewMode } from './tagView'
 import { MatchList } from './MatchList'
 import { RailTabs } from './RailTabs'
@@ -103,7 +104,8 @@ export function AppShell() {
                     {!sideBySide && !fullscreen && !overlay && <div className="toast-host toast-host--under"><Toast /></div>}
                     {!sideBySide && isPreviewMode && <div className="preview-bar preview-bar--inline"><PreviewControls /></div>}
                     {!overlay && <MatchStrip />}
-                    {tagViewMode === 'band' && <div className="tv-band"><TagControls variant="band" /></div>}
+                    {tagViewMode === 'band' && <FindGoalsLine />}
+                    {tagViewMode === 'band' && <div className="tv-band"><div className="tv-band__chips"><FindGoalsChip /></div><TagControls variant="band" /></div>}
                 </div>
                 <aside className="rail" aria-label={sideBySide ? 'Event rail' : undefined}>
                     <div className="rail__main">

@@ -53,3 +53,13 @@ export function registerPlayerShortcut(fn: (action: ShortcutAction) => void): ()
 }
 /** Runs a player shortcut (seek, speed…) for UI that owns the keyboard, like the review card. */
 export function runPlayerShortcut(action: ShortcutAction): void { runShortcut?.(action) }
+
+// Playback speed for the touch view's ⋯ menu (the speed buttons over the picture are gone there).
+let rateHandle: { get: () => number; set: (rate: number) => void } | null = null
+export function registerPlayerRate(get: () => number, set: (rate: number) => void): () => void {
+    const h = { get, set }
+    rateHandle = h
+    return () => { if (rateHandle === h) rateHandle = null }
+}
+export const getPlayerRate = (): number => rateHandle?.get() ?? 1
+export function setPlayerRate(rate: number): void { rateHandle?.set(rate) }

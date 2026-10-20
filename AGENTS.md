@@ -425,6 +425,13 @@ npm run lint       # baseline: 12 known problems — add none
   frame buttons call `retimePicker`). Person choices: two-column grid, A–Z, bottom-anchored, never reordering (the scorer stays,
   disabled, on Assist; a new name goes last). Sheets/menus portal into the player on touch (`portalRoot`). A tap on the picture still
   plays/pauses (and shows the controls); with Lock on it only shows/hides them.
+- **Find goals on touch** (2026-10-20): in the touch view (`useTagViewMode() !== 'off'`) there is no review card, Review (N) button or
+  rail Review button. `FindGoalsChip` (top right / band) shows not run / % / "N found · M top picks" / "All found moments checked";
+  tapping opens `FindGoalsSheet` (panel `'review'` renders it on touch: start form, progress, summary). Found moments are pending
+  suggestions: rings on the strip (tap = jump 6 s before), ◀ Found / Found ▶, and while the playhead is in a moment's window
+  (`utils/foundMoments.ts`, −8…+3 s) a read-only chip plus ✕ Not a goal under Tag (`rejectMoment`: reject, Undo toast, next moment or
+  pause; its slot is always reserved so Tag never moves). Tagging on a pending moment links it (`EventPicker.finish`). Speeds live in
+  the touch ⋯ menu. Desktop keeps the review card and keyboard flow.
 - **Touch fullscreen** (UI state in `components/fullscreenUi.ts`, not persisted): column panels render into the fullscreen element; the tag
   box (`event-picker--compact`) and the review are a right-hand column (landscape) or a 60% bottom panel (portrait), and the picture
   shrinks to the free space beside / above them (`player-container--split`, `fullscreenSplit()`, `--fs-panel-w` / `--fs-panel-h`);
