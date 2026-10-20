@@ -416,9 +416,11 @@ npm run lint       # baseline: 12 known problems — add none
   tally "Goals tagged: Whites 3 – 2 Colours" (whole match). After closing, the rail shows "Review moments (N left ·
   M top picks)" with a × that hides it for that run (`components/reviewDismiss.ts`, localStorage `shooot-review-dismissed`, Undo toast). Suggestion rings sit in their own faint lane at the bottom of the match strip (only those still to
   review; only a click on the ring opens the review).
-- **Touch fullscreen** (UI state in `components/fullscreenUi.ts`, not persisted): column panels render into the
-  fullscreen element; the tag box (`event-picker--compact`) and the review are a right-hand column (portrait: bottom
-  sheet ≤ 60%); the top-right group (speed, **Lock playback**, **Review (N)**, exit) hides while the tag box is open.
+- **Touch fullscreen** (UI state in `components/fullscreenUi.ts`, not persisted): column panels render into the fullscreen element; the tag
+  box (`event-picker--compact`) and the review are a right-hand column (landscape) or a 60% bottom panel (portrait), and the picture
+  shrinks to the free space beside / above them (`player-container--split`, `fullscreenSplit()`, `--fs-panel-w` / `--fs-panel-h`);
+  the ＋ is hidden while the review is visible (back when the review is tucked away); the top-right group (speed, **Lock playback**,
+  **Review (N)**, exit) hides while the tag box is open; the lock button shows play/pause beside a padlock, never overlapping.
   Lock: a single tap no longer plays/pauses (double-tap seek and the control bar still work); three toggling taps
   within 5 s glow the lock button once; reset on leaving fullscreen. Toasts render inside the player while fullscreen.
 - **Words:** the feature is **Find goals** (panel title too), with an **AI** tag (`AiTag`: "Finds likely goals with AI

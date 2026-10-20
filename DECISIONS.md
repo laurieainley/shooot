@@ -11,6 +11,10 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-20
 
+- **User: touch fullscreen panels sit beside the picture, never over it** (left of a right-hand column in landscape; top 40% above a
+  60% panel in portrait); the ＋ hides while the Find goals review is visible; the lock icon shows play/pause beside the padlock.
+  Supersedes decisions 4–6 of `2026-10-13-mobile-review-fullscreen-design.md` (panels overlay the picture). Why: on a real Android
+  phone the review covered half the picture and half of the ＋. Detail: `docs/superpowers/agents/briefs/fsreview-report.md`.
 - **User (Android test): goal set-up on touch** — no auto-pan to the guessed next point (the jump was unhelpful); tapping the
   crosshair sets the point; tapping a placed dot or diagram point edits it; Set point always visible on a phone on its side;
   the marking still uses the full MP4 when the LRV is playing. Replay zoom copy says "goals scored" / "one goal’s replay"
