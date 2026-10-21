@@ -11,6 +11,9 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-21
 
+- **User: Edit event has a Now button** beside −1 s / +1 s: moves the event to the playhead (whole seconds, in whichever file is playing,
+  with that file's key). Why: re-timing from the sheet took many nudges. Detail: `EventSheet.tsx` `setToNow`.
+
 - **User: tag box — names never move, Back, teams on 1 / 2, players on 1–9.** Why: on desktop the box grew a Skip row on Assist and,
   being bottom-anchored, every name jumped up a row; letter shortcuts for teams were slower than numbers while tagging live. Detail:
   `docs/superpowers/agents/briefs/pickerkeys-report.md`.

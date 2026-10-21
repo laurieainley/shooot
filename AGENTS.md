@@ -375,7 +375,7 @@ npm run lint       # baseline: 12 known problems — add none
   number (only a "file missing" warning). The selected row expands into an action row (`EventActions`): Slow-mo replay
   toggle reading "Replay" with an ON/OFF pill (`role=switch`, aria-label "Slow-mo replay", R) · person-icon Edit · ⌖ Framing (always shown; disabled while
   Replay is off) · [Download clip slot] · × Delete (icon-only with a mouse). A fixed, left-aligned set: toggling never moves buttons;
-  markers get Edit + Delete. Edit opens the event sheet's details (no replay toggle there); Framing opens only its
+  markers get Edit + Delete. Edit opens the event sheet's details (no replay toggle there; its time has −1 s / +1 s and Now = the playhead, in the playing file); Framing opens only its
   "Replay framing" view (`editEvent(id, 'framing')`, `editingView`, not persisted; closes if the replay is switched
   off). All five fit one line on desktop; touch wraps 3 + 2 at rail widths 361–440px. Labels hide (icon-only) when the rail is ≤ 360px; the row wraps rather than clips. An expanded row scrolls the
   list (the page only when the list can't scroll, phone portrait); touch layouts keep room below the last row so the

@@ -10,6 +10,7 @@ import { EventTag } from './EventTag'
 import { watchFromSec } from '../utils/markers'
 import { wantsReplay } from '../utils/replays'
 import { filterRoster, rosterTeamFor } from '../utils/roster'
+import { fileKeys } from '../utils/fileKey'
 import { formatEventClock } from '../utils/timeline'
 import { ColumnPanel } from './ColumnPanel'
 import { ReplayFraming } from './ReplayFraming'
@@ -50,6 +51,7 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
     const matchStartSec = useAppState(selectMatchStartSec)
     const clockLong = useAppState(selectClockLong)
     const multiFile = useAppState((s) => s.files.length > 1)
+    const hasFiles = useAppState((s) => s.files.length > 0)
     const option = optionForEvent(e)
     const marker = isMarker(e)
     const [person, setPerson] = useState(e.scorer ?? '')
@@ -119,6 +121,14 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
         update({ matchTimeSec: Math.max(0, e.matchTimeSec + d) })
         useAppState.getState().sortEvents()
     }
+    // Now: the playhead, in whichever file is playing (events store whole seconds in a file, plus that file's key).
+    const setToNow = (): void => {
+        const st = useAppState.getState()
+        const idx = st.currentFileIndex
+        const key = fileKeys(st.files)[idx]
+        update({ matchTimeSec: Math.max(0, Math.floor(st.currentTimeInFileSec)), sourceFileIndex: idx, ...(key !== undefined ? { sourceFileKey: key } : {}), unlinked: undefined })
+        st.sortEvents()
+    }
 
     const hasTeams = teams.length >= 2 && teams.every((t) => t.name.trim() !== '')
     const roster = rosterTeamFor(teams, e.team, e.type)
@@ -137,6 +147,7 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
                 <span className="event-sheet__nudge">
                     <button type="button" className="btn-quiet" aria-label="1 second earlier" onClick={() => nudge(-1)}>−1 s</button>
                     <button type="button" className="btn-quiet" aria-label="1 second later" onClick={() => nudge(1)}>+1 s</button>
+                    <button type="button" className="btn-quiet" aria-label="Set to the playhead time" title="Move this event to where the video is now" disabled={!hasFiles} onClick={setToNow}>Now</button>
                 </span>
             </p>
 
