@@ -28,6 +28,14 @@ const pressed = (name: RegExp | string): HTMLElement => screen.getByRole('button
 describe('EventSheet', () => {
     beforeEach(() => setup())
 
+    it('should move the event to the playhead with Now, in whichever file is playing', async () => {
+        cleanup()
+        setup()
+        act(() => useAppState.setState({ files: [vf('a.mp4'), vf('b.mp4')], cumulativeOffsets: [0, 600], currentFileIndex: 1, currentTimeInFileSec: 42.7 }))
+        await userEvent.click(screen.getByRole('button', { name: 'Set to the playhead time' }))
+        expect(ev()).toMatchObject({ matchTimeSec: 42, sourceFileIndex: 1, sourceFileKey: 'b.mp4' })
+    })
+
     it('should show the event time and its current type, team and person', () => {
         expect(screen.getByRole('dialog', { name: 'Edit event' })).toHaveTextContent('01:35')
         expect(pressed(/^Goal$/)).toBeInTheDocument()

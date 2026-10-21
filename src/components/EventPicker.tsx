@@ -15,8 +15,7 @@ import { useTagViewMode } from './tagView'
 import { momentAt } from '../utils/foundMoments'
 import { pendingMoments } from '../utils/tagView'
 import { PICKER_GROUPS, PICKER_OPTIONS, assistOf, isMarker, controlLabel, type PickerOption } from '../utils/eventTypes'
-import { SKIP, initialPickerState, pickerReducer, touchPickerState, scorerCandidates, isDisabledName, type PickerInput, type PickerState } from '../utils/eventPicker'
-import { teamShortcuts } from '../utils/roster'
+import { SKIP, initialPickerState, pickerReducer, touchPickerState, scorerCandidates, isDisabledName, previousStep, type PickerInput, type PickerState } from '../utils/eventPicker'
 import { formatClock } from '../utils/timeline'
 import type { MatchEvent } from '../types'
 import { panelPlacement, usePanelSlot } from './panelSlot'
@@ -146,7 +145,11 @@ export function EventPicker() {
             const inText = step === 'scorer' || step === 'assist' || step === 'text'
             const isLetter = e.key.length === 1
             const caretKey = step === 'text' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')
-            if (HANDLED.has(e.key) && !(inText && e.key === 'Backspace') && !caretKey) {
+            // Backspace edits a text field; on an empty one it goes back a step.
+            const editing = inText && e.key === 'Backspace' && stateRef.current.query !== ''
+            // 1-9 pick the team / name at that number (never typed into the filter).
+            const number = /^[1-9]$/.test(e.key) && (step === 'team' || step === 'scorer' || step === 'assist')
+            if ((HANDLED.has(e.key) && !editing && !caretKey) || number) {
                 e.preventDefault()
                 dispatchRef.current({ kind: 'key', key: e.key })
             } else if (isLetter && !inText) {
@@ -162,7 +165,6 @@ export function EventPicker() {
     if (!picker || !event) return null
 
     const names = teams.map((t) => t.name)
-    const shortcuts = teamShortcuts(names)
     const candidates = scorerCandidates(state, { teams, touch: coarse })
     const title = formatClock(event.matchTimeSec, clockLong)
     const { option } = state
@@ -172,8 +174,11 @@ export function EventPicker() {
     const textPlaceholder = option.askText === 'prompt' ? `${textLabel}? e.g. nutmeg on the wing` : `${textLabel} (optional)`
     const hint = state.step === 'type' ? 'Esc to finish · ⌫ cancel'
         : state.step === 'text' ? '⏎ save · Esc to finish'
-        : canSkip ? 'Tab skip · Esc to finish' : 'Esc to finish'
+        : state.step === 'team' ? `1–${Math.min(names.length, 9)} pick · ⌫ back · ${canSkip ? 'Tab skip · ' : ''}Esc to finish`
+        : `1–9 pick · ⌫ back${canSkip ? ' · Tab skip' : ''} · Esc to finish`
     const prompt = state.step === 'type' ? 'What happened?' : state.step === 'team' ? 'Which team?' : state.step === 'scorer' || state.step === 'assist' ? personLabel : textLabel
+    const canBack = previousStep(state, { teams, touch: coarse }) !== null
+    const goBack = (): void => dispatch({ kind: 'back' })
     const highlightedId = state.highlighted >= 0 ? PICKER_OPTIONS[state.highlighted]?.id : undefined
 
     if (coarse) {
@@ -202,6 +207,7 @@ export function EventPicker() {
                 onSkip={personSkip?.run}
                 onDone={finishEarly ? () => dispatch({ kind: 'key', key: 'Escape' }) : undefined}
                 onCancel={cancel}
+                onBack={canBack ? goBack : undefined}
                 onGoto={(step) => dispatch({ kind: 'goto', step })}
                 onChoose={(value) => dispatch({ kind: 'choose', value })}
                 onQuery={(value) => dispatch({ kind: 'text', value })}
@@ -213,6 +219,7 @@ export function EventPicker() {
     const ui = (
         <div className={`event-picker event-picker--${placement}`} role="dialog" aria-label={picker.fresh || pending ? 'Tag event' : 'Edit event'}>
             <div className="event-picker__head">
+                {canBack && <button type="button" className="event-picker__back" onClick={goBack} aria-label="Back to the previous question">‹ Back</button>}
                 <div className="event-picker__title">{title}{state.team ? ` · ${state.team}` : ''}{event.scorer ? ` · ${event.scorer}` : ''}{assistOf(event) ? ` (assist ${assistOf(event)})` : ''}</div>
                 {coarse && <div className="event-picker__prompt">{prompt}</div>}
             </div>
@@ -260,7 +267,7 @@ export function EventPicker() {
                             className="event-picker__item" onClick={() => dispatch({ kind: 'choose', value: n })}>
                             {coarse && <span className="team-dot" style={{ background: teamBackground(teams[i].color) }} />}
                             <span className="voice-scoreboard">{n}</span>{' '}
-                            {!coarse && <kbd>{shortcuts[i].toUpperCase()}</kbd>}
+                            {!coarse && <kbd>{i + 1}</kbd>}
                         </li>
                     ))}
                 </ul>
@@ -271,6 +278,7 @@ export function EventPicker() {
                     label={personLabel}
                     autoFocus={!coarse}
                     chips={coarse}
+                    numbered={!coarse}
                     skipLabel={state.step === 'assist' ? 'No assist' : 'Skip'}
                     onSkip={canSkip ? () => dispatch({ kind: 'choose', value: SKIP }) : undefined}
                     placeholder={coarse ? `Type a new ${personLabel.toLowerCase()}` : state.step === 'assist' ? 'Assist (optional) — type to filter, Enter to pick, Tab to skip' : `${personLabel} — type to filter, Enter to pick`}
@@ -304,6 +312,10 @@ export function EventPicker() {
                 <button type="button" className="event-picker__skip" onClick={() => dispatch({ kind: 'choose', value: SKIP })}>
                     Skip{!coarse && <kbd>Tab</kbd>}
                 </button>
+            )}
+            {/* Scorer and Assist keep the same height: a scorer that cannot be skipped still holds the row's space, so the names never jump. */}
+            {!canSkip && !coarse && (state.step === 'scorer' || state.step === 'assist') && (
+                <button type="button" className="event-picker__skip event-picker__skip--slot" disabled tabIndex={-1} aria-hidden="true" data-testid="skip-slot">Skip<kbd>Tab</kbd></button>
             )}
             </div>
 

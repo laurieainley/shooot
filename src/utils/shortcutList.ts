@@ -28,6 +28,9 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
         title: 'Tagging',
         rows: [
             { keys: ['G'], what: 'Tag an event at the playhead', action: 'mark', key: 'g' },
+            { keys: ['1', '2'], what: 'In the picker: choose the first / second team' },
+            { keys: ['1–9'], what: 'In the picker: choose the player at that number (Scorer, Assist)' },
+            { keys: ['⌫'], what: 'In the picker: back to the previous question (when the field is empty)' },
             { keys: ['K', 'T', 'W'], what: 'In the picker: Kick off, Half time, Final whistle' },
             { keys: ['P', 'O', 'A', 'X', 'H', 'F', 'S'], what: 'In the picker: penalty goal, own goal, penalty conceded / missed, highlight, foul, save' },
         ],
@@ -50,6 +53,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
             { keys: ['G', 'O', 'S', 'H'], what: 'In the review: choose goal, own goal, save, highlight (marks the playhead first if you have not marked)' },
             { keys: ['X'], what: 'In the review: discard the moment and go to the next' },
             { keys: ['1', '2'], what: 'In the review: choose the team' },
+            { keys: ['1–9'], what: 'In the review: choose the scorer / assist at that number' },
             { keys: ['⏎'], what: 'In the review: confirm and go to the next' },
             { keys: ['Esc', '⌫'], what: 'In the review: undo the choice' },
             { keys: ['[', ']'], what: 'In the review: previous / next moment (elsewhere: previous / next file)' },

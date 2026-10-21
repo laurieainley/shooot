@@ -30,7 +30,7 @@ describe('EventPicker', () => {
     it('should record goal → team → scorer from the keyboard', () => {
         render(<EventPicker />)
         press('Enter')
-        press('w')
+        press('1')
         fireEvent.change(screen.getByRole('textbox', { name: /scorer/i }), { target: { value: 'sa' } })
         press('ArrowDown')
         press('Enter')
@@ -44,7 +44,7 @@ describe('EventPicker', () => {
  it('should ask for an optional assist after the scorer, listing the team with the scorer disabled', () => {
         render(<EventPicker />)
         press('Enter')
-        press('w')
+        press('1')
         fireEvent.click(screen.getByRole('option', { name: /sam taylor/i }))
         expect(s().picker).not.toBeNull()
         expect(screen.getByRole('textbox', { name: 'Assist' })).toBeInTheDocument()
@@ -58,7 +58,7 @@ describe('EventPicker', () => {
 
     it('should leave no assist on Escape or Skip, and add a new typed name to the roster', () => {
         render(<EventPicker />)
-        press('Enter'); press('w')
+        press('Enter'); press('1')
         fireEvent.click(screen.getByRole('option', { name: /sam taylor/i }))
         press('Escape')
         expect(s().events[0].assist).toBeUndefined()
@@ -67,7 +67,7 @@ describe('EventPicker', () => {
         act(() => s().markEvent(300))
         const id = s().events.find((e) => e.matchTimeSec === 300)!.id
         act(() => s().openPicker(id))
-        press('Enter'); press('w')
+        press('Enter'); press('1')
         fireEvent.click(screen.getByRole('option', { name: /sam taylor/i }))
         fireEvent.click(screen.getByRole('button', { name: /skip/i }))
         expect(s().events.find((e) => e.id === id)!.assist).toBeUndefined()
@@ -75,7 +75,7 @@ describe('EventPicker', () => {
         act(() => s().markEvent(500))
         const id2 = s().events.find((e) => e.matchTimeSec === 500)!.id
         act(() => s().openPicker(id2))
-        press('Enter'); press('w')
+        press('Enter'); press('1')
         fireEvent.click(screen.getByRole('option', { name: /sam taylor/i }))
         fireEvent.change(screen.getByRole('textbox', { name: 'Assist' }), { target: { value: 'Newbie' } })
         press('Enter')
@@ -85,7 +85,7 @@ describe('EventPicker', () => {
 
     it('should not ask for an assist after a penalty goal', () => {
         render(<EventPicker />)
-        press('p'); press('w')
+        press('p'); press('1')
         fireEvent.click(screen.getByRole('option', { name: /sam taylor/i }))
         expect(screen.queryByRole('textbox', { name: 'Assist' })).not.toBeInTheDocument()
         press('Enter') // empty note
@@ -137,7 +137,7 @@ describe('EventPicker', () => {
     it('should label the person step per type', () => {
         render(<EventPicker />)
         press('p')
-        press('w')
+        press('1')
         expect(screen.getByRole('textbox', { name: 'Penalty taker' })).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: /skip/i })).not.toBeInTheDocument()
     })
@@ -145,7 +145,7 @@ describe('EventPicker', () => {
     it('should offer the goalkeeper as optional on a save', () => {
         render(<EventPicker />)
         press('s')
-        press('c')
+        press('2')
         expect(screen.getByRole('textbox', { name: 'Goalkeeper' })).toBeInTheDocument()
         fireEvent.click(screen.getByRole('button', { name: /skip/i }))
         press('Enter') // empty note
@@ -157,7 +157,7 @@ describe('EventPicker', () => {
     it('should record highlight → team → who → what happened', () => {
         render(<EventPicker />)
         press('h')
-        press('w')
+        press('1')
         fireEvent.click(screen.getByRole('option', { name: /sam taylor/i }))
         const box = screen.getByRole('textbox', { name: 'What happened' })
         expect(document.activeElement).toBe(box)
@@ -199,7 +199,7 @@ describe('EventPicker', () => {
         playerEl.focus()
         render(<EventPicker />)
         press('Enter')
-        press('w')
+        press('1')
         expect(document.activeElement).toBe(screen.getByRole('textbox', { name: /scorer/i }))
         press('Enter')
         press('Tab') // past the optional assist step
@@ -294,7 +294,7 @@ describe('EventPicker on touch', () => {
         act(() => useAppState.setState({ picker: null, events: [], teams: [{ name: 'Whites', color: '#fff', roster: ['Sam'] }, { name: 'Colours', color: '#f00', roster: [] }] }))
         act(() => s().markEvent(100))
         render(<EventPicker />)
-        press('Enter'); press('w')
+        press('Enter'); press('1')
         fireEvent.click(screen.getByRole('option', { name: /sam/i }))
         press('Tab')
         fireEvent.change(screen.getByRole('textbox', { name: 'Note' }), { target: { value: 'top bins' } })
@@ -498,7 +498,7 @@ describe('EventPicker optional note', () => {
 
     it('should store a note typed after a save', () => {
         render(<EventPicker />)
-        press('s'); press('c')
+        press('s'); press('2')
         fireEvent.click(screen.getByRole('button', { name: /skip/i })) // goalkeeper
         fireEvent.change(screen.getByRole('textbox', { name: /note/i }), { target: { value: 'point blank' } })
         press('Enter')
@@ -508,7 +508,7 @@ describe('EventPicker optional note', () => {
 
     it('should store a note typed after a goal', () => {
         render(<EventPicker />)
-        press('Enter'); press('w')
+        press('Enter'); press('1')
         fireEvent.click(screen.getByRole('option', { name: /sam taylor/i }))
         press('Tab') // no assist
         fireEvent.change(screen.getByRole('textbox', { name: /note/i }), { target: { value: 'top corner' } })
@@ -528,7 +528,7 @@ describe('EventPicker toasts', () => {
     it('should announce a tag when the picker closes, and Undo removes it', () => {
         act(() => s().markEvent(100))
         render(<EventPicker />)
-        press('Enter'); press('w')
+        press('Enter'); press('1')
         expect(toastStore.getState().toast).toBeNull() // nothing while still choosing
         press('Escape')
         expect(s().picker).toBeNull()
@@ -561,7 +561,7 @@ describe('EventPicker toasts', () => {
             sug()
             act(() => s().markEvent(99))
             render(<EventPicker />)
-            press('Enter'); press('w'); press('Escape')
+            press('Enter'); press('1'); press('Escape')
             expect(s().panel).toBe('review')
             expect(s().suggestions[0]).toMatchObject({ status: 'kept', keptAs: 'goal', eventId: s().events[0].id })
             expect(toastStore.getState().toast?.text).toBe('Goal · Whites confirmed at 01:39')
@@ -571,7 +571,7 @@ describe('EventPicker toasts', () => {
             setReviewWindow({ startAbs: 95, endAbs: 108 }) // the user extended the end twice
             act(() => s().markEvent(107))
             render(<EventPicker />)
-            press('Enter'); press('w'); press('Escape')
+            press('Enter'); press('1'); press('Escape')
             expect(s().suggestions[0].status).toBe('kept')
         })
         it('should leave an already kept suggestion alone (no re-link, no duplicate)', () => {
@@ -579,7 +579,7 @@ describe('EventPicker toasts', () => {
             act(() => { s().addEvent({ id: 'old', matchTimeSec: 99, sourceFileIndex: 0, type: 'goal', team: 'Whites' }); s().linkSuggestionEvent(s().suggestions[0].id, 'old') })
             act(() => s().markEvent(100))
             render(<EventPicker />)
-            press('Enter'); press('w'); press('Escape')
+            press('Enter'); press('1'); press('Escape')
             expect(s().suggestions[0]).toMatchObject({ status: 'kept', eventId: 'old' })
             expect(toastStore.getState().toast?.text).toMatch(/tagged at/)
         })
@@ -587,7 +587,7 @@ describe('EventPicker toasts', () => {
             sug()
             act(() => s().markEvent(300))
             render(<EventPicker />)
-            press('Enter'); press('w'); press('Escape')
+            press('Enter'); press('1'); press('Escape')
             expect(s().suggestions[0].status).toBe('pending')
             expect(toastStore.getState().toast?.text).toBe('Goal · Whites tagged at 05:00')
         })
@@ -604,11 +604,11 @@ describe('EventPicker person lists', () => {
     })
     it('should list names alphabetically, and keep the scorer in the assist list, disabled and in place', () => {
         render(<EventPicker />)
-        press('Enter'); press('w')
-        expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Bob', 'Sam Taylor', 'Sandy Wu', 'zoe'])
+        press('Enter'); press('1')
+        expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Bob1', 'Sam Taylor2', 'Sandy Wu3', 'zoe4'])
         fireEvent.click(screen.getByRole('option', { name: /sam taylor/i }))
         const opts = screen.getAllByRole('option')
-        expect(opts.map((o) => o.textContent)).toEqual(['Bob', 'Sam Taylor', 'Sandy Wu', 'zoe'])
+        expect(opts.map((o) => o.textContent)).toEqual(['Bob1', 'Sam Taylor2', 'Sandy Wu3', 'zoe4'])
         const scorer = screen.getByRole('option', { name: /sam taylor/i })
         expect(scorer).toHaveAttribute('aria-disabled', 'true')
         expect(scorer.className).toContain('event-picker__item--disabled')
@@ -618,7 +618,7 @@ describe('EventPicker person lists', () => {
     })
     it('should skip the disabled scorer with the arrow keys', () => {
         render(<EventPicker />)
-        press('Enter'); press('w')
+        press('Enter'); press('1')
         fireEvent.click(screen.getByRole('option', { name: /bob/i })) // scorer: first row
         expect(screen.getByRole('option', { name: /sam taylor/i })).toHaveAttribute('aria-selected', 'true') // Bob is skipped
         press('ArrowDown')
@@ -629,6 +629,84 @@ describe('EventPicker person lists', () => {
         expect(screen.getByRole('option', { name: /sam taylor/i })).toHaveAttribute('aria-selected', 'true')
         press('Enter')
         expect(s().events[0]).toMatchObject({ scorer: 'Bob', assist: 'Sam Taylor' })
+    })
+
+    describe('Back and number keys (desktop)', () => {
+        it('should show 1 and 2 beside the teams and pick with the number keys', () => {
+            render(<EventPicker />)
+            press('Enter')
+            expect(screen.getByRole('option', { name: /Whites\s*1/ })).toBeTruthy()
+            expect(screen.getByRole('option', { name: /Colours\s*2/ })).toBeTruthy()
+            press('2')
+            expect(s().events[0].team).toBe('Colours')
+        })
+
+        it('should number the names and pick the Nth, with the scorer greyed but numbered on Assist', () => {
+            render(<EventPicker />)
+            press('Enter'); press('1')
+            expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Bob1', 'Sam Taylor2', 'Sandy Wu3', 'zoe4'])
+            press('2')
+            expect(s().events[0].scorer).toBe('Sam Taylor')
+            expect(screen.getByRole('option', { name: /Sam Taylor\s*2/ })).toHaveAttribute('aria-disabled', 'true')
+            press('2')
+            expect(s().events[0].assist).toBeUndefined()
+            press('3')
+            expect(s().events[0].assist).toBe('Sandy Wu')
+        })
+
+        it('should not type a digit into the filter', () => {
+            render(<EventPicker />)
+            press('Enter'); press('1')
+            const input = screen.getByRole('textbox', { name: 'Scorer' }) as HTMLInputElement
+            const ev = new KeyboardEvent('keydown', { key: '9', bubbles: true, cancelable: true })
+            act(() => { window.dispatchEvent(ev) })
+            expect(ev.defaultPrevented).toBe(true)
+            expect(input.value).toBe('')
+        })
+
+        it('should keep the skip row space on the Scorer step (hidden) so the names do not move to Assist', () => {
+            render(<EventPicker />)
+            press('Enter'); press('1')
+            expect(screen.getByTestId('skip-slot')).toHaveAttribute('aria-hidden', 'true')
+            expect(screen.queryByRole('button', { name: /Skip/ })).toBeNull()
+            press('1')
+            expect(screen.queryByTestId('skip-slot')).toBeNull()
+            expect(screen.getByRole('button', { name: /Skip/ })).toBeTruthy()
+        })
+
+        it('should have no Back on the first step, Back on the next, and return to the type list', () => {
+            render(<EventPicker />)
+            expect(screen.queryByRole('button', { name: /Back/ })).toBeNull()
+            press('Enter')
+            fireEvent.click(screen.getByRole('button', { name: /Back/ }))
+            expect(screen.getByRole('listbox')).toHaveTextContent(/Goal/)
+            expect(screen.queryByRole('button', { name: /Back/ })).toBeNull()
+        })
+
+        it('should go back with Backspace from Scorer when empty, but edit the text when not', () => {
+            render(<EventPicker />)
+            press('Enter'); press('1')
+            const input = screen.getByRole('textbox', { name: 'Scorer' })
+            fireEvent.change(input, { target: { value: 'sa' } })
+            const edit = new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true })
+            act(() => { window.dispatchEvent(edit) })
+            expect(edit.defaultPrevented).toBe(false)
+            fireEvent.change(input, { target: { value: '' } })
+            press('Backspace')
+            expect(screen.getByRole('option', { name: /Colours\s*2/ })).toBeTruthy()
+            press('Backspace')
+            expect(screen.getByRole('option', { name: /Goal/ })).toBeTruthy()
+            expect(s().events).toHaveLength(1) // Backspace back never cancels the tag
+        })
+
+        it('should show a Back button in the touch Tag column from the second question', () => {
+            setCoarsePointer(true)
+            render(<EventPicker />)
+            expect(screen.queryByRole('button', { name: /Back/ })).toBeNull()
+            fireEvent.click(screen.getByText('Goal'))
+            fireEvent.click(screen.getByRole('button', { name: /Back/ }))
+            expect(screen.queryByRole('button', { name: /Back/ })).toBeNull()
+        })
     })
 })
 

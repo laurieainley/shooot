@@ -39,6 +39,8 @@ interface TagColumnProps {
     /** Finishing early keeps what has been answered. Absent while nothing has been chosen yet. */
     onDone?: () => void
     onCancel: () => void
+    /** Back to the previous question; absent on the first step. */
+    onBack?: () => void
     onGoto: (step: 'type' | 'team' | 'scorer') => void
     onChoose: (value: string) => void
     onQuery: (value: string) => void
@@ -58,6 +60,7 @@ export function TagColumn(p: TagColumnProps) {
     return (
         <div className={`event-picker tagcol tagcol--${p.placement}`} role="dialog" aria-label={p.label}>
             <div className="tagcol__head">
+                {p.onBack && <button type="button" className="tagcol__back" onClick={p.onBack}>‹ Back</button>}
                 <ol className="tagcol__crumbs" aria-label="Tag so far">
                     {p.crumbs.map((c, i) => (
                         <li key={`${i}-${c.label}`}>

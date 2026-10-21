@@ -340,7 +340,7 @@ npm run lint       # baseline: 12 known problems — add none
   - touch targets ≥ 44 px, text ≥ 14 px on touch (base rules later in App.css beat the touch block: restate 14px in the `pointer: coarse` block at the end of the file), contrast ≥ 4.5:1 (`node scripts/check-contrast.mjs`), respect
     `prefers-reduced-motion`, never red-vs-green alone to distinguish meanings.
 - **Picture gestures** (`components/pictureGestures.ts`): while zoomed, mouse drag or **one finger** pans (a tap still plays /
-  pauses); two fingers pinch-zoom (1×–4×) and pan; wheel / trackpad pinch zooms. Leaving the page while a render or
+  pauses); two fingers pinch-zoom (1×–4×) and pan; wheel / trackpad pinch zooms (~10% per wheel event; events within 40 ms of the last — a pinch or a smooth-scrolling mouse such as Mos — ~3% each, so one notch is ~1.25×; `wheelPace`). Leaving the page while a render or
   Find goals is running asks first (`useLeaveWarning`). Starting Find goals pauses a playing video (`pausePlayer`).
 - **Keyboard:** one window-level handler (`Player.tsx` + `utils/shortcuts.ts` + `components/playerShortcuts.ts`);
   shortcuts work wherever focus is, except in text fields/menus/tabs, controls inside a dialog (`[role=dialog]`,
@@ -375,7 +375,7 @@ npm run lint       # baseline: 12 known problems — add none
   number (only a "file missing" warning). The selected row expands into an action row (`EventActions`): Slow-mo replay
   toggle reading "Replay" with an ON/OFF pill (`role=switch`, aria-label "Slow-mo replay", R) · person-icon Edit · ⌖ Framing (always shown; disabled while
   Replay is off) · [Download clip slot] · × Delete (icon-only with a mouse). A fixed, left-aligned set: toggling never moves buttons;
-  markers get Edit + Delete. Edit opens the event sheet's details (no replay toggle there); Framing opens only its
+  markers get Edit + Delete. Edit opens the event sheet's details (no replay toggle there; its time has −1 s / +1 s and Now = the playhead, in the playing file); Framing opens only its
   "Replay framing" view (`editEvent(id, 'framing')`, `editingView`, not persisted; closes if the replay is switched
   off). All five fit one line on desktop; touch wraps 3 + 2 at rail widths 361–440px. Labels hide (icon-only) when the rail is ≤ 360px; the row wraps rather than clips. An expanded row scrolls the
   list (the page only when the list can't scroll, phone portrait); touch layouts keep room below the last row so the
@@ -458,6 +458,10 @@ npm run lint       # baseline: 12 known problems — add none
 - **Toasts** (`src/toasts.ts`, `Toast`): one at a time, 4 s, top-right of the video (phone portrait: under the video);
   confirm, discard (Undo), tag (Undo + "Add note" when it has none → edit sheet with the note focused), delete (Undo),
   marker set. A toast has an optional quiet `secondary` action.
+- **Tag box keys (2026-10-21):** team step 1 / 2; Scorer / Assist 1–9 pick the Nth listed name (after the filter; the scorer stays listed and
+  numbered but inert on Assist); ⌫ on an empty field goes back one question (⌫ on the type step still cancels); a ‹ Back button in the header from the
+  second question (touch: in the Tag column header, 44 px). Scorer reserves the Skip row's space so names never move between Scorer and Assist.
+  The desktop review card picks names with 1–9 too.
 - **Tagging on touch:** the optional note step is skipped (no keyboard); a Highlight's "What happened" step stays but
   doesn't autofocus (Done button). The picker dialog is named "Tag event" while tagging and "Edit event" when editing. A toast's Undo only acts while its action is still the
   latest undo step.

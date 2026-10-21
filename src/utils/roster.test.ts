@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseRoster, filterRoster, teamShortcuts, rosterTeamFor } from './roster'
+import { parseRoster, filterRoster, rosterTeamFor } from './roster'
 
 describe('parseRoster', () => {
     it('should split on newlines and commas, strip list markers, trim and de-dupe', () => {
@@ -17,18 +17,6 @@ describe('filterRoster', () => {
         expect(filterRoster(roster, 'sa')).toEqual(['Sam Taylor', 'Sandy Wu', 'Alex Samson'])
         expect(filterRoster(roster, 'WU')).toEqual(['Sandy Wu'])
         expect(filterRoster(roster, 'sam t')).toEqual(['Sam Taylor'])
-    })
-})
-
-describe('teamShortcuts', () => {
-    it('should use first letters when they differ', () => {
-        expect(teamShortcuts(['Whites', 'Colours'])).toEqual(['w', 'c'])
-    })
-    it('should use the first differing position when first letters clash', () => {
-        expect(teamShortcuts(['Reds', 'Rovers'])).toEqual(['e', 'o'])
-    })
-    it('should fall back to 1/2 for identical names', () => {
-        expect(teamShortcuts(['Team', 'team'])).toEqual(['1', '2'])
     })
 })
 

@@ -127,6 +127,17 @@ describe('wheelZoomFactor', () => {
         expect(wheelZoomFactor(0.5, 1)).toBeCloseTo(Math.exp(-0.08))
         expect(wheelZoomFactor(1, 2)).toBe(wheelZoomFactor(100, 0))
     })
+    it('should keep one notch of a smooth-scrolling wheel (a quick burst of events) to about 1.25x', () => {
+        // Smooth-scroll tools (e.g. Mos) turn one notch into ~5 events a frame apart, each a big delta.
+        const gaps = [Infinity, 16, 16, 16, 16]
+        const total = gaps.reduce((z, gap) => z * wheelZoomFactor(-100, 0, gap), 1)
+        expect(total).toBeGreaterThan(1.15)
+        expect(total).toBeLessThan(1.32)
+    })
+    it('should still zoom about 10% for a lone wheel event and leave small pinch deltas alone in a quick stream', () => {
+        expect(wheelZoomFactor(-100, 0, 200)).toBe(wheelZoomFactor(-100))
+        expect(wheelZoomFactor(-2, 0, 16)).toBeCloseTo(Math.exp(0.02))
+    })
 })
 
 describe('a custom maximum', () => {
