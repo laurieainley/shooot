@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { finalScore } from './score'
-import { extraText, missingText, parseKnownScore, scoreGap, toFindText } from './scoreGap'
+import { extraText, missingText, parseKnownScore, scoreGap, toFindText, isOver, raisedScore } from './scoreGap'
 import type { MatchEvent, Team } from '../types'
 
 const teams: Team[] = [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#000', roster: [] }]
@@ -55,5 +55,22 @@ describe('parseKnownScore', () => {
     })
     it('should give null for anything else', () => {
         for (const v of [null, undefined, 'x', [1], [1, 2, 3], [1.5, 2], [-1, 2], [100, 0], ['1', 2], [NaN, 1]]) expect(parseKnownScore(v)).toBeNull()
+    })
+})
+
+describe('raisedScore', () => {
+    it('should raise each team to the larger of known and tagged', () => {
+        expect(raisedScore([14, 9], [13, 9])).toEqual([14, 9])
+        expect(raisedScore([14, 7], [13, 9])).toEqual([14, 9])
+        expect(raisedScore([3, 2], [13, 9])).toEqual([13, 9])
+    })
+})
+
+describe('isOver', () => {
+    it('should be true only when a team has more goals than the known score', () => {
+        expect(isOver(scoreGap([14, 7], [13, 9]))).toBe(true)
+        expect(isOver(scoreGap([13, 9], [13, 9]))).toBe(false)
+        expect(isOver(scoreGap([5, 2], [13, 9]))).toBe(false)
+        expect(isOver(null)).toBe(false)
     })
 })

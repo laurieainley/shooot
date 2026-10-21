@@ -45,7 +45,7 @@ describe('GoalsTally', () => {
         it('should warn in words when a team has more than the final score', () => {
             useAppState.setState({ events: [...goals(14, 'Whites'), ...goals(9, 'Colours')] as never, knownFinalScore: [13, 9] })
             render(<GoalsTally />)
-            expect(document.querySelector('.tally__target')?.textContent).toBe('Final 13 – 9 · 1 more than the final score (Whites)')
+            expect(document.querySelector('.tally__target')?.textContent).toBe('Final 13 – 9 · 1 more than the final score (Whites) Update to 14–9')
             const warn = screen.getByText('1 more than the final score (Whites)')
             expect(warn.className).toContain('msg-warn')
             expect(screen.queryByText(/to find/)).toBeNull()
@@ -70,5 +70,17 @@ describe('GoalsTally', () => {
             render(<GoalsTally head />)
             expect(screen.getByText('0 – 0')).toBeTruthy()
         })
+    })
+})
+
+describe('GoalsTally update link', () => {
+    const mk = (n: number, team: string) => Array.from({ length: n }, (_, i) => ev(`${team}${i}`, 'goal', team, 10 + i))
+    it('should offer Update to the raised score only when over, and apply it', () => {
+        useAppState.setState({ events: [...mk(3, 'Whites'), ...mk(1, 'Colours')] as never, knownFinalScore: [3, 2] })
+        render(<GoalsTally />)
+        expect(screen.queryByRole('button', { name: /Update to/ })).toBeNull()
+        act(() => { useAppState.setState({ events: [...mk(4, 'Whites'), ...mk(1, 'Colours')] as never }) })
+        screen.getByRole('button', { name: 'Update to 4–2' }).click()
+        expect(useAppState.getState().knownFinalScore).toEqual([4, 2])
     })
 })

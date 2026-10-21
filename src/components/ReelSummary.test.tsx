@@ -55,3 +55,18 @@ describe('ReelSummary', () => {
         })
     })
 })
+
+describe('ReelSummary update link', () => {
+    it('should offer Update to the raised score when tagged goals exceed the final score', () => {
+        const g = (id: string, team: string) => ({ id, matchTimeSec: 100, sourceFileIndex: 0, type: 'goal' as const, team })
+        useAppState.setState({ files: [vf], cumulativeOffsets: [0], teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#000', roster: [] }], events: [g('a', 'Whites'), g('b', 'Whites')], knownFinalScore: [1, 1] })
+        render(<ReelSummary />)
+        screen.getByRole('button', { name: 'Update to 2–1' }).click()
+        expect(useAppState.getState().knownFinalScore).toEqual([2, 1])
+    })
+    it('should not offer it when only goals are missing', () => {
+        useAppState.setState({ files: [vf], cumulativeOffsets: [0], teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#000', roster: [] }], events: [], knownFinalScore: [1, 1] })
+        render(<ReelSummary />)
+        expect(screen.queryByRole('button', { name: /Update to/ })).toBeNull()
+    })
+})

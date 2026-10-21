@@ -5,6 +5,7 @@ import { getDetectJob } from '../detectJobs'
 import { detectionReport, reviewCounts, type BallReport } from '../utils/suggestions'
 import { keptSummary, LOW_KEEP_NOTE, NOTHING_STOOD_OUT } from '../utils/voice'
 import { finalScore } from '../utils/score'
+import { UpdateScoreLink } from './UpdateScoreLink'
 import { extraText, missingText, scoreGap } from '../utils/scoreGap'
 import { openFindGoals } from './findGoals'
 
@@ -51,7 +52,7 @@ export function SuggestionSummary({ onClose }: SuggestionSummaryProps) {
             {counts.total === 0 ? <p className="m-0">{NOTHING_STOOD_OUT}</p> : <p className="m-0 review__kept">{keptSummary(counts.kept, counts.total, ballSeen)}</p>}
             {gap?.complete && <p className="m-0 review__note">All goals tagged.</p>}
             {gap && missing > 0 && <p className="m-0 review__note">{missingText(gap, teams)}. {counts.pending > 0 ? 'Look through the other moments, or tag them while watching.' : 'Tag them while watching.'}</p>}
-            {gap && extra > 0 && <p className="m-0 review__note msg-warn">{extraText(gap, teams)}.</p>}
+            {gap && extra > 0 && <p className="m-0 review__note msg-warn">{extraText(gap, teams)}. <UpdateScoreLink /></p>}
             {counts.pending > 0 && <p className="m-0 review__note">{counts.pending} not reviewed.</p>}
             {decided >= MIN_DECIDED && counts.kept / decided < AUDIO_DETECT.lowKeepRatio && <p className="m-0 review__note">{LOW_KEEP_NOTE}</p>}
             <div className="review__nav">

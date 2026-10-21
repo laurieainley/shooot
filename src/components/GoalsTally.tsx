@@ -1,5 +1,6 @@
 import { useAppState } from '../state'
 import { finalScore } from '../utils/score'
+import { UpdateScoreLink } from './UpdateScoreLink'
 import { extraText, scoreGap, toFindText } from '../utils/scoreGap'
 
 /**
@@ -34,12 +35,13 @@ export function GoalsTally({ head = false }: { head?: boolean }) {
             <span className="tally__score tc" aria-hidden="true">{a} – {b}</span>{' '}
             <span className="tally__team voice-shirt" aria-hidden="true">{teams[1].name}</span>
             {gap && known && (
-                <span className="tally__target" aria-hidden="true">
-                    {gap.complete ? '✓ All goals tagged' : <>
+                <span className="tally__target">
+                    <span aria-hidden="true">{gap.complete ? '✓ All goals tagged' : <>
                         Final <span className="tc">{known[0]} – {known[1]}</span>
                         {short && <span className="tally__find"> · {toFindText(gap)}</span>}
                         {over && <> · <span className="msg-warn">{extraText(gap, teams)}</span></>}
-                    </>}
+                    </>}</span>
+                    {over && <> <UpdateScoreLink /></>}
                 </span>
             )}
         </p>

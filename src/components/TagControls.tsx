@@ -5,7 +5,6 @@ import { matchClock } from '../utils/toastCopy'
 import { momentChipText } from '../utils/foundMoments'
 import { jumpToMoment, rejectMoment, useCurrentMoment } from './foundMoments'
 import { useSuggestionsCurrent } from './findGoals'
-import { useAllGoalsToast } from './useAllGoalsToast'
 import { runPlayerShortcut, stepPlayer, togglePlayerPlayback, usePlayerPaused } from './playerControl'
 import { startTag, useTagUi } from './tagView'
 
@@ -25,7 +24,6 @@ export function TagControls({ variant }: TagControlsProps) {
     const events = useAppState((s) => s.events)
     const current = useSuggestionsCurrent()
     const absNow = useAppState((s) => (s.cumulativeOffsets[s.currentFileIndex] ?? 0) + s.currentTimeInFileSec)
-    useAllGoalsToast() // the review card (desktop) says it when tagging reaches the known final score; here nothing else would
     const onMoment = useCurrentMoment()
     const kick = useAppState(selectMatchStartSec)
     const long = useAppState(selectClockLong)

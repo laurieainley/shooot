@@ -44,6 +44,13 @@ describe('SuggestionSummary known final score', () => {
         render(<SuggestionSummary onClose={() => {}} />)
         expect(screen.getByText('1 more than the final score (Whites).')).toBeTruthy()
     })
+    it('should offer Update to the raised score when over', () => {
+        withPending()
+        useAppState.setState({ events: [...many(3, 'Whites'), ...many(1, 'Colours')] as never, knownFinalScore: [2, 2] })
+        render(<SuggestionSummary onClose={() => {}} />)
+        screen.getByRole('button', { name: 'Update to 3–2' }).click()
+        expect(useAppState.getState().knownFinalScore).toEqual([3, 2])
+    })
     it('should add nothing without a known score', () => {
         withPending()
         useAppState.setState({ events: many(2, 'Whites') as never })

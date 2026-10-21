@@ -52,3 +52,13 @@ export function extraText(gap: ScoreGap, teams: Team[]): string {
     const both = gap.extra[0] > 0 && gap.extra[1] > 0
     return `${total(gap.extra)} more than the final score (${byTeam(gap.extra, teams, both)})`
 }
+
+/** The known score raised to cover the tagged goals: per team the larger of the two (goals still to find on the other team are kept). */
+export function raisedScore(tagged: Score, known: Score): Score {
+    return [Math.max(tagged[0], known[0]), Math.max(tagged[1], known[1])]
+}
+
+/** Some team has more goals tagged than the known final score. */
+export function isOver(gap: ScoreGap | null): boolean {
+    return !!gap && gap.extra[0] + gap.extra[1] > 0
+}

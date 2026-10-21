@@ -11,6 +11,13 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-21
 
+- **User: tagged goals over the known final score → reminder toast + inline "Update to N–M".** Target is per team the larger of known and
+  tagged (agent choice, so goals still to find on the other team are kept). Why: a higher tagged count usually means the typed score is
+  stale. Detail: `docs/superpowers/agents/briefs/scoreover-report.md`.
+
+- **Bug fix: closing the large thumbnail preview no longer closes the Export drawer.** The preview is portalled to <body>, so the drawer
+  treated presses on it as outside; layers opened from a panel mark themselves `data-over-panel` and `FloatingPanel` ignores them.
+
 - **User: Edit event has a Now button** beside −1 s / +1 s: moves the event to the playhead (whole seconds, in whichever file is playing,
   with that file's key). Why: re-timing from the sheet took many nudges. Detail: `EventSheet.tsx` `setToNow`.
 

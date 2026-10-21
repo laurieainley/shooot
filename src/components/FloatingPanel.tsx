@@ -45,6 +45,8 @@ export function FloatingPanel({ label, anchorRef, placement, onClose, children, 
         const onDown = (e: PointerEvent): void => {
             const t = e.target as Node
             if (panelRef.current?.contains(t) || anchor?.contains(t)) return
+            // A layer opened from inside the panel but portalled outside it (the large thumbnail preview) is not "outside".
+            if ((t as Element | null)?.closest?.('[data-over-panel]')) return
             closeRef.current()
         }
         window.addEventListener('keydown', onKey, true)
