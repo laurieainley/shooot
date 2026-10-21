@@ -1,4 +1,6 @@
 // @vitest-environment happy-dom
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -85,11 +87,33 @@ describe('ExportPanel', () => {
         await userEvent.click(screen.getByRole('button', { name: /^Share on YouTube/ }))
         for (const tab of ['Highlights', 'Full match']) {
             await userEvent.click(screen.getByRole('tab', { name: tab }))
-            const link = screen.getByRole('link', { name: /open youtube upload/i })
+            const link = screen.getByRole('link', { name: /upload to youtube/i })
             expect(link).toHaveAttribute('href', 'https://www.youtube.com/upload')
             expect(link).toHaveAttribute('target', '_blank')
             expect(link).toHaveAttribute('rel', 'noopener noreferrer')
         }
+    })
+
+    it('should show Share on YouTube as three numbered steps on both tabs', async () => {
+        render(<ExportPanel />)
+        await userEvent.click(screen.getByRole('button', { name: 'Export' }))
+        await userEvent.click(screen.getByRole('button', { name: /^Share on YouTube/ }))
+        for (const tab of ['Highlights', 'Full match']) {
+            await userEvent.click(screen.getByRole('tab', { name: tab }))
+            const items = screen.getAllByRole('listitem').filter((li) => li.classList.contains('share-step'))
+            expect(items.map((li) => li.querySelector('.share-step__label')?.textContent)).toEqual(['Upload the video', 'Paste the description', 'Add a thumbnail'])
+            expect(screen.queryByText(/Upload the MP4 there/)).not.toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Make a thumbnail' })).toBeInTheDocument()
+            expect(screen.getByRole('link', { name: /upload to youtube/i }).querySelector('svg rect[fill="#FF0000"]')).not.toBeNull()
+        }
+    })
+
+    it('should pin the tab list to the top of the drawer while it scrolls', async () => {
+        render(<ExportPanel />)
+        await userEvent.click(screen.getByRole('button', { name: 'Export' }))
+        expect(screen.getByRole('tablist', { name: 'Export' })).toHaveClass('export-tabs')
+        const css = readFileSync(resolve(__dirname, '../App.css'), 'utf8')
+        expect(css).toMatch(/\.export-tabs \{[^}]*position: sticky;[^}]*top: 45px;/)
     })
 
     it('should have Highlights and Full match tabs', async () => {

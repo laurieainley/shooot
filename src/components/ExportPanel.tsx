@@ -1,7 +1,6 @@
 import { useRef, type KeyboardEvent } from 'react'
 import { useAppState } from '../state'
 import { useRenderJobs } from '../renderJobs'
-import { DescriptionCopy } from './DescriptionCopy'
 import { ClipSettings } from './ClipSettings'
 import { ExportDisclosure } from './ExportDisclosure'
 import { FloatingPanel } from './FloatingPanel'
@@ -10,8 +9,7 @@ import { GraphicsSettings } from './GraphicsSettings'
 import { PreviewControls } from './PreviewControls'
 import { RenderHighlights } from './RenderHighlights'
 import { ReelSummary } from './ReelSummary'
-import { ThumbnailMaker } from './ThumbnailMaker'
-import { YouTubeUpload } from './YouTubeUpload'
+import { ShareSteps } from './ShareSteps'
 import { getTheme } from '../graphics/themes'
 import { useExportButtonStatus } from './useExportButtonStatus'
 import { clipsSummary, graphicsSummary } from '../utils/renderSummary'
@@ -85,10 +83,8 @@ export function ExportPanel() {
                                 <ExportDisclosure id="graphics" title="Graphics" summary={graphicsSummary(graphics, getTheme(graphics.theme).name)}>
                                     <GraphicsSettings />
                                 </ExportDisclosure>
-                                <ExportDisclosure id="share" title="Share on YouTube" summary="description, thumbnail and upload">
-                                    <DescriptionCopy kind="highlights" />
-                                    <ThumbnailMaker kind="highlights" />
-                                    <YouTubeUpload />
+                                <ExportDisclosure id="share" title="Share on YouTube" summary="upload, description and thumbnail">
+                                    <ShareSteps kind="highlights" />
                                 </ExportDisclosure>
                             </div>
                         </div>
@@ -96,10 +92,8 @@ export function ExportPanel() {
                         <div role="tabpanel" id="export-panel-fullMatch" aria-labelledby="export-tab-fullMatch" className="export-stack">
                             <FullMatchExport />
                             <div className="export-disclosures">
-                                <ExportDisclosure id="share" title="Share on YouTube" summary="description, thumbnail and upload">
-                                    <DescriptionCopy kind="fullMatch" />
-                                    <ThumbnailMaker kind="fullMatch" />
-                                    <YouTubeUpload />
+                                <ExportDisclosure id="share" title="Share on YouTube" summary="upload, description and thumbnail">
+                                    <ShareSteps kind="fullMatch" />
                                 </ExportDisclosure>
                             </div>
                         </div>

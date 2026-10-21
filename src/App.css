@@ -1011,7 +1011,10 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
   .quality-field__help { min-height: 44px; }
 }
 /* Export panel: two tabs, highlights / full match. */
-.export-tabs { display: flex; gap: 2px; margin: 0 0 4px; border-bottom: 1px solid var(--sh-line); }
+.export-tabs {
+  display: flex; gap: 2px; margin: 0 -18px 4px; padding: 4px 18px 0; border-bottom: 1px solid var(--sh-line);
+  position: sticky; top: 45px; z-index: 1; background: var(--sh-raised); /* 45px = the drawer title bar, itself sticky at 0 */
+}
 .export-tab {
   flex: 1; padding: 8px 6px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--sh-muted);
   font: inherit; font-size: var(--sh-text-sm); font-weight: 700; cursor: pointer; margin-bottom: -1px;
@@ -2159,3 +2162,19 @@ button.tagcol__crumb:active { color: var(--sh-text); border-color: var(--sh-text
 .update-score:hover { text-decoration-thickness: 2px; }
 .update-score:focus-visible { outline: 2px solid var(--sh-focus, currentColor); outline-offset: 2px; border-radius: 2px; }
 @media (pointer: coarse) { .update-score { font-size: var(--sh-text-sm); display: inline-flex; align-items: center; min-height: 44px; padding: 0 6px; margin: -10px 0; vertical-align: middle; } }
+
+/* Share on YouTube: three numbered steps, buttons right-aligned and wrapping under the label when narrow. */
+.share-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.share-step { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.share-step__num {
+  flex: none; width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center;
+  border: 1px solid var(--sh-line); color: var(--sh-muted); font-family: var(--sh-font-mono); font-size: var(--sh-text-micro); font-weight: 700;
+}
+.share-step__label { flex: 1 1 6rem; font-size: var(--sh-text-md); font-weight: 600; min-width: 0; }
+.share-step__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-left: auto; }
+.share-step__actions--maker:has(.thumb-maker) { flex-basis: 100%; justify-content: stretch; }
+.share-step__actions--maker .thumb-maker { width: 100%; }
+.share-step__actions--below { flex-basis: calc(100% - 32px); margin-left: 32px; justify-content: flex-start; }
+.share-step__note { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px 10px; padding-left: 32px; }
+@media (max-width: 480px), (pointer: coarse) { .share-step__actions { justify-content: flex-start; margin-left: 32px; flex-basis: calc(100% - 32px); } }
+.youtube-icon { flex: none; display: block; }
