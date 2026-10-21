@@ -34,7 +34,7 @@ export function ThumbnailPreview({ src, onClose }: ThumbnailPreviewProps) {
 
     // Portalled events still bubble through React to the maker (whose arrow keys flip moments), so stop them here.
     return createPortal(
-        <div className={`thumb-preview${fill ? ' thumb-preview--fill' : ''}`} onClick={onClose} onKeyDown={(e) => e.stopPropagation()}>
+        <div data-over-panel className={`thumb-preview${fill ? ' thumb-preview--fill' : ''}`} onClick={onClose} onKeyDown={(e) => e.stopPropagation()}>
             <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Thumbnail preview" tabIndex={-1} data-owns-escape className="thumb-preview__dialog">
                 <img src={src} alt="The thumbnail, larger" className="thumb-preview__img" onClick={(e) => e.stopPropagation()} />
                 <div className="thumb-preview__close" onClick={(e) => e.stopPropagation()}><CloseButton onClick={onClose} label="Close preview" /></div>
