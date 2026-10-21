@@ -530,12 +530,12 @@ describe('line-ups on the VS card', () => {
         expect(shirts(ops).map((p) => p.fill)).toEqual(['#f0f0f0', '#f0f0f0', '#f0f0f0'])
     })
 
-    it('should shrink the initials and lift the team name and kit bar to make room', () => {
+    it('should shrink the initials and lift the heading, team name and kit bar to make room', () => {
         const plain = cardLayout(vs, 2, 4, false)
         const ops = cardLayout(withRoster(names(5), []), 2, 4, false)
         expect(texts(ops).find((o) => o.text === 'RR')!.size).toBeLessThan(250)
         expect(texts(ops).find((o) => o.text === 'WALFORD TOWN')!.y).toBeLessThan(texts(plain).find((o) => o.text === 'WALFORD TOWN')!.y)
-        expect(texts(ops).find((o) => o.text === 'MATCHDAY 1')!.y).toBe(texts(plain).find((o) => o.text === 'MATCHDAY 1')!.y)
+        expect(texts(ops).find((o) => o.text === 'MATCHDAY 1')!.y).toBeLessThan(texts(plain).find((o) => o.text === 'MATCHDAY 1')!.y)
     })
 
     it('should use one column up to 6 names, two up to 12, then +N MORE', () => {

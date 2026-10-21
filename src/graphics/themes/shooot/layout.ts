@@ -90,7 +90,7 @@ const SHIRT: [number, number][] = [
     [8.5, 3.5], [3, 6.2], [4.8, 10.8], [7.5, 9.8], [7.5, 20.5], [16.5, 20.5], [16.5, 9.8], [19.2, 10.8], [21, 6.2], [15.5, 3.5],
     [14.9, 4.7], [13.9, 5.4], [12, 5.7], [10.1, 5.4], [9.1, 4.7],
 ]
-const SHIRT_SCALE = 2.3
+const SHIRT_SCALE = 2.6
 const SHIRT_W = 18 * SHIRT_SCALE
 
 /** A small kit-colour shirt with its left edge at `x`, centred on `cy`; light and multicolour kits get a dark outline, dark kits a chalk one. */
@@ -104,7 +104,7 @@ function miniShirt(colour: string, x: number, cy: number): DrawOp {
 
 const ROSTER_SIZE = 44
 const ROSTER_STEP = 52
-const ROSTER_TOP = 700
+const ROSTER_TOP = 680
 
 /** A team's line-up: mini shirt + name (shirt voice), left-aligned columns centred under the team. */
 function rosterOps(t: CardSpec['left'], cx: number, measure: MeasureText): DrawOp[] {
@@ -226,14 +226,15 @@ export function cardLayout(spec: CardSpec, t: number, duration: number, hasLogo:
     ops.push({ kind: 'pitch' })
     if (hasLogo) ops.push({ kind: 'logo', x: 960, y: 50, h: 170, align: 'center' })
     if (vs) {
-        ops.push(...limeTag(spec.heading, 960, 330, 56, 1300, measure))
-        if (spec.left.roster?.length || spec.right.roster?.length) {
-            // Line-ups: smaller initials and the team name and kit bar higher up, the lists below.
-            ops.push(initialsOps(spec.left, 520, 470, 160), initialsOps(spec.right, 1400, 470, 160))
-            ops.push(teamName(spec.left, 520, 610, 80), teamName(spec.right, 1400, 610, 80))
-            ops.push(kitBar(spec.left, 520, 628), kitBar(spec.right, 1400, 628))
-            ops.push({ kind: 'circle', cx: 960, cy: 520, r: 128, fill: C.lime, stroke: C.ground, lineWidth: 12 })
-            ops.push({ kind: 'text', text: spec.centre, x: 960, y: 520, size: 104, color: C.onLime, voice: 'stadium', align: 'center', baseline: 'middle', maxWidth: 200 })
+        const lineups = !!(spec.left.roster?.length || spec.right.roster?.length)
+        ops.push(...limeTag(spec.heading, 960, lineups ? 240 : 330, 56, 1300, measure))
+        if (lineups) {
+            // Line-ups: smaller initials and the team name and kit bar higher up (with air between them), the lists below.
+            ops.push(initialsOps(spec.left, 520, 400, 160), initialsOps(spec.right, 1400, 400, 160))
+            ops.push(teamName(spec.left, 520, 580, 80), teamName(spec.right, 1400, 580, 80))
+            ops.push(kitBar(spec.left, 520, 600), kitBar(spec.right, 1400, 600))
+            ops.push({ kind: 'circle', cx: 960, cy: 460, r: 128, fill: C.lime, stroke: C.ground, lineWidth: 12 })
+            ops.push({ kind: 'text', text: spec.centre, x: 960, y: 460, size: 104, color: C.onLime, voice: 'stadium', align: 'center', baseline: 'middle', maxWidth: 200 })
             ops.push(...rosterOps(spec.left, 520, measure), ...rosterOps(spec.right, 1400, measure))
         } else {
             ops.push(initialsOps(spec.left, 520, 590, 250), initialsOps(spec.right, 1400, 590, 250))
