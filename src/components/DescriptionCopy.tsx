@@ -69,17 +69,23 @@ export function DescriptionCopy({ kind }: DescriptionCopyProps) {
     const label = kind === 'highlights' ? 'highlights description' : 'full match description'
 
     return (
-        <div className="flex flex-wrap items-center gap-2">
-            <button type="button" disabled={!hasEvents} onClick={() => copy('Description', description)} className="btn-quiet">
-                Copy {label}
-            </button>
-            <button type="button" disabled={!hasEvents}
-                onClick={() => copy('Goalscorers', () => { const st = useAppState.getState(); return goalscorersText(st.events, st.teams) })}
-                className="btn-quiet">
-                Copy goalscorers
-            </button>
-            {estimated && <span className="export-hint">Times are estimates until you render.</span>}
-            {copied && <span role="status" className="export-hint">{copied} copied</span>}
-        </div>
+        <>
+            <div className="share-step__actions share-step__actions--below">
+                <button type="button" disabled={!hasEvents} onClick={() => copy('Description', description)} className="btn-quiet">
+                    Copy {label}
+                </button>
+                <button type="button" disabled={!hasEvents}
+                    onClick={() => copy('Goalscorers', () => { const st = useAppState.getState(); return goalscorersText(st.events, st.teams) })}
+                    className="btn-quiet">
+                    Copy goalscorers
+                </button>
+            </div>
+            {(estimated || copied) && (
+                <div className="share-step__note">
+                    {estimated && <span className="export-hint">Times are estimates until you render.</span>}
+                    {copied && <span role="status" className="export-hint">{copied} copied</span>}
+                </div>
+            )}
+        </>
     )
 }
