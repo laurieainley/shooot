@@ -17,11 +17,11 @@ describe('highlightsDescription', () => {
     it('should be the score, the highlight chapters and the scorers, separated by blank lines', () => {
         const text = highlightsDescription({ ...base, introSec: 0 })
         expect(text.split('\n')).toEqual([
-            'HAW 1–1 LIO',
+            'Whites 1–1 Colours',
             '',
-            '00:00 Goal 1-0 (HAW) Sam',
+            '00:00 Goal 1-0 (Whites) Sam',
             '00:15 Highlight Jo: nutmeg',
-            '00:30 Goal 1-1 (LIO) Priya',
+            '00:30 Goal 1-1 (Colours) Priya',
             '00:45 Highlight',
             '',
             'Goalscorers',
@@ -32,12 +32,12 @@ describe('highlightsDescription', () => {
 
     it('should estimate without key-frame slack when the video is re-encoded (cuts are frame-exact)', () => {
         const exact = highlightsDescription({ ...base, introSec: 0, reencoded: true }).split('\n')
-        expect(exact.slice(2, 6)).toEqual(['00:00 Goal 1-0 (HAW) Sam', '00:14 Highlight Jo: nutmeg', '00:28 Goal 1-1 (LIO) Priya', '00:42 Highlight'])
+        expect(exact.slice(2, 6)).toEqual(['00:00 Goal 1-0 (Whites) Sam', '00:14 Highlight Jo: nutmeg', '00:28 Goal 1-1 (Colours) Priya', '00:42 Highlight'])
     })
 
     it('should shift chapters after the title card but keep the first at 00:00', () => {
         const lines = highlightsDescription({ ...base, introSec: 4 }).split('\n')
-        expect(lines.slice(2, 4)).toEqual(['00:00 Goal 1-0 (HAW) Sam', '00:19 Highlight Jo: nutmeg'])
+        expect(lines.slice(2, 4)).toEqual(['00:00 Goal 1-0 (Whites) Sam', '00:19 Highlight Jo: nutmeg'])
     })
 })
 
@@ -45,12 +45,12 @@ describe('fullMatchDescription', () => {
     it('should time chapters from kick-off and stop at the final whistle', () => {
         const text = fullMatchDescription({ ...base, introSec: 0 })
         expect(text.split('\n')).toEqual([
-            'HAW 1–1 LIO',
+            'Whites 1–1 Colours',
             '',
             '00:00 Kick off',
-            '02:10 Goal 1-0 (HAW) Sam',
+            '02:10 Goal 1-0 (Whites) Sam',
             '05:30 Highlight Jo: nutmeg',
-            '09:10 Goal 1-1 (LIO) Priya',
+            '09:10 Goal 1-1 (Colours) Priya',
             '',
             'Goalscorers',
             'Priya: 1',
@@ -61,7 +61,7 @@ describe('fullMatchDescription', () => {
     it('should add the title card length to every chapter after kick-off', () => {
         const lines = fullMatchDescription({ ...base, introSec: 4 }).split('\n')
         expect(lines[2]).toBe('00:00 Kick off')
-        expect(lines[3]).toBe('02:14 Goal 1-0 (HAW) Sam')
+        expect(lines[3]).toBe('02:14 Goal 1-0 (Whites) Sam')
     })
 })
 
@@ -83,8 +83,8 @@ describe('descriptions with own goals and pens', () => {
             { id: 'c', matchTimeSec: 30, sourceFileIndex: 0, type: 'own_goal', team: 'Whites', scorer: 'Ade', notes: 'deflected' },
         ]
         const text = highlightsDescription({ ...base, events: evs, introSec: 0 })
-        expect(text.split('\n')[0]).toBe('HAW 3–0 LIO')
-        expect(text).toContain('Own goal 3-0 (HAW) Ade: deflected')
+        expect(text.split('\n')[0]).toBe('Whites 3–0 Colours')
+        expect(text).toContain('Own goal 3-0 (Whites) Ade: deflected')
         expect(text.split('\n').slice(-3)).toEqual(['Goalscorers', 'DJ: 2 (1 pen)', 'Own goals: Ade 1'])
     })
 })

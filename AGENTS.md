@@ -399,8 +399,11 @@ npm run lint       # baseline: 12 known problems — add none
   "Preview with proxies" when proxies are loaded. Settings are collapsed `ExportDisclosure` rows (title + one-line
   summary, open state in localStorage): "Clips & replays", "Graphics", "Share on YouTube" / "Included", "Share on
   YouTube". The keep-screen-on line shows only while a render runs on a phone.
-- **Share on YouTube** (both Export tabs): copy description / goalscorers, Make a thumbnail, and an "Open YouTube upload"
-  link (youtube.com/upload in a new tab; no API, nothing sent until the user uploads there).
+- **Share on YouTube** (both Export tabs; `ShareSteps`): three numbered steps: 1 Upload the video ("Upload to YouTube ↗" with
+  YouTube's play icon as inline SVG; youtube.com/upload in a new tab; no API, nothing sent until the user uploads there) · 2 Paste the
+  description (Copy description / Copy goalscorers) · 3 Add a thumbnail. The description's score line and chapters use full team
+  names ("Whites 18–11 Colours", "(Whites)"), never initials. The Highlights / Full match tabs stay pinned under the drawer title
+  (`.export-tabs` sticky at `top: 45px` = the title bar's height; change both together). Files: "… (highlights).mp4" / "… (full match).mp4".
 - **Shortcuts sheet:** `?` key, the "?" button or ⋯ → Shortcuts (`ShortcutsSheet`, data in `utils/shortcutList.ts`,
   kept in sync with `shortcutFor` by a test).
 - **Find goals review card** (`SuggestionCard`, `ReviewTimeline`, `useMarkedMoment`, `PersonStep`, `utils/reviewMark.ts`):
