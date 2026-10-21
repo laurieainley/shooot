@@ -89,7 +89,7 @@ npm run lint       # baseline: 12 known problems — add none
   highlight) + markers Kick off / Half time / Final whistle. Optional team, person, assist (goals), note.
   The match clock starts at Kick off; ends swap after Half time (replay zoom target).
 - **Reel:** clip padding (default 10 s before / 4 s after), overlapping clips merge, scoring events get a slow-mo
-  replay (default 4 s before → 1 s after at 0.5×, half volume). `buildRenderPlan()` turns events into cuts, splitting
+  replay (default 4 s before → 2 s after at 0.5×, half volume; persist v27 moves a saved 1 s to 2 s). `buildRenderPlan()` turns events into cuts, splitting
   cuts that cross a file boundary.
 - **Clip download:** a selected row's Download clip popover (`ClipDownload`) renders one event through `clipExport()`:
   its padding, its replay (option), a caption for that event only (score option; `buildGraphicsSpec` `captionEvents` /
@@ -100,8 +100,9 @@ npm run lint       # baseline: 12 known problems — add none
   quality falls back to preview only for files the clip reads. Options persist as `clipOptions` (state v22).
 - **Full match:** Kick off → Final whistle across files, stream-copied; score bug windows (Off / After goals /
   Periodic; after goals = 1 s after for 5 s, like the highlights caption) and event captions are the only re-encoded
-  parts. Optional slow-mo replays (`fullMatch.replays`, `withReplays()` in utils/fullMatch.ts) split the match after
-  each replay window and insert the slowed cut; the match resumes at the key frame (≤ 1 GOP repeats).
+  parts. Optional slow-mo replays (`fullMatch.replays`, `withReplays()` in utils/fullMatch.ts) play on until the
+  event's caption has gone (`LIVE_BEFORE_REPLAY_SEC` = 1 + 5 s after the event, never past the next replayed event), then
+  insert the slowed cut; the match resumes there at the key frame (≤ 1 GOP repeats). Order: goal → caption → replay → play.
 - **Full match output quality** (`fullMatch.quality`, persist v23): **Original** (default) is the stream copy above;
   **4K** / **1080p** re-encode the whole match to constant-frame-rate H.264 (`render/transcodeEngine.ts`, started by
   `RenderOptions.output`; plan fields in `utils/exportPlans.ts` `PlanOutput`; availability/size/time in

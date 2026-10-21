@@ -9,6 +9,15 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ---
 
+## 2026-10-21 — Replays come after the caption; 2 s after the tag (user + agent)
+- **Decision:** in the full match a replay cuts in once the event's caption has been up and gone (event + 6 s, never past
+  the next replayed event), not 1 s after the event. The replay window's default "after" goes from 1 s to 2 s (persist v27
+  moves a saved 1 s to 2 s; other values stay).
+- **Why:** the user saw the full match jump to the replay as the ball crossed the line and the score appear only after it;
+  they want goal → caption → replay → play. People tag about a second before the ball goes in, so 1 s after ended the
+  replay on the line.
+- **Where:** `utils/fullMatch.ts` `withReplays`, `state.ts` v27.
+
 ## 2026-10-21
 
 - **User (design approved): cards.** The opening card shows the line-ups (shirt + name, left-aligned); end-card minutes never squash

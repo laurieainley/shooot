@@ -202,9 +202,16 @@ describe('teams and picker', () => {
         expect(out.lengthBeforeGoalSec).toBe(8)
     })
 
+    it('should move the old 1 s replay-after default to 2 s and keep other choices (v27)', () => {
+        const migrate = useAppState.persist.getOptions().migrate!
+        expect((migrate({ replayAfterSec: 1 }, 26) as { replayAfterSec: number }).replayAfterSec).toBe(2)
+        expect((migrate({ replayAfterSec: 3 }, 26) as { replayAfterSec: number }).replayAfterSec).toBe(3)
+        expect((migrate({ replayAfterSec: 1 }, 27) as { replayAfterSec: number }).replayAfterSec).toBe(1)
+    })
+
     it('should migrate v8 legacy event types and persist teams (v9+)', () => {
         const opts = useAppState.persist.getOptions()
-        expect(opts.version).toBe(26)
+        expect(opts.version).toBe(27)
         const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
         expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
         expect(opts.partialize!(s())).toHaveProperty('teams')
@@ -274,9 +281,9 @@ describe('attachFullFiles', () => {
 })
 
 describe('replay settings', () => {
-    it('should default to 4 s before, 1 s after, 0.5× and persist them', () => {
+    it('should default to 4 s before, 2 s after, 0.5× and persist them', () => {
         const init = useAppState.getInitialState()
-        expect([init.replayBeforeSec, init.replayAfterSec, init.replaySpeed]).toEqual([4, 1, 0.5])
+        expect([init.replayBeforeSec, init.replayAfterSec, init.replaySpeed]).toEqual([4, 2, 0.5])
         s().setReplayWindow(2, 2)
         s().setReplaySpeed(0.25)
         expect([s().replayBeforeSec, s().replayAfterSec, s().replaySpeed]).toEqual([2, 2, 0.25])
