@@ -8,7 +8,8 @@ export const INK_DARK = C.onLime
 /** Ink on a dark or saturated kit colour. */
 export const WHITE = '#ffffff'
 
-export type TeamBadge = { name: string; initials: string; colour: string; ink: string }
+/** `roster`: the line-up, upper-cased, for the opening card only (the planner adds it to the intro's badges). */
+export type TeamBadge = { name: string; initials: string; colour: string; ink: string; roster?: string[] }
 
 /** Initials for a name (see deriveInitials); '?' when the name is blank. */
 export function autoInitials(name: string): string {

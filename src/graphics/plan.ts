@@ -70,11 +70,17 @@ export function scorerColumns(events: MatchEvent[], teams: Team[], offsets: numb
 }
 
 function cards(teams: Team[], events: MatchEvent[], matchday: string, offsets: number[], theme: GraphicsTheme): Pick<GraphicsSpec, 'intro' | 'outro'> {
-    const intro: CardSpec = { heading: matchday.trim().toUpperCase() || 'MATCH', centre: 'VS', left: teamBadge(teams[0]), right: teamBadge(teams[1]) }
+    const plain: CardSpec = { heading: matchday.trim().toUpperCase() || 'MATCH', centre: 'VS', left: teamBadge(teams[0]), right: teamBadge(teams[1]) }
+    // Line-ups are for the opening card only.
+    const withRoster = (badge: CardSpec['left'], team: Team): CardSpec['left'] => {
+        const roster = (team.roster ?? []).map((n) => n.trim().toUpperCase()).filter(Boolean)
+        return roster.length ? { ...badge, roster } : badge
+    }
+    const intro: CardSpec = { ...plain, left: withRoster(plain.left, teams[0]), right: withRoster(plain.right, teams[1]) }
     const [a, b] = finalScore(events, teams)
     const scorers = theme.caption.scorers ? scorerColumns(events, teams, offsets) : { left: [], right: [] }
     const hasScorers = scorers.left.length + scorers.right.length > 0
-    return { intro, outro: { ...intro, heading: 'FULL TIME', centre: `${a} - ${b}`, ...(hasScorers ? { scorers } : {}) } }
+    return { intro, outro: { ...plain, heading: 'FULL TIME', centre: `${a} - ${b}`, ...(hasScorers ? { scorers } : {}) } }
 }
 
 /** Caption content for one event (shared by highlights and the full match): word, person, assist, note, minute and the score bug (given score). */

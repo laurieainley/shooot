@@ -27,7 +27,7 @@ function recolour(o: DrawOp): DrawOp {
     switch (o.kind) {
         case 'rect':
         case 'poly':
-        case 'circle': return { ...o, fill: tone(o.fill), ...('stroke' in o && o.stroke ? { stroke: tone(o.stroke) } : {}) }
+        case 'circle': return o.kind === 'circle' && o.keepColour ? o : { ...o, fill: tone(o.fill), ...('stroke' in o && o.stroke ? { stroke: tone(o.stroke) } : {}) }
         case 'text': return { ...o, color: tone(o.color) }
         default: return o
     }

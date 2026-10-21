@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { captionLayout, cardLayout, replayTagLayout, scoreBugLayout, type DrawOp, type PolyOp, type RectOp, type TextOp } from './layout'
 import { T } from './colors'
+import { C } from '../shooot/brandColors'
 import type { BugSpec, CaptionSpec, CardSpec } from '../../types'
 
 const left = { name: "RYAN'S ROVERS", initials: 'RR', colour: '#f0f0f0', ink: '#000' }
@@ -44,5 +45,17 @@ describe('tnf layouts (Shooot geometry, TNF palette)', () => {
 
     it('should keep the VS split field', () => {
         expect(cardLayout(vs, 2, 4, true).some((o): o is PolyOp => o.kind === 'poly')).toBe(true)
+    })
+
+    it('should keep the end-line dot record red (not orange) and clear of the stripe band', () => {
+        const ops = cardLayout({ ...vs, heading: 'FULL TIME', centre: '1 - 0' }, 2, 4, false)
+        const dot = ops.find((o) => o.kind === 'circle' && o.r === 8)
+        expect(dot).toMatchObject({ fill: C.rec })
+        const line = texts(ops).find((o) => o.text.startsWith('Made with'))!
+        expect(line.y + line.size / 2 + 24).toBeLessThanOrEqual(1036)
+    })
+
+    it('should still recolour the REPLAY tag dot', () => {
+        expect(replayTagLayout(2, 5).find((o) => o.kind === 'circle')).toMatchObject({ fill: T.orange })
     })
 })

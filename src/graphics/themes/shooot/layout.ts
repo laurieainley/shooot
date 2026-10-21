@@ -5,7 +5,8 @@ import { C, SKEW } from './brandColors'
 import type { FontVoice } from './fonts'
 import type { Box } from '../../paint'
 import { MULTI_OUTLINE } from '../../teamFill'
-import { WHITE } from '../../teamStyle'
+import { INK_DARK, WHITE, inkFor } from '../../teamStyle'
+import { rosterLayout } from '../../rosterLayout'
 import type { BugSpec, CaptionSpec, CardSpec, ScorerLine } from '../../types'
 import { PRODUCT_NAME } from '../../../brand'
 
@@ -23,8 +24,9 @@ export type TextOp = {
     outline?: string
 } & Alpha & Lean
 /** A filled polygon (the split kit-colour field); 'multi' fills with stripes over its bounding box. */
-export type PolyOp = { kind: 'poly'; points: [number, number][]; fill: string } & Alpha
-export type CircleOp = { kind: 'circle'; cx: number; cy: number; r: number; fill: string; stroke?: string; lineWidth?: number } & Alpha
+export type PolyOp = { kind: 'poly'; points: [number, number][]; fill: string; stroke?: string; lineWidth?: number } & Alpha
+/** `keepColour`: a theme's recolouring leaves it alone (the REC dot is always record red). */
+export type CircleOp = { kind: 'circle'; cx: number; cy: number; r: number; fill: string; stroke?: string; lineWidth?: number; keepColour?: boolean } & Alpha
 /** The league logo, `h` tall, width from its aspect ratio; x is its centre (`center`) or left edge. */
 export type LogoOp = { kind: 'logo'; x: number; y: number; h: number; align: 'center' | 'left'; box?: Box } & Alpha & Lean
 export type BackgroundOp = { kind: 'cardBackground' } & Alpha
@@ -83,26 +85,125 @@ const teamName = (t: CardSpec['left'], cx: number, y: number, size: number): Dra
 
 const kitBar = (t: CardSpec['left'], cx: number, y: number): DrawOp => ({ kind: 'rect', x: cx - 80, y, w: 160, h: 8, fill: t.colour })
 
-const FULL_TIME_ROWS = 5
-const SCORER_Y = 700
-const SCORER_STEP = 64
+/** The shirt silhouette of components/KitShirt.tsx (24-unit box) as polygon points; the neckline is a short curve. */
+const SHIRT: [number, number][] = [
+    [8.5, 3.5], [3, 6.2], [4.8, 10.8], [7.5, 9.8], [7.5, 20.5], [16.5, 20.5], [16.5, 9.8], [19.2, 10.8], [21, 6.2], [15.5, 3.5],
+    [14.9, 4.7], [13.9, 5.4], [12, 5.7], [10.1, 5.4], [9.1, 4.7],
+]
+const SHIRT_SCALE = 2.3
+const SHIRT_W = 18 * SHIRT_SCALE
 
-/** One column of scorers under a team: names (shirt voice) right-aligned to the centre line, minutes (mono) left of it. */
-function scorerColumn(lines: ScorerLine[], cx: number): DrawOp[] {
-    const shown = lines.length > FULL_TIME_ROWS ? lines.slice(0, FULL_TIME_ROWS - 1) : lines
-    const ops: DrawOp[] = []
-    shown.forEach((l, i) => {
-        const y = SCORER_Y + i * SCORER_STEP
-        ops.push({ kind: 'text', text: l.name, x: cx - 16, y, size: 54, color: C.text, voice: 'shirt', align: 'right', baseline: 'middle', maxWidth: 330 })
-        ops.push({ kind: 'text', text: l.minutes, x: cx + 16, y, size: 40, color: C.lime, voice: 'mono', align: 'left', baseline: 'middle', maxWidth: 300 })
+/** A small kit-colour shirt with its left edge at `x`, centred on `cy`; light and multicolour kits get a dark outline, dark kits a chalk one. */
+function miniShirt(colour: string, x: number, cy: number): DrawOp {
+    const light = colour === 'multi' || inkFor(colour) === INK_DARK
+    return {
+        kind: 'poly', fill: colour, stroke: light ? C.ground : C.text, lineWidth: 3,
+        points: SHIRT.map(([px, py]) => [x + (px - 3) * SHIRT_SCALE, cy + (py - 12) * SHIRT_SCALE] as [number, number]),
+    }
+}
+
+const ROSTER_SIZE = 44
+const ROSTER_STEP = 52
+const ROSTER_TOP = 700
+
+/** A team's line-up: mini shirt + name (shirt voice), left-aligned columns centred under the team. */
+function rosterOps(t: CardSpec['left'], cx: number, measure: MeasureText): DrawOp[] {
+    const layout = rosterLayout(t.roster ?? [], {
+        cx, top: ROSTER_TOP, step: ROSTER_STEP, iconW: SHIRT_W, gap: 14, colGap: 40, maxHalf: 320,
+        measure: (s) => measure(s, ROSTER_SIZE, 'shirt'),
     })
-    if (shown.length < lines.length) {
-        ops.push({ kind: 'text', text: `+${lines.length - shown.length} MORE`, x: cx, y: SCORER_Y + shown.length * SCORER_STEP, size: 40, color: C.muted, voice: 'mono', align: 'center', baseline: 'middle', maxWidth: 400 })
+    const ops: DrawOp[] = []
+    for (const it of layout.items) {
+        ops.push(miniShirt(t.colour, it.iconX, it.y))
+        ops.push({ kind: 'text', text: it.name, x: it.nameX, y: it.y, size: ROSTER_SIZE, color: C.text, voice: 'shirt', align: 'left', baseline: 'middle', maxWidth: it.maxWidth })
+    }
+    if (layout.more) ops.push({ kind: 'text', text: layout.more.text, x: layout.more.x, y: layout.more.y, size: 36, color: C.text, voice: 'mono', align: 'left', baseline: 'middle', maxWidth: layout.more.maxWidth })
+    return ops
+}
+
+/** Scorer block: from the top of the first row down to the limit above the end line (design px). */
+const SCORER_TOP = 668
+const SCORER_LIMIT = 968
+const SCORER_STEP = 64
+/** Step between wrapped minute lines, and the room the minutes column really has (clear of the centre line and the safe area). */
+const MINUTE_STEP = 44
+const MINUTES_W = 380
+const NAME_W = 330
+const NAME_SIZE = 54
+const MINUTES_SIZE = 40
+/** The scorer block shrinks uniformly down to this scale before the "+N MORE" line takes over. */
+const SCORER_MIN_SCALE = 0.75
+const SCORER_SCALES = [1, 0.95, 0.9, 0.85, 0.8, SCORER_MIN_SCALE]
+
+/** Minutes ("9' 13' 60' PEN") broken into lines of at most `maxWidth`: between minutes, never inside one (a PEN stays with its minute). */
+export function wrapMinutes(minutes: string, size: number, maxWidth: number, measure: MeasureText): string[] {
+    const units: string[] = []
+    for (const tok of minutes.split(/\s+/).filter(Boolean)) {
+        if (units.length && !/^\d/.test(tok)) units[units.length - 1] += ` ${tok}`
+        else units.push(tok)
+    }
+    const lines: string[] = []
+    for (const u of units) {
+        const last = lines.length - 1
+        if (last >= 0 && measure(`${lines[last]} ${u}`, size, 'mono') <= maxWidth) lines[last] += ` ${u}`
+        else lines.push(u)
+    }
+    return lines.length ? lines : ['']
+}
+
+type ScorerRow = { line: ScorerLine; minuteLines: string[] }
+const rowHeight = (r: ScorerRow, s: number): number => (SCORER_STEP + (r.minuteLines.length - 1) * MINUTE_STEP) * s
+const MORE_H = 56
+
+function scorerRows(lines: ScorerLine[], s: number, measure: MeasureText): ScorerRow[] {
+    return lines.map((line) => ({ line, minuteLines: wrapMinutes(line.minutes, MINUTES_SIZE * s, MINUTES_W, measure) }))
+}
+
+/** The scale every column shares: the biggest that fits all scorers above the end line, else the floor. */
+function scorerScale(columns: ScorerLine[][], measure: MeasureText): number {
+    for (const s of SCORER_SCALES) {
+        const fits = columns.every((c) => scorerRows(c, s, measure).reduce((h, r) => h + rowHeight(r, s), 0) <= SCORER_LIMIT - SCORER_TOP)
+        if (fits) return s
+    }
+    return SCORER_MIN_SCALE
+}
+
+/**
+ * One column of scorers under a team: names (shirt voice) right-aligned to the centre line, minutes (mono) left of it,
+ * wrapped onto more lines at full size when they don't fit. The block shrinks as a whole (never squashes), then "+N MORE".
+ */
+function scorerColumn(lines: ScorerLine[], cx: number, s: number, measure: MeasureText): DrawOp[] {
+    const rows = scorerRows(lines, s, measure)
+    const room = SCORER_LIMIT - SCORER_TOP
+    let used = 0
+    let shown = 0
+    for (const r of rows) {
+        const h = rowHeight(r, s)
+        const rest = shown + 1 < rows.length ? MORE_H * s : 0
+        if (used + h + rest > room && shown > 0) break
+        used += h
+        shown++
+    }
+    const ops: DrawOp[] = []
+    let y = SCORER_TOP
+    rows.slice(0, shown).forEach((r) => {
+        const y0 = y + (SCORER_STEP * s) / 2
+        ops.push({ kind: 'text', text: r.line.name, x: cx - 16, y: y0, size: NAME_SIZE * s, color: C.text, voice: 'shirt', align: 'right', baseline: 'middle', maxWidth: NAME_W })
+        r.minuteLines.forEach((m, j) => {
+            ops.push({ kind: 'text', text: m, x: cx + 16, y: y0 + j * MINUTE_STEP * s, size: MINUTES_SIZE * s, color: C.lime, voice: 'mono', align: 'left', baseline: 'middle', maxWidth: MINUTES_W })
+        })
+        y += rowHeight(r, s)
+    })
+    if (shown < rows.length) {
+        ops.push({ kind: 'text', text: `+${rows.length - shown} MORE`, x: cx, y: y + (MORE_H * s) / 2, size: MINUTES_SIZE * s, color: C.muted, voice: 'mono', align: 'center', baseline: 'middle', maxWidth: 400 })
     }
     return ops
 }
 
-/** "Made with Shooot ●": small, muted, at the foot of the full-time card. */
+/** Centre of the end line, and the room it keeps clear above the theme's bottom band (TNF stripes start at y 1036). */
+export const END_LINE_Y = 990
+
+/** "Made with Shooot ●": small, muted, at the foot of the full-time card. The dot is the real record red in every theme. */
 function endLine(measure: MeasureText): DrawOp[] {
     const size = 28
     const text = `Made with ${PRODUCT_NAME}`
@@ -110,10 +211,10 @@ function endLine(measure: MeasureText): DrawOp[] {
     const gap = 16
     const dot = 8
     const left = DESIGN_W / 2 - (w + gap + 2 * dot) / 2
-    const y = 1024
+    const y = END_LINE_Y
     return [
         { kind: 'text', text, x: left, y, size, color: C.muted, voice: 'mono', align: 'left', baseline: 'middle' },
-        { kind: 'circle', cx: left + w + gap + dot, cy: y, r: dot, fill: C.rec },
+        { kind: 'circle', cx: left + w + gap + dot, cy: y, r: dot, fill: C.rec, keepColour: true },
     ]
 }
 
@@ -126,18 +227,31 @@ export function cardLayout(spec: CardSpec, t: number, duration: number, hasLogo:
     if (hasLogo) ops.push({ kind: 'logo', x: 960, y: 50, h: 170, align: 'center' })
     if (vs) {
         ops.push(...limeTag(spec.heading, 960, 330, 56, 1300, measure))
-        ops.push(initialsOps(spec.left, 520, 590, 250), initialsOps(spec.right, 1400, 590, 250))
-        ops.push(teamName(spec.left, 520, 820, 96), teamName(spec.right, 1400, 820, 96))
-        ops.push(kitBar(spec.left, 520, 850), kitBar(spec.right, 1400, 850))
-        ops.push({ kind: 'circle', cx: 960, cy: 590, r: 128, fill: C.lime, stroke: C.ground, lineWidth: 12 })
-        ops.push({ kind: 'text', text: spec.centre, x: 960, y: 590, size: 104, color: C.onLime, voice: 'stadium', align: 'center', baseline: 'middle', maxWidth: 200 })
+        if (spec.left.roster?.length || spec.right.roster?.length) {
+            // Line-ups: smaller initials and the team name and kit bar higher up, the lists below.
+            ops.push(initialsOps(spec.left, 520, 470, 160), initialsOps(spec.right, 1400, 470, 160))
+            ops.push(teamName(spec.left, 520, 610, 80), teamName(spec.right, 1400, 610, 80))
+            ops.push(kitBar(spec.left, 520, 628), kitBar(spec.right, 1400, 628))
+            ops.push({ kind: 'circle', cx: 960, cy: 520, r: 128, fill: C.lime, stroke: C.ground, lineWidth: 12 })
+            ops.push({ kind: 'text', text: spec.centre, x: 960, y: 520, size: 104, color: C.onLime, voice: 'stadium', align: 'center', baseline: 'middle', maxWidth: 200 })
+            ops.push(...rosterOps(spec.left, 520, measure), ...rosterOps(spec.right, 1400, measure))
+        } else {
+            ops.push(initialsOps(spec.left, 520, 590, 250), initialsOps(spec.right, 1400, 590, 250))
+            ops.push(teamName(spec.left, 520, 820, 96), teamName(spec.right, 1400, 820, 96))
+            ops.push(kitBar(spec.left, 520, 850), kitBar(spec.right, 1400, 850))
+            ops.push({ kind: 'circle', cx: 960, cy: 590, r: 128, fill: C.lime, stroke: C.ground, lineWidth: 12 })
+            ops.push({ kind: 'text', text: spec.centre, x: 960, y: 590, size: 104, color: C.onLime, voice: 'stadium', align: 'center', baseline: 'middle', maxWidth: 200 })
+        }
     } else {
         ops.push(...limeTag(spec.heading, 960, 290, 52, 900, measure))
         ops.push({ kind: 'text', text: spec.centre, x: 960, y: 445, size: 190, color: C.text, voice: 'stadium', align: 'center', baseline: 'middle', maxWidth: 620 })
         ops.push(initialsOps(spec.left, 410, 445, 140), initialsOps(spec.right, 1510, 445, 140))
         ops.push(teamName(spec.left, 520, 620, 72), teamName(spec.right, 1400, 620, 72))
         ops.push(kitBar(spec.left, 520, 640), kitBar(spec.right, 1400, 640))
-        if (spec.scorers) ops.push(...scorerColumn(spec.scorers.left, 520), ...scorerColumn(spec.scorers.right, 1400))
+        if (spec.scorers) {
+            const sc = scorerScale([spec.scorers.left, spec.scorers.right], measure)
+            ops.push(...scorerColumn(spec.scorers.left, 520, sc, measure), ...scorerColumn(spec.scorers.right, 1400, sc, measure))
+        }
         ops.push(...endLine(measure))
     }
     const fade = cardFade(t, duration)
