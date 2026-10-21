@@ -11,7 +11,8 @@ vi.mock('../detectJobs', () => ({
     useDetectJob: (sel: (s: Record<string, unknown>) => unknown) => sel({ ...job, scores: null }),
     startDetection: (...a: unknown[]) => startDetectionMock(...a), cancelDetection: vi.fn(), getDetectJob: () => ({ ...job, phase: 'done' }),
 }))
-import { SuggestionReview } from './SuggestionReview'
+import { SuggestionReview as SuggestionReviewBare } from './SuggestionReview'
+import { useFinalScoreToasts } from './useFinalScoreToasts'
 import { openFindGoals, setRangeStep } from './findGoals'
 import { setCoarsePointer } from '../test/pointer'
 import { isPlayerPaused, registerPlayerShortcut, registerPlayerSeekPaused, registerPlayerStep, registerPlayerToggle, setPlayerPaused } from './playerControl'
@@ -29,6 +30,9 @@ beforeEach(() => {
     })
     useAppState.getState().setSuggestions(run, [{ timeSec: 100, score: 5 }, { timeSec: 300, score: 4 }])
 })
+
+// The toasts are made by one hook mounted in App; these tests mount it beside the review.
+function SuggestionReview(props: Parameters<typeof SuggestionReviewBare>[0]) { useFinalScoreToasts(); return <SuggestionReviewBare {...props} /> }
 
 describe('SuggestionReview', () => {
     it('should show the first suggestion with an AI tag', () => {

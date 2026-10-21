@@ -160,6 +160,16 @@ describe('MatchDetails final score (if you know it)', () => {
     const first = () => screen.getByLabelText("Ryan's Rovers final score")
     const second = () => screen.getByLabelText('Walford Town final score')
 
+    it('should say tagged goals are over the final score and update it from the link', async () => {
+        const g = (id: string, team: string) => ({ id, type: 'goal', team, matchTimeSec: 1, sourceFileIndex: 0 })
+        useAppState.setState({ events: [g('a', "Ryan's Rovers"), g('b', "Ryan's Rovers")] as never, knownFinalScore: [1, 1] })
+        render(<MatchDetails />)
+        expect(screen.getByText(/Tagged 2–0 is more than this/)).toBeInTheDocument()
+        await userEvent.click(screen.getByRole('button', { name: 'Update to 2–1' }))
+        expect(useAppState.getState().knownFinalScore).toEqual([2, 1])
+        expect(screen.queryByText(/is more than this/)).toBeNull()
+        useAppState.setState({ events: [] })
+    })
     it('should show a labelled row with a numeric box per team', () => {
         render(<MatchDetails />)
         expect(screen.getByText('Final score (if you know it)')).toBeInTheDocument()

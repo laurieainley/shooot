@@ -2153,3 +2153,9 @@ button.tagcol__crumb:active { color: var(--sh-text); border-color: var(--sh-text
   .playback-choice__btn { min-height: 44px; min-width: 72px; font-size: 14px; }
   .playback-choice__label, .playback-choice__hint { font-size: 14px; }
 }
+
+/* "Update to 14–9" beside the over-the-final-score lines: a quiet underlined text button, no lime */
+.update-score { display: inline; padding: 0; border: 0; background: none; color: var(--sh-text); font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.update-score:hover { text-decoration-thickness: 2px; }
+.update-score:focus-visible { outline: 2px solid var(--sh-focus, currentColor); outline-offset: 2px; border-radius: 2px; }
+@media (pointer: coarse) { .update-score { font-size: var(--sh-text-sm); display: inline-flex; align-items: center; min-height: 44px; padding: 0 6px; margin: -10px 0; vertical-align: middle; } }

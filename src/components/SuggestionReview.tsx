@@ -2,7 +2,6 @@ import { useRef, useState, type ReactNode } from 'react'
 import type { KeepType, Suggestion } from '../types'
 import { useAppState } from '../state'
 import { showToast, toastStore } from '../toasts'
-import { useAllGoalsToast } from './useAllGoalsToast'
 import { useDetectJob } from '../detectJobs'
 import { TOP_PICKS_DONE, defaultLane, firstPendingInLane, firstToReviewInLane, laneCounts, laneNeighbour, laneSwitchVisible, remainingCounts, positionInLane, type Lane } from '../utils/reviewLanes'
 import { NO_TOP_PICKS } from '../utils/voice'
@@ -26,7 +25,6 @@ export function SuggestionReview({ onClose }: SuggestionReviewProps) {
     const index = useAppState((s) => s.reviewIndex)
     const ballPhase = useDetectJob((s) => s.ballPhase)
     const ids = new Set(events.map((e) => e.id))
-    useAllGoalsToast()
     // Opens where the review is: the lane of the current suggestion (Top picks first by default), else Other moments.
     const [pickedLane, setPickedLane] = useState<Lane>(() => {
         const st = useAppState.getState()

@@ -4,7 +4,9 @@ import { RosterTags } from './RosterTags'
 import { KitShirt } from './KitShirt'
 import { useEffect, useId, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { useAppState } from '../state'
-import { parseKnownScore } from '../utils/scoreGap'
+import { finalScore, formatScore } from '../utils/score'
+import { UpdateScoreLink } from './UpdateScoreLink'
+import { isOver, parseKnownScore, scoreGap } from '../utils/scoreGap'
 import type { Team } from '../types'
 import { DEFAULT_LOGO_URLS } from '../graphics/assets'
 import { GraphicsStylePicker } from './GraphicsStylePicker'
@@ -167,6 +169,17 @@ function TeamCard({ index: i }: TeamCardProps) {
 
 const digits = (v: string): string => v.replace(/\D/g, '').slice(0, 2)
 
+/** Under the final score: a line and the Update link while the tagged goals are over it. */
+function TaggedOver() {
+    const events = useAppState((s) => s.events)
+    const teams = useAppState((s) => s.teams)
+    const known = useAppState((s) => s.knownFinalScore)
+    if (!known || teams.length < 2) return null
+    const tagged = finalScore(events, teams)
+    if (!isOver(scoreGap(tagged, known))) return null
+    return <p className="m-0 text-ui-xs msg-warn">Tagged {formatScore(tagged)} is more than this. <UpdateScoreLink /></p>
+}
+
 /** The final score, if the user already knows it: two boxes saved together (both whole numbers, or both empty for none). */
 function FinalScoreField() {
     const teams = useAppState((s) => s.teams)
@@ -246,6 +259,7 @@ function FinalScoreField() {
                 <span className="final-score__dash" aria-hidden="true">–</span>
                 {side(1)}
             </div>
+            <TaggedOver />
             {half && left && <p id={hintId} className="m-0 text-ui-xs msg-warn" role="status">Enter both scores, or leave both empty.</p>}
         </div>
     )

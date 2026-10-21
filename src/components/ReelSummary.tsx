@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useAppState } from '../state'
 import { formatReelLength, reelSummary } from '../utils/reel'
 import { formatScore, finalScore } from '../utils/score'
+import { UpdateScoreLink } from './UpdateScoreLink'
 import { scoreGap } from '../utils/scoreGap'
 
 /** Export panel → Highlights summary: length and clip count of the reel, and a quiet note when the tagged score differs from the known final score. */
@@ -31,7 +32,7 @@ export function ReelSummary() {
                 <b className="tc">{formatReelLength(reel.seconds)}</b>
                 <span> reel · {reel.clips} {reel.clips === 1 ? 'clip' : 'clips'}</span>
             </p>
-            {differs && known && <p className="reel-summary__settings m-0">Tagged {formatScore(tagged)}, final score {formatScore(known)}.</p>}
+            {differs && known && <p className="reel-summary__settings m-0">Tagged {formatScore(tagged)}, final score {formatScore(known)}. <UpdateScoreLink /></p>}
         </div>
     )
 }

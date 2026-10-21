@@ -5,6 +5,7 @@ import { ReceiveProject } from './components/ReceiveProject'
 import { useAppState } from './state'
 import { labsFromSearch } from './utils/labs'
 import { shouldHandleShortcut } from './utils/shortcuts'
+import { useFinalScoreToasts } from './components/useFinalScoreToasts'
 
 const DEFAULT_VIDEO_URL = '/default-video.mp4'
 const DEFAULT_VIDEO_NAME = 'TNF full match 19-03-26.mp4'
@@ -12,6 +13,7 @@ const DEFAULT_VIDEO_NAME = 'TNF full match 19-03-26.mp4'
 function App() {
     const files = useAppState((s) => s.files)
     const setFiles = useAppState((s) => s.setFiles)
+    useFinalScoreToasts() // the one place the all-goals and over-the-final-score notes are made
 
     // Labs switch from the URL: ?labs=1 on, ?labs=0 off
     useEffect(() => {
