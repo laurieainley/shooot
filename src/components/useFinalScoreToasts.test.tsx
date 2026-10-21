@@ -56,6 +56,16 @@ describe('useFinalScoreToasts over the final score', () => {
         expect(t?.action?.label).toBe('Undo')
         expect(t?.secondary?.label).toBe('Update to 3–1')
     })
+    it('should fold into a tag toast that arrives just after the score change', () => {
+        render(<Host />)
+        setEvents([...goals(3, 'Whites'), ...goals(1, 'Colours')])
+        expect(toastStore.getState().toast?.text).toMatch(/^That’s more than/)
+        act(() => { showToast('Goal tagged at 00:09', { label: 'Undo', run: () => {} }, { label: 'Add note', run: () => {} }) })
+        const t = toastStore.getState().toast
+        expect(t?.text).toBe('Goal tagged at 00:09 · more than the final score (2–1)')
+        expect(t?.action?.label).toBe('Undo')
+        expect(t?.secondary?.label).toBe('Update to 3–1')
+    })
     it('should still say all goals tagged on reaching the score, once', () => {
         useAppState.setState({ events: goals(1, 'Whites') as never })
         render(<Host />)

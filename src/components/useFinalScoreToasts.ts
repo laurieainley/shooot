@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useAppState } from '../state'
-import { showToast, toastStore } from '../toasts'
-import { finalScore, formatScore } from '../utils/score'
+import { showToast, toastStore, type ToastAction } from '../toasts'
+import { finalScore, formatScore, type Score } from '../utils/score'
 import { isOver, raisedScore, scoreGap } from '../utils/scoreGap'
 import { raiseFinalScore } from './raiseFinalScore'
 
@@ -23,8 +23,22 @@ export function useFinalScoreToasts(): void {
     const over = isOver(gap)
     const was = useRef({ complete, over })
     const lastToast = useRef({ id: -1, at: 0 })
+    // Our over-the-score toast while it is still on screen: a tag toast that replaces it (the tag box commits the goal first, the toast comes when it closes) takes the reminder along.
+    const mine = useRef<{ id: number; known: Score; update: ToastAction } | null>(null)
+    const shown = useRef(-1) // id of the toast on screen before the one that just arrived
     useEffect(() => toastStore.subscribe((s) => {
-        if (s.toast && s.toast.id !== lastToast.current.id) lastToast.current = { id: s.toast.id, at: Date.now() }
+        const prev = shown.current
+        shown.current = s.toast?.id ?? -1
+        if (!s.toast || s.toast.id === lastToast.current.id) return
+        lastToast.current = { id: s.toast.id, at: Date.now() }
+        const m = mine.current
+        if (m && s.toast.id !== m.id && prev === m.id && s.toast.action) {
+            const t = s.toast
+            mine.current = null
+            const id = showToast(`${t.text} · more than the final score (${formatScore(m.known)})`, t.action, m.update)
+            lastToast.current = { id, at: Date.now() }
+            shown.current = id
+        } else if (m && prev === m.id) mine.current = null
     }), [])
     useEffect(() => {
         const before = was.current
@@ -40,7 +54,7 @@ export function useFinalScoreToasts(): void {
             const next = raisedScore(finalScore(events, teams), known)
             const update = { label: `Update to ${formatScore(next)}`, run: raiseFinalScore }
             if (fresh && cur) showToast(`${cur.text} · more than the final score (${formatScore(known)})`, cur.action, update)
-            else showToast(`That’s more than the final score (${formatScore(known)}) — it may need updating.`, update)
+            else mine.current = { id: showToast(`That’s more than the final score (${formatScore(known)}) — it may need updating.`, update), known, update }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [complete, over, known])
