@@ -1,5 +1,6 @@
 import { EncodedAudioPacketSource, EncodedPacket, EncodedVideoPacketSource, Mp4OutputFormat, Output, type AudioCodec, type VideoCodec } from 'mediabunny'
 import { makeTarget } from './sourceInput'
+import { abortable } from './abortable'
 import { readUnit, removeUnit, type JobKind } from './renderJob'
 
 /** Writes the saved units of a journaled render into the MP4, deleting each log once it is copied. */
@@ -18,13 +19,13 @@ export async function muxUnits(kind: JobKind, name: string, unitCount: number, v
             if (signal?.aborted) throw new DOMException('Render cancelled', 'AbortError')
             for await (const r of readUnit(kind, u)) {
                 const p = new EncodedPacket(r.data, r.key ? 'key' : 'delta', r.timestamp, r.duration)
-                if (r.track === 0) { await vOut.add(p, vFirst ? { decoderConfig: video } : undefined); vFirst = false }
-                else if (aOut) { await aOut.add(p, aFirst ? { decoderConfig: audio! } : undefined); aFirst = false }
+                if (r.track === 0) { await abortable(vOut.add(p, vFirst ? { decoderConfig: video } : undefined), signal); vFirst = false }
+                else if (aOut) { await abortable(aOut.add(p, aFirst ? { decoderConfig: audio! } : undefined), signal); aFirst = false }
             }
             await removeUnit(kind, u)
         }
-        await output.finalize()
-        return await result()
+        await abortable(output.finalize(), signal)
+        return await abortable(result(), signal)
     } catch (e) {
         await output.cancel().catch(() => undefined)
         await discard()

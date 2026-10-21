@@ -4,7 +4,7 @@ import { PRODUCT_NAME } from './brand'
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import type { GraphicsReport } from './render/types'
-import type { DiagnosticsReport } from './render/diagnostics'
+import { RenderDiagnostics, publishReport, saveLastReport, type DiagnosticsReport } from './render/diagnostics'
 import type { Cut, RenderFn, RenderGraphics, RenderSource, RenderTimeline } from './render/types'
 import { saveTimeline } from './renderTimelines'
 import { clearSavedParts, isStorageFull, storageFullMessage } from './render/storage'
@@ -75,13 +75,19 @@ export type RenderJobDeps = {
     revokeUrl: (url: string) => void
     /** Keeps the screen awake while a render runs (default: the browser's Screen Wake Lock). */
     wakeLock?: () => RenderWakeLock
+    /** How long a cancelled render may take to stop before it is given up on and the next export may start (default 8 s). */
+    stopGraceMs?: number
 }
+
+/** A cancelled render that has not stopped after this long no longer blocks the next export. UI-side timer, never on the render path. */
+export const STOP_GRACE_MS = 8_000
+export const SLOW_STOP_NOTE = 'The previous export took too long to stop (it was given up on)'
 
 export type RenderJobsState = {
     job: RenderJob | null
     /** A second render was asked for while one runs (the panel offers to cancel the current one). */
     conflict: boolean
-    /** A cancelled render is still winding down (can take ~30 s). Its job is already gone from the UI; a new start waits for it. */
+    /** A cancelled render is still winding down (a few seconds at most: past STOP_GRACE_MS it is given up on). Its job is already gone from the UI; a new start waits for it. */
     stopping: boolean
     /** A render was asked for while the previous one is stopping; it starts when the stop completes. */
     queued: boolean
@@ -101,8 +107,12 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
     let seq = 0
     let pending: ((ok: boolean) => void) | null = null
     // The run in flight, and, once cancelled, the promise that settles when it has really stopped.
-    let current: { id: number; ended: Promise<void>; end: () => void } | null = null
-    let stopWait: Promise<void> | null = null
+    let current: { id: number; kind: JobKind; outputName: string; ended: Promise<void>; end: () => void } | null = null
+    // Set by cancel(): resolves when the old run has really stopped, or when it was given up on after the grace time.
+    let stopWait = null as { wait: Promise<void>; ended: Promise<void> } | null
+    // Told to the next export's diagnostics when the run before it had to be given up on.
+    let slowStop = false
+    const stopOf = (): typeof stopWait => stopWait
     return createStore<RenderJobsState>()((set, get) => {
         const patch = (id: number, p: Partial<RenderJob>): void => {
             const job = get().job
@@ -118,7 +128,7 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                 if (stopWait) {
                     if (get().queued) return 'busy'
                     set({ queued: true })
-                    while (stopWait) await stopWait
+                    while (stopWait) await stopWait.wait
                     set({ queued: false })
                 }
                 if (get().running()) { set({ conflict: true }); return 'busy' }
@@ -132,11 +142,14 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                 const signal = controller.signal
                 let end!: () => void
                 const ended = new Promise<void>((r) => { end = r })
-                current = { id, ended, end }
+                current = { id, kind, outputName: '', ended, end }
+                const tellSlowStop = slowStop
+                slowStop = false
                 set({ conflict: false, job: { id, kind, quality, output, phase: 'running', startedAt, fraction: 0, status: 'Preparing…', report: null, diagnostics: null, result: null, error: null, notice: null, finishedAt: null } })
                 try {
                     const req = await prepare()
                     if (signal.aborted) throw new DOMException('Render cancelled', 'AbortError')
+                    if (current?.id === id) current.outputName = req.outputName
                     let timeline: RenderTimeline | null = null
                     // The engine's own clock, for the learned device rates: from the moment it has priced the work to the end.
                     const engine = { at: 0, resumed: null as boolean | null, started: false }
@@ -145,7 +158,7 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                             if (p.estimateSec) { engine.at = deps.now(); engine.resumed = null; engine.started = true; patch(id, { estimateSec: p.estimateSec }) }
                             // A render picked up from a saved one starts part way in: its wall time says nothing about the whole.
                             else if (engine.started && engine.resumed === null) engine.resumed = p.fraction > RESUMED_AT
-                            patch(id, { fraction: p.fraction, status: formatRenderProgress(p), ...(p.reused ? { reused: p.reused } : {}) })
+                            patch(id, { fraction: p.fraction, status: formatRenderProgress(p, kind), ...(p.reused ? { reused: p.reused } : {}) })
                         },
                         signal,
                         kind,
@@ -162,7 +175,12 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                         ...(req.targetFile ? { experiments: { targetFile: req.targetFile } } : {}),
                         // Reports also come for replay crops, which are drawn even when there are no graphics.
                         onGraphics: (report) => patch(id, { report }),
-                        onDiagnostics: (diagnostics) => patch(id, { diagnostics }),
+                        onDiagnostics: (report) => {
+                            // The engine has already saved its report as the last one; this run also says if the one before it never stopped.
+                            const diagnostics = tellSlowStop ? { ...report, notes: [...report.notes, SLOW_STOP_NOTE] } : report
+                            if (tellSlowStop) saveLastReport(diagnostics)
+                            patch(id, { diagnostics })
+                        },
                         ...(req.graphics ? { graphics: req.graphics } : {}),
                     })
                     // Cancelled while it was finishing: the user said stop, so no file, no download, no notification.
@@ -184,13 +202,22 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                     } else {
                         const error = isStorageFull(e) ? await storageFullMessage(await clearSavedParts().then(() => true, () => false)) : e instanceof Error ? e.message : String(e)
                         patch(id, { phase: 'failed', error, status: 'Render failed', finishedAt: deps.now() })
+                        // A failure the engine never got to report (preparing the request, a file that cannot be written): still a report, and the last one.
+                        if (get().job?.id === id && !get().job?.diagnostics) {
+                            try {
+                                const d = new RenderDiagnostics({ kind, outputName: current?.outputName || 'export.mp4' })
+                                if (tellSlowStop) d.note(SLOW_STOP_NOTE)
+                                d.note('The export failed before the render engine started or reported')
+                                publishReport(d.report('failed', e), { onReport: (diagnostics) => patch(id, { diagnostics }) })
+                            } catch { /* diagnostics must never hide the failure */ }
+                        }
                     }
                 } finally {
                     void lock?.release().catch(() => {})
                     if (seq === id) controller = null
                     if (current?.id === id) current = null
                     end()
-                    if (stopWait === ended) { stopWait = null; set({ stopping: false }) }
+                    if (stopOf()?.ended === ended) { stopWait = null; set({ stopping: false }) }
                 }
                 return 'started'
             },
@@ -199,7 +226,28 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                 controller?.abort()
                 get().answerNotice(false)
                 // Hide the job at once; the engine may take a while to wind down, and nothing it reports afterwards is shown.
-                if (wasRunning && current) { stopWait = current.ended; set({ job: null, conflict: false, stopping: true }) }
+                if (wasRunning && current) {
+                    const { ended, kind, outputName } = current
+                    let giveUp!: () => void
+                    const wait = new Promise<void>((resolve) => { giveUp = resolve; void ended.then(resolve) })
+                    const stop = { wait, ended }
+                    stopWait = stop
+                    // A run that ignores the abort (a stuck codec, a file that never answers) must not block every later export.
+                    const timer = setTimeout(() => {
+                        if (stopWait !== stop) return
+                        stopWait = null
+                        slowStop = true
+                        set({ stopping: false })
+                        try {
+                            const d = new RenderDiagnostics({ kind, outputName: outputName || 'export.mp4' })
+                            d.note(`Cancelled, but the render did not stop within ${Math.round((deps.stopGraceMs ?? STOP_GRACE_MS) / 1000)} s: it was given up on so that the next export can start`)
+                            publishReport(d.report('cancelled', new Error('The render did not stop after Cancel')))
+                        } catch { /* ignore */ }
+                        giveUp()
+                    }, deps.stopGraceMs ?? STOP_GRACE_MS)
+                    void ended.then(() => clearTimeout(timer))
+                    set({ job: null, conflict: false, stopping: true })
+                }
                 else set({ conflict: false })
             },
             answerNotice: (ok) => {

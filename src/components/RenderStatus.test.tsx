@@ -120,13 +120,26 @@ describe('RenderStatus', () => {
         await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
         await userEvent.click(screen.getByRole('button', { name: 'Stop' }))
         const second = start()
-        expect(await screen.findByText(/Stopping the previous render/)).toBeInTheDocument()
+        expect(await screen.findByText(/Stopping the previous export/)).toBeInTheDocument()
         expect(renderJobs().getState().job).toBeNull()
         abortNow()
         await first
         await second
         expect(renderJobs().getState().job?.phase).toBe('done')
-        expect(screen.queryByText(/Stopping the previous render/)).not.toBeInTheDocument()
+        expect(screen.queryByText(/Stopping the previous export/)).not.toBeInTheDocument()
+    })
+
+    it('should say it is stopping while a cancelled render winds down, and show its report afterwards', async () => {
+        let abortNow!: () => void
+        renderReel.mockImplementationOnce(() => new Promise((_, reject) => { abortNow = () => reject(new DOMException('Render cancelled', 'AbortError')) }))
+        const first = start()
+        render(<RenderStatus kind="fullMatch" />)
+        await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Stop' }))
+        expect(await screen.findByText('Stopping the export…')).toBeInTheDocument()
+        abortNow()
+        await first
+        await waitFor(() => expect(screen.queryByText('Stopping the export…')).not.toBeInTheDocument())
     })
 
     it('should show a render of the other export as running, with its own Cancel', async () => {

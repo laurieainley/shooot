@@ -55,10 +55,12 @@ export function ExportPanel() {
                 title={rendering ? 'A render is running — open to see it' : undefined} onClick={() => setOpen(!open)} className={`top-btn ${hasFiles ? 'top-btn--primary' : 'top-btn--quiet'} export-btn`}>
                 <span aria-hidden="true">Export</span>
                 {status.kind === 'running' && <span className="export-btn__live tc" aria-hidden="true"><i className="export-btn__dot" />{status.percent}%</span>}
+                {status.kind === 'waiting' && <span className="export-btn__live" aria-hidden="true"><i className="export-btn__dot" />Waiting</span>}
                 {status.kind === 'done' && <span className="export-btn__live" aria-hidden="true">Ready</span>}
                 {status.kind === 'failed' && <span className="export-btn__live msg-warn" aria-hidden="true">Failed</span>}
                 {status.kind === 'running' && <span className="export-btn__bar" style={{ width: `${status.percent}%` }} aria-hidden="true" />}
             </button>
+            {status.kind === 'waiting' && <span className="sr-only" role="status">Waiting for the stopped export to finish, then yours starts</span>}
             {status.kind === 'running' && <span id="export-btn-status" className="sr-only">Rendering, {status.percent}%</span>}
             {open && (
                 <FloatingPanel label="Export" anchorRef={anchorRef} placement="below" variant="drawer" className="floating--export" onClose={() => setOpen(false)}>

@@ -16,7 +16,7 @@ import { planAudio } from './audioPlan'
 import { nominalFrameRate } from './frameGrid'
 import { muxUnits } from './muxUnits'
 import { coverRect } from './outputSize'
-import { type JobKind, canJournal, discardJob, loadJob, openUnit, readUnit, saveJob, type JobState, type UnitWriter } from './renderJob'
+import { type JobKind, canJournal, claimJournal, ownsJournal, discardJob, loadJob, openUnit, readUnit, saveJob, type JobState, type UnitWriter } from './renderJob'
 import { GlScaler, isDownscale, probeDirectScale } from './downscale'
 import { GpuPath } from './gpuScaler'
 import { encodeReplayAudio } from './replayAudio'
@@ -28,6 +28,7 @@ import { OrderedSink } from './orderedSink'
 import { pickH264Encoder, type H264Encoder } from './transcodeSupport'
 import type { Cut, CutTiming, GraphicsReport, RenderCard, RenderGraphics, RenderOptions, RenderOverlay, RenderSource } from './types'
 import { waitForQueue } from './yield'
+import { abortable, anyAbort, cancelledError } from './abortable'
 import { DEFAULT_COEF, WorkMeter, detectDeviceClass, factsOfSource, parallelFactor, planWork, priceUnits, ZERO_UNITS } from '../utils/renderTime'
 import { cutTiming } from '../utils/chapterTimes'
 import { AUDIO_BITRATE } from '../utils/outputQuality'
@@ -39,7 +40,7 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message : Stri
 const isAbort = (e: unknown): boolean => e instanceof DOMException && e.name === 'AbortError'
 
 /** What one unit draws on: normally the engine's single canvas and WebGL scaler; parallel units each get their own. `work`: model seconds this unit has credited so far. */
-type UnitEnv = { canvas: OffscreenCanvas; ctx: OffscreenCanvasRenderingContext2D; gl: GlScaler | null; writer: UnitWriter | null; cancelled: boolean; work: number; /** Labels of the graphics this unit drew (kept with a cached unit). */ labels: Set<string> }
+type UnitEnv = { canvas: OffscreenCanvas; ctx: OffscreenCanvasRenderingContext2D; gl: GlScaler | null; writer: UnitWriter | null; cancelled: boolean; /** Aborts when the pool gives up on this unit (a sibling failed): everything the unit awaits stops at once. */ stop: AbortController; work: number; /** Labels of the graphics this unit drew (kept with a cached unit). */ labels: Set<string> }
 
 type Unit = { kind: 'intro' } | { kind: 'outro' } | { kind: 'segment'; segment: Segment }
 
@@ -289,7 +290,9 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         let cursorFrames = 0
         let done = 0
         let copied = false
+        let claim = 0
         if (journaled) {
+            claim = claimJournal(jobKind)
             const prev = await loadJob(jobKind)
             const same = prev && prev.signature === opts.resumable!.signature && prev.graphics === !!g && prev.unitCount === units.length
             if (same && prev.unitsDone > 0 && prev.video) {
@@ -333,12 +336,12 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         let vFirst = true
         let aFirst = true
         const emitVideo = async (env: UnitEnv, p: EncodedPacket): Promise<void> => {
-            if (env.writer) await env.writer.write({ track: 0, key: p.type === 'key', timestamp: p.timestamp, duration: p.duration, data: p.data })
-            else { await direct!.vOut.add(p, vFirst ? { decoderConfig: vConfig! } : undefined); vFirst = false }
+            if (env.writer) await abortable(env.writer.write({ track: 0, key: p.type === 'key', timestamp: p.timestamp, duration: p.duration, data: p.data }), signal)
+            else { await abortable(direct!.vOut.add(p, vFirst ? { decoderConfig: vConfig! } : undefined), signal); vFirst = false }
         }
         const emitAudio = async (env: UnitEnv, p: EncodedPacket): Promise<void> => {
-            if (env.writer) await env.writer.write({ track: 1, key: true, timestamp: p.timestamp, duration: p.duration, data: p.data })
-            else { await direct!.aOut!.add(p, aFirst ? { decoderConfig: aConfig! } : undefined); aFirst = false }
+            if (env.writer) await abortable(env.writer.write({ track: 1, key: true, timestamp: p.timestamp, duration: p.duration, data: p.data }), signal)
+            else { await abortable(direct!.aOut!.add(p, aFirst ? { decoderConfig: aConfig! } : undefined), signal); aFirst = false }
         }
 
         /** Writes one packet of a unit that was held back (parallel "Save to file…") into the output, where the head unit's own packets go through emitVideo / emitAudio. */
@@ -354,7 +357,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             if (!ctx) throw new Error('no 2D canvas')
             ctx.imageSmoothingEnabled = true
             ctx.imageSmoothingQuality = 'high'
-            return { canvas, ctx, gl: scaler, writer: null, cancelled: false, work: 0, labels: new Set() }
+            return { canvas, ctx, gl: scaler, writer: null, cancelled: false, stop: new AbortController(), work: 0, labels: new Set() }
         }
         const mainEnv = makeEnv(gl0)
         const durUs = Math.round(frameSec * 1e6)
@@ -365,6 +368,11 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             const pending: EncodedPacket[] = []
             let failure: unknown = null
             const failed = new AbortController()
+            // Cancel (or the pool giving up on this unit) must get through even when the encoder never answers again: it stops the encoder and every wait below.
+            const stopper = anyAbort(signal, env.stop.signal)
+            const onStop = (): void => { failure ??= cancelledError(); failed.abort() }
+            /** A wait that ends with the failure (the encoder's error, or the cancel) instead of hanging. */
+            const guard = <T,>(p: Promise<T>): Promise<T> => abortable(p, failed.signal).catch((e: unknown) => { throw failure ?? e })
             let description: Uint8Array | null = null
             let codec: string | null = null
             const enc = new VideoEncoder({
@@ -390,6 +398,8 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 while (pending.length) await emitVideo(env, pending.shift()!)
             }
             try {
+                stopper.signal.addEventListener('abort', onStop, { once: true })
+                if (stopper.signal.aborted) onStop()
                 enc.configure(encoder!.config)
                 await produce(async (frame, key) => {
                     if (failure) { frames.close(frame); throw failure }
@@ -399,14 +409,16 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                     await waitForQueue(enc, exp?.encodeQueue ?? 3, failed.signal)
                     const t3 = now()
                     if (failure) throw failure
-                    await drain()
+                    await guard(drain())
                     const t4 = now()
                     stats.frames++; stats.encodeCallMs += t2 - t1; stats.backpressureMs += t3 - t2; stats.drainMs += t4 - t3
                 })
-                await enc.flush()
+                await guard(enc.flush())
                 if (failure) throw failure
-                await drain()
+                await guard(drain())
             } finally {
+                stopper.signal.removeEventListener('abort', onStop)
+                stopper.dispose()
                 if (enc.state !== 'closed') enc.close()
             }
         }
@@ -482,6 +494,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             const paintW = priceUnits({ ...ZERO_UNITS, paintSec: sec.units.paintSec }, pricing)
             const baseFrameW = (sec.seconds - paintW) / cutFrames(cut, frameSec)
             const paintFrameW = paintW / Math.max(1, sec.units.paintSec / frameSec)
+            const stopped = anyAbort(signal, env.stop.signal)
             const sink = new VideoSampleSink(src.video)
             const plainIterator = sink.samples(a)[Symbol.asyncIterator]()
             // Experiment 9: read decoded pictures ahead of the painting/encoding loop.
@@ -492,7 +505,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             const advance = async (tSrc: number): Promise<void> => {
                 for (;;) {
                     if (!next && !ended) {
-                        const r = await iterator.next()
+                        const r = await abortable(iterator.next(), stopped.signal)
                         if (r.done) ended = true
                         else next = r.value
                     }
@@ -557,9 +570,13 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             } finally {
                 ;(cur as VideoSample | null)?.close()
                 ;(next as VideoSample | null)?.close()
-                await iterator.return?.(undefined).catch(() => undefined)
+                // A decoder that never answers would never let its iterator return: only wait for it when nothing was cancelled (the source input is disposed at the end anyway).
+                if (stopped.signal.aborted) void iterator.return?.(undefined).catch(() => undefined)
+                else await iterator.return?.(undefined).catch(() => undefined)
+                stopped.dispose()
             }
             // Audio for the same stretch, on the same clock as the video.
+            if (signal?.aborted || env.cancelled) throw cancelledError()
             if (hasAudio) {
                 const outSec = seg.frames * frameSec
                 const startSec = startFrame * frameSec
@@ -738,7 +755,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 },
                 onFallback: (job, e) => diag.note(`Unit ${job.u} failed while ${parallelN} ran at once (${errorText(e)}): running one unit at a time for the rest of this render`),
                 retrySerial: (job, e) => switchToSoftware(job.u, e),
-                onFatal: () => { for (const env of envs) env.cancelled = true; sink?.cancel(new DOMException('Render cancelled', 'AbortError')) },
+                onFatal: () => { for (const env of envs) { env.cancelled = true; env.stop.abort() } sink?.cancel(new DOMException('Render cancelled', 'AbortError')) },
                 order: (a, b) => a.u - b.u,
             })
             signal?.removeEventListener('abort', onAbort)
@@ -819,8 +836,8 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 }
             } else {
                 const endFin = diag.begin('finalize')
-                await direct!.output.finalize()
-                file = await direct!.result()
+                await abortable(direct!.output.finalize(), signal)
+                file = await abortable(direct!.result(), signal)
                 endFin()
             }
             if (timingsKnown) opts.onTimeline?.(timings)
@@ -838,7 +855,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 await direct.discard()
             }
             // A cancelled render is forgotten; anything else (a frozen tab, a failure) can be resumed.
-            if (journal && isAbort(e)) await discardJob(jobKind)
+            if (journal && isAbort(e) && ownsJournal(jobKind, claim)) await discardJob(jobKind)
             if (store && isAbort(e)) await store.trim() // the parts a cancelled export saved are not any kind's "last export"
             if (!isAbort(e)) diag.note(`Re-encode failed: ${errorInfo(e).message}`)
             throw e

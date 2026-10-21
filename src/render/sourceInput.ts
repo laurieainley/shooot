@@ -60,7 +60,8 @@ export async function makeTarget(name: string, into?: FileSystemFileHandle): Pro
             discard: async () => { await writable.abort().catch(() => undefined); if (!into) await root.removeEntry(name).catch(() => undefined) },
         }
     } catch (e) {
-        if (into) throw e
+        // The picked file cannot be written (permission lost, file locked or gone): say so, never fall back to memory for a file the user chose.
+        if (into) throw new Error(`Could not write to the file you picked (${e instanceof Error ? e.message : String(e)}). Pick it again, or choose another place.`)
         const target = new BufferTarget()
         return {
             target,

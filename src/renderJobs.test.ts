@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createRenderJobs, type RenderJobDeps } from './renderJobs'
 import type { RenderRequest } from './renderJobs'
 import { resetTimelines, savedTimeline } from './renderTimelines'
@@ -241,5 +241,115 @@ describe('render job saved straight to a file', () => {
         await store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => saved())
         await store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => saved())
         expect(deps.revokeUrl).not.toHaveBeenCalled()
+    })
+})
+
+describe('a cancelled render that never stops', () => {
+    beforeEach(() => { vi.useFakeTimers() })
+    afterEach(() => { vi.useRealTimers() })
+    /** An engine that ignores the abort: it settles only when `release` is called, with whatever `late` says. */
+    const wedged = () => {
+        const gate = deferred<Blob>()
+        const runs: number[] = []
+        const render: RenderJobDeps['render'] = (_c, _s, o) => {
+            runs.push(runs.length)
+            if (runs.length === 1) return gate.promise
+            o.onProgress({ cutIndex: 0, cutCount: 1, fraction: 0.5 })
+            return Promise.resolve(new Blob(['second']))
+        }
+        return { gate, render, runs }
+    }
+
+    it('should let the next export start once the stop time-out has passed', async () => {
+        const w = wedged()
+        const { store } = setup(w.render)
+        void store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => req('a.mp4'))
+        await vi.waitFor(() => expect(w.runs.length).toBe(1))
+        store.getState().cancel()
+        expect(store.getState().stopping).toBe(true)
+        const next = store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => req('b.mp4'))
+        await vi.advanceTimersByTimeAsync(0)
+        expect(store.getState().queued).toBe(true)
+        await vi.advanceTimersByTimeAsync(8_000)
+        await next
+        expect(store.getState().stopping).toBe(false)
+        expect(store.getState().queued).toBe(false)
+        expect(store.getState().job?.phase).toBe('done')
+        expect(store.getState().job?.result?.file.name).toBe('b.mp4')
+    })
+    it('should not wait at all when the old render stops by itself', async () => {
+        const gate = deferred<Blob>()
+        let n = 0
+        const { store } = setup((_c, _s, o) => (++n === 1 ? new Promise((_r, rej) => o.signal?.addEventListener('abort', () => rej(new DOMException('x', 'AbortError')))) : gate.promise))
+        void store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => req())
+        await vi.waitFor(() => expect(n).toBe(1))
+        store.getState().cancel()
+        const next = store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => req())
+        await vi.advanceTimersByTimeAsync(0)
+        expect(store.getState().job?.phase).toBe('running')
+        gate.resolve(new Blob(['x']))
+        await next
+    })
+    it('should ignore everything the abandoned run reports after it wakes up', async () => {
+        const w = wedged()
+        const { store, deps } = setup(w.render)
+        void store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => req('a.mp4'))
+        await vi.waitFor(() => expect(w.runs.length).toBe(1))
+        store.getState().cancel()
+        const next = store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => req('b.mp4'))
+        await vi.advanceTimersByTimeAsync(8_000)
+        await next
+        const before = store.getState().job
+        w.gate.resolve(new Blob(['late'])) // the old run finishes after all
+        await vi.advanceTimersByTimeAsync(10)
+        expect(store.getState().job).toBe(before)
+        expect(deps.download).toHaveBeenCalledTimes(1) // only the second render's file
+    })
+    it('should say in the next export diagnostics that the previous one took too long to stop', async () => {
+        const w = wedged()
+        const reports: unknown[] = []
+        const render: RenderJobDeps['render'] = async (c, s, o) => {
+            const out = await w.render(c, s, o)
+            if (w.runs.length === 2) o.onDiagnostics?.({ version: 1, kind: 'fullMatch', outputName: 'b.mp4', startedAt: 1, finishedAt: 2, outcome: 'done', notes: ['engine note'] } as never)
+            return out
+        }
+        const { store } = setup(render)
+        void store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => req('a.mp4'))
+        await vi.waitFor(() => expect(w.runs.length).toBe(1))
+        store.getState().cancel()
+        const next = store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => req('b.mp4'))
+        await vi.advanceTimersByTimeAsync(8_000)
+        await next
+        reports.push(store.getState().job?.diagnostics?.notes)
+        expect(reports[0]).toEqual(['engine note', 'The previous export took too long to stop (it was given up on)'])
+    })
+    it('should keep a second start out while one is already waiting', async () => {
+        const w = wedged()
+        const { store } = setup(w.render)
+        void store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => req())
+        await vi.waitFor(() => expect(w.runs.length).toBe(1))
+        store.getState().cancel()
+        void store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => req())
+        await vi.advanceTimersByTimeAsync(0)
+        await expect(store.getState().start({ kind: 'highlights', quality: 'full' }, async () => req())).resolves.toBe('busy')
+        await vi.advanceTimersByTimeAsync(8_000)
+    })
+})
+
+describe('a render that fails before the engine reports', () => {
+    it('should still end as Failed with the reason and a diagnostics report', async () => {
+        const { store } = setup(async () => new Blob(['x']))
+        await store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => { throw new Error('NotAllowedError: the file cannot be written') })
+        const job = store.getState().job!
+        expect(job.phase).toBe('failed')
+        expect(job.error).toContain('NotAllowedError')
+        expect(job.diagnostics?.outcome).toBe('failed')
+        expect(job.diagnostics?.error?.message).toContain('NotAllowedError')
+    })
+    it('should keep the engine report when the engine gave one', async () => {
+        const engineReport = { version: 1, kind: 'fullMatch', outputName: 'x', startedAt: 1, finishedAt: 2, outcome: 'failed', notes: [] } as never
+        const { store } = setup(async (_c, _s, o) => { o.onDiagnostics?.(engineReport); throw new Error('boom') })
+        await store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => req())
+        expect(store.getState().job?.diagnostics).toBe(engineReport)
     })
 })

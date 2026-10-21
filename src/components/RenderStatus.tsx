@@ -37,7 +37,8 @@ export function RenderStatus({ kind }: RenderStatusProps) {
     return (
         <>
             <RenderStatusBody kind={kind} onStopped={() => setStopped(true)} />
-            {queued && <p className="render-stopping export-hint">Stopping the previous render… yours starts next.</p>}
+            {queued ? <p role="status" className="render-stopping export-hint">Stopping the previous export… yours starts as soon as it has stopped.</p>
+                : stopping && <p className="render-stopping export-hint">Stopping the export…</p>}
             {note && <span role="status" className="sr-only">{note}</span>}
         </>
     )
@@ -51,7 +52,9 @@ function RenderStatusBody({ kind, onStopped }: RenderStatusProps & { onStopped: 
     const [confirming, setConfirming] = useState(false)
     const [, tick] = useState(0)
     // The last render's report, kept across reloads (the engine saves it when a render ends).
-    const [stored] = useState(() => loadLastReport())
+    // Read again whenever a run ends or stops: a failed or cancelled run replaces the last report too.
+    const stopping = useRenderJobs((s) => s.stopping)
+    const stored = job || stopping ? null : loadLastReport()
     useEffect(() => { if (job?.phase !== 'running') setConfirming(false) }, [job?.phase])
     const eta = useRef<{ id: number; state: EtaState | null }>({ id: -1, state: null })
     useEffect(() => {

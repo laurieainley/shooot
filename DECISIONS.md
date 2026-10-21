@@ -11,6 +11,11 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-21
 
+- **Bug fix (user report): a cancelled export no longer blocks every later one.** Engine awaits now observe Cancel; a run that still hasn't
+  stopped after 8 s is abandoned so the next export starts. Full match progress says "Rendering the match · N%" (no clip counter) and
+  re-encoded stretches report as they go. The user's "Clip 1 of 58 · 97%" stall was not reproduced. Detail:
+  `docs/superpowers/agents/briefs/renderstuck-report.md`.
+
 - **User: tagged goals over the known final score → reminder toast + inline "Update to N–M".** Target is per team the larger of known and
   tagged (agent choice, so goals still to find on the other team are kept). Why: a higher tagged count usually means the typed score is
   stale. Detail: `docs/superpowers/agents/briefs/scoreover-report.md`.

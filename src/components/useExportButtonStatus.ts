@@ -5,6 +5,7 @@ import { exportButtonStatus, SHOW_DONE_MS, type ExportButtonStatus } from '../ut
 /** The render job as the Export button shows it: percentage while running, briefly "ready" / "failed" after (re-evaluated when that window ends). */
 export function useExportButtonStatus(): ExportButtonStatus {
     const job = useRenderJobs((s) => s.job)
+    const queued = useRenderJobs((s) => s.queued)
     const [, tick] = useState(0)
     const finishedAt = job?.finishedAt ?? null
     useEffect(() => {
@@ -14,5 +15,5 @@ export function useExportButtonStatus(): ExportButtonStatus {
         const t = setTimeout(() => tick((n) => n + 1), left + 20)
         return () => clearTimeout(t)
     }, [finishedAt])
-    return exportButtonStatus(job, Date.now())
+    return queued ? { kind: 'waiting' } : exportButtonStatus(job, Date.now())
 }
