@@ -71,8 +71,9 @@ export function DescriptionCopy({ kind }: DescriptionCopyProps) {
     return (
         <>
             <div className="share-step__actions share-step__actions--below">
-                <button type="button" disabled={!hasEvents} onClick={() => copy('Description', description)} className="btn-quiet">
-                    Copy {label}
+                {/* "Copy description" fits beside Copy goalscorers in the drawer; the full name stays for screen readers. */}
+                <button type="button" disabled={!hasEvents} onClick={() => copy('Description', description)} className="btn-quiet" aria-label={`Copy ${label}`}>
+                    Copy description
                 </button>
                 <button type="button" disabled={!hasEvents}
                     onClick={() => copy('Goalscorers', () => { const st = useAppState.getState(); return goalscorersText(st.events, st.teams) })}
