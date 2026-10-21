@@ -20,7 +20,7 @@ export const classicTheme: GraphicsTheme = {
     glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 –-.'()GOAL REPLAY",
     caption: { word: (e) => eventLabel(e).toUpperCase(), defaultStripe: ORANGE, minutes: false, scorers: false },
     rows: { bug: BUG_ROWS, caption: CAPTION_ROWS, replay: REPLAY_ROWS },
-    paintCard: (ctx, spec, t, _d, assets) => paintOps(ctx, cardLayout(spec, t, CARD_SEC, !!assets.logo), assets),
+    paintCard: (ctx, spec, t, _d, assets) => paintOps(ctx, cardLayout(spec, t, CARD_SEC, !!assets.logo, measureWith(ctx)), assets),
     paintCaption: (ctx, spec, t, d, assets) => paintOps(ctx, captionLayout(spec, t, !!assets.logo, d, measureWith(ctx)), assets),
     paintScoreBug: (ctx, bug, t, d, fade, assets) => paintOps(ctx, scoreBugLayout(bug, t, d, !!assets.logo, fade, measureWith(ctx)), assets),
     paintReplayTag: (ctx, t, d, _speed, assets) => paintOps(ctx, replayTagLayout(t, d, measureWith(ctx)), assets),

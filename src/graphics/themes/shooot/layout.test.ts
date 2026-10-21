@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { BUG_ROWS, OVERLAY_SCALE, leanShift, CAPTION_DELAY_SEC, CAPTION_ROWS, CAPTION_SEC, captionLayout, cardFade, cardLayout, replayTagLayout, scoreBugLayout, estimateTextWidth, type DrawOp, type PolyOp, type RectOp, type TextOp } from './layout'
 import { C } from './brandColors'
+import type { ScorerLine } from '../../types'
+import { END_LINE_Y, wrapMinutes } from './layout'
 import { INK_DARK } from '../../teamStyle'
 import type { BugSpec, CaptionSpec, CardSpec } from '../../types'
 
@@ -69,7 +71,9 @@ describe('cardLayout', () => {
     it('should keep a long scorers list on the card, ending with a +N MORE line', () => {
         const left = Array.from({ length: 9 }, (_, i) => ({ name: `PLAYER ${i}`, minutes: `'${i + 1}` }))
         const ops = cardLayout({ ...vs, heading: 'FULL TIME', centre: '9 - 0', scorers: { left, right: [] } }, 2, 4, false)
-        expect(textOf(ops)).toContain('+5 MORE')
+        // the block shrinks to its floor first, so more fit than at full size, then +N MORE
+        const more = textOf(ops).find((t) => t.endsWith(' MORE'))!
+        expect(more).toBe(`+${9 - texts(ops).filter((o) => o.text.startsWith('PLAYER')).length} MORE`)
         expect(Math.max(...texts(ops).map((o) => o.y))).toBeLessThan(1080 - 54)
     })
 
@@ -418,5 +422,153 @@ describe('captionLayout brand look', () => {
         const minute = texts(ops).find((o) => o.text === "34'")!
         expect(name.x + name.maxWidth!).toBeLessThanOrEqual(minute.x)
         expect(minute.x + estimateTextWidth("34'", minute.size, 'mono')).toBeLessThan(tag.x)
+    })
+})
+
+const ft = (left: ScorerLine[], right: ScorerLine[]): CardSpec => ({ ...vs, heading: 'FULL TIME', centre: '18 - 11', scorers: { left, right } })
+const mono8 = "9' 13' 13' 14' 16' 35' 37' 42'"
+const big = ft(
+    [{ name: 'MATT', minutes: "2' 5' 18' 24'" }, { name: 'RYAN', minutes: mono8 }, { name: 'JAMES', minutes: "1' 2' 3' 4'" }, { name: 'STEVE W', minutes: "2' 3'" }],
+    [{ name: 'ROB', minutes: "1' 2' 3'" }, { name: 'LEE', minutes: "5' 6'" }, { name: 'SAM TAYLOR', minutes: "7' 8' 9' 10'" }],
+)
+const scorerOps = (ops: DrawOp[]): TextOp[] => texts(ops).filter((o) => o.y > 650 && o.y < END_LINE_Y - 20 && (o.voice === 'mono' || o.voice === 'shirt'))
+
+describe('full-time scorers', () => {
+    it('should wrap an 8-goal scorer onto 2 lines at full size, between minutes', () => {
+        const ops = cardLayout(big, 2, 4, false)
+        const lines = texts(ops).filter((o) => o.voice === 'mono' && o.x > 500 && o.x < 960 && mono8.includes(o.text) && o.text.length > 3)
+        expect(lines).toHaveLength(2)
+        expect(lines.map((l) => l.text).join(' ')).toBe(mono8)
+        expect(lines[0].size).toBe(40)
+        expect(lines[1].y - lines[0].y).toBeGreaterThan(40)
+    })
+
+    it('should not break inside a minute and keep PEN with its minute', () => {
+        const w = (t: string, size: number): number => estimateTextWidth(t, size, 'mono')
+        const lines = wrapMinutes("13' 44' 51' 60' PEN 70'", 40, w("13' 44' 51' 60'", 40), w)
+        expect(lines.join(' ')).toBe("13' 44' 51' 60' PEN 70'")
+        expect(lines.every((l) => !l.startsWith('PEN'))).toBe(true)
+    })
+
+    it('should push the rows below a wrapped scorer down', () => {
+        const ops = cardLayout(big, 2, 4, false)
+        const y = (name: string): number => texts(ops).find((o) => o.text === name)!.y
+        expect(y('JAMES') - y('RYAN')).toBeGreaterThan(64)
+        expect(y('RYAN') - y('MATT')).toBe(64)
+    })
+
+    it('should never squash text: every op fits its maxWidth at its own size', () => {
+        for (const spec of [big, ft([{ name: 'A', minutes: mono8 }], [])]) {
+            for (const o of scorerOps(cardLayout(spec, 2, 4, false))) {
+                if (o.maxWidth) expect(estimateTextWidth(o.text, o.size, o.voice)).toBeLessThanOrEqual(o.maxWidth)
+            }
+        }
+    })
+
+    it('should keep the minutes column clear of the centre line and the safe area', () => {
+        const mins = texts(cardLayout(big, 2, 4, false)).filter((o) => o.voice === 'mono' && o.align === 'left' && o.y > 650 && o.y < END_LINE_Y - 20)
+        for (const o of mins) {
+            const right = o.x + Math.min(o.maxWidth ?? Infinity, estimateTextWidth(o.text, o.size, 'mono'))
+            expect(right).toBeLessThanOrEqual(o.x < 960 ? 940 : 1920 - 96)
+        }
+    })
+
+    it('should keep the block above the end line, shrinking uniformly when crowded', () => {
+        const names = ['AA', 'BB', 'CC', 'DD', 'EE', 'FF']
+        const crowd = ft(names.map((name) => ({ name, minutes: mono8 })), [])
+        const ops = cardLayout(crowd, 2, 4, false)
+        const rows = scorerOps(ops)
+        expect(Math.max(...rows.map((o) => o.y + o.size / 2))).toBeLessThanOrEqual(END_LINE_Y - 14)
+        const nameSize = texts(ops).find((o) => o.text === 'AA')!.size
+        const minSize = rows.find((o) => o.voice === 'mono')!.size
+        expect(nameSize).toBeLessThan(54)
+        expect(nameSize / 54).toBeCloseTo(minSize / 40) // names and minutes scale together
+    })
+
+    it('should fall back to +N MORE when even the smallest scale does not fit', () => {
+        const ten = ft(Array.from({ length: 10 }, (_, i) => ({ name: `P${i}`, minutes: `${i + 1}'` })), [])
+        const ops = cardLayout(ten, 2, 4, false)
+        const shown = texts(ops).filter((o) => /^P\d$/.test(o.text)).length
+        expect(shown).toBeLessThan(10)
+        expect(textOf(ops)).toContain(`+${10 - shown} MORE`)
+        expect(Math.max(...texts(ops).filter((o) => o.y < END_LINE_Y - 20).map((o) => o.y + o.size / 2))).toBeLessThanOrEqual(END_LINE_Y - 14)
+    })
+
+    it('should keep the simple 2-1 card at full size', () => {
+        const ops = cardLayout(ft([{ name: 'SAM', minutes: "3' 9'" }], [{ name: 'JO', minutes: "5'" }]), 2, 4, false)
+        expect(texts(ops).find((o) => o.text === 'SAM')!.size).toBe(54)
+    })
+})
+
+describe('end line', () => {
+    it('should sit at least 24 px above the TNF stripe band for its full height, with a record-red dot', () => {
+        const ops = cardLayout(ft([], []), 2, 4, false)
+        const t = texts(ops).find((o) => o.text === 'Made with Shooot')!
+        expect(t.y + t.size / 2 + 24).toBeLessThanOrEqual(1036)
+        expect(ops.find((o) => o.kind === 'circle' && o.fill === C.rec)).toMatchObject({ keepColour: true })
+    })
+})
+
+describe('line-ups on the VS card', () => {
+    const names = (n: number): string[] => Array.from({ length: n }, (_, i) => `PLAYER ${i + 1}`)
+    const withRoster = (l: string[], r: string[]): CardSpec => ({ ...vs, left: { ...left, roster: l }, right: { ...right, roster: r } })
+    const shirts = (ops: DrawOp[]): PolyOp[] => ops.filter((o): o is PolyOp => o.kind === 'poly' && !!o.stroke)
+
+    it('should leave the card exactly as before when neither team has a roster', () => {
+        const plain = cardLayout(vs, 2, 4, true)
+        expect(cardLayout({ ...vs, left: { ...left, roster: [] }, right: { ...right, roster: [] } }, 2, 4, true)).toEqual(plain)
+        expect(texts(plain).find((o) => o.text === 'RR')!.size).toBe(250)
+        expect(shirts(plain)).toHaveLength(0)
+    })
+
+    it('should list each name with a kit-colour shirt, left-aligned, in that team half', () => {
+        const ops = cardLayout(withRoster(['AL', 'BEN', 'CY'], []), 2, 4, false)
+        const t = texts(ops).filter((o) => ['AL', 'BEN', 'CY'].includes(o.text))
+        expect(t).toHaveLength(3)
+        expect(t.every((o) => o.voice === 'shirt' && o.align === 'left' && o.x < 960)).toBe(true)
+        expect(new Set(t.map((o) => o.x)).size).toBe(1)
+        expect(shirts(ops).map((p) => p.fill)).toEqual(['#f0f0f0', '#f0f0f0', '#f0f0f0'])
+    })
+
+    it('should shrink the initials and lift the heading, team name and kit bar to make room', () => {
+        const plain = cardLayout(vs, 2, 4, false)
+        const ops = cardLayout(withRoster(names(5), []), 2, 4, false)
+        expect(texts(ops).find((o) => o.text === 'RR')!.size).toBeLessThan(250)
+        expect(texts(ops).find((o) => o.text === 'WALFORD TOWN')!.y).toBeLessThan(texts(plain).find((o) => o.text === 'WALFORD TOWN')!.y)
+        expect(texts(ops).find((o) => o.text === 'MATCHDAY 1')!.y).toBeLessThan(texts(plain).find((o) => o.text === 'MATCHDAY 1')!.y)
+    })
+
+    it('should use one column up to 6 names, two up to 12, then +N MORE', () => {
+        const xs = (n: number): number => new Set(texts(cardLayout(withRoster(names(n), []), 2, 4, false)).filter((o) => o.text.startsWith('PLAYER')).map((o) => o.x)).size
+        expect(xs(5)).toBe(1)
+        expect(xs(6)).toBe(1)
+        expect(xs(8)).toBe(2)
+        expect(xs(12)).toBe(2)
+        expect(textOf(cardLayout(withRoster(names(13), []), 2, 4, false))).toContain('+2 MORE')
+    })
+
+    it('should keep the lists in their halves, above the bottom safe edge, with every name inside its width', () => {
+        const ops = cardLayout(withRoster(names(12), names(13)), 2, 4, false)
+        for (const o of texts(ops).filter((x) => /PLAYER|MORE/.test(x.text))) {
+            const w = Math.min(o.maxWidth ?? Infinity, estimateTextWidth(o.text, o.size, o.voice))
+            if (o.x < 960) expect(o.x + w).toBeLessThan(900)
+            else expect(o.x).toBeGreaterThan(960)
+            expect(o.x + w).toBeLessThanOrEqual(1920 - 96)
+            expect(o.y + o.size / 2).toBeLessThanOrEqual(1080 - 54)
+        }
+    })
+
+    it('should outline light kits dark and use the multicolour fill with an outline', () => {
+        const multi = { name: 'M', initials: 'M', colour: 'multi', ink: '#fff', roster: ['X'] }
+        const ops = cardLayout({ ...vs, left: { ...left, roster: ['A'] }, right: multi }, 2, 4, false)
+        const [light, mix] = shirts(ops)
+        expect(light.stroke).toBe(C.ground)
+        expect(mix.fill).toBe('multi')
+        expect(mix.stroke).toBe(C.ground)
+    })
+
+    it('should not draw rosters on the full-time card', () => {
+        const ops = cardLayout({ ...withRoster(names(3), names(3)), heading: 'FULL TIME', centre: '1 - 0' }, 2, 4, false)
+        expect(textOf(ops)).not.toContain('PLAYER 1')
     })
 })

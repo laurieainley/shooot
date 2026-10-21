@@ -126,6 +126,13 @@ export function paintOps(ctx: Ctx, ops: DrawOp[], assets: PaintAssets, look: Pai
                 const box = { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }
                 polyPath(ctx, op.points)
                 fillShape(ctx, op.fill, box, true)
+                if (op.stroke) {
+                    polyPath(ctx, op.points) // stripes leave their last band as the current path
+                    ctx.lineJoin = 'round'
+                    ctx.lineWidth = op.lineWidth ?? 3
+                    ctx.strokeStyle = op.stroke
+                    ctx.stroke()
+                }
                 break
             }
             case 'circle':

@@ -3,6 +3,7 @@
 import type { Box } from '../../paint'
 import { MULTI_OUTLINE } from '../../teamFill'
 import { INK_DARK, WHITE, type TeamBadge } from '../../teamStyle'
+import { rosterLayout } from '../../rosterLayout'
 
 export const NAVY = '#0f2347'
 export const NAVY_DARK = '#0c1a33'
@@ -36,23 +37,47 @@ export function estimateTextWidth(text: string, size: number): number {
 }
 
 
-function team(t: TeamBadge, cx: number): DrawOp[] {
-    const cy = 600
-    return [
-        { kind: 'shield', cx, cy, w: 250, h: 290, fill: t.colour, stroke: WHITE, lineWidth: 8, box: { x: SAFE_X, y: SAFE_Y, w: DESIGN_W - 2 * SAFE_X, h: 1060 - SAFE_Y } },
-        { kind: 'text', text: t.initials, x: cx, y: cy - 10, size: 120, color: t.ink === INK_DARK ? NAVY : t.ink, align: 'center', baseline: 'middle', maxWidth: 210, ...(t.colour === 'multi' ? { outline: MULTI_OUTLINE } : {}) },
-        { kind: 'text', text: t.name, x: cx, y: 845, size: 68, color: WHITE, align: 'center', baseline: 'alphabetic', maxWidth: Math.min(720, 2 * Math.min(cx - SAFE_X, 960 - Math.abs(cx - 960)) - 40) },
-        { kind: 'rect', x: cx - 60, y: 868, w: 120, h: 8, fill: t.colour },
+function team(t: TeamBadge, cx: number, compact: boolean, measure: MeasureText): DrawOp[] {
+    // With a line-up the shield and names sit higher to make room for it.
+    const cy = compact ? 450 : 600
+    const [w, h, size, nameY, barY] = compact ? [160, 186, 78, 610, 626] : [250, 290, 120, 845, 868]
+    const ops: DrawOp[] = [
+        { kind: 'shield', cx, cy, w, h, fill: t.colour, stroke: WHITE, lineWidth: 8, box: { x: SAFE_X, y: SAFE_Y, w: DESIGN_W - 2 * SAFE_X, h: 1060 - SAFE_Y } },
+        { kind: 'text', text: t.initials, x: cx, y: cy - (compact ? 6 : 10), size, color: t.ink === INK_DARK ? NAVY : t.ink, align: 'center', baseline: 'middle', maxWidth: compact ? 140 : 210, ...(t.colour === 'multi' ? { outline: MULTI_OUTLINE } : {}) },
+        { kind: 'text', text: t.name, x: cx, y: nameY, size: compact ? 56 : 68, color: WHITE, align: 'center', baseline: 'alphabetic', maxWidth: Math.min(720, 2 * Math.min(cx - SAFE_X, 960 - Math.abs(cx - 960)) - 40) },
+        { kind: 'rect', x: cx - 60, y: barY, w: 120, h: 8, fill: t.colour },
     ]
+    if (compact && t.roster?.length) ops.push(...rosterOps(t, cx, measure))
+    return ops
+}
+
+const ROSTER_SIZE = 42
+const ROSTER_STEP = 50
+const ROSTER_SHIELD_W = 30
+
+/** A team's line-up: a small kit-colour shield + name, left-aligned columns centred under the team. */
+function rosterOps(t: TeamBadge, cx: number, measure: MeasureText): DrawOp[] {
+    const layout = rosterLayout(t.roster ?? [], {
+        cx, top: 690, step: ROSTER_STEP, iconW: ROSTER_SHIELD_W, gap: 14, colGap: 40, maxHalf: 320,
+        measure: (s) => measure(s, ROSTER_SIZE),
+    })
+    const ops: DrawOp[] = []
+    for (const it of layout.items) {
+        ops.push({ kind: 'shield', cx: it.iconX + ROSTER_SHIELD_W / 2, cy: it.y, w: ROSTER_SHIELD_W, h: 34, fill: t.colour, stroke: WHITE, lineWidth: 3 })
+        ops.push({ kind: 'text', text: it.name, x: it.nameX, y: it.y, size: ROSTER_SIZE, color: WHITE, align: 'left', baseline: 'middle', maxWidth: it.maxWidth })
+    }
+    if (layout.more) ops.push({ kind: 'text', text: layout.more.text, x: layout.more.x, y: layout.more.y, size: 36, color: '#c9d6ea', align: 'left', baseline: 'middle', maxWidth: layout.more.maxWidth })
+    return ops
 }
 
 /** VS or full-time card at `t` seconds of a `duration`-second card (fades from and to black). */
-export function cardLayout(spec: CardSpec, t: number, duration: number, hasLogo: boolean): DrawOp[] {
+export function cardLayout(spec: CardSpec, t: number, duration: number, hasLogo: boolean, measure: MeasureText = estimateTextWidth): DrawOp[] {
+    const compact = spec.centre === 'VS' && !!(spec.left.roster?.length || spec.right.roster?.length)
     const ops: DrawOp[] = [{ kind: 'cardBackground' }]
     if (hasLogo) ops.push({ kind: 'logo', x: 960, y: 50, h: 170, align: 'center' })
     ops.push({ kind: 'text', text: spec.heading, x: 960, y: 320, size: 84, color: ORANGE, align: 'center', baseline: 'alphabetic', maxWidth: 1400 })
-    ops.push(...team(spec.left, 520), ...team(spec.right, 1400))
-    ops.push({ kind: 'text', text: spec.centre, x: 960, y: 610, size: spec.centre === 'VS' ? 200 : 220, color: WHITE, align: 'center', baseline: 'middle', maxWidth: 560 })
+    ops.push(...team(spec.left, 520, compact, measure), ...team(spec.right, 1400, compact, measure))
+    ops.push({ kind: 'text', text: spec.centre, x: 960, y: compact ? 450 : 610, size: spec.centre === 'VS' ? (compact ? 160 : 200) : 220, color: WHITE, align: 'center', baseline: 'middle', maxWidth: 560 })
     ops.push({ kind: 'rect', x: 0, y: 1060, w: 640, h: 20, fill: ORANGE }, { kind: 'rect', x: 640, y: 1060, w: 1280, h: 20, fill: BLUE })
     const fade = cardFade(t, duration)
     if (fade < 1) ops.push({ kind: 'rect', x: 0, y: 0, w: DESIGN_W, h: DESIGN_H, fill: '#000000', alpha: 1 - fade })

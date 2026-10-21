@@ -20,6 +20,22 @@ const cuts: Cut[] = [
 const build = (events: MatchEvent[], settings = ALL, c = cuts) =>
     buildGraphicsSpec({ events, teams, cuts: c, cumulativeOffsets: [0], settings, matchday: 'Matchday 3' })
 
+describe('opening card line-ups', () => {
+    const rostered: Team[] = [{ ...teams[0], roster: ['  sam taylor ', 'jo', ''] }, { ...teams[1], roster: [] }]
+    const make = (t: Team[]) => buildGraphicsSpec({ events: [ev('a', 12, { team: t[0].name })], teams: t, cuts, cumulativeOffsets: [0], settings: ALL, matchday: 'M' })
+
+    it('should add the upper-cased roster to the intro badges only', () => {
+        const spec = make(rostered)
+        expect(spec.intro?.left.roster).toEqual(['SAM TAYLOR', 'JO'])
+        expect(spec.intro?.right.roster).toBeUndefined()
+        expect(spec.outro?.left.roster).toBeUndefined()
+    })
+
+    it('should leave the intro unchanged for teams without rosters', () => {
+        expect(make(teams).intro).toEqual({ heading: 'M', centre: 'VS', left: expect.not.objectContaining({ roster: expect.anything() }), right: expect.not.objectContaining({ roster: expect.anything() }) })
+    })
+})
+
 describe('wantsLowerThird', () => {
     it('should cover goals, own goals, penalties and every highlight', () => {
         expect(wantsLowerThird({ type: 'goal' })).toBe(true)

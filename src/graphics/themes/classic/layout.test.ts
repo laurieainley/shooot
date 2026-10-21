@@ -283,3 +283,38 @@ describe('multicolour team in cards', () => {
         expect(ops.find((o): o is TextOp => o.kind === 'text' && o.text === 'AA')!.outline).toBeUndefined()
     })
 })
+
+describe('line-ups on the VS card', () => {
+    const names = (n: number): string[] => Array.from({ length: n }, (_, i) => `PLAYER ${i + 1}`)
+    const withRoster = (l: string[], r: string[]): CardSpec => ({ ...vs, left: { ...left, roster: l }, right: { ...right, roster: r } })
+
+    it('should leave the card exactly as before when neither team has a roster', () => {
+        const plain = cardLayout(vs, 2, 4, true)
+        expect(cardLayout({ ...vs, left: { ...left, roster: [] }, right: { ...right, roster: [] } }, 2, 4, true)).toEqual(plain)
+        expect(texts(plain).find((o) => o.text === 'RR')!.size).toBe(120)
+    })
+
+    it('should list names with small kit-colour shields, shrink the big shield and lift the name', () => {
+        const plain = cardLayout(vs, 2, 4, false)
+        const ops = cardLayout(withRoster(names(5), []), 2, 4, false)
+        const mini = ops.filter((o) => o.kind === 'shield' && o.w < 60)
+        expect(mini).toHaveLength(5)
+        expect(mini.every((o) => o.kind === 'shield' && o.fill === '#f0f0f0')).toBe(true)
+        expect(texts(ops).find((o) => o.text === 'RR')!.size).toBeLessThan(120)
+        expect(texts(ops).find((o) => o.text === 'WALFORD TOWN')!.y).toBeLessThan(texts(plain).find((o) => o.text === 'WALFORD TOWN')!.y)
+    })
+
+    it('should use two columns for 7 to 12 names and +N MORE beyond, inside the half and above the bottom bar', () => {
+        const xs = (n: number): number => new Set(texts(cardLayout(withRoster(names(n), []), 2, 4, false)).filter((o) => o.text.startsWith('PLAYER')).map((o) => o.x)).size
+        expect(xs(6)).toBe(1)
+        expect(xs(9)).toBe(2)
+        const ops = cardLayout(withRoster(names(14), names(14)), 2, 4, false)
+        expect(textOf(ops).filter((t) => t === '+3 MORE')).toHaveLength(2)
+        for (const o of texts(ops).filter((x) => /PLAYER|MORE/.test(x.text))) {
+            const w = Math.min(o.maxWidth ?? Infinity, estimateTextWidth(o.text, o.size))
+            expect(o.x < 960 ? o.x + w : o.x).toBeLessThan(o.x < 960 ? 900 : Infinity)
+            expect(o.x > 960 ? o.x : 961).toBeGreaterThan(960)
+            expect(o.y + o.size / 2).toBeLessThan(1060)
+        }
+    })
+})
