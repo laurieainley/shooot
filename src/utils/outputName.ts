@@ -17,8 +17,8 @@ export function shortTitle(title: string): string {
 }
 
 /**
- * The rendered file's name: "Matchday 3 - Whites 2-4 Colours.mp4" (title, then the final score in team order),
- * "… (full match)" for the full match and "… (preview)" for a preview render. Falls back to the plain kind name
+ * The rendered file's name: "Matchday 3 - Whites 2-4 Colours (highlights).mp4" (title, then the final score in team order),
+ * "… (full match)" for the full match, and ", preview" added for a preview render. Falls back to the plain kind name
  * when there is neither a title nor two named teams. A clip names the teams ("Whites v Colours", no score) and adds
  * "- 13' Goal DJ" after the title and teams (falling back to "Clip").
  */
@@ -36,6 +36,6 @@ export function outputFileName(a: { kind: 'highlights' | 'fullMatch' | 'clip'; p
         const what = c ? [c.minute === null ? '' : `${c.minute}'`, clean(c.label), c.person ? clean(c.person) : ''].filter(Boolean).join(' ') : ''
         return `${[base, what].filter(Boolean).join(' - ')}${preview}.mp4`
     }
-    const tags = [...(a.kind === 'fullMatch' && (title || score) ? ['full match'] : []), ...(a.preview ? ['preview'] : [])]
+    const tags = [...(title || score ? [a.kind === 'fullMatch' ? 'full match' : 'highlights'] : []), ...(a.preview ? ['preview'] : [])]
     return `${base}${tags.length ? ` (${tags.join(', ')})` : ''}.mp4`
 }

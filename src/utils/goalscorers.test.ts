@@ -23,7 +23,7 @@ describe('goalscorers', () => {
             at(5, { type: 'highlight', scorer: 'Sam Taylor' }),
         ]
         expect(goalscorers(events, teams)).toEqual({
-            scoreLine: 'WHI 4–2 CO',
+            scoreLine: 'Whites 4–2 Colours',
             lines: ['Sam Taylor: 2 (1 pen)', 'Alex Wu: 1', 'Jo Smith: 1', 'Priya: 1', 'Own goals: Ade 1'],
         })
     })
@@ -43,7 +43,7 @@ describe('goalscorers', () => {
 
     it('should leave out goals without a scorer and events whose file is missing', () => {
         const events = [g('Whites'), g('Colours', 'Priya', { unlinked: true })]
-        expect(goalscorers(events, teams)).toEqual({ scoreLine: 'WHI 1–0 CO', lines: [] })
+        expect(goalscorers(events, teams)).toEqual({ scoreLine: 'Whites 1–0 Colours', lines: [] })
     })
 
     it('should have no score line without two named teams', () => {
@@ -53,13 +53,13 @@ describe('goalscorers', () => {
 
 describe('goalscorersText', () => {
     it('should put a blank line between the score and the scorers', () => {
-        expect(goalscorersText([kick(0), at(60, { team: 'Whites', scorer: 'Sam' })], teams)).toBe('WHI 1–0 CO\n\nSam: 1')
+        expect(goalscorersText([kick(0), at(60, { team: 'Whites', scorer: 'Sam' })], teams)).toBe('Whites 1–0 Colours\n\nSam: 1')
     })
 })
 
 describe('goalscorersText without assists', () => {
     it('should never add an Assists section', () => {
         const events = [kick(0), at(60, { team: 'Whites', scorer: 'Sam', assist: 'Jo' })]
-        expect(goalscorersText(events, teams)).toBe('WHI 1–0 CO\n\nSam: 1')
+        expect(goalscorersText(events, teams)).toBe('Whites 1–0 Colours\n\nSam: 1')
     })
 })

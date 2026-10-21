@@ -1,5 +1,4 @@
 import type { MatchEvent, Team } from '../types'
-import { teamBadge } from '../graphics/teamStyle'
 import { linkedEvents } from './relink'
 import { finalScore, formatScore } from './score'
 
@@ -13,7 +12,7 @@ export type Goalscorers = { scoreLine: string; lines: string[] }
 export function goalscorers(events: MatchEvent[], teams: Team[]): Goalscorers {
     const linked = linkedEvents(events)
     const named = teams.length >= 2 && teams.slice(0, 2).every((t) => t.name.trim())
-    const scoreLine = named ? `${teamBadge(teams[0]).initials} ${formatScore(finalScore(linked, teams))} ${teamBadge(teams[1]).initials}` : ''
+    const scoreLine = named ? `${teams[0].name.trim()} ${formatScore(finalScore(linked, teams))} ${teams[1].name.trim()}` : '' // full names: initials read badly on YouTube
 
     const tally = (nameOf: (e: MatchEvent) => string | undefined): { name: string; goals: number; pens: number }[] => {
         const byName = new Map<string, { name: string; goals: number; pens: number }>()

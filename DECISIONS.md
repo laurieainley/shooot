@@ -11,6 +11,11 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-21
 
+- **User: highlights files say so, and YouTube text uses full team names.** Highlights are named "… Whites 18-11 Colours (highlights).mp4"
+  like "(full match)". The description's score line and chapter labels use the team names ("Whites 18–11 Colours", "Goal 1-0 (Whites)
+  Matt") instead of initials. Why: one-letter initials ("W 18–11 C") read badly on YouTube. Code: `utils/outputName.ts`, `utils/goalscorers.ts`,
+  `utils/chapters.ts`.
+
 - **Bug fix (user report): a cancelled export no longer blocks every later one.** Engine awaits now observe Cancel; a run that still hasn't
   stopped after 8 s is abandoned so the next export starts. Full match progress says "Rendering the match · N%" (no clip counter) and
   re-encoded stretches report as they go. The user's "Clip 1 of 58 · 97%" stall was not reproduced. Detail:
