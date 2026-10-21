@@ -275,6 +275,11 @@ npm run lint       # baseline: 12 known problems — add none
   storage costs ~0.25 s per read. Exception: the Find goals audio pass plans its own small audio-only byte ranges
   (`utils/readPlan.ts`, a few reads in flight) so it doesn't drag 4K video through 8 MB blocks; it reads the proxy/LRV
   when one is paired.
+- **Cancel must always get through.** Every await on the render path (encoder back-pressure, flush, decoder reads, unit/file writes,
+  finalize, mux) observes the abort (`render/abortable.ts`); a unit's `env.stop` does the same when the pool gives up. `renderJobs` gives a
+  cancelled run `STOP_GRACE_MS` (8 s) to settle, then abandons it so the next export can start (late results ignored; `claimJournal` /
+  `ownsJournal` stop it deleting a newer run's journal). A failure before the engine reports (e.g. Save to file can't write) still ends as
+  Failed with a diagnostics report; Copy diagnostics shows the latest ended run. Full match progress reads "Rendering the match · N%".
 - **Graphics never cost the reel.** If graphics or a crop fail, render without them and list them under "Rendered
   without: <label> — <reason>". Every render produces a diagnostics report (Copy diagnostics) — ask users for it.
 - **Background tabs:** no timers on the render path (Chrome throttles them in hidden tabs) — use `render/yield.ts`
