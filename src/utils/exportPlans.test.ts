@@ -107,7 +107,7 @@ describe('fullMatchExport', () => {
 describe('highlightsExport', () => {
     it('should plan the reel stream copied, ignoring a legacy score-always-on setting', () => {
         const p = highlightsExport(state(), 'full')
-        expect(p.outputName).toBe('Whites 1-0 Colours.mp4')
+        expect(p.outputName).toBe('Whites 1-0 Colours (highlights).mp4')
         expect(p.cuts.map((c) => [c.startSec, c.endSec, c.speed ?? 1])).toEqual([[50, 64, 1], [56, 61, 0.5]])
         expect(p.resumable).toBe(false)
         const legacy = highlightsExport(state({ graphics: { cards: true, lowerThirds: true, replayTag: false, scoreBug: true } as never }), 'full')

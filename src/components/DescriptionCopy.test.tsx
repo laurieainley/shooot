@@ -26,7 +26,7 @@ describe('DescriptionCopy', () => {
     it('should copy the highlights description and confirm', async () => {
         render(<DescriptionCopy kind="highlights" />)
         await userEvent.click(screen.getByRole('button', { name: 'Copy highlights description' }))
-        expect(writeText).toHaveBeenCalledWith('WH 1–0 CO\n\n00:00 Goal 1-0 (WH) Sam\n\nGoalscorers\nSam: 1')
+        expect(writeText).toHaveBeenCalledWith('Whites 1–0 Colours\n\n00:00 Goal 1-0 (Whites) Sam\n\nGoalscorers\nSam: 1')
         expect(await screen.findByText(/copied/i)).toBeInTheDocument()
     })
 
@@ -34,7 +34,7 @@ describe('DescriptionCopy', () => {
         render(<DescriptionCopy kind="fullMatch" />)
         expect(screen.queryByRole('button', { name: /highlights description/i })).not.toBeInTheDocument()
         await userEvent.click(screen.getByRole('button', { name: 'Copy full match description' }))
-        expect(writeText).toHaveBeenCalledWith('WH 1–0 CO\n\n00:00 Kick off\n00:20 Goal 1-0 (WH) Sam\n\nGoalscorers\nSam: 1')
+        expect(writeText).toHaveBeenCalledWith('Whites 1–0 Colours\n\n00:00 Kick off\n00:20 Goal 1-0 (Whites) Sam\n\nGoalscorers\nSam: 1')
     })
 
     it('should say the times are estimates until a render of the same plan exists, then use its real times', async () => {
@@ -52,6 +52,6 @@ describe('DescriptionCopy', () => {
     it('should copy the goalscorers', async () => {
         render(<DescriptionCopy kind="highlights" />)
         await userEvent.click(screen.getByRole('button', { name: 'Copy goalscorers' }))
-        expect(writeText).toHaveBeenCalledWith('WH 1–0 CO\n\nSam: 1')
+        expect(writeText).toHaveBeenCalledWith('Whites 1–0 Colours\n\nSam: 1')
     })
 })
