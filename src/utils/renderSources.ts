@@ -17,9 +17,11 @@ export function resolveRenderSources(
     return { sources, missing }
 }
 
-export function formatRenderProgress(p: RenderProgress): string {
+/** A full match is one long stretch split around replays: "Clip 3 of 58" says nothing there, so it says what it is doing instead. */
+export function formatRenderProgress(p: RenderProgress, kind?: 'highlights' | 'fullMatch' | 'clip'): string {
     const pct = `${Math.round(p.fraction * 100)}%`
-    return p.stage ? `${p.stage} · ${pct}` : `Clip ${p.cutIndex + 1} of ${p.cutCount} · ${pct}`
+    if (p.stage) return `${p.stage} · ${pct}`
+    return kind === 'fullMatch' ? `Rendering the match · ${pct}` : `Clip ${p.cutIndex + 1} of ${p.cutCount} · ${pct}`
 }
 
 /** The files without full quality that these cuts actually read (an unused proxy-only file does not count). */

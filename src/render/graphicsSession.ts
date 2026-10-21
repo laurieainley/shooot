@@ -12,6 +12,7 @@ import { describeOutput, encodeSegment, i420Frame, probeEncoders, withBitrate, t
 import { applyOverlay, convertRange, fadeI420, i420Layout, isYuv420, matrixOf, prepareOverlay, rgbaToI420, targetColorSpace, type PlaneLayout, type PreparedOverlay, type YuvPlanes } from './yuvBlend'
 import type { RenderCard, RenderOverlay } from './types'
 import { waitForQueue } from './yield'
+import { abortable, anyAbort, cancelledError } from './abortable'
 
 export type GraphicsSource = { video: InputVideoTrack; config: VideoDecoderConfig; nalLength: number }
 
@@ -46,6 +47,8 @@ export class GraphicsSession {
     private readonly footageParams: Map<GraphicsSource, Uint8Array[]>
     private readonly rescaled: Set<GraphicsSource>
     private readonly diag: RenderDiagnostics | undefined
+    /** The render's cancel signal: set by the engine so the encoders and decoders here stop when the user does. */
+    signal: AbortSignal | undefined
 
     constructor(o: {
         hevc: boolean; entry: VideoDecoderConfig; frameSec: number; width: number; height: number
@@ -127,7 +130,7 @@ export class GraphicsSession {
                 await encode(i420Frame(yuv, W, H, Math.round(i * frameSec * 1e6), durUs, this.colorSpace), i % keyEvery === 0)
                 onFrame?.((i + 1) / n)
             }
-        })
+        }, this.signal)
         if (packets.length !== n) throw new Error(`the encoder returned ${packets.length} of ${n} frames`)
         const ranks = presentationRanks(packets.map((p) => p.timestamp))
         const timed = packets.map((p, i) => p.clone({ timestamp: ranks[i] * frameSec, duration: frameSec }))
@@ -139,7 +142,7 @@ export class GraphicsSession {
      * key already dropped), `cutEnd` the end of its last frame. GOPs under an overlay are decoded, painted and
      * re-encoded; the rest are passed through. A span that fails is passed through unchanged and reported.
      */
-    async overlayCut(src: GraphicsSource, packets: EncodedPacket[], cutEnd: number, overlays: RenderOverlay[], onSpan?: (s: { outStart: number; outEnd: number; windowSec: number }) => void): Promise<OverlayResult> {
+    async overlayCut(src: GraphicsSource, packets: EncodedPacket[], cutEnd: number, overlays: RenderOverlay[], onSpan?: (s: { outStart: number; outEnd: number; windowSec: number }) => void, onFraction?: (f: number) => void): Promise<OverlayResult> {
         const keyIdx: number[] = []
         packets.forEach((p, i) => { if (p.type === 'key') keyIdx.push(i) })
         const gops: Gop[] = keyIdx.map((k, g) => {
@@ -151,11 +154,11 @@ export class GraphicsSession {
         const spans = overlaySpans(gops, cutEnd, overlays.map((o) => [o.startSec, o.startSec + o.durationSec]))
         const result: OverlayResult = { items: [], applied: [], skipped: [] }
         const replaced = new Map<number, { span: ReencodeSpan; packets: EncodedPacket[] }>()
-        for (const span of spans) {
+        for (const [si, span] of spans.entries()) {
             onSpan?.({ outStart: span.outStart, outEnd: span.outEnd, windowSec: span.windows.reduce((a, [x, y]) => a + (y - x), 0) })
             const mine = overlays.filter((o) => span.windows.some(([a, b]) => o.startSec < b && o.startSec + o.durationSec > a))
             try {
-                const out = await this.reencodeSpan(src, packets, keyIdx, span, mine)
+                const out = await this.reencodeSpan(src, packets, keyIdx, span, mine, onFraction ? (f) => onFraction((si + f) / spans.length) : undefined)
                 replaced.set(keyIdx[span.from], { span, packets: out })
                 result.applied.push(...mine.map((o) => o.label))
                 for (const o of mine) this.diag?.graphicApplied(o.label)
@@ -182,7 +185,7 @@ export class GraphicsSession {
         return result
     }
 
-    private async reencodeSpan(src: GraphicsSource, packets: EncodedPacket[], keyIdx: number[], span: ReencodeSpan, overlays: RenderOverlay[]): Promise<EncodedPacket[]> {
+    private async reencodeSpan(src: GraphicsSource, packets: EncodedPacket[], keyIdx: number[], span: ReencodeSpan, overlays: RenderOverlay[], onFraction?: (f: number) => void): Promise<EncodedPacket[]> {
         if (typeof VideoDecoder === 'undefined') throw new Error('this browser cannot decode video')
         const first = keyIdx[span.decodeFrom]
         let end = packets.length
@@ -240,6 +243,7 @@ export class GraphicsSession {
                     }
                     await encode(out, encodedCount === 0 || keyTimes.has(src0.timestamp))
                     encodedCount++
+                    if (encodedCount % 8 === 0) onFraction?.(Math.min(1, encodedCount / wanted.length))
                 }
                 for (const p of feed) {
                     if (decodeError) throw decodeError
@@ -247,15 +251,17 @@ export class GraphicsSession {
                     while (queue.length) await process(queue.shift()!)
                     while (decoder.decodeQueueSize > 4 && !decodeError) {
                         wake = new AbortController()
-                        await waitForQueue(decoder, 4, wake.signal)
+                        const stop = anyAbort(wake.signal, this.signal)
+                        try { await waitForQueue(decoder, 4, stop.signal) } finally { stop.dispose() }
                         wake = null
+                        if (this.signal?.aborted) throw cancelledError()
                         while (queue.length) await process(queue.shift()!)
                     }
                 }
-                await decoder.flush()
+                await abortable(decoder.flush(), this.signal)
                 while (queue.length) await process(queue.shift()!)
                 if (decodeError) throw decodeError
-            })
+            }, this.signal)
             if (encodedCount !== wanted.length || encoded.length !== wanted.length) throw new Error(`re-encoded ${encoded.length} of ${wanted.length} frames`)
             // Back onto the source's exact timestamps.
             const timed = encoded.map((p) => { const s = nearest(p.timestamp * 1e6); return p.clone({ timestamp: s.timestamp, duration: s.duration }) })

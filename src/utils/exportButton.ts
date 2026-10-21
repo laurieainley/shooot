@@ -2,6 +2,7 @@ import type { RenderJob } from '../renderJobs'
 
 export type ExportButtonStatus =
     | { kind: 'idle' }
+    | { kind: 'waiting' } // asked for an export while the cancelled one is still stopping: it starts next
     | { kind: 'running'; percent: number }
     | { kind: 'done' }
     | { kind: 'failed' }

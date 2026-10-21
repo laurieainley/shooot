@@ -4,6 +4,7 @@ import { EncodedPacket } from 'mediabunny'
 import { describeParams, errorInfo, type EncoderTry } from './diagnostics'
 import { lengthSize, paramSets, spsLimits, spsOf, type SpsLimits } from './nal'
 import { waitForQueue } from './yield'
+import { abortable, cancelledError } from './abortable'
 
 export type EncoderSetup = {
     config: VideoEncoderConfig
@@ -47,6 +48,8 @@ type Encoded = { packets: EncodedPacket[]; description: Uint8Array | null; codec
 export async function encodeSegment(
     config: VideoEncoderConfig,
     produce: (encode: (frame: VideoFrame, keyFrame: boolean) => Promise<void>) => Promise<void>,
+    /** Cancel: stops the encoder and every wait, even when the encoder never answers again. */
+    signal?: AbortSignal,
 ): Promise<Encoded> {
     const packets: EncodedPacket[] = []
     let description: Uint8Array | null = null
@@ -64,15 +67,20 @@ export async function encodeSegment(
         },
         error: (e) => { failure = e; failed.abort() },
     })
+    const onStop = (): void => { failure ??= cancelledError(); failed.abort() }
     try {
+        signal?.addEventListener('abort', onStop, { once: true })
+        if (signal?.aborted) onStop()
         enc.configure(config)
         await produce(async (frame, keyFrame) => {
             if (failure) { frame.close(); throw failure }
             try { enc.encode(frame, { keyFrame }) } finally { frame.close() }
             await waitForQueue(enc, 4, failed.signal)
+            if (failure) throw failure
         })
-        await enc.flush()
+        await abortable(enc.flush(), failed.signal).catch((e: unknown) => { throw failure ?? e })
     } finally {
+        signal?.removeEventListener('abort', onStop)
         if (enc.state !== 'closed') enc.close()
     }
     if (failure) throw failure instanceof Error ? failure : new Error(String(failure))

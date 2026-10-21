@@ -89,6 +89,18 @@ async function dir(kind: JobKind, create: boolean): Promise<FileSystemDirectoryH
     }
 }
 
+const journalClaims = new Map<JobKind, number>()
+/**
+ * A journaled run takes the folder of its kind. A cancelled run that got stuck and was given up on (renderJobs' stop time-out) may
+ * wake up later and clean up after itself: it may only delete the journal while its claim is still the latest, never one a newer run owns.
+ */
+export function claimJournal(kind: JobKind): number {
+    const n = (journalClaims.get(kind) ?? 0) + 1
+    journalClaims.set(kind, n)
+    return n
+}
+export const ownsJournal = (kind: JobKind, claim: number): boolean => journalClaims.get(kind) === claim
+
 /** Forgets the saved job of this kind (all kinds, and the pre-per-kind one, when omitted) and deletes its logs. */
 export async function discardJob(kind?: JobKind): Promise<void> {
     for (const k of kind ? [kind] : KINDS) {

@@ -20,7 +20,7 @@ import { DEFAULT_COEF, WorkMeter, cutShare, detectDeviceClass, factsOfSource, pl
 import { tightenOverlays } from './tightOverlays'
 import { encodeReplayAudio } from './replayAudio'
 import { makeSilentAudio, type SilentAudio } from './silentAudio'
-import { type JobKind, canJournal, discardJob, loadJob, openUnit, saveJob, type JobState, type UnitWriter } from './renderJob'
+import { type JobKind, canJournal, claimJournal, ownsJournal, discardJob, loadJob, openUnit, saveJob, type JobState, type UnitWriter } from './renderJob'
 import type { Cut, CutTiming, GraphicsReport, RenderCard, RenderFn, RenderGraphics, RenderOptions, RenderOverlay, RenderSource } from './types'
 
 const OUTPUT_NAME = 'highlights.mp4'
@@ -142,6 +142,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             const endSession = diag.begin('graphicsSession')
             try {
                 session = await openGraphicsSession([...used].map((i) => opened[i]), first, diag)
+                if (signal) session.signal = signal
             } catch (e) {
                 if (odd.length > 0) throw new Error(`Clips have different frame sizes and cannot be scaled in this browser: ${errorText(e)}`)
                 skip([...graphicLabels(run.graphics), ...cropLabels(cuts)], errorText(e), e)
@@ -221,7 +222,9 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
         // Where every cut really landed in the output (reported at the end, for the YouTube chapters).
         let timings: (CutTiming | null)[] = cuts.map(() => null)
         let timingsKnown = true
+        let claim = 0
         if (opts.resumable && await canJournal(jobKind)) {
+            claim = claimJournal(jobKind)
             const prev = await loadJob(jobKind)
             const same = prev && prev.signature === opts.resumable.signature && prev.graphics === !!run && prev.unitCount === cuts.length + 2
             if (same && prev.unitsDone > 0) {
@@ -407,7 +410,11 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                     const mine = overlays!.filter((o) => o.startSec < end && o.startSec + o.durationSec > start)
                     if (mine.length === 0) { for (const p of buf) yield { packet: p, generated: false, splice: false }; return }
                     onProgress({ cutIndex: ci, cutCount: cuts.length, fraction: fractionAt(done + cutWork(ci) * share(start)), stage: 'Graphics' })
-                    const r = await sess.overlayCut(src, buf, end, mine, opts.onStats ? (s) => spanStats.push(s) : undefined)
+                    // Long re-encoded stretches (a whole-cut graphic, a crop, 4K HEVC) report as they go, so the bar and the ETA keep moving.
+                    const from = share(start)
+                    const to = share(end)
+                    const r = await sess.overlayCut(src, buf, end, mine, opts.onStats ? (s) => spanStats.push(s) : undefined,
+                        (f) => onProgress({ cutIndex: ci, cutCount: cuts.length, fraction: fractionAt(done + cutWork(ci) * (from + (to - from) * f)), stage: 'Graphics' }))
                     // Scaled footage must not be copied unscaled into a file of another size: that is a failure.
                     if (rescale && r.skipped.length > 0) throw new Error(`${sources[cut.sourceIndex].name}: ${r.skipped[0].reason}`)
                     report.applied.push(...r.applied.filter(Boolean))
@@ -546,7 +553,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                 await direct.discard()
             }
             // A cancelled render is forgotten; anything else (a frozen tab, a failure) can be resumed.
-            if (journal && isAbort(e)) await discardJob(jobKind)
+            if (journal && isAbort(e) && ownsJournal(jobKind, claim)) await discardJob(jobKind)
             throw e
         }
     } finally {

@@ -49,6 +49,13 @@ export function startExport(kind: JobKind, quality: 'full' | 'preview', plan: Ex
 
 /** "Save to file…": asks where to save (call it inside the click), then renders straight into that file. Does nothing if the picker is cancelled. */
 export async function saveExportToFile(kind: JobKind, plan: ExportPlan, long: boolean): Promise<void> {
-    const handle = await pickSaveFile(plan.outputName)
+    let handle: FileSystemFileHandle | null
+    try {
+        handle = await pickSaveFile(plan.outputName)
+    } catch (e) {
+        // The picker itself failed (not cancelled): end as a Failed export with the reason, not silently.
+        void renderJobs().getState().start({ kind, quality: 'full', output: plan.output?.quality ?? 'original' }, async () => { throw new Error(`Could not open the save dialog: ${e instanceof Error ? e.message : String(e)}`) })
+        return
+    }
     if (handle) startExport(kind, 'full', plan, long, handle)
 }

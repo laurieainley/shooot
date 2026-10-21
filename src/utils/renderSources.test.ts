@@ -26,6 +26,11 @@ describe('resolveRenderSources', () => {
 })
 
 describe('formatRenderProgress', () => {
+    it('should not number the parts of a full match (it is split around replays), but say what it is doing', () => {
+        expect(formatRenderProgress({ cutIndex: 0, cutCount: 58, fraction: 0.97 }, 'fullMatch')).toBe('Rendering the match · 97%')
+        expect(formatRenderProgress({ cutIndex: 0, cutCount: 58, fraction: 0.5, stage: 'Graphics' }, 'fullMatch')).toBe('Graphics · 50%')
+        expect(formatRenderProgress({ cutIndex: 2, cutCount: 12, fraction: 0.5 }, 'highlights')).toBe('Clip 3 of 12 · 50%')
+    })
     it('should format clip count and percent', () => {
         expect(formatRenderProgress({ cutIndex: 2, cutCount: 12, fraction: 0.414 })).toBe('Clip 3 of 12 · 41%')
     })

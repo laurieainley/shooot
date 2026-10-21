@@ -189,6 +189,14 @@ describe('ExportPanel', () => {
             expect(screen.getByRole('button', { name: 'Export' })).toHaveTextContent('30%')
         })
 
+        it('should say Waiting on the button while an export waits for the cancelled one to stop', () => {
+            render(<ExportPanel />)
+            act(() => renderJobs().setState({ queued: true }))
+            expect(screen.getByRole('button', { name: 'Export' })).toHaveTextContent('Waiting')
+            act(() => renderJobs().setState({ queued: false }))
+            expect(screen.getByRole('button', { name: 'Export' })).not.toHaveTextContent('Waiting')
+        })
+
         it('should go back to idle when the render has finished', () => {
             renderJobs().setState({ job: { ...running, phase: 'done', finishedAt: Date.now() } })
             render(<ExportPanel />)
