@@ -158,6 +158,11 @@ npm run lint       # baseline: 12 known problems — add none
   painted). The first `onProgress` carries `estimateSec` (model total) which lands on `RenderJob.estimateSec`; `RenderJob.output` records the
   quality. **ETA** (`utils/renderEta.ts`): EMA of work-fraction per second blended with the model's expected total (x learned ratio),
   observation weight p/(p+0.1). Saved jobs' `done/total` are shares of work; older saved jobs are rescaled on resume.
+- **Cards (2026-10-21):** the VS card lists each team's roster when it has one (mini kit-colour shirt + name, left-aligned columns
+  centred under the team; ≤ 6 one column, 7–12 two, more "+N MORE"; `graphics/rosterLayout.ts`, `CardSpec.left/right.roster`, intro only;
+  the heading, initials, team name and kit bar shrink and move up when either team has a roster; classic uses mini shields). Full-time
+  scorers: minutes column 380 px, minutes wrap at full size between minutes, the block shrinks uniformly to 0.75, then "+N MORE".
+  "Made with Shooot" sits at y 990, clear of the TNF stripe band, and its dot is always REC red (`C.rec`, `keepColour`) in every theme.
 - **Chapters:** YouTube chapter times come from the real render timeline (engine `onTimeline` → `renderTimelines.ts`,
   matched by plan signature); until then an estimate from the render plan, flagged in the UI.
 - **Render storage:** outputs are written to OPFS first; `clearOldOutputs()` deletes earlier renders before each

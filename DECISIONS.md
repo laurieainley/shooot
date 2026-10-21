@@ -11,6 +11,13 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ## 2026-10-21
 
+- **User (design approved): cards.** The opening card shows the line-ups (shirt + name, left-aligned); end-card minutes never squash
+  (wrap at full size, then shrink the block evenly, then "+N MORE"); "Made with Shooot" moves up clear of the TNF stripe and its dot stays
+  REC red in every theme (the REPLAY dot keeps its theme colour). Why: an 8-goal scorer's minutes were squashed unreadably, the stripe
+  crowded the end line, red is the recording mark. Export panel: Highlights / Full match tabs stay pinned while scrolling; Share on
+  YouTube is three numbered steps with YouTube's icon on the upload button. Detail: `docs/superpowers/agents/briefs/cards-report.md`,
+  `exportshare-report.md`.
+
 - **User: highlights files say so, and YouTube text uses full team names.** Highlights are named "… Whites 18-11 Colours (highlights).mp4"
   like "(full match)". The description's score line and chapter labels use the team names ("Whites 18–11 Colours", "Goal 1-0 (Whites)
   Matt") instead of initials. Why: one-letter initials ("W 18–11 C") read badly on YouTube. Code: `utils/outputName.ts`, `utils/goalscorers.ts`,
