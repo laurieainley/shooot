@@ -70,7 +70,7 @@ describe('fullMatchExport', () => {
     it('should insert replays only when asked: longer, signature changes, still resumable, tag over the replay', () => {
         const off = fullMatchExport(state(), 'full')
         const on = fullMatchExport(state({ fullMatch: { cards: true, scoreBug: 'periodic', intervalMin: 5, captions: false, replays: true, quality: 'original' }, graphics: { cards: true, lowerThirds: true, replayTag: true, theme: 'shooot' } }), 'full')
-        expect(on.cuts.map((c) => [c.sourceIndex, c.startSec, c.endSec, c.speed ?? 1])).toEqual([[0, 30, 61, 1], [0, 56, 61, 0.5], [0, 61, 100, 1], [1, 0, 50, 1]])
+        expect(on.cuts.map((c) => [c.sourceIndex, c.startSec, c.endSec, c.speed ?? 1])).toEqual([[0, 30, 66, 1], [0, 56, 61, 0.5], [0, 66, 100, 1], [1, 0, 50, 1]])
         expect(on.seconds).toBe(off.seconds + 10) // the 5 s replay at 0.5x is added; the match itself is not shortened
         expect(on.signature).not.toBe(off.signature)
         expect(on.resumable).toBe(true)

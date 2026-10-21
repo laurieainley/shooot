@@ -83,26 +83,26 @@ describe('withReplays', () => {
         expect(withReplays(cuts, [{ id: 's', type: 'save', matchTimeSec: 50, sourceFileIndex: 0 }], [0], opts)).toEqual(cuts)
     })
 
-    it('should split after the replay window, insert the replay and resume with no gap', () => {
+    it('should play on until the caption has gone, then insert the replay and resume with no gap', () => {
         const out = withReplays(fullMatchCuts([100], 10, 90), [g('a', 40)], [0], opts)
-        expect(view(out)).toEqual([[0, 10, 41, undefined], [0, 37, 41, 0.5], [0, 41, 90, undefined]])
+        expect(view(out)).toEqual([[0, 10, 46, undefined], [0, 37, 41, 0.5], [0, 46, 90, undefined]])
         expect(out[1]).toMatchObject({ gain: 0.5 })
     })
 
     it('should keep each replay inside the file and split across a file boundary', () => {
         const cuts = fullMatchCuts([100, 100], 50, 150)
         const out = withReplays(cuts, [g('a', 99), g('b', 1, 1)], [0, 100], opts)
-        expect(view(out)).toEqual([[0, 50, 100, undefined], [0, 96, 100, 0.5], [1, 0, 2, undefined], [1, 0, 2, 0.5], [1, 2, 50, undefined]])
+        expect(view(out)).toEqual([[0, 50, 100, undefined], [0, 96, 100, 0.5], [1, 0, 7, undefined], [1, 0, 2, 0.5], [1, 7, 50, undefined]])
     })
 
     it('should clamp replays to kick-off and the final whistle', () => {
         const out = withReplays(fullMatchCuts([100], 10, 90), [g('a', 11), g('b', 89.5)], [0], opts)
-        expect(view(out)).toEqual([[0, 10, 12, undefined], [0, 10, 12, 0.5], [0, 12, 90, undefined], [0, 86.5, 90, 0.5]])
+        expect(view(out)).toEqual([[0, 10, 17, undefined], [0, 10, 12, 0.5], [0, 17, 90, undefined], [0, 86.5, 90, 0.5]])
     })
 
     it('should handle two goals close together in order, covering the match once', () => {
         const out = withReplays(fullMatchCuts([100], 0, 100), [g('b', 42), g('a', 40)], [0], opts)
-        expect(view(out)).toEqual([[0, 0, 41, undefined], [0, 37, 41, 0.5], [0, 41, 43, undefined], [0, 39, 43, 0.5], [0, 43, 100, undefined]])
+        expect(view(out)).toEqual([[0, 0, 42, undefined], [0, 37, 41, 0.5], [0, 42, 48, undefined], [0, 39, 43, 0.5], [0, 48, 100, undefined]])
         const live = out.filter((c) => c.speed === undefined)
         expect(live.reduce((s, c) => s + c.endSec - c.startSec, 0)).toBe(100)
     })

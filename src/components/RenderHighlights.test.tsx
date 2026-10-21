@@ -55,7 +55,7 @@ describe('RenderHighlights', () => {
         render(<RenderHighlights />)
         await userEvent.click(screen.getByRole('button', { name: /preview with proxies/i }))
         expect(renderReel).toHaveBeenCalledWith(
-            [{ sourceIndex: 0, startSec: 90, endSec: 104 }, { sourceIndex: 0, startSec: 96, endSec: 101, speed: 0.5, gain: 0.5 }],
+            [{ sourceIndex: 0, startSec: 90, endSec: 104 }, { sourceIndex: 0, startSec: 96, endSec: 102, speed: 0.5, gain: 0.5 }],
             [{ name: 'GL010226.LRV', file: proxy.file }],
             expect.objectContaining({ onProgress: expect.any(Function) }),
         )
@@ -74,7 +74,7 @@ describe('RenderHighlights', () => {
         await userEvent.click(screen.getByRole('button', { name: /preview with proxies/i }))
         expect(renderReel.mock.calls[0][0]).toEqual([
             { sourceIndex: 0, startSec: 90, endSec: 104 },
-            { sourceIndex: 0, startSec: 96, endSec: 101, speed: 0.5, gain: 0.5 },
+            { sourceIndex: 0, startSec: 96, endSec: 102, speed: 0.5, gain: 0.5 },
         ])
     })
 

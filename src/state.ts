@@ -293,7 +293,7 @@ export const useAppState = create<AppState>()(
             lengthAfterGoalSec: 4,
             // Slow-mo replay configuration
             replayBeforeSec: 4,
-            replayAfterSec: 1,
+            replayAfterSec: 2,
             replaySpeed: 0.5,
             // Undo/redo stacks
             undoStack: [],
@@ -801,7 +801,7 @@ export const useAppState = create<AppState>()(
                 suggestions: state.suggestions,
                 suggestionRun: state.suggestionRun,
             }),
-            version: 26,
+            version: 27,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -904,6 +904,9 @@ export const useAppState = create<AppState>()(
                     const names = rosters.flatMap((r) => (Array.isArray(r) ? r : []))
                     state.knownPlayers = rememberPlayers([], names.filter((n: unknown): n is string => typeof n === 'string'), Date.now())
                 }
+
+                // Replay window (v27): the old default of 1 s after the tag ended the replay as the ball crossed the line.
+                if (version < 27 && state.replayAfterSec === 1) state.replayAfterSec = 2
 
                 return state
             },

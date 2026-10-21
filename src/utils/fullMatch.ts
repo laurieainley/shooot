@@ -1,5 +1,6 @@
 // The full match export: every loaded file end to end, trimmed to kick-off … final whistle (stream copied).
 import type { MatchEvent } from '../types'
+import { CAPTION_DELAY_SEC, CAPTION_SEC } from '../graphics/layout'
 import type { Cut } from '../render/types'
 import { parseGoProName } from './gopro'
 import { finalWhistleSec, kickOffSec } from './matchClock'
@@ -31,34 +32,41 @@ export function fullMatchCuts(durations: number[], startSec: number, endSec: num
     return cuts
 }
 
+/** Seconds of live play after an event before its replay cuts in: the caption's delay plus its time on screen. */
+export const LIVE_BEFORE_REPLAY_SEC = CAPTION_DELAY_SEC + CAPTION_SEC
+
 /**
  * The match cuts with a slowed replay after each event that wants one (same rule, window, speed, gain and framing as
- * the highlights' replays). The match is split where the replay window ends (event + afterSec), so the live action
- * comes first, then the replay, then play resumes. A replay is clamped to the cut of its own file (never spans
+ * the highlights' replays). The live action plays on until the event's caption (or the score bug after a goal) has
+ * been up and gone (`LIVE_BEFORE_REPLAY_SEC`, or the end of the replay window if later), then the replay, then play
+ * resumes from there. A replay is clamped to the cut of its own file (never spans
  * files, never shows the warm-up before kick-off). Replay cuts carry `speed`; the match cuts stay stream-copied.
  */
 export function withReplays(matchCuts: Cut[], events: MatchEvent[], offsets: number[], replay: ReplayOptions): Cut[] {
     type Insert = { cutIndex: number; at: number; order: number; cut: Cut }
     const inserts: Insert[] = []
-    events
+    const wanted = events
         .filter(wantsReplay)
         .map((e) => ({ e, abs: (offsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec }))
         .sort((a, b) => a.abs - b.abs)
-        .forEach(({ e }, order) => {
-            const file = e.sourceFileIndex ?? 0
-            const t = e.matchTimeSec
-            const cutIndex = matchCuts.findIndex((c) => c.sourceIndex === file && c.startSec <= t && t <= c.endSec)
-            if (cutIndex === -1) return
-            const c = matchCuts[cutIndex]
-            const startSec = Math.max(c.startSec, t - replay.beforeSec)
-            const endSec = Math.min(c.endSec, t + replay.afterSec)
-            if (endSec <= startSec) return
-            const crop = replay.cropFor?.(e) ?? null
-            inserts.push({
-                cutIndex, at: endSec, order,
-                cut: { sourceIndex: file, startSec, endSec, speed: replay.speed, gain: REPLAY_GAIN, ...(crop ? { crop, cropLabel: `Replay zoom: ${eventLabel(e)} ${formatHMS(t)}` } : {}) },
-            })
+    wanted.forEach(({ e }, order) => {
+        const file = e.sourceFileIndex ?? 0
+        const t = e.matchTimeSec
+        const cutIndex = matchCuts.findIndex((c) => c.sourceIndex === file && c.startSec <= t && t <= c.endSec)
+        if (cutIndex === -1) return
+        const c = matchCuts[cutIndex]
+        const startSec = Math.max(c.startSec, t - replay.beforeSec)
+        const endSec = Math.min(c.endSec, t + replay.afterSec)
+        if (endSec <= startSec) return
+        // ...but never past the next replayed event in the same file, which must play live before its own replay.
+        const next = wanted[order + 1]
+        const nextSec = next && (next.e.sourceFileIndex ?? 0) === file ? next.e.matchTimeSec : Infinity
+        const crop = replay.cropFor?.(e) ?? null
+        inserts.push({
+            cutIndex, at: Math.max(endSec, Math.min(c.endSec, t + LIVE_BEFORE_REPLAY_SEC, nextSec)), order,
+            cut: { sourceIndex: file, startSec, endSec, speed: replay.speed, gain: REPLAY_GAIN, ...(crop ? { crop, cropLabel: `Replay zoom: ${eventLabel(e)} ${formatHMS(t)}` } : {}) },
         })
+    })
     if (inserts.length === 0) return matchCuts
     inserts.sort((a, b) => a.cutIndex - b.cutIndex || a.at - b.at || a.order - b.order)
     const out: Cut[] = []
