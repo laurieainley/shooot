@@ -97,6 +97,37 @@
 
   @media (prefers-reduced-motion: reduce) { .cap .goal, .cap .who, .eyebrow .sh-rec-dot { animation: none !important; transform: skewX(-10deg) !important; } }
 
+  /* Demo video in the hero frame */
+  .reel { position: absolute; inset: 0; }
+  .frame { scroll-margin-top: 80px; }
+  .frame[data-state="idle"], .frame[data-state="preview"] { cursor: pointer; }
+  .frame .vid { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; opacity: 0; pointer-events: none; transition: opacity .35s; z-index: 1; }
+  .frame[data-state="preview"] .vid { opacity: 1; }
+  .frame[data-state="playing"] .vid, .frame[data-state="ended"] .vid { opacity: 1; pointer-events: auto; transition: none; }
+  .frame[data-state="ended"] .vid { visibility: hidden; }
+  .play { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 0; border: 0; background: none; font: 600 14px/1 var(--sh-font); cursor: pointer; }
+  .play__disc { display: grid; place-items: center; width: 84px; height: 84px; border-radius: 50%; background: var(--sh-lime); color: var(--sh-on-lime); box-shadow: 0 8px 30px rgba(0,0,0,.5); transition: transform .15s; }
+  .play__disc svg { margin-left: 4px; }
+  .play:hover .play__disc { transform: scale(1.06); }
+  .play__label { background: rgba(11,15,13,.82); color: #F3F1EA; padding: 8px 12px; border-radius: 999px; white-space: nowrap; }
+  .play:focus-visible { outline: none; }
+  .play:focus-visible .play__disc { outline: 3px solid #F3F1EA; outline-offset: 4px; }
+  .frame[data-state="playing"] .play, .frame[data-state="ended"] .play { display: none; }
+  .vclose { position: absolute; right: 10px; top: 10px; z-index: 4; display: none; place-items: center; width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(243,241,234,.4); background: rgba(11,15,13,.78); color: #F3F1EA; cursor: pointer; }
+  .vclose:focus-visible { outline: 3px solid #F3F1EA; outline-offset: 2px; }
+  .frame[data-state="playing"] .vclose, .frame[data-state="ended"] .vclose { display: grid; }
+  .ended { position: absolute; inset: 0; z-index: 2; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 16px; text-align: center; background-color: #0B0F0D; background-size: cover; background-position: center; color: #F3F1EA; }
+  .ended::before { content: ""; position: absolute; inset: 0; background: rgba(11,15,13,.72); }
+  .ended > * { position: relative; }
+  .ended__t { margin: 0; font: italic 900 clamp(26px, 5vw, 40px)/1 var(--sh-font); text-transform: uppercase; }
+  .ended__ctas { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  .ended .btn--ghost { background: rgba(11,15,13,.6); color: #F3F1EA; border-color: rgba(243,241,234,.5); }
+  .frame[data-state="ended"] .ended { display: flex; }
+  .frame[data-state="playing"] .reel, .frame[data-state="ended"] .reel { visibility: hidden; }
+  @media (max-width: 599px) { .play__disc { width: 76px; height: 76px; } }
+  @media (orientation: landscape) and (max-height: 520px) { .frame { width: 100%; max-width: calc((100vh - 80px) * 1.6); margin: 0 auto; } }
+  @media (prefers-reduced-motion: reduce) { .frame .vid, .play__disc { transition: none; } }
+
   /* Sections */
   section { padding: 64px 0; border-top: 1px solid var(--sh-line); }
   @media (min-width: 960px) { section { padding: 96px 0; } }
@@ -164,11 +195,12 @@
         <p class="lede">Drop in the match footage and tag the big moments. <b>Shooot cuts every goal, adds slow-mo replays and a scoreboard</b>, and hands you a highlights reel for the group chat.</p>
         <div class="ctas">
           <a class="btn btn--primary" href="join.html">Get free early access</a>
-          <a class="btn btn--ghost" href="#how">How it works</a>
+          <button type="button" class="btn btn--ghost" id="watch"><span aria-hidden="true">▶</span> Watch the demo</button>
         </div>
         <p class="note">Free while in early access. GoPro, phone, whatever you’ve got.</p>
       </div>
-      <div class="frame" role="img" aria-label="A Shooot highlights reel playing: a scoreboard and captions for goals, saves, fouls and own goals by Nikhil, Ryan, A Lo and Shit Jack">
+      <div class="frame" id="frame" data-state="idle">
+        <div class="reel" id="reel" role="img" aria-label="A Shooot highlights reel playing: a scoreboard and captions for goals, saves, fouls and own goals by Nikhil, Ryan, A Lo and Shit Jack">
         <span class="ln" style="left: 50%; top: 0; bottom: 0; width: 0; border-width: 0 0 0 2px"></span>
         <span class="ln" style="left: calc(50% - 60px); top: calc(50% - 60px); width: 120px; height: 120px; border-radius: 50%"></span>
         <span class="ln" style="right: 0; top: 28%; width: 15%; height: 44%; border-right: 0"></span>
@@ -178,6 +210,19 @@
         <div class="cap" id="f-cap">
           <span class="goal" id="f-tag">Goal!</span>
           <span class="who"><span class="num" id="f-num">7</span><span class="name" id="f-name">Nikhil</span><span class="min" id="f-min">7′</span></span>
+        </div>
+        </div>
+        <button type="button" class="play" id="play" aria-label="Play the Shooot demo video (1 minute 21 seconds, with sound)">
+          <span class="play__disc"><svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg></span>
+          <span class="play__label">Watch the demo · 1:21</span>
+        </button>
+        <button type="button" class="vclose" id="vclose" aria-label="Close video"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        <div class="ended" id="ended">
+          <p class="ended__t">That’s the lot.</p>
+          <div class="ended__ctas">
+            <button type="button" class="btn btn--ghost" id="again">Watch again</button>
+            <a class="btn btn--primary" href="join.html">Get free early access</a>
+          </div>
         </div>
       </div>
     </div>
@@ -294,8 +339,72 @@
     $('f-replay').classList.toggle('is-hidden', !e.replay);
     if (!reduce) cap.classList.remove('is-off');
   }
-  var i = 0; show(0);
-  setInterval(function () { i = (i + 1) % events.length; show(i); }, 4000);
+  var i = 0, reelPaused = false; show(0);
+  setInterval(function () { if (!reelPaused) { i = (i + 1) % events.length; show(i); } }, 4000);
+
+  /* ---------- Demo video: only requested on hover or click ---------- */
+  var VIDEO = 'assets/video/shooot-demo-v1.mp4', POSTER = 'assets/video/shooot-demo-v1-poster.jpg';
+  var frame = $('frame'), playBtn = $('play'), vid = null, hoverTimer = 0;
+  var canHover = window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches && !reduce;
+  function state(s) { frame.dataset.state = s; reelPaused = s === 'playing' || s === 'ended'; }
+  function ensureVideo() {
+    if (vid) return vid;
+    vid = document.createElement('video');
+    vid.className = 'vid'; vid.preload = 'none'; vid.playsInline = true; vid.setAttribute('playsinline', '');
+    vid.poster = POSTER; vid.src = VIDEO;
+    vid.setAttribute('aria-label', 'Shooot demo video');
+    vid.addEventListener('ended', function () {
+      $('ended').style.backgroundImage = 'url(' + POSTER + ')';
+      vid.controls = false; state('ended'); $('again').focus({ preventScroll: true });
+    });
+    vid.addEventListener('error', function () { if (frame.dataset.state !== 'idle') close(); });
+    frame.insertBefore(vid, playBtn);
+    return vid;
+  }
+  function run(v) { var p = v.play(); if (p && p.catch) p.catch(function (e) { if (e && e.name === 'AbortError') return; if (frame.dataset.state !== 'idle') close(); }); }
+  function startPlaying() {
+    clearTimeout(hoverTimer);
+    var v = ensureVideo();
+    v.muted = false; v.volume = 1; v.controls = true;
+    try { v.currentTime = 0; } catch (e) {}
+    state('playing'); run(v); v.focus({ preventScroll: true });
+  }
+  function close() {
+    clearTimeout(hoverTimer);
+    if (vid) { vid.pause(); vid.controls = false; }
+    var had = frame.dataset.state !== 'idle';
+    state('idle');
+    if (had) playBtn.focus({ preventScroll: true });
+  }
+  frame.addEventListener('click', function (e) {
+    var s = frame.dataset.state;
+    if ((s === 'idle' || s === 'preview') && !e.target.closest('.vclose, .ended')) startPlaying();
+  });
+  $('watch').addEventListener('click', function () {
+    var r = frame.getBoundingClientRect();
+    if (r.top < 0 || r.bottom > window.innerHeight) frame.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+    startPlaying();
+  });
+  $('again').addEventListener('click', startPlaying);
+  $('vclose').addEventListener('click', close);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && frame.dataset.state !== 'idle' && !document.fullscreenElement) close();
+  });
+  if (canHover) {
+    frame.addEventListener('mouseenter', function () {
+      if (frame.dataset.state !== 'idle') return;
+      hoverTimer = setTimeout(function () {
+        if (frame.dataset.state !== 'idle') return;
+        var v = ensureVideo(); v.muted = true; v.controls = false;
+        try { v.currentTime = 0; } catch (e) {}
+        frame.dataset.state = 'preview'; run(v);
+      }, 250);
+    });
+    frame.addEventListener('mouseleave', function () {
+      clearTimeout(hoverTimer);
+      if (frame.dataset.state === 'preview') { vid.pause(); state('idle'); }
+    });
+  }
 })();
 </script>
 </body>
