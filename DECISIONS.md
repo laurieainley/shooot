@@ -9,6 +9,16 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ---
 
+## 2026-10-23 — Demo video in the landing hero; hidden /roadmap page (user + agent)
+- **Decision:** the finished demo (81 s, ElevenLabs Starter audio) is self-hosted on shooot.co.uk
+  (`site/assets/video/shooot-demo-v1.mp4`, 10.7 MB, CRF 26 faststart) and opens from a play button on the hero's animated
+  reel and a "Watch the demo" button (replacing "How it works"). Hover on desktop previews it muted; click plays it with
+  sound; nothing is downloaded until hover or click. The roadmap tiles live at `/roadmap`: linked from nowhere, `noindex`
+  (meta + `X-Robots-Tag`), not in the sitemap or robots.txt; built features removed, internal notes and real names taken out.
+- **Why:** the user wants an obvious way to watch the demo without losing the reel animation, and the roadmap on the site
+  without making it public. Self-hosting keeps the site free of third-party requests (CSP `default-src 'self'`).
+- **Where:** this merge (`site/index.html`, `site/roadmap.html`, `site/vercel.json`).
+
 ## 2026-10-23 — Highlights caption conceded penalties (user)
 - **Decision:** a penalty conceded gets a caption ("PENALTY CONCEDED", with who conceded it) in highlights and clip
   downloads, as it already did in the full match (`wantsLowerThird`, graphics/plan.ts). Supersedes the earlier rule that
