@@ -17,3 +17,17 @@ Running log of improvements noticed while building. Not committed to; for the us
 - **Unify scrub bubble and match clock** — the scrub bubble shows file time; the strip label shows match time once a kick-off is set.
 - **Vertical (9:16) clips with automatic reframing** (2026-10-10) — for sharing single highlights. Signal options, most robust first: follow the player cluster/motion (people are easy to detect; the ball at five-a-side wide angle is a few pixels and often hidden); bias towards the attacking goal at the moment of a goal (goal areas already exist); frame differencing / optical flow on the LRV (no model); in-browser detectors (YOLOv8/YOLO11 ONNX via ONNX Runtime Web + WebGPU, or MediaPipe object detector) on the LRV. Whatever the signal, a virtual camera (Kalman / one-euro smoothing + dead zone). Safest first version: user sets the crop at 2–3 keyframes, interpolated.
 - **Steer Find goals with the known final score** (2026-10-12) — rank suggestions, keep at least N top picks, stop early once the count is reached (the known final score is entered in New match / Match setup; today it only drives the "N to find" signal).
+- **Broadcast-style team intros from one photo per player** (2026-10-23, user) — an opening sequence like TV line-ups:
+  per team, a collage of the five players' headshots in the team's kit fades/animates in with the team name, then each
+  player with very slight movement (arms folded, a small step towards the camera, a blink or head turn). Made from a
+  single photo per player. Builds on the existing line-up title card (`cards()` in graphics/plan.ts, 7 s `INTRO_SEC`)
+  and the rosters. Ways to get there, cheapest first:
+  1. **Local, no AI video:** cut the player out of the photo in the browser (person segmentation, e.g. MediaPipe), lay
+     the cut-outs on the brand ground and animate them on the canvas (staggered slide/scale-in, slow push-in, light
+     parallax). Fits "video never leaves the device"; no face movement.
+  2. **Kit:** tint the shirt to the team's kit colour (segment the torso), or ask players for a photo in the shirt.
+  3. **Subtle motion:** a portrait-animation model (open source, e.g. LivePortrait) or a hosted image-to-video model for
+     the "fold arms / walk to camera" moves. Hosted models mean sending players' faces to a third party: needs a privacy
+     decision (consent of each player, UK GDPR) and a cost check. Generate once per player and reuse every match.
+  Open questions: where players' photos live (per device today, like `knownPlayers`), consent, and how long the intro
+  can run before people skip it.
