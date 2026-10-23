@@ -1,0 +1,780 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roadmap · Shooot</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#F1F3EE" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0B0F0D" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="stylesheet" href="fonts.css">
+<style>
+:root {
+  --ground: #F1F3EE; --surface: #FFFFFF; --surface-2: #E8ECE5; --line: #D5DDD3;
+  --text: #0A0D12; --muted: #56625A; --lime: #A8F03C; --on-lime: #0A0D12; --lime-text: #3F7A00;
+  --focus: #1F5FD6; --shadow: 0 1px 2px rgba(10,13,18,.06), 0 8px 24px rgba(10,13,18,.06);
+  --s-bg: #DDF5B8; --m-bg: #FBEFC2; --l-bg: #FBD5D0;
+  --font: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-shirt: "Big Shoulders Display", "Archivo Narrow", Impact, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #0B0F0D; --surface: #141B17; --surface-2: #1A2420; --line: #24302A;
+    --text: #F3F1EA; --muted: #8E9A92; --lime-text: #A8F03C; --focus: #7FB2FF;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+    --s-bg: #213512; --m-bg: #3A3213; --l-bg: #46201C;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #0B0F0D; --surface: #141B17; --surface-2: #1A2420; --line: #24302A;
+  --text: #F3F1EA; --muted: #8E9A92; --lime-text: #A8F03C; --focus: #7FB2FF;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  --s-bg: #213512; --m-bg: #3A3213; --l-bg: #46201C;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--ground); color: var(--text); font-family: var(--font); font-size: 16px; line-height: 1.5; overflow-x: hidden; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 16px; }
+
+/* header */
+header.top { padding: 40px 0 20px; }
+.brand { font-weight: 900; font-style: italic; font-stretch: 85%; font-size: clamp(36px, 8vw, 64px); line-height: 1; letter-spacing: -.02em; margin: 0; }
+.brand .o { color: var(--lime-text); }
+:root:not([data-theme="dark"]) .brand .o { color: var(--on-lime); background: var(--lime); padding: 0 .04em; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .brand .o { color: var(--lime-text); background: none; padding: 0; } }
+.brand .rm { font-weight: 800; }
+.home { display: inline-flex; align-items: center; min-height: 44px; margin-bottom: 8px; color: var(--muted); font-size: 15px; text-decoration: none; }
+.home:hover { color: var(--text); text-decoration: underline; }
+.intro { max-width: 60ch; color: var(--muted); font-size: 17px; margin: 14px 0 0; }
+.intro b { color: var(--text); font-weight: 600; }
+
+/* filters */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 0 24px; align-items: center; }
+.chip { font: 600 14px/1 var(--font); color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 11px 16px; min-height: 44px; cursor: pointer; }
+.chip:hover { background: var(--surface-2); }
+.chip[aria-pressed="true"] { border-color: var(--lime-text); box-shadow: inset 0 0 0 1px var(--lime-text); color: var(--lime-text); }
+.count { margin-left: auto; font: 400 13px var(--font-mono); color: var(--muted); }
+
+/* grid */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 20px; padding-bottom: 56px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow); min-width: 0; }
+.card[hidden] { display: none; }
+.body { padding: 16px 16px 14px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag, .src { font: 700 11px/1 var(--font); letter-spacing: .04em; text-transform: uppercase; padding: 6px 9px; border-radius: 999px; }
+.tag { background: var(--surface-2); color: var(--muted); }
+.src { border: 1px dashed var(--muted); color: var(--muted); }
+.src.new { border: 1px solid var(--lime-text); color: var(--lime-text); }
+.card h2 { margin: 0; font-weight: 900; font-style: italic; font-stretch: 85%; font-size: 24px; line-height: 1.1; letter-spacing: -.01em; text-transform: uppercase; }
+.card p { margin: 0; color: var(--text); font-size: 15px; }
+.from { font-size: 13px !important; color: var(--muted) !important; }
+.eff { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--muted); padding-top: 6px; border-top: 1px solid var(--line); }
+.size { flex: none; font: 700 13px/1 var(--font-mono); width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: var(--text); }
+.size.s { background: var(--s-bg); } .size.m { background: var(--m-bg); } .size.l { background: var(--l-bg); }
+.eff b { color: var(--text); font-weight: 600; }
+.needs { display: flex; flex-wrap: wrap; gap: 6px; }
+.needs span { font: 400 11px/1 var(--font-mono); border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; color: var(--muted); }
+.foot { margin-top: auto; padding-top: 4px; }
+.want { font: 600 14px/1 var(--font); color: var(--text); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 11px 16px; min-height: 44px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.want:hover { background: var(--surface-2); }
+.want svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
+.want[aria-pressed="true"] { border-color: var(--lime-text); color: var(--lime-text); box-shadow: inset 0 0 0 1px var(--lime-text); }
+.want[aria-pressed="true"] svg { fill: currentColor; }
+footer.end { border-top: 1px solid var(--line); padding: 20px 0 40px; color: var(--muted); font-size: 14px; }
+
+/* ===== mockups: depict a video/app, so fixed colours ===== */
+.mk { --k-ground: #0B0F0D; --k-surf: #141B17; --k-surf2: #1A2420; --k-line: #24302A; --k-text: #F3F1EA; --k-mut: #8E9A92; --k-lime: #A8F03C; --k-ink: #0A0D12; --k-rec: #FF3D2E; --k-white: #F3F1EA; --k-col: #F07A1A;
+  position: relative; height: 252px; background: var(--k-ground); color: var(--k-text); overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 11px; line-height: 1.3; font-family: var(--font); border-bottom: 1px solid var(--line); }
+.mk * { box-sizing: border-box; }
+.mk .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.mk .dim { color: var(--k-mut); }
+.mk .disp { font-weight: 900; font-style: italic; font-stretch: 85%; text-transform: uppercase; letter-spacing: -.01em; }
+.desk { width: calc(100% - 28px); max-width: 360px; height: 224px; background: var(--k-surf); border: 1px solid var(--k-line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
+.desk .tb { height: 22px; flex: none; background: var(--k-ground); border-bottom: 1px solid var(--k-line); display: flex; align-items: center; gap: 4px; padding: 0 8px; }
+.desk .tb i { width: 6px; height: 6px; border-radius: 50%; background: var(--k-line); }
+.desk .tb span { margin-left: 6px; font-size: 9.5px; color: var(--k-mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desk .db { flex: 1; padding: 10px; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.phone { width: 156px; height: 236px; border: 3px solid #2B3731; border-radius: 22px; background: var(--k-ground); overflow: hidden; padding: 12px 9px 8px; display: flex; flex-direction: column; gap: 6px; position: relative; flex: none; }
+.phone::before { content: ""; position: absolute; top: 4px; left: 50%; width: 30px; height: 4px; margin-left: -15px; background: #2B3731; border-radius: 4px; }
+.vid { position: relative; background: linear-gradient(180deg, #226E42, #17512F); overflow: hidden; border-radius: 4px; flex: none; }
+.vid::before { content: ""; position: absolute; inset: 14% 8%; border: 1.5px solid rgba(255,255,255,.35); }
+.vid::after { content: ""; position: absolute; left: 50%; top: 14%; bottom: 14%; width: 1.5px; background: rgba(255,255,255,.35); }
+.p { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: var(--k-white); box-shadow: 0 0 0 1px rgba(0,0,0,.35); z-index: 1; }
+.p.c { background: var(--k-col); }
+.ball { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px #000; z-index: 2; }
+.bug { position: absolute; z-index: 3; display: inline-flex; align-items: stretch; transform: skewX(-10deg); background: rgba(10,13,18,.92); font: 800 italic 9.5px/1 var(--font); font-stretch: 72%; letter-spacing: .02em; text-transform: uppercase; color: var(--k-text); overflow: hidden; border-radius: 2px; }
+.bug { white-space: nowrap; }
+.bug > * { padding: 4px 5px; display: flex; align-items: center; gap: 3px; }
+.bug .sc { background: var(--k-lime); color: var(--k-ink); font-size: 10.5px; }
+.bug .k { width: 5px; height: 5px; padding: 0; border-radius: 50%; background: var(--k-white); } .bug .k.c { background: var(--k-col); }
+.bug .t { font-family: var(--font-mono); font-style: normal; font-size: 8px; font-stretch: 100%; color: var(--k-mut); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; font: 800 10.5px/1 var(--font); padding: 7px 10px; border-radius: 6px; border: 1px solid var(--k-line); color: var(--k-text); background: var(--k-surf2); white-space: nowrap; }
+.btn.lime { background: var(--k-lime); color: var(--k-ink); border-color: var(--k-lime); }
+.pill { display: inline-block; font: 700 9px/1 var(--font-mono); padding: 3px 5px; border-radius: 4px; background: var(--k-surf2); color: var(--k-mut); border: 1px solid var(--k-line); white-space: nowrap; }
+.pill.ok { color: var(--k-lime); border-color: rgba(168,240,60,.4); }
+.bar { height: 6px; border-radius: 3px; background: var(--k-line); overflow: hidden; } .bar i { display: block; height: 100%; background: var(--k-lime); }
+.row { display: flex; align-items: center; gap: 6px; }
+.sp { flex: 1; min-width: 0; }
+.ell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chk { width: 12px; height: 12px; flex: none; border-radius: 50%; border: 1.5px solid var(--k-line); display: grid; place-items: center; }
+.chk.on { background: var(--k-lime); border-color: var(--k-lime); } .chk.on::after { content: ""; width: 4px; height: 2px; border-left: 1.5px solid var(--k-ink); border-bottom: 1.5px solid var(--k-ink); transform: rotate(-45deg) translate(0,-1px); }
+.chk.run { border-color: var(--k-lime); border-top-color: transparent; animation: spin 1.1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.thumb { width: 38px; height: 22px; flex: none; border-radius: 3px; background: linear-gradient(180deg, #226E42, #17512F); position: relative; }
+.thumb::after { content: ""; position: absolute; left: 14px; top: 6px; border: 5px solid transparent; border-left: 8px solid rgba(255,255,255,.85); border-right: 0; }
+@media (prefers-reduced-motion: reduce) { .chk.run { animation: none; } .mk * { animation: none !important; transition: none !important; } }
+/* specific mockups */
+.shirtname { font-family: var(--font-shirt); font-weight: 900; }
+.lbl { font: 700 9px/1 var(--font-mono); color: var(--k-mut); letter-spacing: .04em; text-transform: uppercase; }
+.awd { background: var(--k-surf); border: 1px solid var(--k-line); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.awd .ic { width: 22px; height: 22px; border-radius: 50%; background: var(--k-lime); color: var(--k-ink); display: grid; place-items: center; }
+.awd .ic svg { width: 13px; height: 13px; }
+.awd .n { font: 900 italic 22px/1 var(--font); font-stretch: 85%; }
+.star { width: 14px; height: 14px; flex: none; fill: none; stroke: var(--k-mut); stroke-width: 1.6; } .star.on { fill: var(--k-lime); stroke: var(--k-lime); }
+.ent { display: flex; align-items: center; gap: 4px; background: var(--k-surf); border: 1px solid var(--k-line); border-radius: 5px; padding: 4px 5px; width: 118px; position: relative; overflow: hidden; }
+.ent .fill { position: absolute; inset: 0 auto 0 0; background: rgba(168,240,60,.16); }
+.ent > *:not(.fill) { position: relative; }
+.ent.win { border-color: var(--k-lime); }
+.tbl { width: 100%; border-collapse: collapse; font-size: 10px; }
+.tbl th { font: 700 9px/1 var(--font); color: var(--k-mut); text-align: right; padding: 5px 3px; border-bottom: 1px solid var(--k-line); white-space: nowrap; }
+.tbl th:first-child, .tbl td:first-child { text-align: left; }
+.tbl th.sorted { color: var(--k-lime); }
+.tbl td { padding: 5px 3px; text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; border-bottom: 1px solid rgba(36,48,42,.7); }
+.tbl td:first-child { font-family: var(--font); font-weight: 600; white-space: nowrap; }
+.tbl td.sorted { color: var(--k-lime); font-weight: 700; }
+.tbl tr:first-child td { background: rgba(168,240,60,.07); }
+.rchip { font: 600 9.5px/1 var(--font); padding: 5px 7px; border-radius: 99px; border: 1px solid var(--k-line); background: var(--k-surf); color: var(--k-text); white-space: nowrap; }
+.rchip.on { border-color: var(--k-lime); color: var(--k-lime); }
+.num { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; background: var(--k-surf); border: 1px solid var(--k-line); font: 700 10px var(--font-mono); }
+.num.on { background: var(--k-surf2); border-color: var(--k-text); }
+.track { position: relative; height: 34px; border-radius: 4px; background: var(--k-ground); border: 1px solid var(--k-line); }
+.clip { position: absolute; top: 5px; bottom: 5px; border-radius: 3px; background: #2f7a4a; }
+.clip.g { background: var(--k-lime); }
+.lane { display: flex; align-items: center; gap: 5px; }
+.lane .track { flex: 1; height: 18px; }
+.lane .clip { top: 3px; bottom: 3px; }
+.toast { position: absolute; right: 18px; bottom: 16px; width: 170px; background: var(--k-surf2); border: 1px solid var(--k-line); border-radius: 8px; padding: 8px; box-shadow: 0 8px 20px rgba(0,0,0,.5); z-index: 5; display: flex; flex-direction: column; gap: 5px; }
+.row-ev { display: flex; align-items: center; gap: 5px; padding: 4px 5px; border: 1px solid var(--k-line); border-radius: 5px; background: var(--k-surf); }
+.dotg { width: 7px; height: 7px; border-radius: 50%; background: var(--k-lime); flex: none; }
+.rowc { display: flex; align-items: center; gap: 6px; padding: 5px 6px; border: 1px solid var(--k-line); border-radius: 6px; background: var(--k-surf); }
+.rowc.sel { border-color: var(--k-lime); background: var(--k-surf2); }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <a class="home" href="/">← Shooot home</a>
+  <h1 class="brand"><span>Shoo<span class="o">o</span>t</span> <span class="rm">Roadmap</span></h1>
+  <p class="intro">Ideas we're weighing up for Shooot, drawn as mock screens so you can picture them. <b>Nothing here is promised or built yet.</b> Tap "I want this" on the ones you'd use.</p>
+</header>
+<div class="filters" role="group" aria-label="Filter ideas by theme">
+  <button class="chip" type="button" data-filter="all" aria-pressed="true">All</button>
+  <button class="chip" type="button" data-filter="sports" aria-pressed="false">More sports</button>
+  <button class="chip" type="button" data-filter="share" aria-pressed="false">Share &amp; publish</button>
+  <button class="chip" type="button" data-filter="season" aria-pressed="false">Season &amp; awards</button>
+  <button class="chip" type="button" data-filter="community" aria-pressed="false">Community</button>
+  <button class="chip" type="button" data-filter="video" aria-pressed="false">Video smarts</button>
+  <button class="chip" type="button" data-filter="business" aria-pressed="false">Business</button>
+  <span class="count" id="count" aria-live="polite"></span>
+</div>
+<main class="grid" id="grid">
+
+<!-- 1 YouTube -->
+<article class="card" data-cat="share">
+ <div class="mk"><div class="desk"><div class="tb"><i></i><i></i><i></i><span>Export · Upload to YouTube</span></div><div class="db">
+  <div class="row"><div class="vid" style="width:96px;height:54px"><span class="p" style="left:20px;top:24px"></span><span class="p c" style="left:44px;top:36px"></span><span class="ball" style="left:34px;top:20px"></span><div class="bug" style="left:4px;top:4px"><span class="k"></span><span>WH</span><span class="sc">5–4</span><span>CO</span><span class="k c"></span></div></div>
+   <div class="sp"><div class="ell" style="font-weight:700;font-size:12px">TNF Week 14: Whites 5–4 Colours</div><div class="dim ell">Posting to TNF Five-a-side · Unlisted</div></div></div>
+  <div><div class="row" style="justify-content:space-between;margin-bottom:4px"><span style="font-weight:700">Uploading</span><span class="mono dim">412 / 640 MB · 64%</span></div><div class="bar"><i style="width:64%"></i></div></div>
+  <div style="display:flex;flex-direction:column;gap:5px">
+   <div class="row"><span class="chk on"></span>Channel connected</div>
+   <div class="row"><span class="chk run"></span>Uploading video</div>
+   <div class="row dim"><span class="chk"></span>Description with chapters</div>
+   <div class="row dim"><span class="chk"></span>Thumbnail</div></div>
+  <div class="row" style="justify-content:flex-end;margin-top:auto"><span class="btn">Cancel upload</span></div>
+ </div></div></div>
+ <div class="body"><div class="meta"><span class="tag">Share &amp; publish</span></div>
+  <h2>Export to YouTube</h2>
+  <p>Send the finished reel straight to your channel, with the title, chapters and thumbnail already filled in. Shooot already writes the description with chapters and makes the thumbnail, and "Open YouTube upload" is a link; what is left is uploading straight from Shooot, with no downloading and re-uploading.</p>
+  <div class="eff"><span class="size m">M</span><span><b>Medium.</b> Google sign-in and the YouTube upload API from the browser, plus a Vercel function for the OAuth step. Google must approve the app first.</span></div>
+  <div class="needs"><span>accounts</span><span>social integration</span><span>small backend</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+
+<!-- 2 shirts -->
+<article class="card" data-cat="business">
+ <div class="mk"><div class="row" style="gap:14px">
+  <svg width="124" height="132" viewBox="0 0 124 132" aria-hidden="true"><path d="M40 6 L16 18 L2 52 L24 62 L30 50 L30 126 L94 126 L94 50 L100 62 L122 52 L108 18 L84 6 C80 18 68 22 62 22 C56 22 44 18 40 6Z" fill="#F3F1EA" stroke="#B9B6AC" stroke-width="1.500"/><path d="M40 6 C44 18 56 22 62 22 C68 22 80 18 84 6" fill="none" stroke="#A8F03C" stroke-width="4"/><path d="M2 52 L24 62 M122 52 L100 62" stroke="#0A0D12" stroke-width="5"/><text x="62" y="52" text-anchor="middle" font-family="Big Shoulders Display, Impact, sans-serif" font-weight="900" font-size="15" letter-spacing="1" fill="#0A0D12">TAYLOR</text><text x="62" y="102" text-anchor="middle" font-family="Big Shoulders Display, Impact, sans-serif" font-weight="900" font-size="54" fill="#0A0D12">9</text></svg>
+  <div style="width:150px;display:flex;flex-direction:column;gap:7px">
+   <div><div class="disp" style="font-size:15px;line-height:1.05">Whites home shirt</div><div class="dim">Sam Taylor · No. 9</div></div>
+   <div class="row"><span class="mono" style="font-size:16px;font-weight:700">£34.00</span><span class="pill">printed free</span></div>
+   <div class="row" style="gap:4px"><span class="num">S</span><span class="num">M</span><span class="num on">L</span><span class="num">XL</span></div>
+   <div class="dim">Name and number print in the same font as the broadcast graphics.</div>
+   <span class="btn lime">Add to basket</span></div>
+ </div></div>
+ <div class="body"><div class="meta"><span class="tag">Business</span></div>
+  <h2>Sell players' shirts</h2>
+  <p>Each player gets a shirt with their own name and number, in the team's kit colours. A way for Shooot to earn without charging for the editor.</p>
+  <div class="eff"><span class="size l">L</span><span><b>Large.</b> Needs a print-on-demand partner, a shop, payments (Stripe) and order handling. Quite a different business from the editor, so partner first.</span></div>
+  <div class="needs"><span>payments</span><span>backend</span><span>print partner</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+
+<!-- 3 trophies -->
+<article class="card" data-cat="season">
+ <div class="mk"><svg width="330" height="228" viewBox="0 0 330 228" aria-label="Trophy cabinet with three trophies">
+  <rect x="15" y="8" width="300" height="212" rx="8" fill="#141B17" stroke="#2B3731" stroke-width="3"/>
+  <rect x="24" y="16" width="282" height="196" rx="4" fill="#0B0F0D"/>
+  <path d="M24 16 L130 16 L24 120Z" fill="rgba(255,255,255,.04)"/>
+  <rect x="24" y="108" width="282" height="5" fill="#2B3731"/><rect x="24" y="200" width="282" height="12" fill="#2B3731"/>
+  <g transform="translate(78 108)"><rect x="-17" y="-8" width="34" height="8" fill="#A8761D"/><rect x="-4" y="-22" width="8" height="14" fill="#E8B531"/><path d="M-22 -72 H22 V-52 A22 22 0 0 1 0 -28 A22 22 0 0 1 -22 -52Z" fill="#F2C230"/><path d="M-22 -66 C-36 -66 -36 -46 -22 -46 M22 -66 C36 -66 36 -46 22 -46" fill="none" stroke="#E8B531" stroke-width="4"/><path d="M-14 -68 V-54" stroke="#fff" stroke-opacity=".5" stroke-width="3" stroke-linecap="round"/></g>
+  <g transform="translate(165 108)"><rect x="-22" y="-8" width="44" height="8" fill="#2B3731"/><path d="M-20 -14 C-20 -30 -10 -38 6 -40 L10 -52 L18 -52 L16 -38 C26 -36 28 -26 24 -14Z" fill="#F2C230"/><path d="M-20 -14 H24" stroke="#A8761D" stroke-width="3"/></g>
+  <g transform="translate(252 108)"><rect x="-18" y="-8" width="36" height="8" fill="#2B3731"/><rect x="-3" y="-30" width="6" height="22" fill="#9AA6A0"/><circle cx="0" cy="-48" r="20" fill="#C9D2CC"/><path d="M0 -60 L4 -51 L14 -50 L7 -43 L9 -33 L0 -38 L-9 -33 L-7 -43 L-14 -50 L-4 -51Z" fill="#0A0D12"/></g>
+  <g font-family="JetBrains Mono, monospace" font-size="8" fill="#8E9A92" text-anchor="middle"><text x="78" y="126">CHAMPIONS</text><text x="78" y="137" fill="#F3F1EA">Whites · Autumn 26</text><text x="165" y="126">GOLDEN BOOT</text><text x="165" y="137" fill="#F3F1EA">Amy Lee · 41</text><text x="252" y="126">PLAYER OF SEASON</text><text x="252" y="137" fill="#F3F1EA">Dave Okafor</text></g>
+  <g stroke="#2B3731" stroke-width="2" fill="none"><rect x="48" y="156" width="60" height="30" rx="3" stroke-dasharray="4 3"/><rect x="135" y="156" width="60" height="30" rx="3" stroke-dasharray="4 3"/><rect x="222" y="156" width="60" height="30" rx="3" stroke-dasharray="4 3"/></g>
+  <g font-family="JetBrains Mono, monospace" font-size="8" fill="#8E9A92" text-anchor="middle"><text x="78" y="174">Spring 27</text><text x="165" y="174">Spring 27</text><text x="252" y="174">Spring 27</text></g>
+ </svg></div>
+ <div class="body"><div class="meta"><span class="tag">Season &amp; awards</span></div>
+  <h2>End-of-season trophies</h2>
+  <p>When a season closes, the group gets a cabinet: champions, golden boot, player of the season. Each one has a plate with the name and year.</p>
+  <div class="eff"><span class="size m">M</span><span><b>Medium.</b> The trophies come from stats across a season, so it needs saved match history (see the history card). The cabinet itself is just a page.</span></div>
+  <div class="needs"><span>match history</span><span>backend</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+
+<!-- 4 awards -->
+<article class="card" data-cat="season">
+ <div class="mk"><div style="width:calc(100% - 28px);max-width:340px;display:flex;flex-direction:column;gap:8px">
+  <div class="row" style="justify-content:space-between"><span class="disp" style="font-size:15px">Autumn 2026 awards</span><span class="lbl">TNF</span></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+   <div class="awd"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linejoin="round"><path d="M6 3h12l-1.500 16a2 2 0 0 1-2 2h-5a2 2 0 0 1-2-2z"/><path d="M6.500 9h11"/></svg></div><div class="n mono" style="font-style:normal">32/32</div><div style="font-weight:700">Never missed the pub</div><div class="dim">Jo Parker</div></div>
+   <div class="awd"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.200"><circle cx="12" cy="12" r="9"/><path d="M12 7l3 2-1 4h-4l-1-4z"/></svg></div><div class="n mono" style="font-style:normal">41</div><div style="font-weight:700">Goals record</div><div class="dim">Amy Lee · beats 37</div></div>
+   <div class="awd"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linecap="round"><path d="M5 20V9M12 20V4M19 20v-8"/></svg></div><div class="n mono" style="font-style:normal">30</div><div style="font-weight:700">Ever-present</div><div class="dim">Dave Okafor · games played</div></div>
+   <div class="awd"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></div><div class="n mono" style="font-style:normal">3</div><div style="font-weight:700">Hat-trick hero</div><div class="dim">Sam Taylor · hat-tricks</div></div>
+  </div></div></div>
+ <div class="body"><div class="meta"><span class="tag">Season &amp; awards</span></div>
+  <h2>Awards for turning up</h2>
+  <p>Light-hearted badges for the things the group already jokes about: never missing the pub, the season goals record, being ever-present.</p>
+  <div class="eff"><span class="size s">S</span><span><b>Small</b> once match history exists. Awards are just rules over saved stats, drawn as cards you can screenshot or add to the season reel.</span></div>
+  <div class="needs"><span>match history</span><span>backend</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+
+<!-- 5 best goals selection -->
+<article class="card" data-cat="season">
+ <div class="mk"><div class="desk"><div class="tb"><i></i><i></i><i></i><span>Autumn 2026 · All goals</span></div><div class="db" style="gap:6px">
+  <div class="row" style="justify-content:space-between"><span class="disp" style="font-size:14px">Goal of the season shortlist</span><span class="pill ok">5 of 38 starred</span></div>
+  <div class="rowc sel"><div class="thumb"></div><div class="sp"><div style="font-weight:700">Jo Parker, volley</div><div class="dim mono">Wk 3 · 12:41</div></div><svg class="star on" viewBox="0 0 24 24"><path d="M12 3l2.700 5.600 6.100.9-4.400 4.300 1 6.100L12 17l-5.400 2.900 1-6.100L3.200 9.500l6.100-.9z"/></svg></div>
+  <div class="rowc sel"><div class="thumb"></div><div class="sp"><div style="font-weight:700">Amy Lee, long range</div><div class="dim mono">Wk 7 · 31:08</div></div><svg class="star on" viewBox="0 0 24 24"><path d="M12 3l2.700 5.600 6.100.9-4.400 4.300 1 6.100L12 17l-5.400 2.900 1-6.100L3.200 9.500l6.100-.9z"/></svg></div>
+  <div class="rowc"><div class="thumb"></div><div class="sp"><div style="font-weight:700">Sam Taylor, tap-in</div><div class="dim mono">Wk 7 · 36:52</div></div><svg class="star" viewBox="0 0 24 24"><path d="M12 3l2.700 5.600 6.100.9-4.400 4.300 1 6.100L12 17l-5.400 2.900 1-6.100L3.200 9.500l6.100-.9z"/></svg></div>
+    <div class="row" style="justify-content:flex-end"><span class="btn lime">Make shortlist reel</span></div>
+ </div></div></div>
+ <div class="body"><div class="meta"><span class="tag">Season &amp; awards</span></div>
+  <h2>Pick the best goals</h2>
+  <p>Star the goals worth remembering as you edit each week. At the end of the season the stars become a shortlist reel.</p>
+  <div class="eff"><span class="size s">S</span><span><b>Small to try.</b> A star flag on each goal and a filter works in the browser today, saved in the project file. Gathering stars across weeks needs match history.</span></div>
+  <div class="needs"><span>browser only for one match</span><span>history for the season</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+
+<!-- 6 voting bracket -->
+<article class="card" data-cat="community">
+ <div class="mk"><div style="width:calc(100% - 20px);max-width:350px;display:flex;flex-direction:column;gap:8px">
+  <div class="row" style="justify-content:space-between"><span class="disp" style="font-size:14px">Goal of the season</span><span class="pill">31 votes · closes Sun</span></div>
+  <div class="row" style="align-items:center;gap:0">
+   <div style="display:flex;flex-direction:column;gap:12px">
+    <div style="display:flex;flex-direction:column;gap:3px"><div class="ent win"><span class="fill" style="width:62%"></span><span class="thumb" style="width:22px;height:13px"></span><span class="sp ell">Jo Parker</span><b class="mono">18</b></div><div class="ent"><span class="fill" style="width:38%"></span><span class="thumb" style="width:22px;height:13px"></span><span class="sp ell">Sam Taylor</span><b class="mono">11</b></div></div>
+    <div style="display:flex;flex-direction:column;gap:3px"><div class="ent"><span class="fill" style="width:35%"></span><span class="thumb" style="width:22px;height:13px"></span><span class="sp ell">Dave Okafor</span><b class="mono">9</b></div><div class="ent win"><span class="fill" style="width:65%"></span><span class="thumb" style="width:22px;height:13px"></span><span class="sp ell">Amy Lee</span><b class="mono">17</b></div></div>
+   </div>
+   <svg width="30" height="116" viewBox="0 0 30 116" fill="none" stroke="#24302A" stroke-width="2" aria-hidden="true"><path d="M0 25H12V58H30M0 91H12V58"/></svg>
+   <div style="display:flex;flex-direction:column;gap:3px"><div class="lbl">Final</div><div class="ent"><span class="thumb" style="width:22px;height:13px"></span><span class="sp ell">Jo Parker</span><b class="mono" style="color:#8E9A92">–</b></div><div class="ent"><span class="thumb" style="width:22px;height:13px"></span><span class="sp ell">Amy Lee</span><b class="mono" style="color:#8E9A92">–</b></div><span class="btn lime" style="margin-top:6px">Vote in final</span></div>
+  </div></div></div>
+ <div class="body"><div class="meta"><span class="tag">Community</span></div>
+  <h2>Vote on goal of the season</h2>
+  <p>Players get a link, pick their name from the squad list, and vote one-on-one through a short bracket. Everyone sees the winner reel at the end.</p>
+  <div class="eff"><span class="size l">L</span><span><b>Large.</b> Needs a backend for polls and votes, clip hosting so the link can play video, and a way to stop double voting. Voting by picking your name from the squad list means no logins.</span></div>
+  <div class="needs"><span>backend</span><span>clip hosting</span><span>match history</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+
+<!-- 8 goal of the month social -->
+<article class="card" data-cat="community">
+ <div class="mk"><div class="phone" style="width:176px;height:240px;padding:12px 0 0;gap:0">
+  <div class="row" style="padding:2px 8px 6px"><span style="width:18px;height:18px;border-radius:50%;background:#A8F03C;color:#0A0D12;display:grid;place-items:center;font:900 italic 10px var(--font)">S</span><div class="sp"><div style="font-weight:700;font-size:10px">shooot</div><div class="dim" style="font-size:8px">Goal of the Month</div></div></div>
+  <div class="vid" style="width:100%;height:132px;border-radius:0">
+   <span class="p" style="left:30px;top:70px"></span><span class="p c" style="left:60px;top:52px"></span><span class="p c" style="left:90px;top:84px"></span><span class="p" style="left:112px;top:62px"></span><span class="ball" style="left:130px;top:70px"></span>
+   <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(11,15,13,.1),rgba(11,15,13,.78));z-index:2"></div>
+   <div style="position:absolute;left:10px;bottom:10px;z-index:3"><div class="disp" style="font-size:9px;color:#A8F03C;letter-spacing:.06em">Goal of the Month · October</div><div class="disp" style="font-size:24px;line-height:.95;font-stretch:72%">Amy Lee</div><div class="dim mono" style="font-size:8px;color:#F3F1EA">Canal Sixes · Wk 7 · 31:08</div></div>
+   <div class="bug" style="right:-2px;top:8px"><span style="background:#A8F03C;color:#0A0D12">Winner</span></div>
+  </div>
+  <div style="padding:6px 8px;display:flex;flex-direction:column;gap:3px"><div style="font-size:9px"><b>shooot</b> The votes are in. 214 goals from 61 groups, and this left-footed screamer took it.</div><div class="dim" style="font-size:8px">Enter yours at editor.shooot.co.uk</div></div>
+ </div></div>
+ <div class="body"><div class="meta"><span class="tag">Community</span></div>
+  <h2>Goal of the Month</h2>
+  <p>A monthly competition across every group using Shooot. Players enter a goal, the community votes, and the winner is posted on Shooot's socials with the scorer credited.</p>
+  <div class="eff"><span class="size l">L</span><span><b>Large.</b> Needs accounts, an upload and moderation flow, clip hosting, public voting with abuse checks, and rights to repost. Only worth it once enough groups use the app.</span></div>
+  <div class="needs"><span>backend</span><span>accounts</span><span>clip hosting</span><span>social integration</span><span>moderation</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+
+<!-- 9 vertical -->
+<article class="card" data-cat="video">
+ <div class="mk"><div class="row" style="gap:10px">
+  <div style="display:flex;flex-direction:column;gap:5px"><div class="lbl">16:9 source</div>
+   <div class="vid" style="width:206px;height:116px"><span class="p" style="left:40px;top:50px"></span><span class="p c" style="left:70px;top:70px"></span><span class="p" style="left:98px;top:36px"></span><span class="p c" style="left:120px;top:60px"></span><span class="p" style="left:136px;top:84px"></span><span class="p c" style="left:158px;top:44px"></span>
+    <span class="ball" style="left:116px;top:52px"></span>
+    <div style="position:absolute;left:108px;top:40px;width:22px;height:22px;border:1.5px solid #fff;z-index:4;border-radius:3px"></div>
+    <div style="position:absolute;left:104px;top:28px;font:700 7px var(--font-mono);color:#fff;z-index:4;white-space:nowrap">ball .94</div>
+    <div style="position:absolute;left:88px;top:0;bottom:0;width:65px;border:2px solid #A8F03C;background:rgba(168,240,60,.1);z-index:3"></div>
+    <div style="position:absolute;left:0;top:0;bottom:0;width:88px;background:rgba(0,0,0,.45);z-index:3"></div><div style="position:absolute;left:153px;top:0;bottom:0;right:0;background:rgba(0,0,0,.45);z-index:3"></div>
+   </div>
+   <div class="mono dim" style="font-size:8.500px">Crop box follows the ball, smoothed</div></div>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E9A92" stroke-width="2.500" aria-hidden="true"><path d="M4 12h15m-6-6l6 6-6 6"/></svg>
+  <div style="display:flex;flex-direction:column;gap:5px;align-items:center"><div class="lbl">9:16 output</div>
+   <div style="width:68px;height:120px;border:3px solid #2B3731;border-radius:10px;overflow:hidden;position:relative;background:linear-gradient(180deg,#226E42,#17512F)">
+    <span class="p" style="left:8px;top:68px"></span><span class="p c" style="left:34px;top:48px"></span><span class="ball" style="left:30px;top:56px"></span>
+    <div class="disp" style="position:absolute;left:3px;right:3px;bottom:14px;font-size:9px;line-height:1;background:rgba(10,13,18,.9);padding:3px;transform:skewX(-10deg)">Jo Parker<br><span style="color:#A8F03C">Goal 2–1</span></div>
+   </div></div>
+ </div></div>
+ <div class="body"><div class="meta"><span class="tag">Video smarts</span></div>
+  <h2>Vertical clips that follow the ball</h2>
+  <p>Turn a wide match clip into a 9:16 clip for Reels, Shorts and TikTok. The crop follows the play, so each goal is ready to post from your phone.</p>
+  <div class="eff"><span class="size l">L</span><span><b>Large, and risky.</b> The ball is only a few pixels at five-a-side. The plan is to follow the player cluster first, or let you set 2 or 3 crop keyframes. Ball tracking comes after. All doable in the browser.</span></div>
+  <div class="needs"><span>browser only</span><span>on-device AI model</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+
+<!-- 10 white label -->
+<article class="card" data-cat="business">
+ <div class="mk" style="--k-lime:#FF8A1F;--k-surf:#1B1228;--k-surf2:#261A38;--k-ground:#120C1C;--k-line:#33244A"><div class="desk" style="background:#1B1228;border-color:#33244A"><div class="tb" style="background:#5B2A86;border-color:#5B2A86;height:30px"><span style="margin:0;display:flex;align-items:center;gap:6px;color:#fff"><b style="width:18px;height:18px;border-radius:4px;background:#FF8A1F;color:#1B1228;display:grid;place-items:center;font:900 10px var(--font)">KS</b><b style="font:800 italic 11px var(--font);font-stretch:85%;text-transform:uppercase">Kingsway Sixes League</b></span></div>
+  <div class="db"><div class="row" style="align-items:stretch;gap:8px">
+   <div class="vid" style="width:176px;height:100px"><span class="p" style="left:30px;top:50px"></span><span class="p c" style="left:70px;top:36px"></span><span class="p" style="left:110px;top:60px"></span><span class="ball" style="left:92px;top:48px"></span>
+    <div class="bug" style="left:6px;top:6px;background:rgba(27,18,40,.95)"><span class="k"></span><span>BRG</span><span class="sc" style="background:#FF8A1F">2–1</span><span>FNB</span><span class="k c" style="background:#5B2A86"></span></div>
+    <div class="bug" style="left:6px;bottom:6px;background:#5B2A86"><span>Kingsway Sixes · Div 2</span></div></div>
+   <div class="sp" style="display:flex;flex-direction:column;gap:5px"><div class="lbl">Fixture</div><div style="font-weight:700">Bridge Rovers v Fenbank</div><div class="dim">Div 2 · Pitch 3 · Tue 8pm</div><div class="lbl" style="margin-top:3px">Captain</div><div>Jo Parker</div></div></div>
+   <div class="row" style="margin-top:auto"><span class="pill">kingsway.shooot.co.uk</span><span class="sp"></span><span class="btn lime">Export match reel</span></div>
+  </div></div></div>
+ <div class="body"><div class="meta"><span class="tag">Business</span></div>
+  <h2>White label for league organisers</h2>
+  <p>For organisers like pay-and-play league organisers: their name, colours and sponsors on every reel, with a branded editor for the captains or a camera operator. The mock shows a made-up league.</p>
+  <div class="eff"><span class="size l">L</span><span><b>Large.</b> Themes already exist for graphics, so the look is the easy part. Real work: per-league accounts, fixtures and team lists, billing, support, and a per-organiser subdomain.</span></div>
+  <div class="needs"><span>accounts</span><span>payments</span><span>backend</span><span>sales</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+
+<!-- 11 stats -->
+<article class="card" data-cat="season">
+ <div class="mk"><div class="desk"><div class="tb"><i></i><i></i><i></i><span>TNF · Autumn 2026 · Stats</span></div><div class="db" style="padding:6px 8px">
+  <table class="tbl" aria-label="Example stats table"><thead><tr><th>Player</th><th>P</th><th class="sorted">G ▼</th><th>A</th><th>OG</th><th>W</th><th>D</th><th>L</th><th>MOTM</th></tr></thead><tbody>
+   <tr><td>Amy Lee</td><td>30</td><td class="sorted">41</td><td>12</td><td>0</td><td>19</td><td>4</td><td>7</td><td>6</td></tr>
+   <tr><td>Sam Taylor</td><td>31</td><td class="sorted">37</td><td>16</td><td>1</td><td>21</td><td>3</td><td>7</td><td>5</td></tr>
+   <tr><td>Jo Parker</td><td>32</td><td class="sorted">22</td><td>19</td><td>0</td><td>17</td><td>6</td><td>9</td><td>4</td></tr>
+   <tr><td>Dave Okafor</td><td>30</td><td class="sorted">3</td><td>5</td><td>2</td><td>16</td><td>5</td><td>9</td><td>7</td></tr>
+   <tr><td>Priya Shah</td><td>24</td><td class="sorted">9</td><td>8</td><td>0</td><td>11</td><td>4</td><td>9</td><td>1</td></tr>
+   <tr><td>Tom Reid</td><td>18</td><td class="sorted">6</td><td>3</td><td>1</td><td>7</td><td>2</td><td>9</td><td>0</td></tr>
+  </tbody></table>
+  <div class="dim mono" style="font-size:8.500px">P played · G goals · A assists · OG own goals · MOTM man of the match</div>
+ </div></div></div>
+ <div class="body"><div class="meta"><span class="tag">Season &amp; awards</span></div>
+  <h2>Group stats page</h2>
+  <p>One page for the group: appearances, goals, assists, own goals, wins, draws, losses and man of the match. Sort by any column and settle the arguments.</p>
+  <div class="eff"><span class="size m">M</span><span><b>Medium.</b> Goals, assists and own goals are already tagged on events. It needs saved match history to add up across weeks, plus a squad list so "Sam L" and "Sam Lowe" are one person. Most other cards build on this one.</span></div>
+  <div class="needs"><span>match history</span><span>backend</span><span>squad accounts</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+
+<!-- 12 ratings -->
+<article class="card" data-cat="community">
+ <div class="mk"><div class="phone" style="width:170px;height:240px">
+  <div class="lbl" style="margin-top:6px">Whites 5–4 Colours · Wk 14</div>
+  <div class="disp" style="font-size:15px;line-height:1">Rate Dave Okafor</div>
+  <div class="dim" style="font-size:9.500px">Goalkeeper · 2 clean-sheet saves</div>
+  <div class="row" style="gap:3px;justify-content:space-between"><span class="num">6</span><span class="num">7</span><span class="num on" style="background:#A8F03C;color:#0A0D12;border-color:#A8F03C">8</span><span class="num">9</span><span class="num">10</span></div>
+  <div class="lbl" style="margin-top:2px">Pick a phrase</div>
+  <div style="display:flex;flex-wrap:wrap;gap:4px"><span class="rchip on">Great save</span><span class="rchip">Ran all game</span><span class="rchip">Safe hands</span><span class="rchip">Unlucky</span></div>
+  <div style="display:flex;gap:5px;font-size:15px;line-height:1"><span class="rchip" style="padding:4px 7px">🔥</span><span class="rchip on" style="padding:4px 7px">👏</span><span class="rchip" style="padding:4px 7px">💪</span><span class="rchip" style="padding:4px 7px">😂</span></div>
+    <span class="btn" style="margin-top:auto;background:#F3F1EA;color:#0A0D12">Send rating</span>
+ </div></div>
+ <div class="body"><div class="meta"><span class="tag">Community</span></div>
+  <h2>Rate each other after the match</h2>
+  <p>Players score teammates and opponents, and add a fixed phrase or emoji. No typing, so no abuse. Ratings feed man of the match and the season stats.</p>
+  <div class="eff"><span class="size l">L</span><span><b>Large.</b> Needs a backend, a squad list and a way to know who is voting (a link where you claim your name from the squad list). Ratings could be anonymous in aggregate. Needs a tone check with a real group first.</span></div>
+  <div class="needs"><span>backend</span><span>squad identity</span><span>moderation by design</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+
+<!-- 13 season reel -->
+<article class="card" data-cat="season">
+ <div class="mk"><div class="desk"><div class="tb"><i></i><i></i><i></i><span>Sam Taylor · 2026 season reel</span></div><div class="db" style="gap:7px">
+  <div class="vid" style="height:104px;width:100%;background:linear-gradient(180deg,#0B0F0D,#17321F)">
+   <div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding-left:16px;z-index:2;gap:2px"><div class="disp" style="font-size:9px;color:#A8F03C;letter-spacing:.08em">TNF · Season 2026</div><div class="disp" style="font-size:26px;line-height:.95;font-stretch:72%">Sam Taylor</div><div class="mono" style="font-size:9px;margin-top:3px">14 goals · 9 assists · 28 games</div></div>
+   <div class="shirtname" style="position:absolute;right:10px;top:-6px;font-size:84px;color:rgba(255,255,255,.08);z-index:1">9</div>
+  </div>
+  <div class="track"><span class="clip" style="left:3%;width:6%"></span><span class="clip g" style="left:12%;width:5%"></span><span class="clip" style="left:21%;width:6%"></span><span class="clip g" style="left:31%;width:5%"></span><span class="clip g" style="left:40%;width:7%"></span><span class="clip" style="left:51%;width:5%"></span><span class="clip g" style="left:60%;width:6%"></span><span class="clip" style="left:70%;width:5%"></span><span class="clip g" style="left:80%;width:7%"></span><span class="clip g" style="left:91%;width:5%"></span></div>
+  <div class="row mono dim" style="justify-content:space-between;font-size:8.500px"><span>Wk 1</span><span>00:00</span><span>Goals shown lime · assists green</span><span>02:48</span><span>Wk 32</span></div>
+  <div class="row" style="justify-content:flex-end"><span class="btn lime">Export season reel</span></div>
+ </div></div></div>
+ <div class="body"><div class="meta"><span class="tag">Season &amp; awards</span></div>
+  <h2>Season reel for each player</h2>
+  <p>Every player gets their own highlights from the season or the year: title card, goals and assists in order, ready to share with the group chat.</p>
+  <div class="eff"><span class="size l">L</span><span><b>Large.</b> Needs history, and the original footage or saved clips from every week, because the SD card is long gone by December. Clip storage is the cost.</span></div>
+  <div class="needs"><span>match history</span><span>clip storage</span><span>backend</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+
+<!-- 14 history -->
+<article class="card" data-cat="season">
+ <div class="mk"><div class="desk"><div class="tb"><i></i><i></i><i></i><span>Events · Matches</span></div><div class="db" style="gap:6px">
+  <div class="row"><span class="chip-k" style="font-weight:700;border-bottom:2px solid #A8F03C;padding-bottom:3px">Matches</span><span class="dim" style="padding-bottom:3px">Events</span><span class="sp"></span><span class="pill">Autumn 2026</span></div>
+  <div class="rowc sel"><div class="sp"><div class="row" style="gap:5px"><span style="font-weight:700">Whites</span><span class="mono" style="font-weight:700;color:#A8F03C">5–4</span><span style="font-weight:700">Colours</span></div><div class="dim ell">Sam 2, Amy 2, Jo · Wk 14</div></div><span class="mono dim">Thu 8 Oct</span></div>
+  <div class="rowc"><div class="sp"><div class="row" style="gap:5px"><span style="font-weight:700">Whites</span><span class="mono" style="font-weight:700">3–3</span><span style="font-weight:700">Colours</span></div><div class="dim ell">Amy 2, Dave · Wk 13</div></div><span class="mono dim">Thu 1 Oct</span></div>
+  <div class="rowc"><div class="sp"><div class="row" style="gap:5px"><span style="font-weight:700">Whites</span><span class="mono" style="font-weight:700">2–6</span><span style="font-weight:700">Colours</span></div><div class="dim ell">Jo, Sam · Wk 12</div></div><span class="mono dim">Thu 24 Sep</span></div>
+  <div class="rowc"><div class="sp"><div class="row" style="gap:5px"><span style="font-weight:700">Whites</span><span class="mono" style="font-weight:700">4–1</span><span style="font-weight:700">Colours</span></div><div class="dim ell">Sam 3, Priya · Wk 11</div></div><span class="mono dim">Thu 17 Sep</span></div>
+ </div></div></div>
+ <div class="body"><div class="meta"><span class="tag">Season &amp; awards</span></div>
+  <h2>Shared match history</h2>
+  <p>Shooot already saves each match on the device you edited it on. This is the group's history shared across players and devices: score, scorers, date and file names, with any old week one tap away. It is what stats, trophies and season reels depend on.</p>
+  <div class="eff"><span class="size l">L</span><span><b>Large.</b> The first server piece: a small database and API, plus a secret squad edit link so the group shares one history. No video upload needed for this part.</span></div>
+  <div class="needs"><span>backend</span><span>database</span><span>squad edit link</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+
+<!-- 15 share summary -->
+<article class="card" data-cat="share">
+ <div class="mk"><div class="phone" style="width:170px;height:240px">
+  <div class="lbl" style="margin-top:6px">TNF · Thu 8 Oct · Pitch 2</div>
+  <div class="row" style="justify-content:space-between;align-items:flex-end"><div class="disp" style="font-size:13px;font-stretch:72%">Whites</div><div class="mono" style="font-size:24px;font-weight:700;line-height:1;color:#A8F03C">5–4</div><div class="disp" style="font-size:13px;font-stretch:72%">Colours</div></div>
+  <div style="font-size:9.500px;margin-top:2px"><div class="row"><span class="dotg"></span><span class="sp">Sam Taylor 2</span><span class="mono dim">12', 40'</span></div><div class="row"><span class="dotg" style="background:#F07A1A"></span><span class="sp">Amy Lee 2</span><span class="mono dim">18', 33'</span></div><div class="row"><span class="dotg"></span><span class="sp">Jo Parker</span><span class="mono dim">51'</span></div></div>
+  <div class="lbl" style="margin-top:3px">Chapters</div>
+  <div class="mono" style="font-size:9px;display:flex;flex-direction:column;gap:2px;color:#A8F03C"><span>00:42 Sam Taylor goal</span><span>12:07 Amy Lee goal</span><span>28:30 Jo Parker goal</span></div>
+  <span class="btn lime" style="margin-top:auto">Watch on YouTube</span>
+ </div></div>
+ <div class="body"><div class="meta"><span class="tag">Share &amp; publish</span></div>
+  <h2>Match summary page</h2>
+  <p>A single link for the group chat: final score, who scored, and chapter links that jump into the YouTube video. Looks right on a phone. You can already copy the description text with chapters; the page and link are not built.</p>
+  <div class="eff"><span class="size s">S</span><span><b>Small.</b> A static page built from data the app already has (score, scorers, chapters). Hosting it at a short link needs a tiny Vercel function to store the page, or you can just paste the text.</span></div>
+  <div class="needs"><span>small backend for a link</span><span>YouTube link</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+
+<!-- 16 background render -->
+<article class="card" data-cat="video">
+ <div class="mk"><div class="desk"><div class="tb"><i></i><i></i><i></i><span>Editor · Keep working</span></div><div class="db" style="flex-direction:row;gap:8px">
+  <div style="width:150px;display:flex;flex-direction:column;gap:6px"><div class="vid" style="height:84px;width:100%"><span class="p" style="left:30px;top:40px"></span><span class="p c" style="left:70px;top:28px"></span><span class="ball" style="left:52px;top:36px"></span><div class="bug" style="left:6px;top:6px"><span class="k"></span><span>WH</span><span class="sc">3–2</span><span>CO</span><span class="k c"></span><span class="t">34:18</span></div></div>
+   <div class="track" style="height:22px"><span class="clip g" style="left:10%;width:6%"></span><span class="clip g" style="left:30%;width:6%"></span><span class="clip g" style="left:52%;width:6%"></span><span class="clip g" style="left:76%;width:6%"></span></div></div>
+  <div class="sp" style="display:flex;flex-direction:column;gap:4px"><div class="row-ev"><span class="dotg"></span><span class="sp ell">Goal · Sam Taylor</span></div><div class="row-ev"><span class="dotg"></span><span class="sp ell">Goal · Amy Lee</span></div><div class="row-ev" style="border-color:#F3F1EA"><span class="dotg"></span><span class="sp ell">Goal · Jo Parker</span></div><div class="row-ev"><span class="dotg"></span><span class="sp ell">Goal · Dave Okafor</span></div></div>
+  <div class="toast"><div class="row" style="justify-content:space-between"><b>Rendering full match</b><span class="mono dim">38%</span></div><div class="bar"><i style="width:38%"></i></div><div class="dim">You can keep editing. We will tell you when it is done.</div><div class="row" style="justify-content:space-between"><span class="pill">Notify me</span><span class="mono dim">~6 min left</span></div></div>
+ </div></div></div>
+ <div class="body"><div class="meta"><span class="tag">Video smarts</span></div>
+  <h2>Tag the next match while one renders</h2>
+  <p>Start a full-match export, then switch to another match and keep tagging while it finishes. Shooot already sends a desktop notification when a render is done; what is left is switching matches mid-export, which today stops it.</p>
+  <div class="eff"><span class="size m">M</span><span><b>Medium.</b> Browser only. Keep the render running in the background while a different match is open, then show its progress and result wherever you are. Phones may still pause a tab in the background.</span></div>
+  <div class="needs"><span>browser only</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+
+<!-- 17 trim handles -->
+<article class="card" data-cat="video">
+ <div class="mk"><div class="desk"><div class="tb"><i></i><i></i><i></i><span>Goal · Jo Parker · 24:19</span></div><div class="db" style="gap:8px">
+  <div class="vid" style="height:88px;width:100%"><span class="p" style="left:70px;top:44px"></span><span class="p c" style="left:120px;top:30px"></span><span class="p c" style="left:150px;top:56px"></span><span class="p" style="left:210px;top:40px"></span><span class="ball" style="left:196px;top:44px"></span><div class="bug" style="left:8px;top:8px"><span class="k"></span><span>WH</span><span class="sc">2–1</span><span>CO</span><span class="k c"></span><span class="t">24:19</span></div></div>
+  <div style="position:relative;height:60px">
+   <div style="position:absolute;left:0;right:0;top:20px;height:8px;background:#24302A;border-radius:2px"></div>
+   <div style="position:absolute;left:18%;width:60%;top:10px;height:28px;background:rgba(168,240,60,.2);border-top:2px solid #A8F03C;border-bottom:2px solid #A8F03C"></div>
+   <div style="position:absolute;left:calc(18% - 5px);top:6px;width:10px;height:36px;background:#A8F03C;border-radius:3px"></div>
+   <div style="position:absolute;left:calc(78% - 5px);top:6px;width:10px;height:36px;background:#A8F03C;border-radius:3px"></div>
+   <div style="position:absolute;left:46%;top:2px;width:2px;height:44px;background:#F3F1EA"></div>
+   <div style="position:absolute;left:46%;top:2px;margin-left:-5px;width:12px;height:6px;background:#F3F1EA;clip-path:polygon(0 0,100% 0,50% 100%)"></div>
+   <div style="position:absolute;left:41%;top:24px;width:12px;height:12px;border-radius:50%;background:#A8F03C;border:2px solid #0A0D12;display:none"></div>
+   <div class="mono" style="position:absolute;left:5%;top:44px;font-size:9px;color:#A8F03C">−5 s</div>
+   <div class="mono" style="position:absolute;left:70%;top:44px;font-size:9px;color:#A8F03C">+8 s</div>
+   <div class="mono dim" style="position:absolute;left:0;top:-1px;font-size:8px">24:00</div><div class="mono dim" style="position:absolute;right:0;top:-1px;font-size:8px">24:40</div>
+  </div>
+  <div class="row" style="justify-content:space-between"><span class="dim">Clip length <b class="mono" style="color:#F3F1EA">13 s</b></span><span class="btn">Reset to default</span></div>
+ </div></div></div>
+ <div class="body"><div class="meta"><span class="tag">Video smarts</span></div>
+  <h2>Trim each clip by dragging</h2>
+  <p>Drag the ends of a goal's clip on the match strip to start it earlier or finish it later. Handy for the long build-up or the celebration you want to keep.</p>
+  <div class="eff"><span class="size s">S</span><span><b>Small.</b> Browser only. Events already carry their own before and after values, so this is mostly a touch-friendly handle on the strip, with snapping to the 1 s GOP so cuts stay fast.</span></div>
+  <div class="needs"><span>browser only</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+
+<!-- 18 two cameras -->
+<article class="card" data-cat="video">
+ <div class="mk"><div class="desk"><div class="tb"><i></i><i></i><i></i><span>Two cameras · Switch angle</span></div><div class="db" style="gap:6px">
+  <div class="row" style="gap:6px">
+   <div style="flex:1"><div class="lbl" style="margin-bottom:3px">Cam A · Halfway, wide</div><div class="vid" style="height:70px;width:100%"><span class="p" style="left:30px;top:30px"></span><span class="p c" style="left:60px;top:42px"></span><span class="p" style="left:90px;top:26px"></span><span class="ball" style="left:76px;top:36px"></span></div></div>
+   <div style="flex:1"><div class="lbl" style="margin-bottom:3px">Cam B · Behind goal</div><div class="vid" style="height:70px;width:100%;background:linear-gradient(180deg,#17512F,#226E42);outline:2px solid #A8F03C;outline-offset:-2px"><div style="position:absolute;left:28%;right:28%;top:6px;height:26px;border:2px solid #fff;border-bottom:0;background:repeating-linear-gradient(45deg,rgba(255,255,255,.18) 0 1px,transparent 1px 5px);z-index:1"></div><span class="p c" style="left:56px;top:48px;width:9px;height:9px"></span><span class="ball" style="left:68px;top:40px"></span></div></div></div>
+  <div class="lane"><span class="lbl" style="width:34px">Cam A</span><div class="track"><span class="clip" style="left:0;width:34%"></span><span class="clip" style="left:62%;width:38%"></span></div></div>
+  <div class="lane"><span class="lbl" style="width:34px">Cam B</span><div class="track"><span class="clip" style="left:34%;width:28%;background:#A8F03C"></span></div></div>
+  <div class="lane"><span class="lbl" style="width:34px;color:#F3F1EA">Out</span><div class="track" style="border-color:#F3F1EA"><span class="clip" style="left:0;width:34%"></span><span class="clip" style="left:34%;width:28%;background:#A8F03C"></span><span class="clip" style="left:62%;width:38%"></span></div></div>
+  <div class="row" style="justify-content:space-between"><span class="dim">Goal at 24:19 shows Cam B</span><span class="btn lime">Auto-pick best angle</span></div>
+ </div></div></div>
+ <div class="body"><div class="meta"><span class="tag">Video smarts</span></div>
+  <h2>Two cameras, one reel</h2>
+  <p>Film from the halfway line and behind a goal, line the two up, and cut between angles. Goals can show the closer angle in the replay.</p>
+  <div class="eff"><span class="size l">L</span><span><b>Large.</b> Browser only, but hard: sync two files (clap or audio match), two decoders in memory at once on a phone, and a UI for switching. Ends swap at half time, which the app already tracks.</span></div>
+  <div class="needs"><span>browser only</span><span>heavy on phones</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+
+<!-- 19 steer find goals -->
+<article class="card" data-cat="video">
+ <div class="mk"><div class="desk"><div class="tb"><i></i><i></i><i></i><span>Find goals · Review</span></div><div class="db" style="gap:6px">
+  <div class="row" style="justify-content:space-between"><div><div style="font-weight:700;font-size:12px">Known final score 5–4</div><div class="dim">9 goals to find · 8 kept so far</div></div><span class="pill ok">1 left</span></div>
+  <div class="bar"><i style="width:89%"></i></div>
+  <div class="rowc sel"><span class="chk on"></span><span class="mono" style="width:38px">24:19</span><span class="sp"><div class="bar" style="height:4px"><i style="width:96%"></i></div></span><span class="mono dim" style="width:26px;text-align:right">96%</span></div>
+  <div class="rowc sel"><span class="chk on"></span><span class="mono" style="width:38px">31:08</span><span class="sp"><div class="bar" style="height:4px"><i style="width:91%"></i></div></span><span class="mono dim" style="width:26px;text-align:right">91%</span></div>
+  <div class="rowc"><span class="chk"></span><span class="mono" style="width:38px">42:50</span><span class="sp"><div class="bar" style="height:4px"><i style="width:63%;background:#8E9A92"></i></div></span><span class="mono dim" style="width:26px;text-align:right">63%</span></div>
+  <div class="rowc"><span class="chk"></span><span class="mono" style="width:38px">17:33</span><span class="sp"><div class="bar" style="height:4px"><i style="width:41%;background:#8E9A92"></i></div></span><span class="mono dim" style="width:26px;text-align:right">41%</span></div>
+  <div class="row" style="justify-content:space-between;margin-top:auto"><span class="dim">Still missing? Look near 42:50</span><span class="btn lime">Review next</span></div>
+ </div></div></div>
+ <div class="body"><div class="meta"><span class="tag">Video smarts</span></div>
+  <h2>Use the final score to find goals</h2>
+  <p>You can already enter the final score in match setup, and Find goals shows how many goals are still "to find". What is left is using it: ranking suggestions to match, stopping once the count adds up, and pointing you at the best guess for the missing one.</p>
+  <div class="eff"><span class="size s">S</span><span><b>Small.</b> Browser only. Ranking and a stop rule on top of the existing audio suggestions and the "N to find" count.</span></div>
+  <div class="needs"><span>browser only</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+
+<article class="card" data-cat="sports">
+ <div class="mk"><div class="desk"><div class="tb"><i></i><i></i><i></i><span>New match · What are you filming?</span></div><div class="db" style="gap:7px">
+ <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+  <div class="rowc" style="flex-direction:column;align-items:flex-start;gap:2px"><b>Football</b><span class="dim">Goals · halves</span></div>
+  <div class="rowc sel" style="flex-direction:column;align-items:flex-start;gap:2px;border-color:#A8F03C"><b>Padel</b><span class="dim">Points · sets</span></div>
+  <div class="rowc" style="flex-direction:column;align-items:flex-start;gap:2px"><b>Tennis</b><span class="dim">Points · sets</span></div>
+  <div class="rowc" style="flex-direction:column;align-items:flex-start;gap:2px"><b>Netball</b><span class="dim">Goals · quarters</span></div>
+  <div class="rowc" style="flex-direction:column;align-items:flex-start;gap:2px"><b>Volleyball</b><span class="dim">Rally · sets to 25</span></div>
+  <div class="rowc" style="flex-direction:column;align-items:flex-start;gap:2px"><b>Basketball</b><span class="dim">1·2·3 pts</span></div></div>
+ <div class="dim">Padel: 2 v 2 · golden point on · best of 3 sets</div>
+ <div class="row" style="justify-content:flex-end;margin-top:auto"><span class="btn lime">Start tagging</span></div></div></div></div>
+ <div class="body"><div class="meta"><span class="tag">More sports</span></div>
+  <h2>Pick your sport</h2>
+  <p>Shooot stops being football-only. Each sport brings its own scoring, events and scorebug: padel and tennis count points, games and sets, netball plays quarters, and volleyball scores every rally to 25.</p>
+  <div class="eff"><span class="size l">L</span><span><b>Large.</b> Browser only, but it touches everything: the match model, event types, the scorebug and replay rules all become per-sport. Build football as the first "sport pack", then add the others one at a time.</span></div>
+  <div class="needs"><span>browser only</span><span>per-sport rules</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+<article class="card" data-cat="sports">
+ <div class="mk"><div class="vid" style="width:calc(100% - 28px);max-width:360px;height:200px;background:linear-gradient(180deg,#2B5FA8,#1E4683)">
+ <span class="p" style="left:90px;top:60px"></span><span class="p" style="left:120px;top:130px"></span><span class="p c" style="left:230px;top:70px"></span><span class="p c" style="left:250px;top:140px"></span><span class="ball" style="left:180px;top:96px;background:#E6F24A"></span>
+ <div style="position:absolute;left:8px;top:8px;z-index:3;transform:skewX(-10deg);background:rgba(10,13,18,.92);font:800 italic 10px/1 var(--font);font-stretch:72%;color:#F3F1EA;display:grid;grid-template-columns:auto 18px 18px 18px 26px">
+  <span style="padding:5px 6px">MAYA / TOM</span><span style="padding:5px 0;text-align:center">6</span><span style="padding:5px 0;text-align:center">3</span><span style="padding:5px 0;text-align:center"></span><span style="padding:5px 0;text-align:center;background:#A8F03C;color:#0A0D12">40</span>
+  <span style="padding:5px 6px;color:#8E9A92">JO / DAVE</span><span style="padding:5px 0;text-align:center;color:#8E9A92">4</span><span style="padding:5px 0;text-align:center">5</span><span></span><span style="padding:5px 0;text-align:center;background:#1A2420">AD</span></div>
+ <div style="position:absolute;right:8px;bottom:8px;z-index:3;background:#A8F03C;color:#0A0D12;font:900 italic 12px/1 var(--font);font-stretch:85%;text-transform:uppercase;padding:6px 9px;transform:skewX(-10deg)">Set point</div></div></div>
+ <div class="body"><div class="meta"><span class="tag">More sports</span></div>
+  <h2>Padel and tennis scorebug</h2>
+  <p>A proper set-and-game scorebug that ticks over as you tag each point won. Shooot flags set points and match points, and the highlights cut the best rallies rather than goals.</p>
+  <div class="eff"><span class="size m">M</span><span><b>Medium.</b> Browser only. New tennis-style scoring (deuce, golden point, tie-breaks) feeding the existing scorebug painter. Spotting rallies from the sound of ball strikes is a stretch goal.</span></div>
+  <div class="needs"><span>browser only</span><span>padel first</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+<article class="card" data-cat="sports">
+ <div class="mk"><div class="desk"><div class="tb"><i></i><i></i><i></i><span>Netball · Q3 · Tag</span></div><div class="db" style="gap:6px">
+ <div class="row"><div class="vid" style="width:120px;height:68px;background:linear-gradient(180deg,#8A5A2B,#6E4520)"><span class="p" style="left:30px;top:30px"></span><span class="p c" style="left:70px;top:22px"></span><span class="ball" style="left:56px;top:16px"></span>
+  <div class="bug" style="left:4px;top:4px"><span class="k"></span><span>RED</span><span class="sc">31–28</span><span>BLU</span><span class="k c"></span><span class="t">Q3 9:12</span></div></div>
+  <div class="sp" style="display:flex;flex-direction:column;gap:4px"><span class="btn lime">Goal</span><span class="btn">Missed shot</span><span class="btn">Interception</span></div></div>
+ <div class="lbl">Who scored?</div>
+ <div class="row" style="flex-wrap:wrap;gap:4px"><span class="rchip on">GS · Priya</span><span class="rchip">GA · Hannah</span><span class="rchip">GS · Mel</span><span class="rchip">GA · Tash</span></div>
+ <div class="dim">Positions come from the bibs, so stats split by GS and GA.</div></div></div></div>
+ <div class="body"><div class="meta"><span class="tag">More sports</span></div>
+  <h2>Netball, basketball and volleyball</h2>
+  <p>Team court sports with quarters, positions and lots of scoring. Netball tags by bib (GS, GA), basketball counts 1, 2 and 3 pointers, and volleyball tracks rally scoring and sets.</p>
+  <div class="eff"><span class="size m">M</span><span><b>Medium.</b> Browser only, once "Pick your sport" exists. Many more scoring events per match than football, so the tag flow needs one-tap buttons, and highlights favour runs of points rather than every score.</span></div>
+  <div class="needs"><span>browser only</span><span>needs sport packs</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+<article class="card" data-cat="video">
+ <div class="mk"><div class="phone" style="">
+ <div class="row" style="justify-content:space-between"><span class="pill ok">● Syncing with GoPro</span></div>
+ <div style="text-align:center;margin-top:6px"><div class="disp" style="font-size:30px">2–1</div><div class="mono dim">34:18</div></div>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:auto">
+  <div class="btn" style="padding:20px 4px;font-size:11px;white-space:normal;text-align:center;line-height:1.15;background:#F3F1EA;color:#0A0D12">Whites goal</div>
+  <div class="btn" style="padding:20px 4px;font-size:11px;white-space:normal;text-align:center;line-height:1.15;background:#F07A1A;color:#0A0D12;border-color:#F07A1A">Colours goal</div></div>
+ <div class="btn" style="width:100%">Something worth a look</div>
+ <div class="dim" style="text-align:center">Last: Whites goal · 31:02</div></div></div>
+ <div class="body"><div class="meta"><span class="tag">Video smarts</span></div>
+  <h2>Tag goals live from the touchline</h2>
+  <p>A sub or the keeper taps "Whites goal" on their phone as it happens. When you load the GoPro footage later, the goals are already marked, so tagging an hour of football takes a minute.</p>
+  <div class="eff"><span class="size m">M</span><span><b>Medium.</b> Small backend to hold the live taps, then line up phone time with the footage using the GoPro’s clock (and the kick-off tag to correct drift). Works offline and syncs later.</span></div>
+  <div class="needs"><span>small backend</span><span>accounts optional</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+<article class="card" data-cat="video">
+ <div class="mk"><div class="desk"><div class="tb"><i></i><i></i><i></i><span>Goal · Sam Taylor · Commentary</span></div><div class="db" style="gap:6px">
+ <div class="vid" style="height:84px;width:100%"><span class="p" style="left:120px;top:36px"></span><span class="p c" style="left:160px;top:50px"></span><span class="ball" style="left:220px;top:36px"></span>
+  <div style="position:absolute;left:8px;right:8px;bottom:6px;z-index:3;background:rgba(10,13,18,.8);padding:4px 6px;border-radius:4px;font-style:italic">"Taylor cuts inside… oh, that is a beauty! Top corner, and the Whites lead!"</div></div>
+ <div class="lbl">Voice</div>
+ <div class="row" style="flex-wrap:wrap;gap:4px"><span class="rchip on">Excitable</span><span class="rchip">Deadpan</span><span class="rchip">Radio classic</span><span class="rchip">Off</span></div>
+ <div class="row" style="margin-top:auto;justify-content:space-between"><span class="dim">Uses names, score and minute</span><span class="btn lime">Preview</span></div></div></div></div>
+ <div class="body"><div class="meta"><span class="tag">Video smarts</span></div>
+  <h2>AI commentary on every goal</h2>
+  <p>Shooot writes a line of commentary for each goal from what you tagged (scorer, assist, score, minute) and voices it over the replay. Pick a voice style, or switch it off.</p>
+  <div class="eff"><span class="size m">M</span><span><b>Medium.</b> A small backend calls an LLM for the line and a text-to-speech service for the voice, then the audio is mixed into the replay. Costs pennies per match, so it suits a paid tier.</span></div>
+  <div class="needs"><span>small backend</span><span>paid APIs</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+<article class="card" data-cat="community">
+ <div class="mk"><div class="phone" style="">
+ <div class="disp" style="font-size:15px">Thursday teams</div>
+ <div class="dim">10 in · balanced on last 8 weeks</div>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+  <div class="awd" style="padding:5px;gap:1px"><span class="lbl" style="color:#F3F1EA">Whites</span><span>Sam · Amy</span><span>Jo · Raj</span><span>Ben</span></div>
+  <div class="awd" style="padding:5px;gap:1px"><span class="lbl" style="color:#F07A1A">Colours</span><span>Dave · Lee</span><span>Mo · Kat</span><span>Tom</span></div></div>
+ <div class="row" style="justify-content:space-between"><span class="dim">Strength</span><span class="mono">51 · 49</span></div>
+ <div class="row" style="margin-top:auto;gap:4px"><span class="btn" style="flex:1">Shuffle</span><span class="btn lime" style="flex:1">Share</span></div></div></div>
+ <div class="body"><div class="meta"><span class="tag">Community</span></div>
+  <h2>Pick fair teams</h2>
+  <p>Shooot splits whoever is playing into two even sides using goals, assists, ratings and who won recently, then posts the teams to the group chat. Fewer 9–2 thrashings.</p>
+  <div class="eff"><span class="size s">S</span><span><b>Small.</b> Browser only once match history exists. A simple balancing score over each player’s recent stats, with a shuffle button for when it gets it wrong.</span></div>
+  <div class="needs"><span>needs match history</span><span>browser only</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+<article class="card" data-cat="business">
+ <div class="mk"><div class="phone" style="">
+ <div class="disp" style="font-size:15px">Thu 19:00 · Powerleague</div>
+ <div class="row" style="justify-content:space-between"><span>9 of 10 in</span><span class="pill ok">1 space</span></div>
+ <div class="bar"><i style="width:90%"></i></div>
+ <div class="row-ev"><span class="dotg"></span><span class="sp">Sam</span><span class="mono dim">Paid £6</span></div>
+ <div class="row-ev"><span class="dotg"></span><span class="sp">Amy</span><span class="mono dim">Paid £6</span></div>
+ <div class="row-ev"><span class="dotg" style="background:#8E9A92"></span><span class="sp">Jo</span><span class="mono" style="color:#FF3D2E">Owes £6</span></div>
+ <div class="row" style="margin-top:auto;gap:4px"><span class="btn" style="flex:1">I'm out</span><span class="btn lime" style="flex:1">I'm in · £6</span></div></div></div>
+ <div class="body"><div class="meta"><span class="tag">Business</span></div>
+  <h2>Who's playing, and pay your subs</h2>
+  <p>The weekly "who’s in?" thread and chasing people for £6, done in Shooot. Players say in or out, pay by card or Apple Pay, and the squad list feeds straight into match setup.</p>
+  <div class="eff"><span class="size l">L</span><span><b>Large.</b> Accounts, a backend and a payments provider (Stripe), plus reminders. Takes a small cut of each sub, which pays for hosting the videos.</span></div>
+  <div class="needs"><span>accounts</span><span>payments</span><span>backend</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+<article class="card" data-cat="video">
+ <div class="mk"><div class="desk"><div class="tb"><i></i><i></i><i></i><span>Export · Extras</span></div><div class="db" style="gap:6px">
+ <div class="lbl">Also make</div>
+ <div class="rowc sel"><span class="chk on"></span><span class="sp"><b>Miss of the match</b><div class="dim">3 tagged as "So close" · 0:42</div></span><span class="thumb"></span></div>
+ <div class="rowc"><span class="chk"></span><span class="sp"><b>Keeper's best saves</b><div class="dim">4 saves · 0:51</div></span><span class="thumb"></span></div>
+ <div class="rowc"><span class="chk"></span><span class="sp"><b>Every goal by Sam</b><div class="dim">3 goals · 0:38</div></span><span class="thumb"></span></div>
+ <div class="row" style="justify-content:flex-end;margin-top:auto"><span class="btn lime">Make 1 extra</span></div></div></div></div>
+ <div class="body"><div class="meta"><span class="tag">Video smarts</span></div>
+  <h2>Bonus reels: misses, saves, one player</h2>
+  <p>Alongside the main highlights, one tick makes a "miss of the match" reel, the keeper’s best saves, or every goal by one player. Short, funny, made for the group chat.</p>
+  <div class="eff"><span class="size s">S</span><span><b>Small.</b> Browser only. The renderer already cuts a reel from tagged events; this filters the events by type or player and reuses the same export path.</span></div>
+  <div class="needs"><span>browser only</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+<article class="card" data-cat="share">
+ <div class="mk"><div class="phone" style="">
+ <div class="dim" style="text-align:center">TNF Five-a-side</div>
+ <div style="background:#1A2420;border:1px solid #24302A;border-radius:8px;overflow:hidden">
+  <div class="vid" style="height:62px;border-radius:0"><span class="p" style="left:30px;top:26px"></span><span class="p c" style="left:80px;top:34px"></span><span class="ball" style="left:60px;top:22px"></span><div class="bug" style="left:4px;top:4px"><span class="k"></span><span>WH</span><span class="sc">5–4</span><span>CO</span><span class="k c"></span></div></div>
+  <div style="padding:6px"><b>Whites 5–4 Colours</b><div class="dim">9 goals · 3 min reel · vote MOTM</div></div></div>
+ <div class="dim">Tap to watch. No app, no sign-in.</div>
+ <div class="row" style="margin-top:auto;gap:4px"><span class="btn" style="flex:1">Copy link</span><span class="btn lime" style="flex:1">Send</span></div></div></div>
+ <div class="body"><div class="meta"><span class="tag">Share &amp; publish</span></div>
+  <h2>One link for the group chat</h2>
+  <p>Instead of sending a 600 MB file, send a link. It shows a rich preview in WhatsApp, plays the reel on any phone, and has the man-of-the-match vote underneath.</p>
+  <div class="eff"><span class="size m">M</span><span><b>Medium.</b> Video hosting (Cloudflare Stream or R2) and a small share page with the right preview tags. Storage costs money, so links could expire after a season on the free plan.</span></div>
+  <div class="needs"><span>video hosting</span><span>small backend</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+<article class="card" data-cat="business">
+ <div class="mk"><div class="desk"><div class="tb"><i></i><i></i><i></i><span>Shooot for venues · Court 3</span></div><div class="db" style="gap:7px">
+ <div class="row"><div class="vid" style="width:118px;height:66px;background:linear-gradient(180deg,#2B5FA8,#1E4683)"><span class="p" style="left:30px;top:20px"></span><span class="p c" style="left:80px;top:40px"></span><span class="ball" style="left:58px;top:30px;background:#E6F24A"></span></div>
+  <div class="sp"><b>Fixed camera · recording</b><div class="dim">Booking 19:00–20:30 · Dev P.</div><div class="dim">Footage sent to the booker after</div></div></div>
+ <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+  <div class="awd"><span class="lbl">Courts</span><span class="n">6</span></div><div class="awd"><span class="lbl">Matches</span><span class="n">212</span></div><div class="awd"><span class="lbl">Reels</span><span class="n">148</span></div></div>
+ <div class="dim">Players get footage automatically after each booking.</div></div></div></div>
+ <div class="body"><div class="meta"><span class="tag">Business</span></div>
+  <h2>Cameras at the venue</h2>
+  <p>Partner with five-a-side and padel venues that already have (or will install) court cameras. Each booking’s footage lands in Shooot for the booker, so nobody needs to bring a GoPro.</p>
+  <div class="eff"><span class="size l">L</span><span><b>Large.</b> A business deal first, then a backend to receive footage from the venue’s cameras and match it to bookings. Padel clubs are the easiest start: many already film courts.</span></div>
+  <div class="needs"><span>partnerships</span><span>backend</span><span>video hosting</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+<article class="card" data-cat="season">
+ <div class="mk"><div style="width:150px;height:216px;border-radius:12px;background:linear-gradient(160deg,#A8F03C,#3F7A00);color:#0A0D12;padding:12px;display:flex;flex-direction:column;gap:6px;box-shadow:0 10px 30px rgba(0,0,0,.5)">
+ <div class="row" style="justify-content:space-between"><span class="disp" style="font-size:30px;line-height:1">84</span><span style="font:800 10px var(--font)">FWD</span></div>
+ <div style="height:62px;border-radius:8px;background:rgba(10,13,18,.15);display:grid;place-items:center"><svg viewBox="0 0 24 24" width="40" height="40" fill="#0A0D12" opacity=".6"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8z"/></svg></div>
+ <div class="disp shirtname" style="font-size:22px;text-align:center">SAM TAYLOR</div>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;font:700 10px var(--font-mono)"><span>21 GLS</span><span>9 AST</span><span>32 APP</span><span>4 MOTM</span></div>
+ <div style="margin-top:auto;font:700 9px var(--font);text-align:center;opacity:.7">THURSDAY NIGHT FOOTBALL · 2026</div></div></div>
+ <div class="body"><div class="meta"><span class="tag">Season &amp; awards</span></div>
+  <h2>Player cards</h2>
+  <p>A collectable card for each player, rated from their real stats and teammates’ ratings, that updates every week. Easy to share, and a reason to check how your number moved.</p>
+  <div class="eff"><span class="size s">S</span><span><b>Small.</b> Browser only once stats and ratings exist. A card renderer like the thumbnail maker, with a rating formula people can argue about.</span></div>
+  <div class="needs"><span>needs stats</span><span>browser only</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+<article class="card" data-cat="community">
+ <div class="mk"><div class="desk"><div class="tb"><i></i><i></i><i></i><span>Thursday 5–4 · Shared</span></div><div class="db" style="gap:7px">
+ <div class="row"><span class="pill ok">● Amy is tagging 2nd half</span><span class="pill">You: 1st half</span></div>
+ <div class="lane"><span class="lbl" style="width:28px">You</span><div class="track"><span class="clip g" style="left:8%;width:4%"></span><span class="clip g" style="left:22%;width:4%"></span><span class="clip g" style="left:40%;width:4%"></span></div></div>
+ <div class="lane"><span class="lbl" style="width:28px">Amy</span><div class="track"><span class="clip" style="left:58%;width:4%;background:#F07A1A"></span><span class="clip" style="left:74%;width:4%;background:#F07A1A"></span></div></div>
+ <div class="dim">Each of you keeps the footage on your own device. Only the tags sync.</div>
+ <div class="row" style="justify-content:flex-end;margin-top:auto"><span class="btn">Invite</span></div></div></div></div>
+ <div class="body"><div class="meta"><span class="tag">Community</span></div>
+  <h2>Tag a match together</h2>
+  <p>Share a match and split the work: you tag the first half, a teammate tags the second. Everyone keeps their own copy of the footage and only the tags sync, so nothing big is uploaded.</p>
+  <div class="eff"><span class="size m">M</span><span><b>Medium.</b> Accounts and a small backend that syncs the event list. Footage never leaves each device, so it is cheap to run.</span></div>
+  <div class="needs"><span>accounts</span><span>small backend</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+
+<article class="card" data-cat="video">
+ <div class="mk"><div style="position:relative;width:calc(100% - 28px);max-width:360px;height:224px;border-radius:8px;overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#22302A 0%,#0B0F0D 70%)">
+  <div style="position:absolute;inset:0;background:repeating-linear-gradient(115deg,rgba(168,240,60,.05) 0 2px,transparent 2px 26px)"></div>
+  <div class="lbl" style="position:absolute;left:12px;top:10px;color:#A8F03C">Tonight's line-up</div>
+  <div class="mono dim" style="position:absolute;right:12px;top:10px;font-size:9px">1 photo each · gentle motion</div>
+  <div style="position:absolute;left:34px;bottom:52px;width:37px;height:82px;display:flex;flex-direction:column;align-items:center;z-index:8"><div style="width:17px;height:20px;border-radius:45%;background:#C99A74;box-shadow:inset -3px -2px 0 rgba(0,0,0,.18)"></div><div style="position:relative;margin-top:2px;width:37px;flex:1;background:#F3F1EA;border-radius:10px 10px 0 0;display:grid;place-items:center"><span style="position:absolute;left:3px;right:3px;top:42%;height:7px;border-radius:5px;background:#D9D5CA;box-shadow:0 1px 0 rgba(0,0,0,.2)"></span><span class="shirtname" style="position:relative;font-size:13px;color:#0A0D12;margin-top:-12px">7</span></div></div><div style="position:absolute;left:86px;bottom:52px;width:41px;height:90px;display:flex;flex-direction:column;align-items:center;z-index:9"><div style="width:18px;height:22px;border-radius:45%;background:#C99A74;box-shadow:inset -3px -2px 0 rgba(0,0,0,.18)"></div><div style="position:relative;margin-top:2px;width:41px;flex:1;background:#F3F1EA;border-radius:11px 11px 0 0;display:grid;place-items:center"><span class="shirtname" style="position:relative;font-size:15px;color:#0A0D12;margin-top:-13px">4</span></div></div><div style="position:absolute;left:146px;bottom:52px;width:47px;height:103px;display:flex;flex-direction:column;align-items:center;z-index:10"><div style="width:21px;height:25px;border-radius:45%;background:#C99A74;box-shadow:inset -3px -2px 0 rgba(0,0,0,.18)"></div><div style="position:relative;margin-top:2px;width:47px;flex:1;background:#F3F1EA;border-radius:12px 12px 0 0;display:grid;place-items:center"><span style="position:absolute;left:3px;right:3px;top:42%;height:9px;border-radius:5px;background:#D9D5CA;box-shadow:0 1px 0 rgba(0,0,0,.2)"></span><span class="shirtname" style="position:relative;font-size:17px;color:#0A0D12;margin-top:-15px">9</span></div></div><div style="position:absolute;left:208px;bottom:52px;width:41px;height:90px;display:flex;flex-direction:column;align-items:center;z-index:9"><div style="width:18px;height:22px;border-radius:45%;background:#C99A74;box-shadow:inset -3px -2px 0 rgba(0,0,0,.18)"></div><div style="position:relative;margin-top:2px;width:41px;flex:1;background:#F3F1EA;border-radius:11px 11px 0 0;display:grid;place-items:center"><span class="shirtname" style="position:relative;font-size:15px;color:#0A0D12;margin-top:-13px">10</span></div></div><div style="position:absolute;left:258px;bottom:52px;width:37px;height:82px;display:flex;flex-direction:column;align-items:center;z-index:8"><div style="width:17px;height:20px;border-radius:45%;background:#C99A74;box-shadow:inset -3px -2px 0 rgba(0,0,0,.18)"></div><div style="position:relative;margin-top:2px;width:37px;flex:1;background:#F3F1EA;border-radius:10px 10px 0 0;display:grid;place-items:center"><span style="position:absolute;left:3px;right:3px;top:42%;height:7px;border-radius:5px;background:#D9D5CA;box-shadow:0 1px 0 rgba(0,0,0,.2)"></span><span class="shirtname" style="position:relative;font-size:13px;color:#0A0D12;margin-top:-12px">1</span></div></div>
+  <div style="position:absolute;left:0;right:0;bottom:0;height:52px;background:linear-gradient(0deg,#0B0F0D 55%,rgba(11,15,13,0));z-index:20"></div>
+  <div style="position:absolute;left:12px;bottom:12px;z-index:21;transform:skewX(-10deg);display:flex;align-items:stretch">
+   <span style="width:6px;background:#F3F1EA"></span>
+   <span class="disp" style="background:rgba(10,13,18,.95);padding:6px 10px;font-size:20px;line-height:1">Whites</span>
+   <span class="mono" style="background:#A8F03C;color:#0A0D12;padding:6px 7px;font-size:10px;font-weight:700;display:flex;align-items:center">5 players</span></div>
+  <div class="mono dim" style="position:absolute;right:12px;bottom:16px;z-index:21;font-size:9px">Next: Colours ›</div>
+ </div></div>
+ <div class="body"><div class="meta"><span class="tag">Video smarts</span></div>
+  <h2>TV-style team intros</h2>
+  <p>Open the reel like a broadcast: each team's five players appear in their kit, arms folded or stepping towards the camera, with the team name. Then the other team. All from one photo of each player.</p>
+  <div class="eff"><span class="size m">M</span><span><b>Medium for still cut-outs, Large with real movement.</b> Cutting players out of their photos and animating them in can run in the browser, so photos stay on the device. Folded arms or a walk to camera needs an AI video model, either open-source or a paid service. A paid service means sending players' faces off the device, so each player's consent comes first. Each clip is made once and reused every week.</span></div>
+  <div class="needs"><span>player photos</span><span>browser only (still version)</span><span>AI video model (motion)</span><span>player consent</span></div>
+  <div class="foot"><button class="want" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9C1 8.600 3 5 6.500 5c2 0 3.500 1.100 5.500 3 2-1.900 3.500-3 5.500-3C21 5 23 8.600 21.300 12 19 16.400 12 21 12 21z"/></svg><span>I want this</span></button></div></div>
+</article>
+
+</main>
+<footer class="end">These are mock screens for discussion, not promises. Names, numbers and scores are made up. Effort sizes: S is days, M is a couple of weeks, L is a project of its own. Your "I want this" taps stay in this browser only.</footer>
+</div>
+<script>
+(function () {
+  var chips = document.querySelectorAll('.chip');
+  var cards = document.querySelectorAll('.card');
+  var count = document.getElementById('count');
+  function apply(f) {
+    var n = 0;
+    cards.forEach(function (c) { var show = f === 'all' || c.getAttribute('data-cat') === f; c.hidden = !show; if (show) n++; });
+    chips.forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-filter') === f ? 'true' : 'false'); });
+    count.textContent = n + (n === 1 ? ' idea' : ' ideas');
+  }
+  chips.forEach(function (b) { b.addEventListener('click', function () { apply(b.getAttribute('data-filter')); }); });
+  apply('all');
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem('shooot-roadmap-wants') || '{}') || {}; } catch (e) { saved = {}; }
+  cards.forEach(function (c, i) {
+    var btn = c.querySelector('.want'); var key = c.querySelector('h2').textContent;
+    var label = btn.querySelector('span');
+    function paint(on) { btn.setAttribute('aria-pressed', on ? 'true' : 'false'); label.textContent = on ? 'You want this' : 'I want this'; }
+    paint(!!saved[key]);
+    btn.addEventListener('click', function () {
+      var on = btn.getAttribute('aria-pressed') !== 'true'; paint(on);
+      saved[key] = on;
+      try { localStorage.setItem('shooot-roadmap-wants', JSON.stringify(saved)); } catch (e) {}
+    });
+  });
+})();
+</script>
+
+</body></html>

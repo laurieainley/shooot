@@ -20,6 +20,15 @@
       ]
     },
     {
+      "source": "/(roadmap|roadmap\\.html)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    },
+    {
       "source": "/fonts/(.*)",
       "headers": [
         {
