@@ -42,15 +42,15 @@ describe('wantsLowerThird', () => {
         expect(wantsLowerThird({ type: 'goal', pen: true })).toBe(true)
         expect(wantsLowerThird({ type: 'own_goal' })).toBe(true)
         expect(wantsLowerThird({ type: 'penalty_missed' })).toBe(true)
+        expect(wantsLowerThird({ type: 'penalty_conceded' })).toBe(true)
         expect(wantsLowerThird({ type: 'highlight', notes: 'Nutmeg' })).toBe(true)
         expect(wantsLowerThird({ type: 'highlight' })).toBe(true)
         expect(wantsLowerThird({ type: 'highlight', notes: '  ' })).toBe(true)
     })
 
-    it('should skip saves, fouls and conceded penalties', () => {
+    it('should skip saves and fouls', () => {
         expect(wantsLowerThird({ type: 'save' })).toBe(false)
         expect(wantsLowerThird({ type: 'foul', notes: 'late' })).toBe(false)
-        expect(wantsLowerThird({ type: 'penalty_conceded' })).toBe(false)
     })
 })
 

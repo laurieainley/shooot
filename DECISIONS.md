@@ -9,6 +9,13 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ---
 
+## 2026-10-23 — Highlights caption conceded penalties (user)
+- **Decision:** a penalty conceded gets a caption ("PENALTY CONCEDED", with who conceded it) in highlights and clip
+  downloads, as it already did in the full match (`wantsLowerThird`, graphics/plan.ts). Supersedes the earlier rule that
+  highlights captions skip conceded penalties.
+- **Why:** the clip showed no label, so viewers couldn't tell why it was in the reel.
+- **Where:** this commit.
+
 ## 2026-10-23 — Title card 7 s; sheets close only on a press that starts on the backdrop (user)
 - **Decision:** the opening (line-up) card lasts 7 s instead of 4 s (`INTRO_SEC`, graphics/layout.ts); the full-time card
   stays 4 s (`CARD_SEC`). Separately, a modal sheet (Match setup, Import…) closes from a backdrop click only when the press

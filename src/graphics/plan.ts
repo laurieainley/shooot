@@ -26,9 +26,9 @@ export function normaliseGraphics(v: unknown, fallback: GraphicsSettings): Graph
     return { cards: pick('cards'), lowerThirds: pick('lowerThirds'), replayTag: pick('replayTag'), theme: isThemeId(o.theme) ? o.theme : isThemeId(fallback.theme) ? fallback.theme : DEFAULT_THEME_ID }
 }
 
-/** Captions go on goals (incl. penalties and own goals), missed penalties and highlights (with or without a note). */
+/** Captions go on goals (incl. penalties and own goals), conceded and missed penalties and highlights (with or without a note). */
 export function wantsLowerThird(e: Pick<MatchEvent, 'type' | 'notes' | 'pen'>): boolean {
-    return isScoring(e) || e.type === 'penalty_missed' || e.type === 'highlight'
+    return isScoring(e) || e.type === 'penalty_missed' || e.type === 'penalty_conceded' || e.type === 'highlight'
 }
 
 const upper = (s: string | undefined): string | undefined => (s?.trim() ? s.trim().toUpperCase() : undefined)
