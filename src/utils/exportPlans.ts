@@ -4,7 +4,7 @@ import { replayOptionsFor } from './attack'
 import type { Cut, RenderSource } from '../render/types'
 import { buildGraphicsSpec, fullMatchGraphicsSpec, type GraphicsSettings } from '../graphics/plan'
 import { isSting, type GraphicsSpec } from '../graphics/types'
-import { CARD_SEC, STING_SEC } from '../graphics/layout'
+import { CARD_SEC, INTRO_SEC, STING_SEC } from '../graphics/layout'
 import { estimateBytes, fullMatchCuts, fullMatchSpan, recordingGaps, withReplays } from './fullMatch'
 import { mergeOverlappingGoalSegments } from './highlights'
 import { eventLabel, isMarker } from './eventTypes'
@@ -69,7 +69,7 @@ export type ExportPlan = {
 
 const matchday = (s: ExportState): string => s.matchdayLabel?.trim() || 'MATCH'
 const nonEmpty = (spec: GraphicsSpec): GraphicsSpec | undefined => (spec.intro || spec.outro || spec.overlays.length > 0 ? spec : undefined)
-const cardsSec = (spec: GraphicsSpec | undefined): number => (spec?.intro ? CARD_SEC : 0) + (spec?.outro ? (isSting(spec.outro) ? STING_SEC : CARD_SEC) : 0)
+const cardsSec = (spec: GraphicsSpec | undefined): number => (spec?.intro ? INTRO_SEC : 0) + (spec?.outro ? (isSting(spec.outro) ? STING_SEC : CARD_SEC) : 0)
 
 function finish(kind: 'highlights' | 'fullMatch' | 'clip', quality: RenderQuality, s: ExportState, cuts: Cut[], spec: GraphicsSpec | undefined, resumable: boolean, clip?: { minute: number | null; label: string; person?: string }, output?: PlanOutput): ExportPlan {
     const { sources, missing } = resolveRenderSources(s.files, quality)

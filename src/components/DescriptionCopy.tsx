@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useSavedTimeline } from '../renderTimelines'
 import { fullMatchExport, highlightsExport, planOutput, type ExportState } from '../utils/exportPlans'
 import { useAppState } from '../state'
-import { CARD_SEC } from '../graphics/layout'
+import { INTRO_SEC } from '../graphics/layout'
 import { fullMatchDescription, highlightsDescription } from '../utils/descriptions'
 import { goalscorersText } from '../utils/goalscorers'
 import { linkedEvents } from '../utils/relink'
@@ -62,7 +62,7 @@ export function DescriptionCopy({ kind }: DescriptionCopyProps) {
             fullMatchReplays: st.fullMatch.replays,
             timeline: exactFor(st),
             reencoded: kind === 'highlights' ? reencoded : st.fullMatch.quality !== 'original',
-            introSec: (kind === 'highlights' ? highlightsExport : fullMatchExport)(st, 'full').spec?.intro ? CARD_SEC : 0,
+            introSec: (kind === 'highlights' ? highlightsExport : fullMatchExport)(st, 'full').spec?.intro ? INTRO_SEC : 0,
         }
         return kind === 'highlights' ? highlightsDescription(args) : fullMatchDescription(args)
     }

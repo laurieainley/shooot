@@ -11,7 +11,7 @@
 // carry a crop or the replay tag. 4K / 1080p decode and re-encode every frame; only cards, replay crops and overlay windows
 // are painted. The coefficients are fitted to real-device runs (renderTime.test.ts keeps the fit honest).
 import type { Cut } from '../render/types'
-import { CARD_SEC, STING_SEC } from '../graphics/layout'
+import { CARD_SEC, INTRO_SEC, STING_SEC } from '../graphics/layout'
 import { LONG_SIDE, PARALLEL_UNITS, outputFrameSec, type OutputQuality } from '../render/transcodePlan'
 
 export type DeviceClass = 'android' | 'ipad' | 'desktop' | 'unknown'
@@ -271,13 +271,13 @@ export function estimateFromWork(modelSeconds: number, path: RatePath, rates: Ra
 }
 
 /** The graphics of a plan as work input (spec overlays: the replay tag covers its whole cut). */
-export function workInputOf(plan: { cuts: Cut[]; spec?: { intro?: unknown; outro?: { kind?: string } | unknown; overlays: { kind: string; cutIndex: number; startSec: number; durationSec: number }[] } | undefined }, sec: { card: number; sting: number }): WorkInput {
+export function workInputOf(plan: { cuts: Cut[]; spec?: { intro?: unknown; outro?: { kind?: string } | unknown; overlays: { kind: string; cutIndex: number; startSec: number; durationSec: number }[] } | undefined }, sec: { intro: number; card: number; sting: number }): WorkInput {
     const spec = plan.spec
     const outro = spec?.outro as { kind?: string } | undefined
     return {
         cuts: plan.cuts,
         overlays: (spec?.overlays ?? []).map((o) => ({ cutIndex: o.cutIndex, startSec: o.startSec, durationSec: o.durationSec, ...(o.kind === 'replayTag' ? { whole: true } : {}) })),
-        introSec: spec?.intro ? sec.card : 0,
+        introSec: spec?.intro ? sec.intro : 0,
         outroSec: outro ? (outro.kind === 'sting' ? sec.sting : sec.card) : 0,
     }
 }
@@ -351,5 +351,5 @@ export function expectedWallSeconds(modelSeconds: number, path: RatePath, rates:
 
 /** The stable entry point for the Export UI: seconds / low / high / basis for a plan (cuts + graphics spec) at an output quality. */
 export function estimateRenderSeconds(plan: Parameters<typeof workInputOf>[0], output: OutputQuality, facts: SourceFacts | null, reused?: ReusedParts | null): TimeEstimate {
-    return estimateRenderTime(workInputOf(plan, { card: CARD_SEC, sting: STING_SEC }), { output, facts, reused })
+    return estimateRenderTime(workInputOf(plan, { intro: INTRO_SEC, card: CARD_SEC, sting: STING_SEC }), { output, facts, reused })
 }

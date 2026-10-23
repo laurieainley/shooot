@@ -5,7 +5,9 @@ export const DESIGN_H = 1080
 export const SAFE_X = 96
 export const SAFE_Y = 54
 
+/** The full-time card; the title card (line-ups) stays longer so there is time to read it. */
 export const CARD_SEC = 4
+export const INTRO_SEC = 7
 /** Event captions stay on screen for 5 s. */
 export const CAPTION_SEC = 5
 /** ...starting this long after the marked moment, so the caption does not cover the action itself. */

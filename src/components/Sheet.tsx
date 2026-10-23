@@ -24,6 +24,9 @@ export function Sheet({ label, onClose, children, className = '', badge, persist
     closeRef.current = onClose
     const persistentRef = useRef(persistent)
     persistentRef.current = persistent
+    // A click whose press began inside the sheet (e.g. selecting text in a field and releasing past the edge) lands on
+    // the backdrop too; only a press that started on the backdrop closes the sheet.
+    const downOnBackdrop = useRef(false)
 
     useEffect(() => {
         const previous = document.activeElement
@@ -42,7 +45,8 @@ export function Sheet({ label, onClose, children, className = '', badge, persist
     }, [])
 
     return createPortal(
-        <div className="sheet-backdrop" onClick={persistent ? undefined : onClose}>
+        <div className="sheet-backdrop" onPointerDown={(e) => { downOnBackdrop.current = e.target === e.currentTarget }}
+            onClick={persistent ? undefined : (e) => { if (e.target === e.currentTarget && downOnBackdrop.current) onClose(); downOnBackdrop.current = false }}>
             <div ref={sheetRef} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}
                 className={`sheet ${className}`} onClick={(e) => e.stopPropagation()}>
                 <div className="floating__head">

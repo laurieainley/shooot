@@ -1,7 +1,6 @@
 // "Shooot": the brand pack look (brand/shooot/BRAND.md, "In-reel graphics").
 import type { CaptionTone } from '../../types'
 import type { MatchEvent } from '../../../types'
-import { CARD_SEC } from '../../layout'
 import { C } from './brandColors'
 import { FONT_VOICES, VOICES, fontCss } from './fonts'
 import { BUG_ROWS, CAPTION_ROWS, REPLAY_ROWS, captionLayout, cardLayout, replayTagLayout, scoreBugLayout } from './layout'
@@ -33,7 +32,7 @@ export const shoootTheme: GraphicsTheme = {
     glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 –-.'()!:×GOAL REPLAY",
     caption: { word: captionWord, tone: captionTone, defaultStripe: C.muted, minutes: true, scorers: true },
     rows: { bug: BUG_ROWS, caption: CAPTION_ROWS, replay: REPLAY_ROWS },
-    paintCard: (ctx, spec, t, _d, assets) => paintOps(ctx, cardLayout(spec, t, CARD_SEC, !!assets.logo, measureWith(ctx)), assets),
+    paintCard: (ctx, spec, t, d, assets) => paintOps(ctx, cardLayout(spec, t, d, !!assets.logo, measureWith(ctx)), assets),
     paintCaption: (ctx, spec, t, d, assets) => paintOps(ctx, captionLayout(spec, t, !!assets.logo, d, measureWith(ctx)), assets),
     paintScoreBug: (ctx, bug, t, d, fade, assets) => paintOps(ctx, scoreBugLayout(bug, t, d, !!assets.logo, fade, measureWith(ctx)), assets),
     paintReplayTag: (ctx, t, d, _speed, assets) => paintOps(ctx, replayTagLayout(t, d, measureWith(ctx)), assets),

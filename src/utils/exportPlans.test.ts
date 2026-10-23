@@ -61,7 +61,7 @@ describe('fullMatchExport', () => {
         const p = fullMatchExport(state(), 'full')
         expect(p.cuts).toEqual([{ sourceIndex: 0, startSec: 30, endSec: 100 }, { sourceIndex: 1, startSec: 0, endSec: 50 }])
         expect(p.outputName).toBe('Whites 1-0 Colours (full match).mp4')
-        expect(p.seconds).toBe(120 + 8) // two 4 s cards
+        expect(p.seconds).toBe(120 + 7 + 4) // 7 s title card, 4 s full-time card
         expect(p.bytes).toBe(700 + 500)
         expect(p.resumable).toBe(true)
         expect(p.missing).toEqual([])
