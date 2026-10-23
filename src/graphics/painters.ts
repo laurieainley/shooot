@@ -1,6 +1,6 @@
 // Turns a graphics spec (plain data) into the engine's painters, using the spec's theme.
 import type { RenderGraphics, RenderOverlay } from '../render/types'
-import { CARD_SEC, OVERLAY_FADE, STING_SEC, cardFade } from './layout'
+import { CARD_SEC, INTRO_SEC, OVERLAY_FADE, STING_SEC, cardFade } from './layout'
 import type { OverlayBitmapCache } from './overlayCache'
 import { designFit, type PaintAssets } from './paint'
 import { paintSting } from './sting'
@@ -55,12 +55,12 @@ function painter(o: OverlaySpec, assets: PaintAssets, theme: GraphicsTheme, cach
     }
 }
 
-function card(spec: CardSpec, label: string, assets: PaintAssets, theme: GraphicsTheme) {
+function card(spec: CardSpec, label: string, assets: PaintAssets, theme: GraphicsTheme, sec: number) {
     // Drawn once fully visible; the engine applies the fade (cheaper than converting every frame).
     return {
-        label, durationSec: CARD_SEC,
-        paint: (ctx: OffscreenCanvasRenderingContext2D) => theme.paintCard(ctx, spec, CARD_SEC / 2, CARD_SEC, assets),
-        fade: (t: number) => cardFade(t, CARD_SEC),
+        label, durationSec: sec,
+        paint: (ctx: OffscreenCanvasRenderingContext2D) => theme.paintCard(ctx, spec, sec / 2, sec, assets),
+        fade: (t: number) => cardFade(t, sec),
     }
 }
 
@@ -86,8 +86,8 @@ export function toRenderGraphics(spec: GraphicsSpec, assets: PaintAssets, cache?
         ...(o.kind === 'replayTag' ? { anchor: 'stretchToCut' as const } : {}),
     }))
     return {
-        ...(spec.intro ? { intro: card(spec.intro, 'Title card', assets, theme) } : {}),
-        ...(spec.outro ? { outro: isSting(spec.outro) ? sting(assets) : card(spec.outro, 'Full-time card', assets, theme) } : {}),
+        ...(spec.intro ? { intro: card(spec.intro, 'Title card', assets, theme, INTRO_SEC) } : {}),
+        ...(spec.outro ? { outro: isSting(spec.outro) ? sting(assets) : card(spec.outro, 'Full-time card', assets, theme, CARD_SEC) } : {}),
         overlays,
     }
 }

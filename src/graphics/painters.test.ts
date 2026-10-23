@@ -18,7 +18,8 @@ describe('toRenderGraphics', () => {
     it('should name the cards and keep overlay timing', () => {
         const g = toRenderGraphics(spec, { logo: null })
         expect(g.intro?.label).toBe('Title card')
-        expect(g.intro?.durationSec).toBe(4)
+        expect(g.intro?.durationSec).toBe(7)
+        expect(g.outro?.durationSec).toBe(4)
         expect(g.outro?.label).toBe('Full-time card')
         expect(g.intro?.fade?.(0)).toBe(0)
         expect(g.intro?.fade?.(2)).toBe(1)

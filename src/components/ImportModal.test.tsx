@@ -47,7 +47,9 @@ describe('ImportModal', () => {
         second.unmount()
         useAppState.setState({ panel: 'import' })
         render(<Panels />)
-        fireEvent.click(document.querySelector('.sheet-backdrop') as HTMLElement)
+        const scrim = document.querySelector('.sheet-backdrop') as HTMLElement
+        fireEvent.pointerDown(scrim)
+        fireEvent.click(scrim)
         expect(s().panel).toBeNull()
     })
 

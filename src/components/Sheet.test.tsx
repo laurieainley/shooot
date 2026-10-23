@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Sheet } from './Sheet'
 
@@ -19,6 +19,16 @@ describe('Sheet', () => {
         const onClose = vi.fn()
         render(<Sheet label="Files" onClose={onClose}><p>body</p></Sheet>)
         await userEvent.click(screen.getByText('body'))
+        expect(onClose).not.toHaveBeenCalled()
+    })
+
+    it('should not close when a text selection drag starts inside and ends on the backdrop', () => {
+        const onClose = vi.fn()
+        render(<Sheet label="Match setup" onClose={onClose}><input aria-label="Title" defaultValue="Matchday 3" /></Sheet>)
+        const backdrop = document.querySelector('.sheet-backdrop')!
+        fireEvent.pointerDown(screen.getByRole('textbox', { name: 'Title' }))
+        fireEvent.pointerUp(backdrop)
+        fireEvent.click(backdrop)
         expect(onClose).not.toHaveBeenCalled()
     })
 })

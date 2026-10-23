@@ -1,5 +1,4 @@
 // "TNF": Shooot's angular leaning plates in the league's colours (shirt yellow on dark purple plates, orange/white stripes), Barlow Condensed Italic.
-import { CARD_SEC } from '../../layout'
 import { captionWord } from '../shooot'
 import type { GraphicsTheme } from '../types'
 import { T } from './colors'
@@ -22,7 +21,7 @@ export const tnfTheme: GraphicsTheme = {
         scorers: true,
     },
     rows: { bug: BUG_ROWS, caption: CAPTION_ROWS, replay: REPLAY_ROWS },
-    paintCard: (ctx, spec, t, _d, assets) => paintOps(ctx, cardLayout(spec, t, CARD_SEC, !!assets.logo, measureWith(ctx)), assets),
+    paintCard: (ctx, spec, t, d, assets) => paintOps(ctx, cardLayout(spec, t, d, !!assets.logo, measureWith(ctx)), assets),
     paintCaption: (ctx, spec, t, d, assets) => paintOps(ctx, captionLayout(spec, t, !!assets.logo, d, measureWith(ctx)), assets),
     paintScoreBug: (ctx, bug, t, d, fade, assets) => paintOps(ctx, scoreBugLayout(bug, t, d, !!assets.logo, fade, measureWith(ctx)), assets),
     paintReplayTag: (ctx, t, d, _speed, assets) => paintOps(ctx, replayTagLayout(t, d, measureWith(ctx)), assets),

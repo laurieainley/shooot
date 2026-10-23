@@ -9,6 +9,14 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ---
 
+## 2026-10-23 — Title card 7 s; sheets close only on a press that starts on the backdrop (user)
+- **Decision:** the opening (line-up) card lasts 7 s instead of 4 s (`INTRO_SEC`, graphics/layout.ts); the full-time card
+  stays 4 s (`CARD_SEC`). Separately, a modal sheet (Match setup, Import…) closes from a backdrop click only when the press
+  also started on the backdrop.
+- **Why:** the line-ups need more time to read. Selecting text in a field and releasing past the sheet's edge produced a
+  click on the backdrop and closed Match setup.
+- **Where:** this commit (`Sheet.tsx`, `painters.ts`, `exportPlans.ts`, `renderTime.ts`, `DescriptionCopy.tsx`).
+
 ## 2026-10-21 — Replays come after the caption; 2 s after the tag (user + agent)
 - **Decision:** in the full match a replay cuts in once the event's caption has been up and gone (event + 6 s, never past
   the next replayed event), not 1 s after the event. The replay window's default "after" goes from 1 s to 2 s (persist v27
