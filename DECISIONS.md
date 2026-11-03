@@ -9,6 +9,18 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ---
 
+## 2026-11-03 — One match may go to a rented GPU for a tracking test; Find goals tries vision before audio (user)
+- **Decision:** the user agreed to upload one match (TNF 17-09-26, as a ~1–1.5 GB payload: a 1080p copy plus
+  full-quality goal-mouth crops, not the 4K original) to a rented GPU (Modal) for a one-off test of player tracking,
+  possession and "ball in the net" at the full frame rate. The remote copy is deleted after the run. This is a test, not
+  a product change: the editor still keeps video on the device. Separately, the next Find goals spike scans the goal
+  mouths for motion on the proxy and checks candidate windows for the ball at full quality, with audio only as a bonus.
+- **Why:** CPU-only spikes at 5–10 fps couldn't show whether tracking stats are reliable; audio missed most goals at the
+  Autumn Cup (neighbouring pitches). Local-first stays the preferred principle; the GPU test measures what uploading
+  would buy before any product decision.
+- **Where:** briefs `docs/superpowers/agents/briefs/find-goals-vision-spike-brief.md` and `gpu-match-test-brief.md`;
+  the tracking lab report (private artifact).
+
 ## 2026-10-23 — Demo video in the landing hero; hidden /roadmap page (user + agent)
 - **Decision:** the finished demo (81 s, ElevenLabs Starter audio) is self-hosted on shooot.co.uk
   (`site/assets/video/shooot-demo-v1.mp4`, 10.7 MB, CRF 26 faststart) and opens from a play button on the hero's animated
