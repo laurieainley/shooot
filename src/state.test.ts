@@ -23,6 +23,14 @@ describe('toggleMark', () => {
         expect(s().events.find((e) => e.id === 'g')!.marks).toEqual(['teaser'])
     })
 
+    it('should drop the mark when a starred event becomes a marker', () => {
+        s().toggleMark('g', 'teaser')
+        s().placeMarker('g', 'final_whistle')
+        const e = s().events.find((x) => x.id === 'g')!
+        expect(e.type).toBe('final_whistle')
+        expect('marks' in e).toBe(false)
+    })
+
     it('should do nothing on a marker or unknown id', () => {
         s().toggleMark('k', 'teaser')
         s().toggleMark('nope', 'teaser')
