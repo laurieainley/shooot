@@ -17,7 +17,7 @@ import { fullscreenSplit, useFullscreenUi } from './fullscreenUi'
 import { COARSE_QUERY, PORTRAIT_QUERY, useMediaQuery } from './useMediaQuery'
 import { patchPlayerFullscreen, type FullscreenPlayer } from './fullscreen'
 import { cropTransform } from '../utils/crop'
-import { viewportChanged } from '../utils/zoom'
+import { shouldResetZoom } from '../utils/zoom'
 import { attachPictureGestures } from './pictureGestures'
 import { useLandscapeFill } from './useLandscapeFill'
 import { useZoomPan, type ZoomPan } from './useZoomPan'
@@ -71,19 +71,24 @@ export function Player() {
     // Zoom is locked in the preview and starts from 1× (clips show the whole picture, as rendered); 1× again afterwards.
     const resetZoom = zoomPan.reset
     useEffect(() => { resetZoom() }, [isPreviewMode, resetZoom])
-    // Rotating (or entering / leaving fullscreen) resizes the picture: the pan is in pixels of the old size, so start again at 1×.
+    // Only a rotation (aspect flips) or entering / leaving fullscreen starts again at 1×. Any other resize (browser bars, safe areas,
+    // sheets, controls) keeps the zoom: the pan is rescaled and clamped to the new bounds.
+    const fitZoom = zoomPan.fit
     useEffect(() => {
         const el = containerRef.current
         if (!el || typeof ResizeObserver === 'undefined') return
         let last: { width: number; height: number } | null = null
         const ro = new ResizeObserver(() => {
             const now = { width: el.clientWidth, height: el.clientHeight }
-            if (viewportChanged(last, now)) resetZoom()
+            if (shouldResetZoom(last, now)) resetZoom()
+            else if (last && (last.width !== now.width || last.height !== now.height)) fitZoom(last, now)
             last = now
         })
         ro.observe(el)
-        return () => ro.disconnect()
-    }, [resetZoom])
+        const onFullscreen = (): void => resetZoom()
+        document.addEventListener('fullscreenchange', onFullscreen)
+        return () => { ro.disconnect(); document.removeEventListener('fullscreenchange', onFullscreen) }
+    }, [resetZoom, fitZoom])
 
     // Every player shortcut, wherever focus is (see utils/shortcuts.ts); the event log's own keys stop propagation first.
     useEffect(() => {

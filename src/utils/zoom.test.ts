@@ -53,7 +53,7 @@ describe('settleZoom', () => {
     })
 })
 
-import { zoomTowards, dragPan, classifyPointer, wheelZoomFactor, CLICK_MAX_DISTANCE_PX, CLICK_MAX_DURATION_MS, viewportChanged } from './zoom'
+import { zoomTowards, dragPan, classifyPointer, wheelZoomFactor, CLICK_MAX_DISTANCE_PX, CLICK_MAX_DURATION_MS, viewportChanged, shouldResetZoom, rescalePan } from './zoom'
 
 const VP = { width: 1000, height: 600 }
 
@@ -157,5 +157,29 @@ describe('viewportChanged', () => {
     it('should be true after a rotation or a resize', () => {
         expect(viewportChanged({ width: 844, height: 390 }, { width: 390, height: 844 })).toBe(true)
         expect(viewportChanged({ width: 844, height: 390 }, { width: 844, height: 300 })).toBe(true)
+    })
+})
+
+describe('shouldResetZoom', () => {
+    const land = { width: 844, height: 390 }
+    it('should keep the zoom for the first size, the same size and small height changes (browser bars, safe areas)', () => {
+        expect(shouldResetZoom(null, land)).toBe(false)
+        expect(shouldResetZoom(land, land)).toBe(false)
+        expect(shouldResetZoom(land, { width: 844, height: 360 })).toBe(false)
+        expect(shouldResetZoom(land, { width: 844, height: 300 })).toBe(false)
+        expect(shouldResetZoom(land, { width: 780, height: 390 })).toBe(false)
+    })
+    it('should reset when the aspect flips between landscape and portrait', () => {
+        expect(shouldResetZoom(land, { width: 390, height: 844 })).toBe(true)
+        expect(shouldResetZoom({ width: 390, height: 844 }, land)).toBe(true)
+    })
+})
+
+describe('rescalePan', () => {
+    it('should scale the pan with the viewport so the same picture point stays centred', () => {
+        expect(rescalePan({ x: 100, y: 40 }, { width: 800, height: 400 }, { width: 400, height: 200 })).toEqual({ x: 50, y: 20 })
+    })
+    it('should leave the pan alone when a size is unknown', () => {
+        expect(rescalePan({ x: 10, y: 5 }, { width: 0, height: 0 }, { width: 400, height: 200 })).toEqual({ x: 10, y: 5 })
     })
 })
