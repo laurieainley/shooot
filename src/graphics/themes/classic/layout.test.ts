@@ -342,6 +342,7 @@ describe('captionLayout notes on two lines', () => {
         const worst = 'WWWW MMMM '.repeat(20).slice(0, NOTE_MAX).trim()
         const ops = captionLayout({ ...goal2, assist: 'JO', note: worst }, 2.5, false)
         expect(texts(ops).filter((o) => o.color === '#c9d6ea').length).toBeLessThanOrEqual(3)
+        expect(texts(ops).some((o) => o.text.endsWith('…'))).toBe(false)
         for (const o of ops) if (o.kind === 'rect') expect(o.y + o.h).toBeLessThanOrEqual(CAPTION_ROWS[1])
     })
 })

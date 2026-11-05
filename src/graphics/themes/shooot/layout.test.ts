@@ -597,10 +597,11 @@ describe('captionLayout notes on two lines', () => {
         for (const o of ops) if (o.kind === 'rect') expect(o.y + o.h).toBeLessThanOrEqual(CAPTION_ROWS[1])
     })
 
-    it('should fit NOTE_MAX characters of the widest glyphs on two rows without an ellipsis', () => {
+    it('should keep a NOTE_MAX note of W/M words on at most two rows with the estimate measurer (real-font capacity: see the NOTE_MAX comment)', () => {
         const worst = 'WWWW MMMM '.repeat(20).slice(0, NOTE_MAX).trim()
         const ops = captionLayout({ ...goal2, note: worst }, 2.5, false)
         const noteOps = texts(ops).filter((o) => o.voice === 'shirt' && o.size === Math.round(36 * OVERLAY_SCALE) && o.text !== 'SAM')
         expect(noteOps.length).toBeLessThanOrEqual(2)
+        expect(noteOps.some((o) => o.text.endsWith('…'))).toBe(false)
     })
 })
