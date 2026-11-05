@@ -88,6 +88,11 @@ export function EventLog() {
 
     useEffect(() => { setStarFor(null) }, [selectedId, section])
 
+    // A teaser row that goes away (unstarred from the Star menu, undo) leaves the selection on the match list, so the keys still act.
+    useEffect(() => {
+        if (section === 'teaser' && selectedId && !moments.some((m) => m.id === selectedId)) setSection('match')
+    }, [section, selectedId, moments])
+
     useEffect(() => {
         if (!selectedId) return
         const sel = section === 'teaser' ? '[data-section="teaser"]' : ':not([data-section])'
@@ -114,7 +119,13 @@ export function EventLog() {
     // A teaser row's clip starts at its own seconds before (else the match's).
     const watchTeaser = (e: MatchEvent): void => {
         if (e.unlinked) return
-        useAppState.getState().seekToGoal(e.sourceFileIndex ?? 0, Math.max(0, e.matchTimeSec - (e.teaser?.beforeSec ?? before)))
+        const st = useAppState.getState()
+        // During the preview: jump to that moment's Coming up step (not its reel clip) and stay in the preview.
+        if (st.isPreviewMode) {
+            const i = st.previewSteps.findIndex((x) => x.teaser && !x.replay && x.eventIds.includes(e.id))
+            if (i !== -1) { st.jumpToPreviewStep(i); return }
+        }
+        st.seekToGoal(e.sourceFileIndex ?? 0, Math.max(0, e.matchTimeSec - (e.teaser?.beforeSec ?? before)))
     }
     const toggleTeaserReplay = (e: MatchEvent): void => useAppState.getState().setTeaserEdit(e.id, { replay: e.teaser?.replay ? undefined : true })
     const unstar = (e: MatchEvent): void => {

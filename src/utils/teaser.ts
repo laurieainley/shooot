@@ -31,7 +31,9 @@ export function teaserSegment(e: MatchEvent, before: number, after: number): Hig
  */
 export function teaserClipPlan(s: HighlightSegment, durationsSec: number[], replay?: ReplayOptions): { cuts: Cut[]; origins: CutOrigin[] } {
     const e = s.goals[0]
-    if (!replay || !e?.teaser?.replay) return buildRenderPlanWithOrigins([s], durationsSec)
+    const clip = buildRenderPlanWithOrigins([s], durationsSec)
+    // No replay asked for, or the clip itself came out empty (0 s, or clamped away): a bare slow-mo with no banner is never planned.
+    if (!replay || !e?.teaser?.replay || clip.cuts.length === 0) return clip
     // The replay goes by the teaser's switch, not the event's own replay setting, and frames by the teaser crop first.
     const asReplayed: MatchEvent = { ...e, replay: true, replayCrop: e.teaser.replayCrop ?? e.replayCrop }
     return buildRenderPlanWithOrigins([{ ...s, goals: [asReplayed] }], durationsSec, replay)

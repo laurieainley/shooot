@@ -1,5 +1,6 @@
 import type { MatchEvent, Team } from '../types'
 import { teaserLine } from '../graphics/plan'
+import { useAppState } from '../state'
 import { teamBackground } from '../utils/teamColor'
 import { EventIcon } from './icons/EventIcon'
 import { FileSlot, WatchButton } from './RowParts'
@@ -22,11 +23,14 @@ export interface TeaserSectionProps {
 /** The "Coming up" section above the match events: a header with the length, then one row per starred moment as its line will read. */
 export function TeaserSection({ moments, teams, selectedId, clockOf, touch, onSelect, onWatch, onToggleReplay, onEdit, onFraming, onUnstar }: TeaserSectionProps) {
     const { moments: n, seconds } = useTeaserLength()
+    const theme = useAppState((s) => s.graphics.theme)
+    const on = useAppState((s) => s.highlightsTeaser)
+    const notLoaded = moments.length - n
     return (
         <section className="teaser-section" aria-label="Coming up section">
             <h3 className="teaser-section__head">
                 <span className="teaser-section__title"><span aria-hidden="true">★ </span>COMING UP</span>
-                <span className="teaser-section__count tc">{n} {n === 1 ? 'moment' : 'moments'} · {Math.round(seconds)} s</span>
+                <span className="teaser-section__count tc">{n} {n === 1 ? 'moment' : 'moments'} · {Math.round(seconds)} s{notLoaded > 0 ? ` (${notLoaded} not loaded)` : ''}{on ? '' : ' · off'}</span>
             </h3>
             <ol role="listbox" aria-label="Coming up" className="teaser-list m-0 list-none p-0">
                 {moments.map((e) => {
@@ -39,8 +43,8 @@ export function TeaserSection({ moments, teams, selectedId, clockOf, touch, onSe
                             <span className="tc clock text-ui-sm">{clockOf(e)}</span>
                             <span data-team-dot className="team-dot" style={{ background: teamBackground(team?.color) }} title={e.team ?? 'No team'} />
                             <span className="event-row__icon"><EventIcon event={e} size={touch ? 22 : 18} /></span>
-                            <span className="event-row__content" title={teaserLine(e)}>
-                                <span className="event-row__main"><span className="ev-person">{teaserLine(e)}</span></span>
+                            <span className="event-row__content" title={teaserLine(e, theme)}>
+                                <span className="event-row__main"><span className="ev-person">{teaserLine(e, theme)}</span></span>
                                 {replay && <span className="event-row__replay" title="Slow-mo replay on"><span aria-hidden="true">↻</span><span className="sr-only">slow-mo replay</span></span>}
                             </span>
                             <span className="event-row__end">

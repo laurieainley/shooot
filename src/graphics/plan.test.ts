@@ -454,7 +454,7 @@ describe('teaser graphics', () => {
     ]
     const events = [ev('g', 40, { scorer: 'Dan', team: 'Walford Town', notes: 'late winner', ...star })]
     const run = (c: Cut[], n: number, settings = { ...ALL, replayTag: true }, evs = events) =>
-        buildGraphicsSpec({ events: evs, teams, cuts: c, cumulativeOffsets: [0], settings, matchday: 'M', teaserCount: n })
+        buildGraphicsSpec({ events: evs, teams, cuts: c, cumulativeOffsets: [0], settings, matchday: 'M', teaserCount: n, teaserClips: Array(n).fill(0) })
 
     it('should banner the whole teaser clip and keep reel captions and replay tags off teaser cuts', () => {
         const spec = run(tcuts, 1)
@@ -466,11 +466,6 @@ describe('teaser graphics', () => {
         expect(reel.map((o) => o.cutIndex)).toEqual([1, 2])
         expect(spec.overlays.filter((o) => o.kind === 'replayTag').map((o) => o.cutIndex)).toEqual([2])
         for (const o of teaser) expect(o.kind === 'caption' && o.spec).not.toHaveProperty('bug')
-    })
-    it('should switch to the next starred event 1 s before its moment on a merged clip', () => {
-        const two = [ev('a', 40, { scorer: 'Dan', ...star }), ev('b', 46, { type: 'save', ...star })]
-        const caps = run([{ sourceIndex: 0, startSec: 30, endSec: 50 }], 1, ALL, two).overlays.filter((o) => o.kind === 'caption')
-        expect(caps.map((o) => o.kind === 'caption' && [o.spec.note, o.startSec, o.durationSec])).toEqual([['GOAL · DAN', 30, 15], ['SAVE', 45, 5]])
     })
     it('should span one clock across a teaser clip split over two files', () => {
         const split: Cut[] = [{ sourceIndex: 0, startSec: 92, endSec: 100 }, { sourceIndex: 1, startSec: 0, endSec: 6 }]

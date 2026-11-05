@@ -2255,6 +2255,8 @@ button.tagcol__crumb:active { color: var(--sh-text); border-color: var(--sh-text
 .teaser-section__head--match { margin-top: 0; border-top: 1px solid var(--sh-line); }
 .teaser-section__head--match .teaser-section__title { color: var(--sh-muted); }
 .event-row--teaser .ev-person { text-transform: none; }
+.teaser-hint { margin: 4px 0 0; font-size: var(--sh-text-sm); color: var(--sh-muted); }
+.teaser-secs__max { font-size: var(--sh-text-sm); color: var(--sh-muted); }
 .teaser-secs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .teaser-secs__field { display: grid; gap: 6px; font-size: var(--sh-text-sm); color: var(--sh-muted); }
 .teaser-replay { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }

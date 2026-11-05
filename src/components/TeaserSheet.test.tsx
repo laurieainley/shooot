@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import type { MatchEvent } from '../types'
@@ -32,17 +32,27 @@ describe('TeaserSheet', () => {
         expect(screen.getByRole('dialog', { name: 'Teaser: Goal · 01:35' })).toBeInTheDocument()
     })
 
-    it('should set the caption (limited, with a counter), with the automatic line as the placeholder', async () => {
+    it('should set the caption (limited, with a counter), with the automatic line as helper text (not a placeholder)', async () => {
         setup()
         const caption = screen.getByRole('textbox', { name: 'Caption' })
-        expect(caption).toHaveAttribute('placeholder', 'GOAL · SAM')
+        expect(caption).not.toHaveAttribute('placeholder', 'GOAL · SAM')
+        expect(screen.getByText('Automatic: GOAL · SAM')).toBeInTheDocument()
         expect(caption).toHaveAttribute('maxLength', String(NOTE_MAX))
         await userEvent.type(caption, 'Wait for it{Enter}')
+        expect(screen.queryByText(/^Automatic:/)).not.toBeInTheDocument()
         expect(ev().teaser?.caption).toBe('Wait for it')
         expect(ev().notes).toBeUndefined()
         await userEvent.clear(caption)
         await userEvent.tab()
         expect(ev().teaser).toBeUndefined()
+    })
+
+    it('should show the 15 s cap and never a placeholder above it', () => {
+        setup()
+        act(() => { useAppState.setState({ lengthBeforeGoalSec: 40, lengthAfterGoalSec: 60 }) })
+        expect(screen.getByRole('spinbutton', { name: 'Seconds before' })).toHaveAttribute('placeholder', '15')
+        expect(screen.getByRole('spinbutton', { name: 'Seconds after' })).toHaveAttribute('placeholder', '15')
+        expect(screen.getAllByText('(max 15)')).toHaveLength(2)
     })
 
     it('should set seconds before and after (0 to 15), with the match values as placeholders', async () => {
@@ -101,14 +111,15 @@ describe('Teaser framing', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Full frame' }))
         expect(ev().teaser?.replayCrop).toBe('full')
         expect(ev().replayCrop).toBe('team1')
-        await userEvent.click(screen.getByRole('button', { name: 'Auto' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Same as highlights' }))
         expect(ev().teaser?.replayCrop).toBeUndefined()
         expect(ev().replayCrop).toBe('team1')
     })
 
-    it('should show Auto while the teaser has no crop of its own', () => {
+    it('should show Same as highlights while the teaser has no crop of its own', () => {
         setup({ replay: true, replayCrop: 'full', teaser: { replay: true } }, 'framing')
-        expect(screen.getByRole('button', { name: 'Auto' })).toHaveAttribute('aria-pressed', 'true')
+        expect(screen.queryByRole('button', { name: 'Auto' })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Same as highlights' })).toHaveAttribute('aria-pressed', 'true')
     })
 
     it('should appear only while the teaser replay is on', () => {

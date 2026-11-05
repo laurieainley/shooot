@@ -113,6 +113,11 @@ describe('highlightsCuts teaser edits', () => {
         const plain = highlightsCuts({ ...opts, events: [ev('g', 40, { ...star, replayCrop: own })] })
         expect(reelOf(r)).toEqual(reelOf(plain))
     })
+    it('should plan no teaser replay for a moment whose clip is empty (0 s before and after)', () => {
+        const r = highlightsCuts({ ...base, events: [ev('g', 40, { ...star, teaser: { beforeSec: 0, afterSec: 0, replay: true } }), ev('h', 60, { ...star, teaser: { replay: true } })], teaser: true })
+        expect(r.teaserClips).toEqual([1, 1])
+        expect(r.cuts.slice(0, r.teaserCount).map((c) => [c.startSec, c.speed])).toEqual([[50, undefined], [56, 0.5]])
+    })
     it('should plan no teaser replay without replay options', () => {
         const r = highlightsCuts({ ...base, replay: undefined, events: [ev('g', 40, { ...star, teaser: { replay: true } })], teaser: true })
         expect(r.teaserCount).toBe(1)

@@ -218,7 +218,6 @@ export function buildGraphicsSpec(args: {
  * COMING UP banners for the first `teaserCount` cuts. A teaser clip is one cut, or two when it crosses a file join (`clipOf`
  * gives each cut's clip, the index of its starred event in `teaserEvents`); its banner spans the clip's normal-speed cuts
  * and fades in/out once, with that event's banner only. A moment's teaser replay (a slowed cut) has no banner.
- * Without `clipOf`, a clip holding several starred events shows the next one's banner from 1 s before its moment.
  */
 function teaserCaptions(events: MatchEvent[], teams: Team[], cuts: Cut[], teaserCount: number, clipOf: number[], theme: GraphicsTheme): CaptionOverlay[] {
     if (teaserCount <= 0) return []
@@ -236,25 +235,17 @@ function teaserCaptions(events: MatchEvent[], teams: Team[], cuts: Cut[], teaser
         const begin = group.map((_, j) => len.slice(0, j).reduce((a, b) => a + b, 0))
         const total = len.reduce((a, b) => a + b, 0)
         const own = clipOf[group[0]] !== undefined ? starred[clipOf[group[0]]] : undefined
-        const held = own ? [{ e: own, at: 0 }] : starred.flatMap((e) => {
-            const j = group.findIndex((i) => cuts[i].sourceIndex === (e.sourceFileIndex ?? 0) && cuts[i].startSec <= e.matchTimeSec && e.matchTimeSec < cuts[i].endSec)
-            return j === -1 ? [] : [{ e, at: begin[j] + e.matchTimeSec - cuts[group[j]].startSec }]
-        })
-        held.forEach(({ e, at }, k) => {
-            const a = k === 0 ? 0 : Math.max(0, at - 1)
-            const b = k + 1 < held.length ? Math.max(0, held[k + 1].at - 1) : total
-            if (b - a < 0.05) return
-            const spec = teaserCaptionSpec(e, teams, theme)
-            const label = `Caption: COMING UP · ${eventSummary(e)}`
-            group.forEach((i, j) => {
-                const s0 = Math.max(a, begin[j])
-                const s1 = Math.min(b, begin[j] + len[j])
-                if (s1 - s0 < 0.05) return
-                out.push({
-                    kind: 'caption', cutIndex: i, startSec: cuts[i].startSec + (s0 - begin[j]), durationSec: s1 - s0, spec, label,
-                    clock: { offsetSec: s0 - a, rate: 1, totalSec: b - a },
-                    ...(s0 - a > 0.05 ? { fromCutStart: true } : {}), ...(b - s1 > 0.05 ? { toCutEnd: true } : {}),
-                })
+        if (!own || total < 0.05) continue
+        const spec = teaserCaptionSpec(own, teams, theme)
+        const label = `Caption: COMING UP · ${eventSummary(own)}`
+        group.forEach((i, j) => {
+            const s0 = begin[j]
+            const s1 = begin[j] + len[j]
+            if (s1 - s0 < 0.05) return
+            out.push({
+                kind: 'caption', cutIndex: i, startSec: cuts[i].startSec, durationSec: s1 - s0, spec, label,
+                clock: { offsetSec: s0, rate: 1, totalSec: total },
+                ...(s0 > 0.05 ? { fromCutStart: true } : {}), ...(total - s1 > 0.05 ? { toCutEnd: true } : {}),
             })
         })
     }

@@ -51,7 +51,7 @@ export function ReplayFraming({ event: e, target = 'event' }: ReplayFramingProps
     const zoom = shown ? Math.min(MAX_REPLAY_ZOOM, zoomOf(shown)) : 1
     const boxes: FrameBox[] = shown ? [{ id: 'crop', label: 'Replay framing', short: 'Replay', rect: shown, tone: 'event' }] : []
     const choices: { id: ChoiceId; label: string }[] = [
-        { id: 'auto', label: 'Auto' }, { id: 'team1', label: teamGoalLabel(teams, 'team1') }, { id: 'team2', label: teamGoalLabel(teams, 'team2') },
+        { id: 'auto', label: target === 'teaser' ? 'Same as highlights' : 'Auto' }, { id: 'team1', label: teamGoalLabel(teams, 'team1') }, { id: 'team2', label: teamGoalLabel(teams, 'team2') },
         { id: 'full', label: 'Full frame' }, { id: 'custom', label: 'Custom' },
     ]
     const needsAreas = (id: ChoiceId): boolean => (id === 'team1' || id === 'team2') && !areas?.[id]

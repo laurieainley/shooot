@@ -1,10 +1,13 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, within, fireEvent } from '@testing-library/react'
+import { render, screen, within, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import type { MatchEvent, Team, VideoSourceFile } from '../types'
 import { EventLog } from './EventLog'
+import { teaserLine } from '../graphics/plan'
+
+vi.mock('../graphics/plan', async (orig) => { const m = await orig<typeof import('../graphics/plan')>(); return { ...m, teaserLine: vi.fn(m.teaserLine) } })
 
 const vf = (name: string, durationSec = 600): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec, kind: 'full' })
 const teams: Team[] = [
@@ -54,6 +57,26 @@ describe('Coming up section', () => {
         expect(a).toHaveTextContent('GOAL · SAM')
         expect(b).toHaveTextContent('WAIT FOR IT')
         expect(a).not.toHaveTextContent('Wait for it')
+    })
+
+    it('should word each row with the current graphics theme, as the banner does', () => {
+        const base = useAppState.getState().graphics
+        setup([star(goal('a', 100))])
+        useAppState.setState({ graphics: { ...base, theme: 'classic' } })
+        vi.mocked(teaserLine).mockClear()
+        render(<EventLog />)
+        expect(vi.mocked(teaserLine).mock.calls.length).toBeGreaterThan(0)
+        for (const call of vi.mocked(teaserLine).mock.calls) expect(call[1]).toBe('classic')
+        useAppState.setState({ graphics: base })
+    })
+
+    it('should say when the teaser is off, and how many starred moments are not loaded', () => {
+        setup([star(goal('a', 100)), star(goal('u', 200, { unlinked: true, sourceFileKey: 'gone.mp4' }))])
+        useAppState.setState({ highlightsTeaser: false })
+        render(<EventLog />)
+        expect(screen.getByText(/^1 moment · \d+ s \(1 not loaded\) · off$/)).toBeInTheDocument()
+        act(() => { useAppState.setState({ highlightsTeaser: true }) })
+        expect(screen.getByText(/^1 moment · \d+ s \(1 not loaded\)$/)).toBeInTheDocument()
     })
 
     it('should mark a moment whose teaser replay is on', () => {
@@ -125,6 +148,31 @@ describe('Coming up section', () => {
         expect(seekToGoal).toHaveBeenLastCalledWith(0, 97)
         await userEvent.click(within(teaserRows()[1]).getByRole('button', { name: 'Watch' }))
         expect(seekToGoal).toHaveBeenLastCalledWith(0, 190)
+    })
+
+    it('should jump to the moment\'s Coming up step on Watch during a preview, staying in the preview', async () => {
+        setup([star(goal('a', 100)), star(goal('b', 200)), goal('c', 300)])
+        useAppState.getState().startPreview()
+        const steps = useAppState.getState().previewSteps
+        const stepB = steps.findIndex((x) => x.teaser && !x.replay && x.eventIds.includes('b'))
+        expect(stepB).toBeGreaterThan(0)
+        render(<EventLog />)
+        await userEvent.click(within(teaserRows()[1]).getByRole('button', { name: 'Watch' }))
+        expect(useAppState.getState().isPreviewMode).toBe(true)
+        expect(useAppState.getState().currentPreviewSegment).toBe(stepB)
+        expect(seekToGoal).not.toHaveBeenCalled()
+        useAppState.getState().exitPreview()
+    })
+
+    it('should reset the selection when the selected teaser row goes away outside the log (unstarred elsewhere, undo)', async () => {
+        setup([star(goal('a', 100)), goal('b', 200)])
+        render(<EventLog />)
+        await userEvent.click(teaserRows()[0])
+        act(() => { useAppState.getState().toggleMark('a', 'teaser') })
+        expect(screen.queryByRole('listbox', { name: 'Coming up' })).not.toBeInTheDocument()
+        expect(matchRows()[0]).toHaveAttribute('aria-selected', 'true') // the same event, now selected in the match list
+        fireEvent.keyDown(screen.getByRole('region', { name: 'Events' }), { key: 'Enter' })
+        expect(seekToGoal).toHaveBeenCalledWith(0, 90) // keys work again
     })
 })
 

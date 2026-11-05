@@ -49,6 +49,7 @@ export function TeaserSheet({ event: e }: { event: MatchEvent }) {
     const clockLong = useAppState(selectClockLong)
     const matchBefore = useAppState((s) => s.lengthBeforeGoalSec)
     const matchAfter = useAppState((s) => s.lengthAfterGoalSec)
+    const theme = useAppState((s) => s.graphics.theme)
     const t = e.teaser
     const [caption, setCaption] = useState(t?.caption ?? '')
     const [before, setBefore] = useState(secText(t?.beforeSec))
@@ -79,7 +80,7 @@ export function TeaserSheet({ event: e }: { event: MatchEvent }) {
     const done = (): void => { saveAll(); close() }
     const replay = t?.replay === true
     const clock = formatEventClock(offset + e.matchTimeSec, e.matchTimeSec, matchStartSec, clockLong)
-    const automatic = teaserLine({ ...e, teaser: undefined })
+    const automatic = teaserLine({ ...e, teaser: undefined }, theme)
     const onEnter = (save: () => void) => (ev: React.KeyboardEvent<HTMLInputElement>): void => {
         if (ev.key === 'Enter') { ev.preventDefault(); save(); ev.currentTarget.blur() }
     }
@@ -93,13 +94,14 @@ export function TeaserSheet({ event: e }: { event: MatchEvent }) {
                     className="field event-sheet__input"
                     value={caption}
                     maxLength={NOTE_MAX}
-                    placeholder={automatic}
+                    placeholder="Type your own line"
                     enterKeyHint="done"
                     autoComplete="off"
                     onChange={(ev) => setCaption(ev.target.value)}
                     onKeyDown={onEnter(() => saveCaption(caption))}
                     onBlur={() => saveCaption(latest.current.caption)}
                 />
+                {caption.trim() === '' && <p className="teaser-hint">Automatic: {automatic}</p>}
                 <NoteCounter value={caption} />
             </fieldset>
 
@@ -107,15 +109,15 @@ export function TeaserSheet({ event: e }: { event: MatchEvent }) {
                 <legend>Length</legend>
                 <div className="teaser-secs">
                     <label className="teaser-secs__field">
-                        <span>Seconds before</span>
+                        <span>Seconds before <span className="teaser-secs__max">(max {TEASER_SEC_MAX})</span></span>
                         <input type="number" inputMode="numeric" min={0} max={TEASER_SEC_MAX} aria-label="Seconds before" className="field event-sheet__input"
-                            value={before} placeholder={String(matchBefore)} onChange={(ev) => setBefore(ev.target.value)}
+                            value={before} placeholder={String(Math.min(matchBefore, TEASER_SEC_MAX))} onChange={(ev) => setBefore(ev.target.value)}
                             onKeyDown={onEnter(() => saveSec('beforeSec', before))} onBlur={() => saveSec('beforeSec', latest.current.before)} />
                     </label>
                     <label className="teaser-secs__field">
-                        <span>Seconds after</span>
+                        <span>Seconds after <span className="teaser-secs__max">(max {TEASER_SEC_MAX})</span></span>
                         <input type="number" inputMode="numeric" min={0} max={TEASER_SEC_MAX} aria-label="Seconds after" className="field event-sheet__input"
-                            value={after} placeholder={String(matchAfter)} onChange={(ev) => setAfter(ev.target.value)}
+                            value={after} placeholder={String(Math.min(matchAfter, TEASER_SEC_MAX))} onChange={(ev) => setAfter(ev.target.value)}
                             onKeyDown={onEnter(() => saveSec('afterSec', after))} onBlur={() => saveSec('afterSec', latest.current.after)} />
                     </label>
                 </div>
