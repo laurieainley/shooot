@@ -12,6 +12,11 @@ export function teaserEvents(events: MatchEvent[]): MatchEvent[] {
         .sort((a, b) => (a.sourceFileIndex ?? 0) - (b.sourceFileIndex ?? 0) || a.matchTimeSec - b.matchTimeSec)
 }
 
+/** Every starred moment in list order, including those in files that are not loaded (they can still be edited or unstarred). */
+export function starredMoments(events: MatchEvent[]): MatchEvent[] {
+    return events.filter((e) => !isMarker(e) && hasMark(e, 'teaser'))
+}
+
 /** One starred event's teaser clip: its own window (`teaser.beforeSec` / `afterSec`, else the match's clip seconds). */
 export function teaserSegment(e: MatchEvent, before: number, after: number): HighlightSegment {
     const b = e.teaser?.beforeSec ?? before

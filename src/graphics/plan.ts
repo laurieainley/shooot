@@ -115,6 +115,11 @@ export function teaserCaptionSpec(e: MatchEvent, _teams: Team[], theme: Graphics
     return { label: 'COMING UP', tone: 'goal', note: row, stripe: th.caption.defaultStripe }
 }
 
+/** The line the teaser banner shows for one starred event (its caption, else the automatic one), for the Coming up rows. */
+export function teaserLine(e: MatchEvent, theme: GraphicsTheme | ThemeId = DEFAULT_THEME_ID): string {
+    return teaserCaptionSpec(e, [], theme).note ?? ''
+}
+
 /** The full match captions goals (incl. penalties, own goals), conceded and missed penalties; not highlights, saves or fouls. */
 export function wantsFullMatchCaption(e: Pick<MatchEvent, 'type' | 'notes' | 'pen'>): boolean {
     return isScoring(e) || e.type === 'penalty_missed' || e.type === 'penalty_conceded'

@@ -519,6 +519,22 @@ describe('panels and the picker', () => {
         expect(s().editingView).toBe('details')
     })
 
+    it('should open the teaser sheet or framing for a starred event, and the plain edit sheet again after', () => {
+        s().addEvent({ id: 'a', matchTimeSec: 1, sourceFileIndex: 0, type: 'goal', marks: ['teaser'] })
+        s().editTeaser('a', 'framing')
+        expect(s()).toMatchObject({ panel: 'event', editingEventId: 'a', editingView: 'framing', editingTarget: 'teaser' })
+        s().editTeaser('a')
+        expect(s().editingView).toBe('details')
+        s().editEvent('a')
+        expect(s().editingTarget).toBe('event')
+    })
+
+    it('should not open the teaser sheet for an event that is not starred', () => {
+        s().addEvent({ id: 'a', matchTimeSec: 1, sourceFileIndex: 0, type: 'goal' })
+        s().editTeaser('a')
+        expect(s().panel).toBeNull()
+    })
+
     it('should close the edit sheet when its event goes away (delete, undo)', () => {
         s().addEvent({ id: 'a', matchTimeSec: 1, sourceFileIndex: 0, type: 'highlight' })
         s().editEvent('a')

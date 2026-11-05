@@ -15,6 +15,7 @@ import { fileKeys } from '../utils/fileKey'
 import { formatEventClock } from '../utils/timeline'
 import { ColumnPanel } from './ColumnPanel'
 import { ReplayFraming } from './ReplayFraming'
+import { TeaserFramingBody, TeaserSheet } from './TeaserSheet'
 
 /**
  * Editing an existing event (tap a row in the event log; it replaces the events column rather than covering the picture): type, team, person, note, time nudge,
@@ -25,7 +26,9 @@ export function EventSheet() {
     const event = useAppState((s) => s.events.find((e) => e.id === s.editingEventId))
     const teams = useAppState((s) => s.teams)
     const view = useAppState((s) => s.editingView)
+    const target = useAppState((s) => s.editingTarget)
     if (!event) return null
+    if (target === 'teaser') return view === 'framing' ? <TeaserFramingBody key={event.id} event={event} /> : <TeaserSheet key={event.id} event={event} />
     if (view === 'framing') return <FramingSheetBody key={event.id} event={event} />
     return <EventSheetBody key={event.id} event={event} teams={teams} />
 }
