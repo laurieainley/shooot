@@ -1,6 +1,7 @@
 import type { CropRect } from '../types'
 import type { HighlightSegment } from './highlights'
 import { buildRenderPlan, type ReplayOptions } from './renderPlan'
+import { teaserClipPlan } from './teaser'
 
 /** One stretch of in-player preview: a clip (or part of a cross-file clip) or a slowed replay. */
 export type PreviewStep = {
@@ -12,16 +13,16 @@ export type PreviewStep = {
     replay: boolean
     clipIndex: number  // which clip of the reel this step belongs to
     eventIds: string[] // the events in that clip (the event list highlights them while it plays)
-    teaser?: true      // a COMING UP clip played ahead of the reel (clipIndex -1; the reel's clips start at 0)
+    teaser?: true      // a COMING UP clip (or its teaser replay) played ahead of the reel (clipIndex -1; the reel's clips start at 0)
     crop?: CropRect    // replays: the part of the picture shown (same as the render)
 }
 
 /** The preview follows the render plan exactly, so what you preview is what gets rendered. */
 export function buildPreviewPlan(segments: HighlightSegment[], durationsSec: number[], replay?: ReplayOptions, teaserSegments: HighlightSegment[] = []): PreviewStep[] {
-    // Starred clips first: normal speed, no replay, like the render.
-    const teaser = teaserSegments.flatMap((s) => buildRenderPlan([s], durationsSec).map((c): PreviewStep => ({
-        sourceIndex: c.sourceIndex, startSec: c.startSec, endSec: c.endSec, speed: 1, gain: 1, replay: false,
-        clipIndex: -1, eventIds: s.goals.map((g) => g.id), teaser: true,
+    // Starred clips first, like the render: each moment's own window, then its teaser replay when it has one.
+    const teaser = teaserSegments.flatMap((s) => teaserClipPlan(s, durationsSec, replay).cuts.map((c): PreviewStep => ({
+        sourceIndex: c.sourceIndex, startSec: c.startSec, endSec: c.endSec, speed: c.speed ?? 1, gain: c.gain ?? 1, replay: c.speed !== undefined,
+        clipIndex: -1, eventIds: s.goals.map((g) => g.id), teaser: true, ...(c.crop ? { crop: c.crop } : {}),
     })))
     return [...teaser, ...reelSteps(segments, durationsSec, replay)]
 }

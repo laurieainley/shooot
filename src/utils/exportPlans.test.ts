@@ -249,4 +249,43 @@ describe('highlightsExport teaser', () => {
     it('should leave the full match alone', () => {
         expect(fullMatchExport(state({ events: starred }), 'full').cuts).toEqual(fullMatchExport(state(), 'full').cuts)
     })
+    const crop = { x: 0.5, y: 0.25, w: 0.5, h: 0.5 }
+    const edited = (teaser: NonNullable<MatchEvent['teaser']>): MatchEvent[] => starred.map((e) => (e.id === 'g' ? { ...e, teaser } : e))
+    const all = { caption: 'Top bins', beforeSec: 3, afterSec: 6, replay: true, replayCrop: crop }
+    const reel = (p: ReturnType<typeof highlightsExport>, n: number) => ({
+        cuts: p.cuts.slice(n),
+        overlays: (p.spec?.overlays ?? []).filter((o) => o.cutIndex >= n).map((o) => ({ ...o, cutIndex: o.cutIndex - n })),
+        outro: p.spec?.outro, intro: p.spec?.intro,
+    })
+    it('should change only the teaser cuts with a moment\'s edits: reel cuts and graphics as without them', () => {
+        const s0 = state({ events: starred, graphics: { cards: true, lowerThirds: true, replayTag: true, theme: 'shooot' } })
+        const plain = highlightsExport(s0, 'full')
+        const plan = highlightsExport({ ...s0, events: edited(all) }, 'full')
+        expect(plan.cuts.slice(0, 2)).toEqual([
+            { sourceIndex: 0, startSec: 57, endSec: 66 },
+            expect.objectContaining({ sourceIndex: 0, startSec: 56, endSec: 61, speed: 0.5, gain: 0.5, crop }),
+        ])
+        expect(plan.spec?.introAfterCut).toBe(2)
+        expect(reel(plan, 2)).toEqual(reel(plain, 1))
+        const reelReplay = plan.cuts.slice(2).find((c) => c.speed)
+        expect(reelReplay?.crop).not.toEqual(crop)
+        const coming = plan.spec?.overlays.filter((o) => o.kind === 'caption' && o.cutIndex < 2) ?? []
+        expect(coming.map((o) => o.kind === 'caption' && [o.cutIndex, o.spec.note])).toEqual([[0, 'TOP BINS']])
+        expect(plan.spec?.overlays.filter((o) => o.kind === 'replayTag' && o.cutIndex < 2).map((o) => o.cutIndex)).toEqual([1])
+        expect(plan.seconds).toBeCloseTo(plain.seconds - 14 + 9 + 10)
+    })
+    it('should leave the full match and the clip download alone', () => {
+        const s0 = state({ events: starred, fullMatch: { cards: true, scoreBug: 'periodic', intervalMin: 5, captions: true, replays: true, quality: 'original' } })
+        const s1 = { ...s0, events: edited(all) }
+        expect(fullMatchExport(s1, 'full').cuts).toEqual(fullMatchExport(s0, 'full').cuts)
+        expect(fullMatchExport(s1, 'full').spec).toEqual(fullMatchExport(s0, 'full').spec)
+        const clip = (s: ExportState) => clipExport(s, 'g', { replay: true, score: true }, 'full')
+        expect(clip(s1)?.cuts).toEqual(clip(s0)?.cuts)
+        expect(clip(s1)?.spec).toEqual(clip(s0)?.spec)
+    })
+    it('should change the signature with each edit', () => {
+        const sig = (t?: NonNullable<MatchEvent['teaser']>) => highlightsExport(state({ events: t ? edited(t) : starred }), 'full').signature
+        const sigs = [sig(), sig({ caption: 'Top bins' }), sig({ beforeSec: 3 }), sig({ afterSec: 6 }), sig({ replay: true }), sig({ replay: true, replayCrop: crop })]
+        expect(new Set(sigs).size).toBe(sigs.length)
+    })
 })

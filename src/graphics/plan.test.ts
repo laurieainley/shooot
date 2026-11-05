@@ -436,6 +436,13 @@ describe('teaserCaptionSpec', () => {
         expect(t(ev('a', 10, { type: 'highlight', scorer: 'Sam' })).note).toBe('SAM')
         expect(t(ev('a', 10, { type: 'highlight' })).note).toBe('HIGHLIGHT')
     })
+    it('should use the moment\'s own caption, uppercased, in place of the automatic line', () => {
+        expect(t(ev('a', 10, { scorer: 'Dan', teaser: { caption: 'Wait for the finish' } })).note).toBe('WAIT FOR THE FINISH')
+        expect(t(ev('a', 10, { type: 'highlight', notes: 'nutmeg', teaser: { caption: 'Skills' } })).note).toBe('SKILLS')
+        expect(t(ev('a', 10, { scorer: 'Dan', teaser: { caption: '   ' } })).note).toBe('GOAL · DAN')
+        const long = 'x'.repeat(100)
+        expect(t(ev('a', 10, { teaser: { caption: long } })).note).toBe(long.toUpperCase())
+    })
 })
 
 describe('teaser graphics', () => {
@@ -485,6 +492,36 @@ describe('teaser graphics', () => {
             { cutIndex: 1, startSec: 0, durationSec: 6, clock: { offsetSec: 0, totalSec: 6 } },
         ])
         expect(caps.some((o) => o.kind === 'caption' && (o.fromCutStart || o.toCutEnd))).toBe(false)
+    })
+    it('should banner only the normal-speed teaser clip and REPLAY-tag its teaser replay', () => {
+        const withReplay: Cut[] = [
+            { sourceIndex: 0, startSec: 30, endSec: 44 },
+            { sourceIndex: 0, startSec: 36, endSec: 41, speed: 0.5, gain: 0.5 },
+            { sourceIndex: 0, startSec: 30, endSec: 44 },
+            { sourceIndex: 0, startSec: 36, endSec: 41, speed: 0.5, gain: 0.5 },
+        ]
+        const spec = buildGraphicsSpec({ events, teams, cuts: withReplay, cumulativeOffsets: [0], settings: { ...ALL, replayTag: true }, matchday: 'M', teaserCount: 2, teaserClips: [0, 0] })
+        const caps = spec.overlays.filter((o) => o.kind === 'caption')
+        const coming = caps.filter((o) => o.kind === 'caption' && o.spec.label === 'COMING UP')
+        expect(coming).toHaveLength(1)
+        expect(coming[0]).toMatchObject({ cutIndex: 0, startSec: 30, durationSec: 14, clock: { offsetSec: 0, totalSec: 14 } })
+        expect(coming[0]).not.toHaveProperty('toCutEnd')
+        expect(caps.some((o) => o.cutIndex === 1)).toBe(false)
+        expect(caps.filter((o) => o.cutIndex >= 2).map((o) => o.cutIndex)).toEqual([2, 3])
+        expect(spec.overlays.filter((o) => o.kind === 'replayTag').map((o) => o.cutIndex)).toEqual([1, 3])
+        expect(spec.introAfterCut).toBe(2)
+    })
+    it('should banner each teaser clip with its own moment only, even when another starred moment falls inside it', () => {
+        const two = [ev('a', 40, { scorer: 'Dan', ...star }), ev('b', 43, { type: 'save', ...star })]
+        const clips: Cut[] = [{ sourceIndex: 0, startSec: 30, endSec: 44 }, { sourceIndex: 0, startSec: 33, endSec: 47 }]
+        const spec = buildGraphicsSpec({ events: two, teams, cuts: clips, cumulativeOffsets: [0], settings: ALL, matchday: 'M', teaserCount: 2, teaserClips: [0, 1] })
+        const caps = spec.overlays.filter((o) => o.kind === 'caption')
+        expect(caps.map((o) => o.kind === 'caption' && [o.cutIndex, o.spec.note, o.startSec, o.durationSec])).toEqual([[0, 'GOAL · DAN', 30, 14], [1, 'SAVE', 33, 14]])
+    })
+    it('should banner the moment\'s own caption', () => {
+        const evs = [ev('g', 40, { scorer: 'Dan', ...star, teaser: { caption: 'Top bins' } })]
+        const caps = run(tcuts, 1, ALL, evs).overlays.filter((o) => o.kind === 'caption' && o.cutIndex === 0)
+        expect(caps.map((o) => o.kind === 'caption' && o.spec.note)).toEqual(['TOP BINS'])
     })
     it('should place the intro after the teaser only when cards are on', () => {
         expect(run(tcuts, 1).introAfterCut).toBe(1)

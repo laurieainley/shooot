@@ -100,9 +100,14 @@ function eventCaptionSpec(e: MatchEvent, teams: Team[], score: Score | undefined
     return cs
 }
 
-/** The teaser banner for one starred event: COMING UP, then the event word and name (a highlight: its note). Nothing that gives the result away. */
+/**
+ * The teaser banner for one starred event: COMING UP, then the moment's own caption (`teaser.caption`) when set, else the event
+ * word and name (a highlight: its note). Nothing that gives the result away. The row wraps onto two lines when drawn (`wrapNote`).
+ */
 export function teaserCaptionSpec(e: MatchEvent, _teams: Team[], theme: GraphicsTheme | ThemeId = DEFAULT_THEME_ID): CaptionSpec {
     const th = typeof theme === 'string' ? getTheme(theme) : theme
+    const own = upper(shortNote(e.teaser?.caption, 2 * NOTE_MAX))
+    if (own) return { label: 'COMING UP', tone: 'goal', note: own, stripe: th.caption.defaultStripe }
     const word = th.caption.word(e).replace(/!$/, '')
     const name = upper(e.scorer)
     const note = upper(shortNote(e.notes, 2 * NOTE_MAX))
@@ -197,7 +202,8 @@ export function buildGraphicsSpec(args: {
 
     if (settings.replayTag) {
         cuts.forEach((c, cutIndex) => {
-            if (cutIndex >= teaserCount && (c.speed ?? 1) < 1) spec.overlays.push({ kind: 'replayTag', cutIndex, startSec: c.startSec, durationSec: c.endSec - c.startSec, speed: c.speed ?? 1, label: 'Replay tag' })
+            // Teaser clips themselves are never slowed; a slowed teaser cut is a moment's teaser replay and gets the tag like any replay.
+            if ((c.speed ?? 1) < 1) spec.overlays.push({ kind: 'replayTag', cutIndex, startSec: c.startSec, durationSec: c.endSec - c.startSec, speed: c.speed ?? 1, label: 'Replay tag' })
         })
     }
     return spec
@@ -205,13 +211,15 @@ export function buildGraphicsSpec(args: {
 
 /**
  * COMING UP banners for the first `teaserCount` cuts. A teaser clip is one cut, or two when it crosses a file join (`clipOf`
- * gives each cut's clip); its banner spans the whole clip and fades in/out once. A clip holding several starred
- * events shows the next one's banner from 1 s before its moment.
+ * gives each cut's clip, the index of its starred event in `teaserEvents`); its banner spans the clip's normal-speed cuts
+ * and fades in/out once, with that event's banner only. A moment's teaser replay (a slowed cut) has no banner.
+ * Without `clipOf`, a clip holding several starred events shows the next one's banner from 1 s before its moment.
  */
 function teaserCaptions(events: MatchEvent[], teams: Team[], cuts: Cut[], teaserCount: number, clipOf: number[], theme: GraphicsTheme): CaptionOverlay[] {
     if (teaserCount <= 0) return []
     const groups: number[][] = []
     for (let i = 0; i < teaserCount; i++) {
+        if (cuts[i].speed !== undefined) continue
         const last = groups[groups.length - 1]
         if (last && clipOf[i] !== undefined && clipOf[i] === clipOf[last[last.length - 1]]) last.push(i)
         else groups.push([i])
@@ -222,7 +230,8 @@ function teaserCaptions(events: MatchEvent[], teams: Team[], cuts: Cut[], teaser
         const len = group.map((i) => cuts[i].endSec - cuts[i].startSec)
         const begin = group.map((_, j) => len.slice(0, j).reduce((a, b) => a + b, 0))
         const total = len.reduce((a, b) => a + b, 0)
-        const held = starred.flatMap((e) => {
+        const own = clipOf[group[0]] !== undefined ? starred[clipOf[group[0]]] : undefined
+        const held = own ? [{ e: own, at: 0 }] : starred.flatMap((e) => {
             const j = group.findIndex((i) => cuts[i].sourceIndex === (e.sourceFileIndex ?? 0) && cuts[i].startSec <= e.matchTimeSec && e.matchTimeSec < cuts[i].endSec)
             return j === -1 ? [] : [{ e, at: begin[j] + e.matchTimeSec - cuts[group[j]].startSec }]
         })
