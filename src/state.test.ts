@@ -9,6 +9,50 @@ const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: 
 const goalIn = (fileIndex: number, id = `g${fileIndex}`): MatchEvent => ({ id, matchTimeSec: 10, sourceFileIndex: fileIndex, type: 'goal' })
 const s = () => useAppState.getState()
 
+describe('toggleMark', () => {
+    beforeEach(() => {
+        useAppState.setState({ events: [{ id: 'g', matchTimeSec: 10, type: 'goal' }, { id: 'k', matchTimeSec: 1, type: 'kick_off' }], undoStack: [], redoStack: [] })
+    })
+
+    it('should add then remove the teaser mark, and undo restores', () => {
+        s().toggleMark('g', 'teaser')
+        expect(s().events.find((e) => e.id === 'g')!.marks).toEqual(['teaser'])
+        s().toggleMark('g', 'teaser')
+        expect(s().events.find((e) => e.id === 'g')!.marks ?? []).toEqual([])
+        s().undo()
+        expect(s().events.find((e) => e.id === 'g')!.marks).toEqual(['teaser'])
+    })
+
+    it('should switch the teaser back on when the first star is added while it was off', () => {
+        useAppState.setState({ highlightsTeaser: false })
+        s().toggleMark('g', 'teaser')
+        expect(s().highlightsTeaser).toBe(true)
+        s().undo()
+        expect(s().events.find((e) => e.id === 'g')!.marks).toBeUndefined()
+    })
+
+    it('should leave a switched-off teaser alone when other events are already starred', () => {
+        useAppState.setState({ events: [{ id: 'g', matchTimeSec: 10, type: 'goal' }, { id: 'h', matchTimeSec: 20, type: 'goal', marks: ['teaser'] }], highlightsTeaser: false })
+        s().toggleMark('g', 'teaser')
+        expect(s().highlightsTeaser).toBe(false)
+    })
+
+    it('should drop the mark when a starred event becomes a marker', () => {
+        s().toggleMark('g', 'teaser')
+        s().placeMarker('g', 'final_whistle')
+        const e = s().events.find((x) => x.id === 'g')!
+        expect(e.type).toBe('final_whistle')
+        expect('marks' in e).toBe(false)
+    })
+
+    it('should do nothing on a marker or unknown id', () => {
+        s().toggleMark('k', 'teaser')
+        s().toggleMark('nope', 'teaser')
+        expect(s().events.find((e) => e.id === 'k')!.marks).toBeUndefined()
+        expect(s().undoStack).toHaveLength(0)
+    })
+})
+
 describe('file changes keep events', () => {
     beforeEach(() => {
         useAppState.setState({ files: [], events: [], cumulativeOffsets: [], undoStack: [], redoStack: [], currentFileIndex: 0 })
@@ -209,9 +253,20 @@ describe('teams and picker', () => {
         expect((migrate({ replayAfterSec: 1 }, 27) as { replayAfterSec: number }).replayAfterSec).toBe(1)
     })
 
+    it('should turn the teaser on for saved state from before v28 and persist it', () => {
+        const opts = useAppState.persist.getOptions()
+        expect((opts.migrate!({}, 27) as { highlightsTeaser: boolean }).highlightsTeaser).toBe(true)
+        expect((opts.migrate!({ highlightsTeaser: false }, 28) as { highlightsTeaser: boolean }).highlightsTeaser).toBe(false)
+        expect(opts.partialize!(s())).toHaveProperty('highlightsTeaser')
+        expect(s().highlightsTeaser).toBe(true)
+        s().setHighlightsTeaser(false)
+        expect(s().highlightsTeaser).toBe(false)
+        s().setHighlightsTeaser(true)
+    })
+
     it('should migrate v8 legacy event types and persist teams (v9+)', () => {
         const opts = useAppState.persist.getOptions()
-        expect(opts.version).toBe(27)
+        expect(opts.version).toBe(28)
         const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
         expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
         expect(opts.partialize!(s())).toHaveProperty('teams')
@@ -480,6 +535,20 @@ describe('preview', () => {
         s().startPreview()
         expect(s().currentPreviewSegment).toBe(0)
         expect(s().previewSteps.map((p) => [p.clipIndex, p.replay, p.speed])).toEqual([[0, false, 1], [0, true, 0.5], [1, false, 1]])
+    })
+
+    it('should preview the starred clips first when the teaser is on, and jump to the reel clip', () => {
+        s().updateEvent('g', { marks: ['teaser'] })
+        s().setHighlightsTeaser(true)
+        s().startPreview()
+        expect(s().previewSteps.map((p) => [p.teaser === true, p.replay, p.speed])).toEqual([[true, false, 1], [false, false, 1], [false, true, 0.5], [false, false, 1]])
+        expect(s().previewSegments).toHaveLength(2)
+        expect(s().jumpToPreviewEvent('g')).toBe(true)
+        expect(s().currentPreviewSegment).toBe(1)
+        s().exitPreview()
+        s().setHighlightsTeaser(false)
+        s().startPreview()
+        expect(s().previewSteps.some((p) => p.teaser)).toBe(false)
     })
 
     it('should jump to a step, and to the clip of an event, without leaving the preview', () => {

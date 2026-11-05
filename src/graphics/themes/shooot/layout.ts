@@ -10,7 +10,7 @@ import { rosterLayout } from '../../rosterLayout'
 import type { BugSpec, CaptionSpec, CardSpec, ScorerLine } from '../../types'
 import { PRODUCT_NAME } from '../../../brand'
 
-import { CAPTION_DELAY_SEC, CAPTION_SEC, CARD_SEC, DESIGN_H, DESIGN_W, OVERLAY_FADE, SAFE_X, SAFE_Y, cardFade, clamp01, easeOut } from '../../layout'
+import { CAPTION_DELAY_SEC, CAPTION_SEC, CARD_SEC, DESIGN_H, DESIGN_W, OVERLAY_FADE, SAFE_X, SAFE_Y, cardFade, clamp01, easeOut, wrapNote } from '../../layout'
 export { CAPTION_DELAY_SEC, CAPTION_SEC, CARD_SEC, DESIGN_H, DESIGN_W, SAFE_X, SAFE_Y, cardFade }
 
 type Alpha = { alpha?: number }
@@ -293,8 +293,8 @@ const CAPTION_MAX_RIGHT = 1360
 
 /** Design-space rows the score bug / a caption can touch (with room for anti-aliasing). */
 export const BUG_ROWS: [number, number] = [SAFE_Y - 14, SAFE_Y + BUG_H + 14]
-/** Under the event line: an optional assist line, then an optional note, each one NOTE_H band. */
-export const CAPTION_ROWS: [number, number] = [SAFE_Y - 14, SAFE_Y + BUG_H + EVENT_H + 2 * NOTE_H + 14]
+/** Under the event line: an optional assist line, then an optional note of up to two lines, each one NOTE_H band. */
+export const CAPTION_ROWS: [number, number] = [SAFE_Y - 14, SAFE_Y + BUG_H + EVENT_H + 3 * NOTE_H + 14]
 
 /** TV-style score bug row from (x0, y): [logo] ▌WH  1–0  CO▐, the score in mono on lime, kit-colour bars at both ends. */
 function bugRow(bug: BugSpec, hasLogo: boolean, measure: MeasureText, x0: number, y: number): { ops: Shape[]; right: number } {
@@ -340,7 +340,12 @@ export function scoreBugLayout(bug: BugSpec, t: number, duration: number, hasLog
  */
 export function captionLayout(spec: CaptionSpec, t: number, hasLogo: boolean, duration = CAPTION_SEC, measure: MeasureText = estimateTextWidth): DrawOp[] {
     const assistText = spec.assist ? `ASSIST: ${spec.assist}` : undefined
-    const subLines = [assistText, spec.note].filter((s): s is string => !!s)
+    const subSize = k(36)
+    const pad = k(22)
+    const slabPad = k(24)
+    // The note wraps onto two rows within the room the caption has at its tallest (the lean moves the text x with the height).
+    const noteRoom = CAPTION_MAX_RIGHT - pad - (SAFE_X + leanShift(BUG_H + EVENT_H + 3 * NOTE_H) + KIT_BAR + slabPad)
+    const subLines = [assistText, ...(spec.note ? wrapNote(spec.note, noteRoom, subSize, measure) : [])].filter((s): s is string => !!s)
     const bugH = spec.bug ? BUG_H : 0
     const h = EVENT_H + subLines.length * NOTE_H
     const totalH = bugH + h
@@ -351,11 +356,8 @@ export function captionLayout(spec: CaptionSpec, t: number, hasLogo: boolean, du
 
     const labelSize = k(54)
     const nameSize = k(58)
-    const subSize = k(36)
     const minuteSize = k(34)
-    const pad = k(22)
     const gap = k(18)
-    const slabPad = k(24)
     const tone = spec.tone ?? 'goal'
     const textX = x0 + KIT_BAR + slabPad
     const slabRight = textX + measure(spec.label, labelSize, 'stadium') + slabPad

@@ -70,6 +70,7 @@ export function demoState(file: File, durationSec: number, width: number, height
         graphics: { cards: true, lowerThirds: true, replayTag: true, theme: 'shooot' },
         teams: [{ name: 'Whites', color: '#f2f2f2', roster: [] }, { name: 'Colours', color: '#2b6cff', roster: [] }],
         matchdayLabel: 'BENCH',
+        highlightsTeaser: false,
         fullMatch: withGraphics
             ? { cards: true, captions: true, replays: true, scoreBug: 'goals', intervalMin: 5, quality: 'original' }
             : { cards: false, captions: false, replays: false, scoreBug: 'off', intervalMin: 5, quality: 'original' },

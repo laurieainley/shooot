@@ -100,7 +100,13 @@ export type PrepareHooks = {
     onState: (s: PrepareState) => void
 }
 
-export type RenderGraphics = { intro?: RenderCard; outro?: RenderCard; overlays: RenderOverlay[] }
+export type RenderGraphics = {
+    intro?: RenderCard
+    outro?: RenderCard
+    overlays: RenderOverlay[]
+    /** The title card comes after cuts 0 … introAfterCut-1 (a teaser) instead of first. Omitted or 0 = first. */
+    introAfterCut?: number
+}
 
 export type GraphicsReport = { applied: string[]; skipped: { label: string; reason: string }[] }
 

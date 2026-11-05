@@ -4,6 +4,7 @@ import { render, screen, fireEvent, within, act } from '@testing-library/react'
 import { toastStore } from '../toasts'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
+import { NOTE_MAX } from '../utils/eventTypes'
 import { EventLog } from './EventLog'
 import { setReviewDismissed } from './reviewDismiss'
 import { setCoarsePointer } from '../test/pointer'
@@ -454,6 +455,15 @@ describe('EventLog details & running score', () => {
         expect(screen.queryByRole('textbox', { name: 'Note' })).not.toBeInTheDocument()
     })
 
+    it('should limit the inline note to NOTE_MAX characters', async () => {
+        setup([{ id: 'a', matchTimeSec: 30, type: 'foul', team: 'Whites' }])
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        log().focus()
+        fireEvent.keyDown(log(), { key: 'n' })
+        expect(screen.getByRole('textbox', { name: 'Note' })).toHaveAttribute('maxlength', String(NOTE_MAX))
+    })
+
     it('should edit the note on double-click, clear it when emptied and cancel on Escape', async () => {
         setup([{ id: 'a', matchTimeSec: 30, type: 'highlight', notes: 'header' }])
         render(<EventLog />)
@@ -667,12 +677,12 @@ describe('EventLog action row', () => {
         expect(byId('a')).toBeUndefined()
     })
 
-    it('should order the action row: replay switch, Edit, Framing, Download, Delete', async () => {
+    it('should order the action row: replay switch, Edit, Framing, Star, Download, Delete', async () => {
         setup([goal('a', 100)])
         render(<EventLog />)
         await userEvent.click(rows()[0])
         const actions = within(rows()[0]).getByRole('group', { name: 'Event actions' })
-        expect(Array.from(actions.querySelectorAll('button')).map((b) => b.getAttribute('aria-label'))).toEqual(['Slow-mo replay', 'Edit event', 'Replay framing', 'Download clip', 'Delete event'])
+        expect(Array.from(actions.querySelectorAll('button')).map((b) => b.getAttribute('aria-label'))).toEqual(['Slow-mo replay', 'Edit event', 'Replay framing', 'Star', 'Download clip', 'Delete event'])
     })
 
     it('should open the details view from Edit and only the framing view from Framing', async () => {
@@ -829,5 +839,55 @@ describe('EventLog find goals prompt', () => {
         setup([marker('k', 'kick_off')], { files: [], cumulativeOffsets: [] })
         render(<EventLog />)
         expect(screen.queryByTestId('find-prompt')).toBeNull()
+    })
+})
+
+describe('EventLog Star', () => {
+    const goal = (id: string, t: number, extra: Partial<MatchEvent> = {}): MatchEvent => ({ id, matchTimeSec: t, sourceFileIndex: 0, type: 'goal', team: 'Whites', scorer: 'James', ...extra })
+
+    it('should show a muted ★ named "Starred: teaser" after the name of a starred row only', () => {
+        setup([goal('a', 100, { marks: ['teaser'] }), goal('b', 200), kickOff(0)])
+        render(<EventLog />)
+        expect(within(rows()[0]).getByRole('img', { name: 'Starred: teaser' })).toHaveTextContent('★')
+        expect(within(rows()[1]).queryByRole('img', { name: 'Starred: teaser' })).toBeNull()
+    })
+
+    it('should offer Star on the selected row, between Framing and Download, and none on a marker', async () => {
+        setup([goal('a', 100), kickOff(0)])
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        const names = within(rows()[0]).getAllByRole('button').map((b) => b.getAttribute('aria-label'))
+        expect(names.indexOf('Replay framing')).toBeLessThan(names.indexOf('Star'))
+        expect(names.indexOf('Star')).toBeLessThan(names.indexOf('Download clip'))
+        await userEvent.click(rows()[1])
+        expect(within(rows()[1]).queryByRole('button', { name: 'Star' })).toBeNull()
+    })
+
+    it('should show and hide the row ★ as the menu item is toggled', async () => {
+        setup([goal('a', 100), kickOff(0)])
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        await userEvent.click(within(rows()[0]).getByRole('button', { name: 'Star' }))
+        await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Teaser (top of video)' }))
+        expect(within(rows()[0]).getByRole('img', { name: 'Starred: teaser' })).toBeInTheDocument()
+        await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Teaser (top of video)' }))
+        expect(within(rows()[0]).queryByRole('img', { name: 'Starred: teaser' })).toBeNull()
+    })
+
+    it('should open the Star menu with S on the selected row (not on a marker) and not fire list keys from inside it', async () => {
+        setup([goal('a', 100), kickOff(0)])
+        render(<EventLog />)
+        log().focus()
+        await userEvent.keyboard('{ArrowDown}')
+        await userEvent.keyboard('s')
+        expect(screen.getByRole('menu')).toBeInTheDocument()
+        await userEvent.keyboard('{Delete}')
+        expect(byId('a')).toBeDefined()
+        await userEvent.keyboard('{Escape}')
+        expect(screen.queryByRole('menu')).toBeNull()
+        log().focus()
+        await userEvent.keyboard('{ArrowDown}')
+        await userEvent.keyboard('s')
+        expect(screen.queryByRole('menu')).toBeNull()
     })
 })

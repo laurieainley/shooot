@@ -7,6 +7,19 @@ import { applyTransferPayload } from './applyProject'
 vi.mock('../detectJobs', async (orig) => ({ ...(await orig<typeof import('../detectJobs')>()), cancelDetection: vi.fn() }))
 import type { MatchEvent } from '../types'
 
+describe('project JSON import', () => {
+    it('should keep marks on events and drop unknown ones', async () => {
+        const { applyProjectData } = await import('./importProject')
+        applyProjectData({ events: [
+            { id: 'a', matchTimeSec: 5, type: 'goal', marks: ['teaser', 'goty'] },
+            { id: 'k', matchTimeSec: 1, type: 'kick_off', marks: ['teaser'] },
+        ] })
+        const ev = useAppState.getState().events
+        expect(ev.find((e) => e.id === 'a')!.marks).toEqual(['teaser'])
+        expect(ev.find((e) => e.id === 'k')!.marks).toBeUndefined()
+    })
+})
+
 describe('applyTransferPayload', () => {
     it('should cancel detection and clear suggestions', () => {
         useAppState.setState({ suggestions: [{ id: 's', globalTimeSec: 5, score: 1, source: 'audio', status: 'pending' }] })

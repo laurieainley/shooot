@@ -84,6 +84,23 @@ export function planSegments(cuts: PlanCut[], frameSec: number, maxFrames: numbe
     return out
 }
 
+/** A unit of a journaled render, in output order: the title card, a stretch (or whole) of a cut, the full-time card. */
+export type OrderedUnit<S extends { cutIndex: number } = Segment> = { kind: 'intro' } | { kind: 'outro' } | { kind: 'segment'; segment: S }
+
+/**
+ * The render's units in output order: the segments of cuts before `introAfterCut` (a teaser), the title card, the other
+ * segments, the full-time card. Without `introAfterCut` (or 0) the title card comes first, as resumable jobs saved before it expect.
+ */
+export function orderUnits<S extends { cutIndex: number }>(segments: S[], introAfterCut = 0): OrderedUnit<S>[] {
+    const seg = (segment: S): OrderedUnit<S> => ({ kind: 'segment', segment })
+    return [
+        ...segments.filter((s) => s.cutIndex < introAfterCut).map(seg),
+        { kind: 'intro' },
+        ...segments.filter((s) => s.cutIndex >= introAfterCut).map(seg),
+        { kind: 'outro' },
+    ]
+}
+
 /**
  * Unit boundaries that survive small edits (for the unit cache): every cut is split on its own, from its own first frame, into
  * pieces of exactly `maxFrames` (a tail shorter than `minFrames` joins the piece before it). A cut's units never depend on the

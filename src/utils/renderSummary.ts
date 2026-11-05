@@ -34,8 +34,8 @@ export function qualityShortReason(o: QualityOption): string | null {
     return 'unavailable'
 }
 
-export function clipsSummary(s: { before: number; after: number; replaySpeed: number }): string {
-    return `${s.before} s before · ${s.after} s after · replays ${s.replaySpeed}×`
+export function clipsSummary(s: { before: number; after: number; replaySpeed: number; teaserSec?: number }): string {
+    return `${s.before} s before · ${s.after} s after · replays ${s.replaySpeed}×${s.teaserSec ? ` · teaser ${Math.round(s.teaserSec)} s` : ''}`
 }
 
 export function graphicsSummary(g: { cards: boolean; lowerThirds: boolean; replayTag: boolean }, themeName: string): string {

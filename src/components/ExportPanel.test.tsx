@@ -59,6 +59,16 @@ describe('ExportPanel', () => {
         expect(within(dialog).getByLabelText('Before')).toBeInTheDocument()
     })
 
+    it('should add the teaser length to the Clips & replays summary only while the teaser is on', async () => {
+        useAppState.setState({ events: [{ id: 'e', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', marks: ['teaser'] }], highlightsTeaser: true })
+        render(<ExportPanel />)
+        await userEvent.click(screen.getByRole('button', { name: 'Export' }))
+        const dialog = screen.getByRole('dialog', { name: 'Export' })
+        expect(within(dialog).getByRole('button', { name: /^Clips & replays/ })).toHaveTextContent('· teaser 14 s')
+        act(() => useAppState.getState().setHighlightsTeaser(false))
+        expect(within(dialog).getByRole('button', { name: /^Clips & replays/ })).not.toHaveTextContent('teaser')
+    })
+
     it('should have exactly one primary (lime) button per tab', async () => {
         render(<ExportPanel />)
         await userEvent.click(screen.getByRole('button', { name: 'Export' }))

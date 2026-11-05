@@ -88,7 +88,7 @@ describe('estimates follow what the render does', () => {
         const ev = (id: string, type: MatchEvent['type'], t: number, i = 0): MatchEvent => ({ id, type, matchTimeSec: t, sourceFileIndex: i, ...(type === 'goal' ? { team: 'Whites' } : {}) })
         const events = [ev('k', 'kick_off', 10), ev('g1', 'goal', 300), ev('g2', 'goal', 900), ev('g3', 'goal', 1200), ev('w', 'final_whistle', 1700, 1)]
         const state = (fm: Partial<ExportState['fullMatch']>): ExportState => ({
-            files: [file('a.mp4'), file('b.mp4')], events, cumulativeOffsets: [0, 1800],
+            files: [file('a.mp4'), file('b.mp4')], events, cumulativeOffsets: [0, 1800], highlightsTeaser: false,
             lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5,
             graphics: { cards: true, lowerThirds: true, replayTag: true, theme: 'shooot' },
             teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }],

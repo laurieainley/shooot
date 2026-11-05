@@ -17,11 +17,12 @@ export function ReelSummary() {
     const replaySpeed = useAppState((s) => s.replaySpeed)
     const teams = useAppState((s) => s.teams)
     const known = useAppState((s) => s.knownFinalScore)
+    const teaser = useAppState((s) => s.highlightsTeaser)
 
     const reel = useMemo(() => reelSummary({
         events, cumulativeOffsets, durationsSec: files.map((f) => f.durationSec ?? Infinity),
-        before, after, replay: { beforeSec: replayBeforeSec, afterSec: replayAfterSec, speed: replaySpeed },
-    }), [events, cumulativeOffsets, files, before, after, replayBeforeSec, replayAfterSec, replaySpeed])
+        before, after, replay: { beforeSec: replayBeforeSec, afterSec: replayAfterSec, speed: replaySpeed }, teaser,
+    }), [events, cumulativeOffsets, files, before, after, replayBeforeSec, replayAfterSec, replaySpeed, teaser])
 
     const tagged = finalScore(events, teams)
     const differs = known && teams.length >= 2 && !scoreGap(tagged, known)?.complete

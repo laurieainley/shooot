@@ -1,5 +1,5 @@
 import { migrateReplayCrop } from './crop'
-import type { EventType, MarkerType, MatchEvent, Team } from '../types'
+import type { EventMark, EventType, MarkerType, MatchEvent, Team } from '../types'
 
 export type EventMeta = {
     label: string
@@ -86,6 +86,17 @@ export function controlLabel(e: Pick<MatchEvent, 'type' | 'pen'>): string {
     return e.type === 'goal' && e.pen ? 'Penalty goal' : EVENT_META[e.type].label
 }
 
+/**
+ * Longest note the note boxes accept: the realistic two-line capacity of a caption (graphics/layout.ts wrapNote). Measured in
+ * Chrome with the real fonts at note size (30 px shooot / TNF, 28 px classic) in the caption's widest case (score bug +
+ * assist + two note rows): room 1200 px (shooot, TNF) / 1340 px (classic). Characters on two rows, shooot / TNF / classic:
+ * "WWWWWWW " words 112 / 99 / 181, "MMMM WWWW" words 120 / 120 / 201, solid W 102 / 94 / 170, average text ~184 / ~157 / ~282.
+ * 100 is the tightest realistic figure (TNF, W-heavy words) rounded down to a multiple of 10. Very W-heavy text (100 solid
+ * W's) can still end in "…" in TNF. Older or imported notes can be longer and are cut with "…" on screen only.
+ * Re-measure with scripts/measure-note-max.mjs when fonts or caption sizes change.
+ */
+export const NOTE_MAX = 100
+
 /** A note squeezed onto one line, cut at a word with an ellipsis when longer than `max`. */
 export function shortNote(notes: string | undefined, max = 40): string {
     const clean = (notes ?? '').trim().replace(/\s+/g, ' ')
@@ -127,16 +138,30 @@ export function isMarker<T extends Pick<MatchEvent, 'type'>>(e: T): e is T & { t
     return EVENT_META[e.type].marker === true
 }
 
+const EVENT_MARKS: readonly EventMark[] = ['teaser']
+
+export function hasMark(e: Pick<MatchEvent, 'marks'>, m: EventMark): boolean {
+    return e.marks?.includes(m) ?? false
+}
+
+/** Known marks only, once each; none left (or a marker event) = no `marks` key at all. */
+function cleanMarks(raw: unknown, type: EventType): EventMark[] | undefined {
+    if (!Array.isArray(raw) || EVENT_META[type].marker) return undefined
+    const marks = EVENT_MARKS.filter((m) => raw.includes(m))
+    return marks.length ? marks : undefined
+}
+
 const LEGACY_TYPES: Record<string, EventType> = { moment: 'highlight', card: 'foul', kickoff: 'kick_off', kickOff: 'kick_off', halftime: 'half_time', halfTime: 'half_time', finalWhistle: 'final_whistle' }
 
 /** `whitesAttackLeft`: the old direction flag, needed only to turn a stored 'left' / 'right' replay framing into a team's goal. */
-export function migrateEvent(raw: Omit<MatchEvent, 'type' | 'replayCrop'> & { type?: string; replayCrop?: unknown }, whitesAttackLeft = true, teams: Team[] = []): MatchEvent {
+export function migrateEvent(raw: Omit<MatchEvent, 'type' | 'replayCrop' | 'marks'> & { type?: string; replayCrop?: unknown; marks?: unknown }, whitesAttackLeft = true, teams: Team[] = []): MatchEvent {
     if (raw.type === 'penalty_awarded') return migrateEvent(awardedToConceded(raw, teams), whitesAttackLeft, teams)
     const t = raw.type ?? 'goal'
     const type = (LEGACY_TYPES[t] ?? (t in EVENT_META ? t : 'highlight')) as EventType
-    const { replayCrop, ...rest } = raw
+    const { replayCrop, marks, ...rest } = raw
     const crop = migrateReplayCrop(replayCrop, whitesAttackLeft)
-    return { ...rest, type, ...(crop !== undefined ? { replayCrop: crop } : {}) }
+    const cleaned = cleanMarks(marks, type)
+    return { ...rest, type, ...(crop !== undefined ? { replayCrop: crop } : {}), ...(cleaned ? { marks: cleaned } : {}) }
 }
 
 /**

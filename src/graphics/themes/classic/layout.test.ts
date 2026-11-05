@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { BUG_ROWS, OVERLAY_SCALE, CAPTION_DELAY_SEC, CAPTION_ROWS, CAPTION_SEC, captionLayout, cardFade, cardLayout, replayTagLayout, scoreBugLayout, estimateTextWidth, type DrawOp, type RectOp, type TextOp, NAVY, ORANGE } from './layout'
+import { NOTE_MAX } from '../../../utils/eventTypes'
 import type { BugSpec, CaptionSpec, CardSpec } from '../../types'
 
 const left = { name: "RYAN'S ROVERS", initials: 'RR', colour: '#f0f0f0', ink: NAVY }
@@ -316,5 +317,32 @@ describe('line-ups on the VS card', () => {
             expect(o.x > 960 ? o.x : 961).toBeGreaterThan(960)
             expect(o.y + o.size / 2).toBeLessThan(1060)
         }
+    })
+})
+
+describe('captionLayout notes on two lines', () => {
+    const note64 = 'LAURIE WAITS PATIENTLY FOR HARRY TO DO HIS LACES (FORESHADOWING)'
+    const goal2: CaptionSpec = { label: 'GOAL!', person: 'SAM', note: 'TOP BINS', stripe: '#888' }
+    const wide = (text: string, size: number): number => estimateTextWidth(text, size) * 2.6
+    const noteH = Math.round(44 * OVERLAY_SCALE)
+
+    it('should draw a long note on two rows with a box one note row taller, nothing squeezed', () => {
+        const one = captionLayout(goal2, 2.5, false, undefined, wide)
+        const two = captionLayout({ ...goal2, note: note64 }, 2.5, false, undefined, wide)
+        const noteOps = texts(two).filter((o) => o.color === '#c9d6ea')
+        expect(noteOps).toHaveLength(2)
+        expect(noteOps.map((o) => o.text).join(' ')).toBe(note64)
+        const navy = (ops: DrawOp[]) => ops.find((o): o is RectOp => o.kind === 'rect' && o.fill === NAVY)!
+        expect(navy(two).h - navy(one).h).toBe(noteH)
+        for (const o of noteOps) expect(o.maxWidth ?? Infinity).toBeGreaterThanOrEqual(wide(o.text, o.size))
+        expect(noteOps[1].y - noteOps[0].y).toBe(noteH)
+    })
+
+    it('should keep a NOTE_MAX note on at most two rows inside CAPTION_ROWS', () => {
+        const worst = 'WWWW MMMM '.repeat(20).slice(0, NOTE_MAX).trim()
+        const ops = captionLayout({ ...goal2, assist: 'JO', note: worst }, 2.5, false)
+        expect(texts(ops).filter((o) => o.color === '#c9d6ea').length).toBeLessThanOrEqual(3)
+        expect(texts(ops).some((o) => o.text.endsWith('…'))).toBe(false)
+        for (const o of ops) if (o.kind === 'rect') expect(o.y + o.h).toBeLessThanOrEqual(CAPTION_ROWS[1])
     })
 })

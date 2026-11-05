@@ -3,7 +3,7 @@ import { showToast } from './toasts'
 import { markerSetCopy, matchClock } from './utils/toastCopy'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { GoalAreas, GoalMarks, GoalMarksByTeam, GoalTeam, KeepType, MarkerType, MatchEvent, PairSide, Suggestion, SuggestionRun, Team, VideoSourceFile } from './types'
+import type { EventMark, GoalAreas, GoalMarks, GoalMarksByTeam, GoalTeam, KeepType, MarkerType, MatchEvent, PairSide, Suggestion, SuggestionRun, Team, VideoSourceFile } from './types'
 import type { ScoredMoment } from './utils/goalAudioScore'
 import type { Score } from './utils/score'
 import { effectiveStatus, firstPendingIndex, mergeSuggestions, runMatchesFiles } from './utils/suggestions'
@@ -12,10 +12,11 @@ import { AUDIO_DETECT } from './detect/detectConfig'
 import { replayOptionsFor } from './utils/attack'
 import { normaliseAreas } from './utils/crop'
 import { goalRectFromMarks, normaliseGoalMarks } from './utils/goalMarks'
-import { sanitiseEvents } from './utils/eventTypes'
+import { isMarker, sanitiseEvents } from './utils/eventTypes'
 import { computeCumulativeOffsets, isLongTimeline } from './utils/timeline'
 import type { HighlightsQualityChoice } from './utils/outputQuality'
-import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/highlights'
+import type { HighlightSegment } from './utils/highlights'
+import { highlightsCuts } from './utils/teaser'
 import { applyPlayback as applyPlaybackTo, fallBackToLrv as fallBackToLrvFile, type PlaybackPref } from './utils/playbackSource'
 import { relinkEvents as relinkByKey, linkedEvents } from './utils/relink'
 import { kickOffSec, resolveGlobalEvents, withMigratedKickOff } from './utils/matchClock'
@@ -93,6 +94,8 @@ export type AppState = {
     setEvents: (events: MatchEvent[]) => void
     removeEvent: (id: string) => void
     updateEvent: (id: string, partial: Partial<MatchEvent>) => void
+    /** Star / unstar an event (undoable). Markers can't be starred. */
+    toggleMark: (id: string, mark: EventMark) => void
     /** Make an event the Kick off / Final whistle, moving any existing one (single instance; one undo step). */
     placeMarker: (id: string, type: MarkerType) => void
     /** Put Kick off / Final whistle at a time in a file, moving any existing one (single instance; one undo step). */
@@ -194,6 +197,9 @@ export type AppState = {
     setHighlightsQuality: (q: HighlightsQualityChoice) => void
     /** Smooth playback: play big files through small remuxed pieces (Media Source). 'large' = files over 500 MB, 'always' = every file, 'off' = classic whole-file playback. */
     smoothPlayback: SmoothPlayback
+    /** Play the starred (teaser) events at the top of the highlights video. */
+    highlightsTeaser: boolean
+    setHighlightsTeaser: (on: boolean) => void
     setSmoothPlayback: (v: SmoothPlayback) => void
     /** Remembered options of the per-event clip download (device preference, not part of a project). */
     clipOptions: ClipOptions
@@ -441,6 +447,26 @@ export const useAppState = create<AppState>()(
                     redoStack: [],
                 })
             },
+            toggleMark: (id, mark) => {
+                const state = get()
+                const target = state.events.find((e) => e.id === id)
+                if (!target || isMarker(target)) return
+                const next = state.events.map((e) => {
+                    if (e.id !== id) return e
+                    const { marks, ...rest } = e
+                    const had = marks?.includes(mark) ?? false
+                    const list = had ? (marks ?? []).filter((m) => m !== mark) : [...(marks ?? []), mark]
+                    return list.length ? { ...rest, marks: list } : rest
+                })
+                // The first star, with the teaser switched off, is a wish for one: switch it back on (undo only tracks events, so the switch stays on, which is harmless with nothing starred).
+                const firstStar = !(target.marks?.includes(mark)) && !state.events.some((e) => !isMarker(e) && e.marks?.includes('teaser'))
+                set({
+                    events: next,
+                    ...(firstStar && mark === 'teaser' && !state.highlightsTeaser ? { highlightsTeaser: true } : {}),
+                    undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), state.events],
+                    redoStack: [],
+                })
+            },
             placeMarker: (id, type) => {
                 const state = get()
                 if (!state.events.some((e) => e.id === id)) return
@@ -449,7 +475,7 @@ export const useAppState = create<AppState>()(
                     .map((e) => {
                         if (e.id !== id) return e
                         const m: MatchEvent = { ...e, type }
-                        for (const k of ['team', 'scorer', 'assist', 'notes', 'replay', 'pen'] as const) delete m[k]
+                        for (const k of ['team', 'scorer', 'assist', 'notes', 'replay', 'pen', 'marks'] as const) delete m[k]
                         return m
                     })
                 set({
@@ -614,6 +640,8 @@ export const useAppState = create<AppState>()(
             setExportTab: (tab) => set({ exportTab: tab }),
             highlightsQuality: 'auto',
             smoothPlayback: 'large',
+            highlightsTeaser: true,
+            setHighlightsTeaser: (on) => set({ highlightsTeaser: on }),
             setSmoothPlayback: (v) => set({ smoothPlayback: v }),
             setHighlightsQuality: (q) => set({ highlightsQuality: q }),
             clipOptions: { score: true, replay: true },
@@ -724,14 +752,13 @@ export const useAppState = create<AppState>()(
             // Preview mode actions
             startPreview: () => {
                 const state = get()
-                const segments = mergeOverlappingGoalSegments(
-                    linkedEvents(state.events),
-                    state.cumulativeOffsets,
-                    state.lengthBeforeGoalSec,
-                    state.lengthAfterGoalSec
-                )
-                const steps = buildPreviewPlan(segments, state.files.map((f) => f.durationSec ?? Infinity),
-                    replayOptionsFor({ ...state, events: linkedEvents(state.events) }))
+                const linked = linkedEvents(state.events)
+                const durations = state.files.map((f) => f.durationSec ?? Infinity)
+                const { segments, teaserSegments } = highlightsCuts({
+                    events: linked, cumulativeOffsets: state.cumulativeOffsets, durationsSec: durations,
+                    before: state.lengthBeforeGoalSec, after: state.lengthAfterGoalSec, teaser: state.highlightsTeaser,
+                })
+                const steps = buildPreviewPlan(segments, durations, replayOptionsFor({ ...state, events: linked }), teaserSegments)
                 if (steps.length > 0) {
                     set({
                         isPreviewMode: true,
@@ -791,6 +818,7 @@ export const useAppState = create<AppState>()(
                 clipOptions: state.clipOptions,
                 highlightsQuality: state.highlightsQuality,
                 smoothPlayback: state.smoothPlayback,
+                highlightsTeaser: state.highlightsTeaser,
                 matchdayLabel: state.matchdayLabel,
                 knownFinalScore: state.knownFinalScore,
                 goalAreas: state.goalAreas,
@@ -801,7 +829,7 @@ export const useAppState = create<AppState>()(
                 suggestions: state.suggestions,
                 suggestionRun: state.suggestionRun,
             }),
-            version: 27,
+            version: 28,
             migrate: (persistedState: any, version: number) => {
                 let state = persistedState ?? {}
 
@@ -907,6 +935,9 @@ export const useAppState = create<AppState>()(
 
                 // Replay window (v27): the old default of 1 s after the tag ended the replay as the ball crossed the line.
                 if (version < 27 && state.replayAfterSec === 1) state.replayAfterSec = 2
+
+                // Teaser (v28): on by default; it only has an effect once an event is starred.
+                if (version < 28 && typeof state.highlightsTeaser !== 'boolean') state.highlightsTeaser = true
 
                 return state
             },

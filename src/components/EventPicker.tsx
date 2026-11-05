@@ -10,11 +10,12 @@ import { nearbyMark } from '../utils/duplicates'
 import { EventTag } from './EventTag'
 import { PersonStep } from './PersonStep'
 import { TagColumn } from './TagColumn'
+import { NoteCounter } from './NoteCounter'
 import { breadcrumbs, nearWarning, questionFor } from '../utils/tagFlow'
 import { useTagViewMode } from './tagView'
 import { momentAt } from '../utils/foundMoments'
 import { pendingMoments } from '../utils/tagView'
-import { PICKER_GROUPS, PICKER_OPTIONS, assistOf, isMarker, controlLabel, type PickerOption } from '../utils/eventTypes'
+import { NOTE_MAX, PICKER_GROUPS, PICKER_OPTIONS, assistOf, isMarker, controlLabel, type PickerOption } from '../utils/eventTypes'
 import { SKIP, initialPickerState, pickerReducer, touchPickerState, scorerCandidates, isDisabledName, previousStep, type PickerInput, type PickerState } from '../utils/eventPicker'
 import { formatClock } from '../utils/timeline'
 import type { MatchEvent } from '../types'
@@ -300,10 +301,11 @@ export function EventPicker() {
                         className="event-picker__input"
                         placeholder={textPlaceholder}
                         enterKeyHint="done"
-                        maxLength={200}
+                        maxLength={NOTE_MAX}
                         value={state.query}
                         onChange={(e) => dispatch({ kind: 'text', value: e.target.value })}
                     />
+                    <NoteCounter value={state.query} />
                     {coarse && <button type="button" className="btn-primary" onClick={() => dispatch({ kind: 'key', key: 'Escape' })}>Done</button>}
                 </div>
             )}

@@ -1,6 +1,7 @@
 import type { MatchEvent, Team } from '../types'
 import type { Cut } from '../render/types'
-import { assistOf, eventSummary, isScoring, shortNote } from '../utils/eventTypes'
+import { NOTE_MAX, assistOf, eventSummary, isScoring, shortNote } from '../utils/eventTypes'
+import { teaserEvents } from '../utils/teaser'
 import { markerGlobalSec, matchMinute } from '../utils/matchClock'
 import { linkedEvents } from '../utils/relink'
 import { finalScore, formatScore, scoreAt, scoresAfter, type Score } from '../utils/score'
@@ -91,12 +92,22 @@ function eventCaptionSpec(e: MatchEvent, teams: Team[], score: Score | undefined
     if (person) cs.person = person
     const assist = upper(assistOf(e))
     if (assist) cs.assist = assist
-    const note = upper(shortNote(e.notes, 60))
+    const note = upper(shortNote(e.notes, 2 * NOTE_MAX))
     if (note) cs.note = note
     const minute = theme.caption.minutes ? minuteOf(e, events, offsets) : undefined
     if (minute) cs.minute = minute
     if (score) cs.bug = bugFor(teams, score)
     return cs
+}
+
+/** The teaser banner for one starred event: COMING UP, then the event word and name (a highlight: its note). Nothing that gives the result away. */
+export function teaserCaptionSpec(e: MatchEvent, _teams: Team[], theme: GraphicsTheme | ThemeId = DEFAULT_THEME_ID): CaptionSpec {
+    const th = typeof theme === 'string' ? getTheme(theme) : theme
+    const word = th.caption.word(e).replace(/!$/, '')
+    const name = upper(e.scorer)
+    const note = upper(shortNote(e.notes, 2 * NOTE_MAX))
+    const row = e.type === 'highlight' ? (note ?? name ?? word) : name ? `${word} · ${name}` : word
+    return { label: 'COMING UP', tone: 'goal', note: row, stripe: th.caption.defaultStripe }
 }
 
 /** The full match captions goals (incl. penalties, own goals), conceded and missed penalties; not highlights, saves or fouls. */
@@ -119,8 +130,12 @@ export function buildGraphicsSpec(args: {
     captionScore?: boolean
     /** false skips the title and full-time cards even when the setting is on (default true). */
     cards?: boolean
+    /** The first this many cuts are teaser clips: they get COMING UP banners, the reel's captions and replay tags skip them, the intro card follows them. */
+    teaserCount?: number
+    /** For each teaser cut, the teaser clip it belongs to (`highlightsCuts().teaserClips`); cuts sharing one are a clip split across files. */
+    teaserClips?: number[]
 }): GraphicsSpec & { outro?: CardSpec } {
-    const { teams, cuts, cumulativeOffsets, settings, captionEvents, captionScore = true, cards: wantCards = true } = args
+    const { teams, cuts, cumulativeOffsets, settings, captionEvents, captionScore = true, cards: wantCards = true, teaserCount = 0, teaserClips = [] } = args
     const events = linkedEvents(args.events)
     const theme = getTheme(settings.theme)
     const spec: GraphicsSpec & { outro?: CardSpec } = { theme: theme.id, overlays: [] }
@@ -128,6 +143,7 @@ export function buildGraphicsSpec(args: {
     const globalOf = (src: number, t: number): number => (cumulativeOffsets[src] ?? 0) + t
 
     if (settings.cards && both && wantCards) Object.assign(spec, cards(teams, events, args.matchday, cumulativeOffsets, theme))
+    if (teaserCount > 0 && spec.intro) spec.introAfterCut = teaserCount
 
     const captions: CaptionOverlay[] = []
     if (settings.lowerThirds) {
@@ -137,7 +153,7 @@ export function buildGraphicsSpec(args: {
             if (!wantsLowerThird(e) || (captionEvents && !captionEvents.has(e.id))) continue
             const src = e.sourceFileIndex ?? 0
             const t = e.matchTimeSec
-            const cutIndex = cuts.findIndex((c) => c.sourceIndex === src && (c.speed ?? 1) === 1 && c.startSec <= t && t < c.endSec)
+            const cutIndex = cuts.findIndex((c, i) => i >= teaserCount && c.sourceIndex === src && (c.speed ?? 1) === 1 && c.startSec <= t && t < c.endSec)
             if (cutIndex === -1) continue
             const cut = cuts[cutIndex]
             const cs = eventCaptionSpec(e, teams, captionScore && both ? (after.get(e.id) ?? scoreAt(events, teams, cumulativeOffsets, globalOf(src, t))) : undefined, events, cumulativeOffsets, theme)
@@ -174,16 +190,61 @@ export function buildGraphicsSpec(args: {
             }
         }
         captions.push(...parts.flat().filter((o) => o.durationSec > 0))
+        captions.push(...teaserCaptions(events, teams, cuts, teaserCount, teaserClips, theme))
         captions.sort((x, y) => x.cutIndex - y.cutIndex || x.startSec - y.startSec)
         spec.overlays.push(...captions)
     }
 
     if (settings.replayTag) {
         cuts.forEach((c, cutIndex) => {
-            if ((c.speed ?? 1) < 1) spec.overlays.push({ kind: 'replayTag', cutIndex, startSec: c.startSec, durationSec: c.endSec - c.startSec, speed: c.speed ?? 1, label: 'Replay tag' })
+            if (cutIndex >= teaserCount && (c.speed ?? 1) < 1) spec.overlays.push({ kind: 'replayTag', cutIndex, startSec: c.startSec, durationSec: c.endSec - c.startSec, speed: c.speed ?? 1, label: 'Replay tag' })
         })
     }
     return spec
+}
+
+/**
+ * COMING UP banners for the first `teaserCount` cuts. A teaser clip is one cut, or two when it crosses a file join (`clipOf`
+ * gives each cut's clip); its banner spans the whole clip and fades in/out once. A clip holding several starred
+ * events shows the next one's banner from 1 s before its moment.
+ */
+function teaserCaptions(events: MatchEvent[], teams: Team[], cuts: Cut[], teaserCount: number, clipOf: number[], theme: GraphicsTheme): CaptionOverlay[] {
+    if (teaserCount <= 0) return []
+    const groups: number[][] = []
+    for (let i = 0; i < teaserCount; i++) {
+        const last = groups[groups.length - 1]
+        if (last && clipOf[i] !== undefined && clipOf[i] === clipOf[last[last.length - 1]]) last.push(i)
+        else groups.push([i])
+    }
+    const out: CaptionOverlay[] = []
+    const starred = teaserEvents(events)
+    for (const group of groups) {
+        const len = group.map((i) => cuts[i].endSec - cuts[i].startSec)
+        const begin = group.map((_, j) => len.slice(0, j).reduce((a, b) => a + b, 0))
+        const total = len.reduce((a, b) => a + b, 0)
+        const held = starred.flatMap((e) => {
+            const j = group.findIndex((i) => cuts[i].sourceIndex === (e.sourceFileIndex ?? 0) && cuts[i].startSec <= e.matchTimeSec && e.matchTimeSec < cuts[i].endSec)
+            return j === -1 ? [] : [{ e, at: begin[j] + e.matchTimeSec - cuts[group[j]].startSec }]
+        })
+        held.forEach(({ e, at }, k) => {
+            const a = k === 0 ? 0 : Math.max(0, at - 1)
+            const b = k + 1 < held.length ? Math.max(0, held[k + 1].at - 1) : total
+            if (b - a < 0.05) return
+            const spec = teaserCaptionSpec(e, teams, theme)
+            const label = `Caption: COMING UP · ${eventSummary(e)}`
+            group.forEach((i, j) => {
+                const s0 = Math.max(a, begin[j])
+                const s1 = Math.min(b, begin[j] + len[j])
+                if (s1 - s0 < 0.05) return
+                out.push({
+                    kind: 'caption', cutIndex: i, startSec: cuts[i].startSec + (s0 - begin[j]), durationSec: s1 - s0, spec, label,
+                    clock: { offsetSec: s0 - a, rate: 1, totalSec: b - a },
+                    ...(s0 - a > 0.05 ? { fromCutStart: true } : {}), ...(b - s1 > 0.05 ? { toCutEnd: true } : {}),
+                })
+            })
+        })
+    }
+    return out
 }
 
 export type FullMatchCaptionWindow = { event: MatchEvent; eventSec: number; startSec: number; durationSec: number }

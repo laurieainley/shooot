@@ -58,6 +58,8 @@ export type GraphicsSpec = {
     /** The look the painters use (shooot when absent). */
     theme?: ThemeId
     intro?: CardSpec
+    /** The intro card plays after this many cuts (the teaser clips); absent = before the first cut. */
+    introAfterCut?: number
     outro?: CardSpec | StingSpec
     overlays: OverlaySpec[]
 }

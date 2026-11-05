@@ -31,4 +31,8 @@ describe('SHORTCUT_GROUPS', () => {
             expect(row.what.length).toBeGreaterThan(0)
         }
     })
+    it('should document S for the Star menu in the list', () => {
+        const rows = SHORTCUT_GROUPS.find((g) => g.title === 'Editing')!.rows
+        expect(rows.find((r) => r.keys.join('') === 'S')?.what).toMatch(/Star/)
+    })
 })

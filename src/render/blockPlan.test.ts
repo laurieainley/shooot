@@ -17,6 +17,7 @@ const state = (events: MatchEvent[], fm: Partial<ExportState['fullMatch']> = {})
     graphics: { cards: true, lowerThirds: true, replayTag: true, theme: 'shooot' },
     teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }],
     matchdayLabel: null, fullMatch: { cards: true, scoreBug: 'goals', intervalMin: 5, captions: false, replays: false, quality: '4k', ...fm },
+    highlightsTeaser: false,
 })
 
 /** Key of every unit of a plan, as `source:firstFrameNumber:frames` -> key (blocks) or `replay:cut:n` (timed pieces). */

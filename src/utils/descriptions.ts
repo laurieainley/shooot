@@ -4,8 +4,7 @@ import type { RenderTimeline } from '../render/types'
 import { highlightChapterLines, matchChapterLines } from './chapters'
 import { estimateTimeline, highlightEventTimes, outputTimeAt } from './chapterTimes'
 import { fullMatchCuts, fullMatchSpan, withReplays } from './fullMatch'
-import { mergeOverlappingGoalSegments } from './highlights'
-import { buildRenderPlanWithOrigins } from './renderPlan'
+import { highlightsCuts } from './teaser'
 import { goalscorers } from './goalscorers'
 import { finalWhistleSec, kickOffSec } from './matchClock'
 import { linkedEvents } from './relink'
@@ -31,6 +30,8 @@ type DescriptionArgs = {
     timeline?: RenderTimeline | null
     /** The video is re-encoded (4K / 1080p): cuts are frame-exact, so the estimate has no key-frame slack. */
     reencoded?: boolean
+    /** The highlights video opens with the starred events' teaser (the same setting the export used). */
+    teaser?: boolean
 }
 
 function compose(blocks: string[][]): string {
@@ -45,11 +46,14 @@ function scorersBlock(lines: string[]): string[] {
 export function highlightsDescription(a: DescriptionArgs): string {
     const linked = linkedEvents(a.events)
     const { scoreLine, lines } = goalscorers(linked, a.teams)
-    const segments = mergeOverlappingGoalSegments(linked, a.cumulativeOffsets, a.before, a.after)
-    const { cuts, origins } = buildRenderPlanWithOrigins(segments, (a.durationsSec ?? []).map((d) => d ?? Infinity), a.replay)
-    const timeline = a.timeline && a.timeline.length === cuts.length ? a.timeline : estimateTimeline(cuts, a.introSec, a.reencoded ? 0 : undefined)
+    const { cuts, origins, segments, teaserCount } = highlightsCuts({
+        events: linked, cumulativeOffsets: a.cumulativeOffsets, durationsSec: (a.durationsSec ?? []).map((d) => d ?? Infinity),
+        before: a.before, after: a.after, replay: a.replay, teaser: a.teaser ?? false,
+    })
+    // The title card follows the teaser's cuts; the render's own timeline (when it fits this plan) already counts them.
+    const timeline = a.timeline && a.timeline.length === cuts.length ? a.timeline : estimateTimeline(cuts, a.introSec, a.reencoded ? 0 : undefined, teaserCount)
     const times = highlightEventTimes({ segments, cuts, origins, timeline, beforeSec: a.before })
-    const chapters = highlightChapterLines(linked, a.cumulativeOffsets, a.before, a.after, a.teams, a.replay, a.introSec, times)
+    const chapters = highlightChapterLines(linked, a.cumulativeOffsets, a.before, a.after, a.teams, a.replay, a.introSec, times, teaserCount > 0)
     return compose([scoreLine ? [scoreLine] : [], chapters, scorersBlock(lines)])
 }
 

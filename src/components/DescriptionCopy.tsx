@@ -36,16 +36,16 @@ export function DescriptionCopy({ kind }: DescriptionCopyProps) {
     const layout = useLayout()
     // Highlights re-encoded (4K / 1080p) cut exactly; the estimate has no key-frame slack then.
     const reencoded = kind === 'highlights' ? resolveHighlightsQuality(quality, layout === 'phone' || layout === 'landscape') !== 'original' : false
-    const fullMatch = useAppState((s) => s.fullMatch), goalAreas = useAppState((s) => s.goalAreas)
+    const highlightsTeaser = useAppState((s) => s.highlightsTeaser), fullMatch = useAppState((s) => s.fullMatch), goalAreas = useAppState((s) => s.goalAreas)
     const estimated = useMemo(() => {
         if (events.length === 0) return false
         const st: ExportState = {
             files, events, cumulativeOffsets: offsets, lengthBeforeGoalSec: before, lengthAfterGoalSec: after,
-            replayBeforeSec: replayBefore, replayAfterSec: replayAfter, replaySpeed, graphics, teams, matchdayLabel: matchday, fullMatch, goalAreas,
+            replayBeforeSec: replayBefore, replayAfterSec: replayAfter, replaySpeed, graphics, teams, matchdayLabel: matchday, fullMatch, highlightsTeaser, goalAreas,
         }
         return exactFor(st) === null
         // eslint-disable-next-line react-hooks/exhaustive-deps -- exactFor only reads `saved` and `kind`
-    }, [files, events, offsets, before, after, replayBefore, replayAfter, replaySpeed, graphics, teams, matchday, fullMatch, goalAreas, saved, kind])
+    }, [files, events, offsets, before, after, replayBefore, replayAfter, replaySpeed, graphics, teams, matchday, fullMatch, highlightsTeaser, goalAreas, saved, kind])
 
     const copy = async (label: string, make: () => string): Promise<void> => {
         await navigator.clipboard.writeText(make())
@@ -60,6 +60,7 @@ export function DescriptionCopy({ kind }: DescriptionCopyProps) {
             replay: { beforeSec: st.replayBeforeSec, afterSec: st.replayAfterSec, speed: st.replaySpeed },
             durationsSec: st.files.map((f) => f.durationSec),
             fullMatchReplays: st.fullMatch.replays,
+            teaser: kind === 'highlights' && st.highlightsTeaser,
             timeline: exactFor(st),
             reencoded: kind === 'highlights' ? reencoded : st.fullMatch.quality !== 'original',
             introSec: (kind === 'highlights' ? highlightsExport : fullMatchExport)(st, 'full').spec?.intro ? INTRO_SEC : 0,

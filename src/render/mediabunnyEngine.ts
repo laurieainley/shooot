@@ -16,6 +16,7 @@ import { planAudio } from './audioPlan'
 import { cutTiming } from '../utils/chapterTimes'
 import { mixedSizeNotice } from './outputSize'
 import { overlayRegions } from './overlayRegions'
+import { orderUnits } from './transcodePlan'
 import { DEFAULT_COEF, WorkMeter, cutShare, detectDeviceClass, factsOfSource, planWork, priceUnits, ZERO_UNITS } from '../utils/renderTime'
 import { tightenOverlays } from './tightOverlays'
 import { encodeReplayAudio } from './replayAudio'
@@ -513,20 +514,24 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
         }
 
         try {
-            // Units: 0 = title card, 1…n = cuts, n+1 = full-time card. Journaled renders save each finished unit.
-            const unitCount = cuts.length + 2
+            // Units in output order (journaled renders save each finished one): the title card, every cut, the full-time card;
+            // after a teaser the title card follows the teaser's cuts (introAfterCut). Without one: 0 = title card, 1…n = cuts.
+            const units = orderUnits(cuts.map((_, ci) => ({ cutIndex: ci })), run?.graphics.introAfterCut ?? 0)
+            const unitCount = units.length
             for (let u = startUnit; u < unitCount; u++) {
                 if (signal?.aborted) throw new DOMException('Render cancelled', 'AbortError')
                 if (journal) unitWriter = await openUnit(jobKind, u)
-                if (u === 0) {
+                const unit = units[u]
+                if (unit.kind === 'intro') {
                     const intro = journal ? await encodeCard(run?.graphics.intro, 'Title card') : directIntro
                     if (intro) {
                         if (journal) done += introWork
                         await addCard(intro)
                     }
-                } else if (u <= cuts.length) {
+                } else if (unit.kind === 'segment') {
+                    const ci = unit.segment.cutIndex
                     const endCut = diag.begin('cuts')
-                    try { await renderCut(u - 1, cuts[u - 1]) } finally { endCut() }
+                    try { await renderCut(ci, cuts[ci]) } finally { endCut() }
                 } else {
                     if (!copied) throw new Error('Nothing to render: every cut is outside its file')
                     const outro = await encodeCard(run?.graphics.outro, run?.graphics.outro?.label ?? 'Full-time card')

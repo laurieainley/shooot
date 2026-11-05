@@ -24,7 +24,7 @@ const mq = (q: string): boolean => typeof window !== 'undefined' && typeof windo
 const isPhone = (): boolean => { const l = pickLayout({ landscapePhone: mq(LANDSCAPE_QUERY), tablet: mq(TABLET_QUERY), portrait: mq(PORTRAIT_QUERY), desktop: mq(DESKTOP_QUERY) }); return l === 'phone' || l === 'landscape' }
 
 /** The slice of the app state the export plans read, and the choices that decide what is prepared. */
-const planInputs = (s: AppState): unknown[] => [s.files, s.events, s.cumulativeOffsets, s.lengthBeforeGoalSec, s.lengthAfterGoalSec, s.replayBeforeSec, s.replayAfterSec, s.replaySpeed, s.graphics, s.teams, s.matchdayLabel, s.fullMatch, s.goalAreas, s.highlightsQuality]
+const planInputs = (s: AppState): unknown[] => [s.files, s.events, s.cumulativeOffsets, s.lengthBeforeGoalSec, s.lengthAfterGoalSec, s.replayBeforeSec, s.replayAfterSec, s.replaySpeed, s.graphics, s.teams, s.matchdayLabel, s.fullMatch, s.goalAreas, s.highlightsQuality, s.highlightsTeaser]
 
 let memo: { inputs: unknown[]; phone: boolean; out: Wanted[] } | null = null
 
@@ -39,7 +39,7 @@ export function wantedNow(): Wanted[] {
         const st: ExportState = {
             files: s.files, events: s.events, cumulativeOffsets: s.cumulativeOffsets, lengthBeforeGoalSec: s.lengthBeforeGoalSec, lengthAfterGoalSec: s.lengthAfterGoalSec,
             replayBeforeSec: s.replayBeforeSec, replayAfterSec: s.replayAfterSec, replaySpeed: s.replaySpeed, graphics: s.graphics, teams: s.teams, matchdayLabel: s.matchdayLabel,
-            fullMatch: s.fullMatch, goalAreas: s.goalAreas,
+            fullMatch: s.fullMatch, goalAreas: s.goalAreas, highlightsTeaser: s.highlightsTeaser,
         }
         const f0 = s.files[0]
         // 4K on footage that is not 4K is exported as Original (the Export panel says so): nothing to prepare then.

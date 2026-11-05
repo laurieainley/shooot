@@ -12,11 +12,21 @@ export type PreviewStep = {
     replay: boolean
     clipIndex: number  // which clip of the reel this step belongs to
     eventIds: string[] // the events in that clip (the event list highlights them while it plays)
+    teaser?: true      // a COMING UP clip played ahead of the reel (clipIndex -1; the reel's clips start at 0)
     crop?: CropRect    // replays: the part of the picture shown (same as the render)
 }
 
 /** The preview follows the render plan exactly, so what you preview is what gets rendered. */
-export function buildPreviewPlan(segments: HighlightSegment[], durationsSec: number[], replay?: ReplayOptions): PreviewStep[] {
+export function buildPreviewPlan(segments: HighlightSegment[], durationsSec: number[], replay?: ReplayOptions, teaserSegments: HighlightSegment[] = []): PreviewStep[] {
+    // Starred clips first: normal speed, no replay, like the render.
+    const teaser = teaserSegments.flatMap((s) => buildRenderPlan([s], durationsSec).map((c): PreviewStep => ({
+        sourceIndex: c.sourceIndex, startSec: c.startSec, endSec: c.endSec, speed: 1, gain: 1, replay: false,
+        clipIndex: -1, eventIds: s.goals.map((g) => g.id), teaser: true,
+    })))
+    return [...teaser, ...reelSteps(segments, durationsSec, replay)]
+}
+
+function reelSteps(segments: HighlightSegment[], durationsSec: number[], replay?: ReplayOptions): PreviewStep[] {
     return segments.flatMap((s, clipIndex) => buildRenderPlan([s], durationsSec, replay).map((c) => ({
         sourceIndex: c.sourceIndex,
         startSec: c.startSec,
@@ -62,7 +72,7 @@ export function clipStep(steps: PreviewStep[], current: number, dir: 1 | -1): nu
 
 /** The step to jump to for an event (its clip's normal-speed start), or null when the event isn't in the reel. */
 export function previewStepForEvent(steps: PreviewStep[], eventId: string): number | null {
-    const i = steps.findIndex((s) => !s.replay && s.eventIds.includes(eventId))
+    const i = steps.findIndex((s) => !s.replay && !s.teaser && s.eventIds.includes(eventId))
     return i === -1 ? null : i
 }
 

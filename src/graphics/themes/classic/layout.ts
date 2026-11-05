@@ -11,7 +11,7 @@ export const ORANGE = '#f28c28'
 export const BLUE = '#2d9be0'
 import type { BugSpec, CaptionSpec, CardSpec } from '../../types'
 
-import { CAPTION_DELAY_SEC, CAPTION_SEC, CARD_SEC, DESIGN_H, DESIGN_W, OVERLAY_FADE, SAFE_X, SAFE_Y, cardFade, clamp01, easeOut } from '../../layout'
+import { CAPTION_DELAY_SEC, CAPTION_SEC, CARD_SEC, DESIGN_H, DESIGN_W, OVERLAY_FADE, SAFE_X, SAFE_Y, cardFade, clamp01, easeOut, wrapNote } from '../../layout'
 export { CAPTION_DELAY_SEC, CAPTION_SEC, CARD_SEC, DESIGN_H, DESIGN_W, SAFE_X, SAFE_Y, cardFade }
 
 type Alpha = { alpha?: number }
@@ -107,8 +107,8 @@ const CAPTION_MAX_RIGHT = 1480
 
 /** Design-space rows the score bug / a caption can touch (with room for anti-aliasing). */
 export const BUG_ROWS: [number, number] = [SAFE_Y - 14, SAFE_Y + BUG_H + ACCENT_H + 14]
-/** Under the event line: an optional assist line, then an optional note, each one NOTE_H band. */
-export const CAPTION_ROWS: [number, number] = [SAFE_Y - 14, SAFE_Y + BUG_H + ACCENT_H + EVENT_H + 2 * NOTE_H + 14]
+/** Under the event line: an optional assist line, then an optional note of up to two lines, each one NOTE_H band. */
+export const CAPTION_ROWS: [number, number] = [SAFE_Y - 14, SAFE_Y + BUG_H + ACCENT_H + EVENT_H + 3 * NOTE_H + 14]
 
 /** TV-style score bug row at the top-left title-safe corner: [logo] ▌WH  1–0  CO▐ with an orange underline. */
 function bugRow(bug: BugSpec, hasLogo: boolean, measure: MeasureText): { ops: DrawOp[]; right: number } {
@@ -166,7 +166,7 @@ export function captionLayout(spec: CaptionSpec, t: number, hasLogo: boolean, du
     const personW = spec.person ? measure(spec.person, labelSize) : 0
     // Smaller lines under the event line, in order: the assist, then the note.
     const assistText = spec.assist ? `ASSIST: ${spec.assist}` : undefined
-    const subLines = [assistText, spec.note].filter((s): s is string => !!s)
+    const subLines = [assistText, ...(spec.note ? wrapNote(spec.note, CAPTION_MAX_RIGHT - pad - textX, noteSize, measure) : [])].filter((s): s is string => !!s)
     const subW = Math.max(0, ...subLines.map((s) => measure(s, noteSize)))
     const contentRight = Math.max(spec.person ? personX + personW : textX + labelW, textX + subW) + pad
     const right = Math.min(CAPTION_MAX_RIGHT, Math.max(bug?.right ?? 0, contentRight, textX + k(200)))

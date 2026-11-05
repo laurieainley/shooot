@@ -35,7 +35,7 @@ export function FloatingPanel({ label, anchorRef, placement, onClose, children, 
 
     useEffect(() => {
         const anchor = anchorRef.current
-        const first = panelRef.current?.querySelector<HTMLElement>('button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])')
+        const first = panelRef.current?.querySelector<HTMLElement>('[data-autofocus]') ?? panelRef.current?.querySelector<HTMLElement>('button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])')
         ;(first ?? panelRef.current)?.focus()
         const onKey = (e: KeyboardEvent): void => {
             // A widget inside the panel that has its own Escape (e.g. the goal marking editor: Cancel) marks itself.

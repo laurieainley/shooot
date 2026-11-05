@@ -4,6 +4,7 @@ import { C } from './brandColors'
 import type { ScorerLine } from '../../types'
 import { END_LINE_Y, wrapMinutes } from './layout'
 import { INK_DARK } from '../../teamStyle'
+import { NOTE_MAX } from '../../../utils/eventTypes'
 import type { BugSpec, CaptionSpec, CardSpec } from '../../types'
 
 const left = { name: "RYAN'S ROVERS", initials: 'RR', colour: '#f0f0f0', ink: INK_DARK }
@@ -570,5 +571,37 @@ describe('line-ups on the VS card', () => {
     it('should not draw rosters on the full-time card', () => {
         const ops = cardLayout({ ...withRoster(names(3), names(3)), heading: 'FULL TIME', centre: '1 - 0' }, 2, 4, false)
         expect(textOf(ops)).not.toContain('PLAYER 1')
+    })
+})
+
+describe('captionLayout notes on two lines', () => {
+    const note64 = 'LAURIE WAITS PATIENTLY FOR HARRY TO DO HIS LACES (FORESHADOWING)'
+    const goal2: CaptionSpec = { label: 'GOAL!', person: 'SAM', note: 'TOP BINS', stripe: C.muted }
+    // A wider face than the estimate (as a W-heavy note is), so 64 characters need two lines.
+    const wide = (text: string, size: number, voice?: Parameters<typeof estimateTextWidth>[2]): number => estimateTextWidth(text, size, voice) * 1.7
+
+    it('should draw a long note on two rows with a box one note row taller, nothing squeezed', () => {
+        const one = captionLayout(goal2, 2.5, false, undefined, wide)
+        const two = captionLayout({ ...goal2, note: note64 }, 2.5, false, undefined, wide)
+        const noteOps = texts(two).filter((o) => o.voice === 'shirt' && o.size === Math.round(36 * OVERLAY_SCALE))
+        expect(noteOps).toHaveLength(2)
+        expect(noteOps.map((o) => o.text).join(' ')).toBe(note64)
+        const ground = (ops: DrawOp[]) => ops.find((o): o is RectOp => o.kind === 'rect' && o.fill === C.ground)!
+        expect(ground(two).h - ground(one).h).toBe(Math.round(46 * OVERLAY_SCALE))
+        for (const o of noteOps) expect(o.maxWidth ?? Infinity).toBeGreaterThanOrEqual(wide(o.text, o.size, o.voice))
+        expect(noteOps[1].y - noteOps[0].y).toBe(Math.round(46 * OVERLAY_SCALE))
+    })
+
+    it('should keep the tallest caption (assist plus two note rows) inside CAPTION_ROWS', () => {
+        const ops = captionLayout({ ...goal2, assist: 'JO', note: note64, bug: { text: '1–0', left: 'WH', right: 'CO', leftColour: '#fff', rightColour: '#000' } }, 2.5, true, undefined, wide)
+        for (const o of ops) if (o.kind === 'rect') expect(o.y + o.h).toBeLessThanOrEqual(CAPTION_ROWS[1])
+    })
+
+    it('should keep a NOTE_MAX note of W/M words on at most two rows with the estimate measurer (real-font capacity: see the NOTE_MAX comment)', () => {
+        const worst = 'WWWW MMMM '.repeat(20).slice(0, NOTE_MAX).trim()
+        const ops = captionLayout({ ...goal2, note: worst }, 2.5, false)
+        const noteOps = texts(ops).filter((o) => o.voice === 'shirt' && o.size === Math.round(36 * OVERLAY_SCALE) && o.text !== 'SAM')
+        expect(noteOps.length).toBeLessThanOrEqual(2)
+        expect(noteOps.some((o) => o.text.endsWith('…'))).toBe(false)
     })
 })

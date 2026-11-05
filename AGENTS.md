@@ -159,6 +159,19 @@ npm run lint       # baseline: 12 known problems — add none
   painted). The first `onProgress` carries `estimateSec` (model total) which lands on `RenderJob.estimateSec`; `RenderJob.output` records the
   quality. **ETA** (`utils/renderEta.ts`): EMA of work-fraction per second blended with the model's expected total (x learned ratio),
   observation weight p/(p+0.1). Saved jobs' `done/total` are shares of work; older saved jobs are rescaled on resume.
+- **Teaser and stars (2026-11-05, spec `2026-11-05-teaser-and-marks-design.md`):** `MatchEvent.marks?: EventMark[]` (`'teaser'` only;
+  `hasMark`, cleaned by `sanitiseEvents`; never on markers; store `toggleMark`, undoable). Starred events play as a teaser at the top of the
+  highlights only: `utils/teaser.ts` `highlightsCuts()` (used by the export plan, description/chapters and preview, so cut indices agree)
+  puts each starred event's own padded window (no replay, not merged with unstarred neighbours; starred overlaps merge) before the reel;
+  `teaserClips` groups split clips. Caption: slab COMING UP, the row below "GOAL · DAN" (event word without "!", + name) or a
+  Highlight's note; no bug, minute, assist, team colour; follows the captions setting. `GraphicsSpec.introAfterCut` = teaser cut count
+  puts the VS card after the teaser in both engines (`orderUnits` in render/transcodePlan.ts; `estimateTimeline(..., introAfterCut)`).
+  Chapters start "00:00 Coming up"; preview plays the teaser first (`PreviewStep.teaser`, `previewStepForEvent` skips it). Setting
+  `highlightsTeaser` (persist v28, default on). UI: ★ Star in the row's action line (`StarMenu`, key S), muted ★ on starred rows,
+  Export → Clips & replays "Teaser · N moments · S s" switch. The first star added while the switch is off turns it back on; starred events in unloaded files say so in the row. Future marks (goal of the season…) join `EventMark` and the menu.
+- **Notes:** `NOTE_MAX` = 100 (utils/eventTypes.ts; realistic two-row capacity measured with `scripts/measure-note-max.mjs`): every note
+  input has `maxLength={NOTE_MAX}` + `NoteCounter` ("84 / 100" from 80); captions wrap the note onto two rows (`wrapNote`) instead of
+  cutting it (old longer notes up to 200 characters go to `wrapNote` whole; "…" only when two rows can't hold them); chapters keep their 40-character cut.
 - **Cards (2026-10-21):** the VS card lists each team's roster when it has one (mini kit-colour shirt + name, left-aligned columns
   centred under the team; ≤ 6 one column, 7–12 two, more "+N MORE"; `graphics/rosterLayout.ts`, `CardSpec.left/right.roster`, intro only;
   the heading, initials, team name and kit bar shrink and move up when either team has a roster; classic uses mini shields). Full-time
@@ -523,7 +536,7 @@ npm run lint       # baseline: 12 known problems — add none
 2. UI changes: screenshots at 390×844, 844×390, 834×1194, 1280×800, 1440×900 (+1920 for layout work), dark and light,
    touch emulation for phones/tablets — and actually look at them.
 3. Render changes: real renders of generated media; `ffmpeg -v error -f null -` must print nothing; extract frames and
-   look; for splices also check AVFoundation (QuickTime) decoding.
+   look; for splices also check AVFoundation (QuickTime) decoding (`scripts/avcheck.swift`: `swiftc -O` it, run on the file).
 4. Report what was verified, what wasn't, and anything that needs a real device.
 
 ### Agent rules and briefs

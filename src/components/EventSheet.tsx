@@ -3,7 +3,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import type { MarkerType, MatchEvent, Team } from '../types'
 import { assistEdit, optionForEvent, personEdit, typeChangePatch } from '../utils/eventEdit'
-import { PICKER_OPTIONS, isMarker } from '../utils/eventTypes'
+import { NOTE_MAX, PICKER_OPTIONS, isMarker } from '../utils/eventTypes'
+import { NoteCounter } from './NoteCounter'
 import { showToast } from '../toasts'
 import { deletedCopy, eventGlobalSec, matchClock } from '../utils/toastCopy'
 import { EventTag } from './EventTag'
@@ -242,13 +243,14 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
                     aria-label="Note"
                     className="field event-sheet__input"
                     value={note}
-                    maxLength={200}
+                    maxLength={NOTE_MAX}
                     placeholder={option.askText === 'prompt' ? 'e.g. nutmeg on the wing' : 'Optional'}
                     enterKeyHint="done"
                     onChange={(ev) => setNote(ev.target.value)}
                     onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); saveNote(note); ev.currentTarget.blur() } }}
                     onBlur={() => saveNote(latest.current.note)}
                 />
+                <NoteCounter value={note} />
             </fieldset>
             </>}
 

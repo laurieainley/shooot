@@ -22,7 +22,7 @@ import { GpuPath } from './gpuScaler'
 import { encodeReplayAudio } from './replayAudio'
 import { makeSilentAudio, type SilentAudio } from './silentAudio'
 import { makeTarget, openSource, type OpenSource } from './sourceInput'
-import { MIN_PARALLEL_UNIT_SEC, PARALLEL_UNITS, aacConfig, gridBlockFrames, gridSegments, keyEvery, outputDimensions, outputFrameSec, planFrames, planSegments, segmentSpan, type Segment } from './transcodePlan'
+import { MIN_PARALLEL_UNIT_SEC, PARALLEL_UNITS, aacConfig, gridBlockFrames, gridSegments, keyEvery, orderUnits, outputDimensions, outputFrameSec, planFrames, planSegments, segmentSpan, type OrderedUnit, type Segment } from './transcodePlan'
 import { runPool } from './unitPool'
 import { OrderedSink } from './orderedSink'
 import { pickH264Encoder, type H264Encoder } from './transcodeSupport'
@@ -42,7 +42,7 @@ const isAbort = (e: unknown): boolean => e instanceof DOMException && e.name ===
 /** What one unit draws on: normally the engine's single canvas and WebGL scaler; parallel units each get their own. `work`: model seconds this unit has credited so far. */
 type UnitEnv = { /** Starts this unit's writer again (a damaged cached unit that was being copied in). */ reopen?: () => Promise<UnitWriter> | UnitWriter; canvas: OffscreenCanvas; ctx: OffscreenCanvasRenderingContext2D; gl: GlScaler | null; writer: UnitWriter | null; cancelled: boolean; /** Aborts when the pool gives up on this unit (a sibling failed): everything the unit awaits stops at once. */ stop: AbortController; work: number; /** Labels of the graphics this unit drew (kept with a cached unit). */ labels: Set<string> }
 
-type Unit = { kind: 'intro' } | { kind: 'outro' } | { kind: 'segment'; segment: Segment }
+type Unit = OrderedUnit<Segment>
 
 /** The preparer found no more room for its units (the disk filled up meanwhile): it stops instead of failing every unit. */
 export class PrepareFull extends Error {
@@ -183,7 +183,10 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             ? gridSegments(planCuts, frameSec, exp?.segmentSec ? Math.max(1, Math.round(exp.segmentSec / frameSec)) : blockFrames, maxFrames)
             : planSegments(planCuts, frameSec, maxFrames, parallelN > 1 ? { units: parallelN, minFrames: Math.round(MIN_PARALLEL_UNIT_SEC / frameSec) } : undefined)
         if (reuse) diag.note(`Blocks of ${blockFrames} frames (${(blockFrames * frameSec).toFixed(2)} s) on the source frame grid: ${segments.length} units`)
-        const units: Unit[] = [{ kind: 'intro' }, ...segments.map((segment): Unit => ({ kind: 'segment', segment })), { kind: 'outro' }]
+        // Output order: title card, segments, full-time card; after a teaser the title card follows the teaser's segments
+        // (introAfterCut counts the plan's cuts; segments count the valid ones, so it is mapped onto them).
+        const introAfter = g?.introAfterCut ? valid.filter((v) => v.ci < g.introAfterCut!).length : 0
+        const units: Unit[] = orderUnits(segments, introAfter)
         const cardFrames = (c: RenderCard | undefined): number => (c ? Math.max(1, Math.round(c.durationSec / frameSec)) : 0)
 
         const overlaysByCut = new Map<number, RenderOverlay[]>()

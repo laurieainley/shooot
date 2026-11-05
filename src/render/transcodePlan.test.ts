@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aacConfig, cutFrames, gridBlockFrames, gridSegments, gridSpan, keyEvery, outputDimensions, outputFrameSec, planFrames, planSegments, segmentSpan, sourceTimeOf } from './transcodePlan'
+import { aacConfig, cutFrames, gridBlockFrames, gridSegments, gridSpan, keyEvery, orderUnits, outputDimensions, outputFrameSec, planFrames, planSegments, segmentSpan, sourceTimeOf, type OrderedUnit } from './transcodePlan'
 
 describe('outputDimensions', () => {
     it('should keep 4K footage at 3840x2160 and halve it for 1080p', () => {
@@ -85,6 +85,34 @@ describe('aacConfig', () => {
     })
     it('should refuse an unsupported rate', () => {
         expect(() => aacConfig(12345, 2)).toThrow()
+    })
+})
+
+describe('orderUnits', () => {
+    const segs = [{ cutIndex: 0, firstFrame: 0, frames: 10 }, { cutIndex: 1, firstFrame: 0, frames: 10 }, { cutIndex: 1, firstFrame: 10, frames: 5 }, { cutIndex: 2, firstFrame: 0, frames: 10 }]
+    const kinds = (u: OrderedUnit[]): string[] => u.map((x) => (x.kind === 'segment' ? `${x.segment.cutIndex}:${x.segment.firstFrame}` : x.kind))
+    it('should put the title card first and the full-time card last without introAfterCut (today\'s order)', () => {
+        expect(kinds(orderUnits(segs))).toEqual(['intro', '0:0', '1:0', '1:10', '2:0', 'outro'])
+        expect(kinds(orderUnits(segs, 0))).toEqual(['intro', '0:0', '1:0', '1:10', '2:0', 'outro'])
+    })
+    it('should put the title card after the segments of the cuts before introAfterCut', () => {
+        expect(kinds(orderUnits(segs, 1))).toEqual(['0:0', 'intro', '1:0', '1:10', '2:0', 'outro'])
+        expect(kinds(orderUnits(segs, 2))).toEqual(['0:0', '1:0', '1:10', 'intro', '2:0', 'outro'])
+    })
+    it('should keep the segments themselves (same objects, every one once)', () => {
+        const u = orderUnits(segs, 1)
+        expect(u.flatMap((x) => (x.kind === 'segment' ? [x.segment] : []))).toEqual(segs)
+        expect(u.length).toBe(segs.length + 2)
+    })
+    it('should order grid blocks (reusable renders) the same way: the title card after every block of the teaser cuts', () => {
+        const FS = 1001 / 30000
+        const blocks = gridSegments([{ startSec: 100, endSec: 108 }, { startSec: 500, endSec: 540 }, { startSec: 900, endSec: 930 }], FS, 300, 3600)
+        const u = orderUnits(blocks, 1)
+        const at = u.findIndex((x) => x.kind === 'intro')
+        expect(at).toBe(blocks.filter((s) => s.cutIndex === 0).length)
+        expect(u.slice(0, at).every((x) => x.kind === 'segment' && x.segment.cutIndex === 0)).toBe(true)
+        expect(u.slice(at + 1, -1).every((x) => x.kind === 'segment' && x.segment.cutIndex > 0)).toBe(true)
+        expect(u[u.length - 1].kind).toBe('outro')
     })
 })
 

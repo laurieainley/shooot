@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { buildTransferPayload, decodeProject, encodeProject, fragmentData, qrIsDense, transferUrl, type TransferPayload } from './projectTransfer'
+import { sanitiseEvents } from './eventTypes'
 import type { MatchEvent } from '../types'
 
 const events: MatchEvent[] = [
@@ -21,6 +22,15 @@ describe('assist in transfers', () => {
         const withAssist = [{ ...events[0], assist: 'Zoë Ñandú' }, events[1]]
         const decoded = await decodeProject(await encodeProject(buildTransferPayload(payload({ events: withAssist }))))
         expect(decoded.events[0].assist).toBe('Zoë Ñandú')
+    })
+})
+
+describe('marks in transfers', () => {
+    it('should round trip marks through a transfer link', async () => {
+        const starred = [{ ...events[0], marks: ['teaser' as const] }, events[1]]
+        const decoded = await decodeProject(await encodeProject(buildTransferPayload(payload({ events: starred }))))
+        expect(decoded.events[0].marks).toEqual(['teaser'])
+        expect(sanitiseEvents(decoded.events)[0].marks).toEqual(['teaser'])
     })
 })
 

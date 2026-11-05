@@ -9,6 +9,17 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ---
 
+## 2026-11-05 — Starred events open the highlights as a "Coming up" teaser; whole notes in captions (user + agent)
+- **Decision (user):** any event can be starred (★ Star menu in the Events row, option B, room for later marks such as goal of the
+  season); starred moments play their whole clip before the VS card under a COMING UP banner that replaces the event word, with the
+  event and player beneath ("GOAL · DAN"; a Highlight shows just its note); no score, no slow-mo; several allowed. The note box limit
+  matches what the caption shows, and captions show the whole note.
+- **Agent calls:** a teaser is the event's own window (never pulls in an unstarred neighbour); banner for the whole clip (re-encodes
+  the clip in Original); no assist or team colour; no cap on teasers; switch on by default (v28); NOTE_MAX = 100 (realistic two-row
+  capacity; very W-heavy text may still get "…" in the TNF theme); the banner follows the captions setting.
+- **Why:** a taste of the best moments before kick-off without giving the result away; long notes lost their punchline at 60 characters.
+- **Where:** spec `docs/superpowers/specs/2026-11-05-teaser-and-marks-design.md`, plan `docs/superpowers/plans/2026-11-05-teaser-and-stars.md`, branch feat/teaser.
+
 ## 2026-11-03 — One match may go to a rented GPU for a tracking test; Find goals tries vision before audio (user)
 - **Decision:** the user agreed to upload one match (TNF 17-09-26, as a ~1–1.5 GB payload: a 1080p copy plus
   full-quality goal-mouth crops, not the 4K original) to a rented GPU (Modal) for a one-off test of player tracking,

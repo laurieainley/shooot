@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isMarker } from './eventTypes'
+import { hasMark, isMarker } from './eventTypes'
 import { PICKER_GROUPS, PICKER_OPTIONS, controlLabel, eventLabel, eventIcon, isScoring, migrateEvent, sanitiseEvents, optionForKey, EVENT_META, shortNote, eventSummary, assistOf, controlSummary } from './eventTypes'
 import type { MatchEvent, Team } from '../types'
 
@@ -199,6 +199,31 @@ describe('assist text', () => {
     })
     it('should ask for an assist on the normal goal option only', () => {
         expect(PICKER_OPTIONS.filter((o) => o.askAssist).map((o) => o.id)).toEqual(['goal'])
+    })
+})
+
+describe('marks', () => {
+    it('should keep teaser, drop unknown values, dedupe and remove an empty list', () => {
+        const out = sanitiseEvents([
+            { id: 'a', matchTimeSec: 1, type: 'goal', marks: ['teaser'] },
+            { id: 'b', matchTimeSec: 2, type: 'goal', marks: ['teaser', 'goty'] },
+            { id: 'c', matchTimeSec: 3, type: 'goal', marks: ['teaser', 'teaser'] },
+            { id: 'd', matchTimeSec: 4, type: 'goal', marks: ['goty'] },
+            { id: 'e', matchTimeSec: 5, type: 'goal', marks: 'teaser' },
+        ])
+        expect(out.map((e) => e.marks)).toEqual([['teaser'], ['teaser'], ['teaser'], undefined, undefined])
+        expect('marks' in out[3]).toBe(false)
+    })
+
+    it('should drop marks on markers', () => {
+        const out = sanitiseEvents([{ id: 'k', matchTimeSec: 1, type: 'kickoff', marks: ['teaser'] }])
+        expect(out[0].type).toBe('kick_off')
+        expect('marks' in out[0]).toBe(false)
+    })
+
+    it('should answer hasMark', () => {
+        expect(hasMark({ marks: ['teaser'] }, 'teaser')).toBe(true)
+        expect(hasMark({}, 'teaser')).toBe(false)
     })
 })
 

@@ -26,7 +26,7 @@ export function RenderHighlights() {
         files: s.files, events: s.events, cumulativeOffsets: s.cumulativeOffsets,
         lengthBeforeGoalSec: s.lengthBeforeGoalSec, lengthAfterGoalSec: s.lengthAfterGoalSec, replayBeforeSec: s.replayBeforeSec,
         replayAfterSec: s.replayAfterSec, replaySpeed: s.replaySpeed, graphics: s.graphics, teams: s.teams, matchdayLabel: s.matchdayLabel,
-        fullMatch: s.fullMatch, goalAreas: s.goalAreas,
+        fullMatch: s.fullMatch, highlightsTeaser: s.highlightsTeaser, goalAreas: s.goalAreas,
     })))
     const choice = useAppState((s) => s.highlightsQuality)
     const setQuality = useAppState((s) => s.setHighlightsQuality)
