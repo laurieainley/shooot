@@ -1,7 +1,7 @@
 import type { MarkerType, MatchEvent, Team } from '../types'
 import { PICKER_OPTIONS, optionForKey, type PickerOption } from './eventTypes'
 import { assistEdit, optionPatch, personEdit } from './eventEdit'
-import { filterRoster, rostersFor, sortNames } from './roster'
+import { rosterGroups } from './roster'
 
 export type PickerStep = 'type' | 'team' | 'scorer' | 'assist' | 'text'
 
@@ -53,7 +53,7 @@ function hasTeams(ctx: PickerContext): boolean {
 
 /** The person step's names by team (one group, or two for an own goal: conceding team first), each A–Z and filtered by the typed text. */
 export function scorerGroups(state: PickerState, ctx: PickerContext): { team: string; names: string[] }[] {
-    return rostersFor(ctx.teams, state.team, state.option.type).map((t) => ({ team: t.name, names: sortNames(filterRoster(t.roster, state.query)) }))
+    return rosterGroups(ctx.teams, state.team, state.option.type, state.query)
 }
 
 /** Names at the person step in listing order (what 1–9 count over): the groups one after another. */

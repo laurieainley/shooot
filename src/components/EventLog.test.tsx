@@ -390,6 +390,17 @@ describe('EventLog inline edit', () => {
         expect(screen.queryByRole('textbox', { name: 'Scorer' })).not.toBeInTheDocument()
     })
 
+    it('should list both rosters for an own goal, conceding team first, labelled, A–Z inside a group', async () => {
+        setup([{ id: 'a', matchTimeSec: 30, sourceFileIndex: 0, type: 'own_goal', team: 'Colours' }])
+        render(<EventLog />)
+        await userEvent.dblClick(within(rows()[0]).getByText('Own goal'))
+        await userEvent.type(screen.getByRole('textbox', { name: 'Scorer' }), 's')
+        const box = screen.getByRole('listbox', { name: 'Scorer suggestions' })
+        // Colours is credited, so Whites (conceding) first; headings are presentational, names A–Z inside each group
+        expect(within(box).getAllByRole('option').map((o) => o.textContent)).toEqual(['Sam Taylor', 'Jo Smith'])
+        expect(box.textContent).toBe('WhitesSam TaylorColoursJo Smith')
+    })
+
     it('should save a new name typed as scorer and add it to the roster', async () => {
         render(<EventLog />)
         await userEvent.dblClick(within(rows()[0]).getByText('Goal'))

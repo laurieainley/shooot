@@ -27,13 +27,12 @@ export function startTag(): void {
  * Touch-view UI state (never persisted):
  * sheet - the events list / matches overlay opened from ⋯ (landscape view has no rail);
  * menuOpen - the ⋯ menu;
- * controlsVisible - the overlay controls: they never hide by themselves; a single tap on the picture hides / shows them (pokes counts shows).
+ * controlsVisible - the overlay controls: they never hide by themselves; a single tap on the picture hides / shows them.
  */
 interface TagUi {
     sheet: 'events' | 'matches' | null
     menuOpen: boolean
     controlsVisible: boolean
-    pokes: number
     setSheet: (sheet: 'events' | 'matches' | null) => void
     setMenuOpen: (open: boolean) => void
     setControlsVisible: (visible: boolean) => void
@@ -44,11 +43,10 @@ export const useTagUi = create<TagUi>((set) => ({
     sheet: null,
     menuOpen: false,
     controlsVisible: true,
-    pokes: 0,
     setSheet: (sheet) => set({ sheet }),
     setMenuOpen: (menuOpen) => set({ menuOpen }),
     setControlsVisible: (controlsVisible) => set({ controlsVisible }),
-    poke: () => set((s) => ({ controlsVisible: true, pokes: s.pokes + 1 })),
+    poke: () => set({ controlsVisible: true }),
 }))
 
 /**

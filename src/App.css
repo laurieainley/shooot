@@ -2168,7 +2168,7 @@ button.tagcol__crumb:active { color: var(--sh-text); border-color: var(--sh-text
 .menu-speeds__label { flex: 1 0 100%; font-size: var(--sh-text-xs); color: var(--sh-muted); padding: 0 4px; }
 .menu-speeds__btn { min-width: 44px; min-height: 44px; padding: 0 8px; border-radius: var(--sh-radius-sm); border: 1px solid var(--sh-line); background: transparent; color: var(--sh-text); font: inherit; font-size: var(--sh-text-sm); font-weight: 700; cursor: pointer; }
 .menu-speeds__btn[aria-pressed="true"] { background: var(--sh-surface-2); box-shadow: 0 0 0 2px var(--sh-text); }
-@media (pointer: coarse) { .control-btn.tv-chip, .tv-notgoal, .menu-speeds__btn, .tv-btn--speed, .speedbtn__opt, .speedbtn__main { font-size: 14px; } .menu-speeds__label { font-size: 14px; } .tv-moment { font-size: 14px; } }
+@media (pointer: coarse) { .speedbtn__main { min-height: 44px; } .control-btn.tv-chip, .tv-notgoal, .menu-speeds__btn, .tv-btn--speed, .speedbtn__opt, .speedbtn__main { font-size: 14px; } .menu-speeds__label { font-size: 14px; } .tv-moment { font-size: 14px; } }
 
 /* Playback LRV / MP4 (paired GoPro files): segmented choice in the ⋯ menu and the Files sheet */
 .playback-choice { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; padding: 6px 4px; }

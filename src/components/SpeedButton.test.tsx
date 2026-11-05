@@ -17,7 +17,7 @@ beforeEach(() => {
     set.mockClear()
     publishPlayerRate(1)
     unregister = registerPlayerRate(() => rate, set)
-    useAppState.setState({ isPreviewMode: false })
+    useAppState.setState({ isPreviewMode: false, files: [{ id: 'a', name: 'a.mp4', url: '', file: new File([''], 'a.mp4'), durationSec: 60, kind: 'full' }] })
     setMedia({ coarse: true, landscape: true })
 })
 afterEach(() => { unregister(); cleanup(); setMedia({}) })
@@ -54,6 +54,12 @@ describe('SpeedButton', () => {
     it('should name the shortcut keys in its title', () => {
         render(<SpeedButton />)
         expect(screen.getByRole('button', { name: /Playback speed/ }).getAttribute('title')).toMatch(/,.*\..*\//)
+    })
+
+    it('should not show on the desktop player before a video is loaded', () => {
+        useAppState.setState({ files: [] })
+        render(<SpeedButton variant="desk" />)
+        expect(screen.queryByRole('button', { name: /Playback speed/ })).toBeNull()
     })
 
     it('should be hidden during the highlights preview', () => {

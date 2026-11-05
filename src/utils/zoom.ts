@@ -76,11 +76,6 @@ export function wheelZoomFactor(deltaY: number, deltaMode = 0, sinceLastMs = Inf
     return Math.exp(-Math.max(-max, Math.min(max, px)) * 0.01)
 }
 
-/** The pan is stored in pixels of the old viewport, so any change of size (rotation, entering fullscreen) makes it wrong: the zoom starts again. */
-export function viewportChanged(prev: { width: number; height: number } | null, next: { width: number; height: number }): boolean {
-    return prev !== null && (Math.abs(prev.width - next.width) > 1 || Math.abs(prev.height - next.height) > 1)
-}
-
 /**
  * Whether a player resize needs the zoom to start again: only when the aspect flips between landscape and portrait (a rotation).
  * Other resizes (browser bars showing or hiding, safe areas, a sheet opening) keep the zoom; the pan is rescaled and clamped.

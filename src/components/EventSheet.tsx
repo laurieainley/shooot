@@ -10,7 +10,7 @@ import { deletedCopy, eventGlobalSec, matchClock } from '../utils/toastCopy'
 import { EventTag } from './EventTag'
 import { watchFromSec } from '../utils/markers'
 import { wantsReplay } from '../utils/replays'
-import { filterRoster, rostersFor, sortNames } from '../utils/roster'
+import { filterRoster, rostersFor, rosterGroups } from '../utils/roster'
 import { fileKeys } from '../utils/fileKey'
 import { formatEventClock } from '../utils/timeline'
 import { ColumnPanel } from './ColumnPanel'
@@ -137,7 +137,7 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
     const pool = useMemo(() => (rosters.length > 0 ? rosters.flatMap((t) => t.roster) : teams.flatMap((t) => t.roster)), [rosters, teams])
     const filterPerson = person.trim() && person.trim() !== e.scorer
     const suggestions = filterPerson ? filterRoster(pool, person) : pool
-    const suggestionGroups = rosters.length > 1 ? rosters.map((t) => ({ team: t.name, names: sortNames(filterPerson ? filterRoster(t.roster, person) : t.roster) })) : null
+    const suggestionGroups = rosters.length > 1 ? rosterGroups(teams, e.team, e.type, filterPerson ? person : '') : null
     const personLabel = option.personLabel ?? 'Scorer'
     const assistPool = pool.filter((n) => n.toLowerCase() !== (e.scorer ?? '').trim().toLowerCase())
     const assistSuggestions = assist.trim() && assist.trim() !== e.assist ? filterRoster(assistPool, assist) : assistPool

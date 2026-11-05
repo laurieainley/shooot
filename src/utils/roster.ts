@@ -46,3 +46,8 @@ export function rostersFor(teams: Team[], team: string | undefined, type: EventT
     if (idx === -1) return []
     return type === 'own_goal' && teams[1 - idx] ? [teams[1 - idx], teams[idx]] : [teams[idx]]
 }
+
+/** The person list by team for a typed query: each roster A–Z and filtered, in `rostersFor` order. */
+export function rosterGroups(teams: Team[], team: string | undefined, type: EventType, query: string): { team: string; names: string[] }[] {
+    return rostersFor(teams, team, type).map((t) => ({ team: t.name, names: sortNames(filterRoster(t.roster, query)) }))
+}

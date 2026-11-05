@@ -10,7 +10,7 @@ import { FullscreenControls } from './FullscreenControls'
 import { EventPicker } from './EventPicker'
 import { EventsSheet } from './EventsSheet'
 import { MatchStrip } from './MatchStrip'
-import { useControlsVisibility, useTagUi, useTagViewMode } from './tagView'
+import { useControlsVisibility, useTagViewMode } from './tagView'
 import { SpeedButton } from './SpeedButton'
 import { Toast } from './Toast'
 import { fullscreenSplit, useFullscreenUi } from './fullscreenUi'
@@ -157,8 +157,9 @@ export function Player() {
                     startActivity('playback', { kind: 'playback', files: f?.file ? [{ name: f.name, sizeBytes: f.file.size, codec: f.codec, kind: f.kind }] : [] }, () => ({ currentTime: media.currentTime }))
                 } else if (name === 'pause' || name === 'ended' || name === 'emptied' || name === 'error') endActivity('playback')
             } })
-            p.on('dispose', () => { detach(); endActivity('playback') })
+            p.on('dispose', () => { detach(); endActivity('playback'); publishPlayerRate(1) })
         }
+        p.ready(() => publishPlayerRate(p.playbackRate() ?? 1)) // a re-created player starts at 1×: never leave the previous label
         p.on('ratechange', () => {
             publishPlayerRate(p.playbackRate() ?? 1)
             if (!shouldShowSpeedIndicator(useAppState.getState().isPreviewMode, performance.now(), quietRateUntilRef.current)) return
@@ -478,7 +479,7 @@ export function Player() {
             <ZoomChip zoom={zoomPan.zoom} onReset={zoomPan.reset} />
             {inFullscreen && <RenderChip variant="overlay" />}
             <FullscreenControls playerRef={playerRef} isFullscreen={inFullscreen} />
-            {overlayView && <div className="tv-fades tv-strip" onPointerDown={() => useTagUi.getState().poke()}><FindGoalsLine /><MatchStrip variant="overlay" /></div>}
+            {overlayView && <div className="tv-fades tv-strip"><FindGoalsLine /><MatchStrip variant="overlay" /></div>}
             {overlayView && <EventsSheet />}
             <EventPicker />
             {inFullscreen && <div className="toast-host toast-host--fs"><Toast /></div>}

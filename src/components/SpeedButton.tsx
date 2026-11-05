@@ -10,6 +10,7 @@ interface SpeedButtonProps {
 /** The playback rate as a visible button ("1×"); tapping opens the speeds, choosing one sets it and closes. Not shown in the preview, which owns speed there. */
 export function SpeedButton({ variant = 'touch' }: SpeedButtonProps) {
     const previewing = useAppState((s) => s.isPreviewMode)
+    const noVideo = useAppState((s) => s.files.length === 0)
     const rate = usePlayerRate()
     const [open, setOpen] = useState(false)
     const ref = useRef<HTMLDivElement>(null)
@@ -24,6 +25,7 @@ export function SpeedButton({ variant = 'touch' }: SpeedButtonProps) {
     }, [open])
     useEffect(() => { if (previewing) setOpen(false) }, [previewing])
 
+    if (variant === 'desk' && noVideo) return null // over the empty player it would do nothing
     if (previewing) return variant === 'touch' ? <span /> : null // the touch cluster is a grid: keep the cell
 
     return (

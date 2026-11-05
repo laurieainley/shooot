@@ -268,7 +268,7 @@ describe('FullscreenControls picture taps in the touch view', () => {
         vi.useFakeTimers()
         setMedia({ coarse: true, landscape: true })
         useAppState.setState({ files: [{ id: 'a', name: 'a.mp4', url: '', file: new File([''], 'a.mp4'), durationSec: 600, kind: 'full' }], events: [], suggestions: [], suggestionRun: null, panel: null, picker: null })
-        useTagUi.setState({ controlsVisible: true, pokes: 0 })
+        useTagUi.setState({ controlsVisible: true })
     })
     afterEach(() => { vi.useRealTimers(); setCoarsePointer(false); useAppState.setState({ files: [] }) })
 

@@ -1,6 +1,6 @@
 import { teamBackground } from '../utils/teamColor'
 import { shouldHandleShortcut } from '../utils/shortcuts'
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { selectClockLong, selectMatchStartSec, useAppState } from '../state'
 import type { MatchEvent, Team } from '../types'
 import { emptyLogLine } from '../utils/voice'
@@ -14,7 +14,7 @@ import { FindGoalsPrompt } from './FindGoalsPrompt'
 import { EventIcon } from './icons/EventIcon'
 import { watchFromSec } from '../utils/markers'
 import { wantsReplay } from '../utils/replays'
-import { filterRoster, rosterTeamFor, rostersFor } from '../utils/roster'
+import { filterRoster, rosterTeamFor, rostersFor, rosterGroups } from '../utils/roster'
 import { formatScore, scoresAfter } from '../utils/score'
 import { clockWidthCh, formatEventClock } from '../utils/timeline'
 import { TimeInput } from './TimeInput'
@@ -395,7 +395,10 @@ function ScorerEdit({ event: e, teams, onDone }: ScorerEditProps) {
     const roster = rosterTeamFor(teams, e.team, e.type)
     const both = useMemo(() => rostersFor(teams, e.team, e.type), [teams, e.team, e.type]) // own goal: either team, conceding team first
     const pool = useMemo(() => (both.length > 0 ? both.flatMap((t) => t.roster) : teams.flatMap((t) => t.roster)), [both, teams])
-    const candidates = query.trim() ? filterRoster(pool, query) : []
+    // An own goal lists both rosters like the picker: conceding team first, each labelled, A–Z inside a group.
+    const groups = query.trim() ? rosterGroups(teams, e.team, e.type, query) : []
+    const labelled = groups.length > 1
+    const candidates = labelled ? groups.flatMap((g) => g.names) : query.trim() ? filterRoster(pool, query) : []
 
     const save = (name: string): void => {
         const st = useAppState.getState()
@@ -425,11 +428,17 @@ function ScorerEdit({ event: e, teams, onDone }: ScorerEditProps) {
             />
             {candidates.length > 0 && (
                 <ul role="listbox" aria-label="Scorer suggestions" className="menu absolute left-0 right-0 top-full z-20 mt-0.5 list-none p-1">
-                    {candidates.map((n, i) => (
-                        <li key={n} role="option" aria-selected={i === highlighted}
-                            onMouseDown={(ev) => { ev.preventDefault(); save(n) }}
-                            className="menu-item">{n}</li>
-                    ))}
+                    {candidates.map((n, i) => {
+                        const head = labelled ? groups.find((g, gi) => g.names.length > 0 && i === groups.slice(0, gi).reduce((a, x) => a + x.names.length, 0)) : undefined
+                        return (
+                            <Fragment key={`${i}-${n}`}>
+                                {head && <li role="presentation" className="menu-item" aria-hidden="true" style={{ fontWeight: 700, opacity: 0.7, pointerEvents: 'none' }}>{head.team}</li>}
+                                <li role="option" aria-selected={i === highlighted}
+                                    onMouseDown={(ev) => { ev.preventDefault(); save(n) }}
+                                    className="menu-item">{n}</li>
+                            </Fragment>
+                        )
+                    })}
                 </ul>
             )}
         </span>

@@ -4,7 +4,7 @@ import { renderHook, act } from '@testing-library/react'
 import { useTagUi, useControlsVisibility } from './tagView'
 import { setPlayerPaused } from './playerControl'
 
-beforeEach(() => { vi.useFakeTimers(); useTagUi.setState({ controlsVisible: true, pokes: 0 }) })
+beforeEach(() => { vi.useFakeTimers(); useTagUi.setState({ controlsVisible: true }) })
 afterEach(() => { vi.useRealTimers(); setPlayerPaused(true) })
 
 describe('touch view controls visibility', () => {
