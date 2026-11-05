@@ -353,3 +353,41 @@ describe('a render that fails before the engine reports', () => {
         expect(store.getState().job?.diagnostics).toBe(engineReport)
     })
 })
+
+describe('render job timing log hook', () => {
+    it('should tell onFinish how a render ended: done with the engine stats and notes, failed with the reason, cancelled', async () => {
+        const stats = { frames: 1, units: 2, unitsTotal: 2, reusedSec: 5, encodedSec: 5 }
+        const done = vi.fn()
+        const { store } = setup(async (_c, _s, o) => { o.onStats?.(stats as never); o.onDiagnostics?.({ notes: ['Unit cache: 1 of 2 parts can be reused'] } as never); return new Blob(['x']) })
+        await store.getState().start({ kind: 'fullMatch', quality: 'full', output: '4k' }, async () => ({ ...req(), onFinish: done }))
+        expect(done).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'done', stats, notes: ['Unit cache: 1 of 2 parts can be reused'] }))
+
+        const failed = vi.fn()
+        const f = setup(async () => { throw new Error('boom') })
+        await f.store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => ({ ...req(), onFinish: failed }))
+        expect(failed).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'failed', error: 'boom' }))
+
+        const cancelled = vi.fn()
+        const c = setup((_c, _s, o) => new Promise((_r, rej) => o.signal?.addEventListener('abort', () => rej(new DOMException('x', 'AbortError')))))
+        const p = c.store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => ({ ...req(), onFinish: cancelled }))
+        await vi.waitFor(() => expect(c.store.getState().running()).toBe(true))
+        await new Promise((r) => setTimeout(r, 0))
+        c.store.getState().cancel()
+        await p
+        expect(cancelled).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'cancelled' }))
+    })
+    it('should switch the unit cache off for a render without prepared parts, and keep a target file', async () => {
+        let opts: Parameters<RenderJobDeps['render']>[2] | undefined
+        const { store } = setup(async (_c, _s, o) => { opts = o; return new Blob(['x']) })
+        const targetFile = {} as FileSystemFileHandle
+        await store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => ({ ...req(), withoutPrepared: true, targetFile }))
+        expect(opts?.experiments).toEqual({ targetFile, unitCache: false })
+        await store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => req())
+        expect(opts?.experiments).toBeUndefined()
+    })
+    it('should not let a log hook that throws break the render', async () => {
+        const { store } = setup(async () => new Blob(['x']))
+        await store.getState().start({ kind: 'fullMatch', quality: 'full' }, async () => ({ ...req(), onFinish: () => { throw new Error('log') } }))
+        expect(store.getState().job?.phase).toBe('done')
+    })
+})

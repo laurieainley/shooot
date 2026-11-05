@@ -15,6 +15,7 @@ import { recordRender } from './utils/renderTime'
 import { formatRenderProgress } from './utils/renderSources'
 import { createRenderWakeLock, type RenderWakeLock } from './renderWakeLock'
 import type { ReuseKeys } from './render/unitCache'
+import type { PipelineStats } from './render/experiments'
 import { recoverFromStaleChunk } from './staleBuildRecovery'
 
 export type RenderRequest = {
@@ -30,8 +31,23 @@ export type RenderRequest = {
     output?: { quality: '4k' | '1080p'; videoBitrate: number }
     /** Re-encodes: what the engine needs to reuse parts of the last export of this kind (see render/unitCache). */
     reuse?: ReuseKeys
-    /** "Save to file…": the engine streams the MP4 straight into this file (no resumable journal, no reused parts, no download). */
+    /** "Save to file…": the engine streams the MP4 straight into this file (no resumable journal, no download); it reads cached parts but does not add any. */
     targetFile?: FileSystemFileHandle
+    /** "Export without prepared parts": the unit cache is off for this render (nothing reused, nothing kept): the baseline to compare with. */
+    withoutPrepared?: boolean
+    /** Called once when the render ends, whatever way: the timing log. Must not throw. */
+    onFinish?: (end: FinishInfo) => void
+}
+
+/** What the engine and the job manager know when a render ends (for the timing log). */
+export type FinishInfo = {
+    outcome: 'done' | 'failed' | 'cancelled'
+    /** Render pressed → file ready (or → the end). */
+    wallMs: number
+    stats: PipelineStats | null
+    /** The diagnostics notes (the cache lines are among them). */
+    notes: string[]
+    error?: string
 }
 
 /** A first progress reading above this share means the render resumed a saved one. */
@@ -146,8 +162,14 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                 const tellSlowStop = slowStop
                 slowStop = false
                 set({ conflict: false, job: { id, kind, quality, output, phase: 'running', startedAt, fraction: 0, status: 'Preparing…', report: null, diagnostics: null, result: null, error: null, notice: null, finishedAt: null } })
+                let req: RenderRequest | undefined
+                let stats: PipelineStats | null = null
+                let notes: string[] = []
+                const finish = (outcome: FinishInfo['outcome'], error?: string): void => {
+                    try { req?.onFinish?.({ outcome, wallMs: deps.now() - startedAt, stats, notes, ...(error ? { error } : {}) }) } catch { /* the log never gets in the way */ }
+                }
                 try {
-                    const req = await prepare()
+                    req = await prepare()
                     if (signal.aborted) throw new DOMException('Render cancelled', 'AbortError')
                     if (current?.id === id) current.outputName = req.outputName
                     let timeline: RenderTimeline | null = null
@@ -172,11 +194,13 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                         ...(req.resumable ? { resumable: req.resumable } : {}),
                         ...(req.output ? { output: req.output } : {}),
                         ...(req.reuse ? { reuse: req.reuse } : {}),
-                        ...(req.targetFile ? { experiments: { targetFile: req.targetFile } } : {}),
+                        ...(req.targetFile || req.withoutPrepared ? { experiments: { ...(req.targetFile ? { targetFile: req.targetFile } : {}), ...(req.withoutPrepared ? { unitCache: false } : {}) } } : {}),
+                        onStats: (s) => { stats = s as PipelineStats },
                         // Reports also come for replay crops, which are drawn even when there are no graphics.
                         onGraphics: (report) => patch(id, { report }),
                         onDiagnostics: (report) => {
                             // The engine has already saved its report as the last one; this run also says if the one before it never stopped.
+                            notes = report.notes
                             const diagnostics = tellSlowStop ? { ...report, notes: [...report.notes, SLOW_STOP_NOTE] } : report
                             if (tellSlowStop) saveLastReport(diagnostics)
                             patch(id, { diagnostics })
@@ -195,11 +219,14 @@ export function createRenderJobs(deps: RenderJobDeps): StoreApi<RenderJobsState>
                     // Saved straight to disk: no object URL, no download.
                     const result = req.targetFile ? { file, url: '', downloaded: false, savedTo: req.targetFile.name } : (() => { const url = deps.createUrl(file); return { file, url, downloaded: deps.download(url, file.name) } })()
                     patch(id, { phase: 'done', fraction: 1, status: `Done in ${Math.max(1, Math.round(elapsed / 1000))} s`, result, finishedAt: deps.now() })
+                    finish('done')
                     deps.notify(get().job!, elapsed)
                 } catch (e) {
                     if (signal.aborted || (e instanceof DOMException && e.name === 'AbortError')) {
+                        finish('cancelled')
                         if (get().job?.id === id) set({ job: null })
                     } else {
+                        finish('failed', e instanceof Error ? e.message : String(e))
                         const error = isStorageFull(e) ? await storageFullMessage(await clearSavedParts().then(() => true, () => false)) : e instanceof Error ? e.message : String(e)
                         patch(id, { phase: 'failed', error, status: 'Render failed', finishedAt: deps.now() })
                         // A failure the engine never got to report (preparing the request, a file that cannot be written): still a report, and the last one.

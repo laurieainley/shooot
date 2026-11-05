@@ -6,6 +6,7 @@ import { ExportPanel } from './ExportPanel'
 import { FilesButton } from './FilesButton'
 import { NewMatchButton } from './NewMatchButton'
 import { OverflowMenu } from './OverflowMenu'
+import { PreparePill } from './PreparePill'
 import { Wordmark } from './Wordmark'
 import type { Layout } from './useMediaQuery'
 
@@ -47,6 +48,7 @@ export function TopBar({ layout }: TopBarProps) {
                     <span className="top-bar__actions">
                         <FilesButton />
                         <button type="button" onClick={() => useAppState.getState().openPanel('match')} className="top-btn top-btn--quiet">Match setup</button>
+                        <PreparePill />
                         <ExportPanel />
                         <OverflowMenu layout={layout} />
                     </span>
@@ -55,6 +57,7 @@ export function TopBar({ layout }: TopBarProps) {
                 <>
                     <FilesButton compact />
                     <span className="flex-1" />
+                    <PreparePill />
                     <ExportPanel />
                     <OverflowMenu layout={layout} />
                     {layout === 'landscape' && (

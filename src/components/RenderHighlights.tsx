@@ -4,6 +4,7 @@ import { useAppState } from '../state'
 import { estimatePlanTime, highlightsExport, planOutput, sourceFactsFor, type ExportState, type PlanOutput } from '../utils/exportPlans'
 import { saveExportToFile, startExport } from './renderRequest'
 import { useRenderJobs } from '../renderJobs'
+import { useBaseline } from '../prepare/baseline'
 import type { RenderQuality } from '../utils/renderSources'
 import { applyStorageFit, qualityOptions, QUALITY_LABEL, resolveHighlightsQuality, saveToFileQuality } from '../utils/outputQuality'
 import { hasSavePicker } from '../utils/savePicker'
@@ -35,6 +36,7 @@ export function RenderHighlights() {
     const phone = layout === 'phone' || layout === 'landscape'
     const hasEvents = useAppState((s) => s.events.some((e) => !e.unlinked))
     const busy = useRenderJobs((s) => s.job?.phase === 'running')
+    const baseline = useBaseline()
     const saved = useSavedJob('highlights', busy)
     const [note, setNote] = useState<string | null>(null)
     const [missing, setMissing] = useState<string[]>([])
@@ -96,6 +98,7 @@ export function RenderHighlights() {
             <button onClick={() => run('full', planOutput(effective))} disabled={disabled} className="btn-primary w-full justify-center">
                 {renderButtonLabel('highlights', effective)}
             </button>
+            {baseline && <p className="export-hint m-0">The next export ignores the prepared parts (for the timing comparison).</p>}
             <p className="export-hint render-estimate m-0">{renderSummaryLine({ bytes: chosen.bytes, timeRange: chosen.timeRange, basis: chosen.timeBasis, seconds: base.seconds })}</p>
             {canSave && (
                 <>

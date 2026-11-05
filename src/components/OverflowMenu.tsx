@@ -9,6 +9,7 @@ import { FloatingPanel } from './FloatingPanel'
 import { ProjectIO } from './ProjectIO'
 import { blockerText, startNewMatch, stopBlocker, switchBlocker, type SwitchBlocker } from './matchSwitch'
 import { CopyDiagnostics } from './CopyDiagnostics'
+import { BaselineItem, DownloadLogItem } from './ExportLogItems'
 import { playbackReportText } from '../playbackDiagnostics'
 import type { Layout } from './useMediaQuery'
 import { ExportPanel } from './ExportPanel'
@@ -133,6 +134,8 @@ function MenuBody({ setupInMenu, tagView = false }: MenuBodyProps) {
             <ProjectIO />
             <button type="button" role="menuitem" onClick={() => useAppState.getState().openPanel('shortcuts')}>Shortcuts</button>
             <div className="menu-diag"><CopyDiagnostics getText={playbackReportText} label="Copy playback diagnostics" ariaLabel="Playback diagnostics" /></div>
+            {hasFiles && <BaselineItem />}
+            <DownloadLogItem />
             {(labs || labsSeen) && <button type="button" role="menuitem" onClick={() => { useAppState.getState().setLabs(!labs); useAppState.getState().closePanel() }}>{labs ? 'Labs: on' : 'Labs: off'}</button>}
         </div>
     )
