@@ -7,7 +7,8 @@ import { emptyLogLine } from '../utils/voice'
 import { FindGoalsProgress, ReviewRailButton } from './FindGoalsProgress'
 import { useDetectJob } from '../detectJobs'
 import { findGoalsProgress } from '../utils/findGoalsProgress'
-import { controlLabel, isMarker } from '../utils/eventTypes'
+import { NOTE_MAX, controlLabel, isMarker } from '../utils/eventTypes'
+import { NoteCounter } from './NoteCounter'
 import { eventRowParts } from '../utils/eventRow'
 import { FindGoalsPrompt } from './FindGoalsPrompt'
 import { EventIcon } from './icons/EventIcon'
@@ -446,7 +447,7 @@ function NoteEdit({ event: e, onDone }: NoteEditProps) {
                 autoFocus
                 aria-label="Note"
                 value={value}
-                maxLength={200}
+                maxLength={NOTE_MAX}
                 onChange={(ev) => setValue(ev.target.value)}
                 onKeyDown={(ev) => {
                     ev.stopPropagation()
@@ -457,6 +458,7 @@ function NoteEdit({ event: e, onDone }: NoteEditProps) {
                 placeholder="Note"
                 className="field w-full px-1 py-0 text-ui-md"
             />
+            <NoteCounter value={value} />
         </span>
     )
 }

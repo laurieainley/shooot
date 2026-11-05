@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import type { MatchEvent, Team, VideoSourceFile } from '../types'
 import { EventSheet } from './EventSheet'
+import { NOTE_MAX } from '../utils/eventTypes'
 
 const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec: 600, kind: 'full' })
 const teams: Team[] = [
@@ -96,6 +97,15 @@ describe('EventSheet', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Done' }))
         expect(ev()?.notes).toBe('top corner')
         expect(useAppState.getState().panel).toBeNull()
+    })
+
+    it('should limit the note to NOTE_MAX characters and count them near the limit', async () => {
+        const input = screen.getByRole('textbox', { name: 'Note' })
+        expect(input).toHaveAttribute('maxlength', String(NOTE_MAX))
+        expect(screen.queryByText(new RegExp(`/ ${NOTE_MAX}$`))).not.toBeInTheDocument()
+        await userEvent.click(input)
+        await userEvent.paste('x'.repeat(NOTE_MAX - 20))
+        expect(screen.getByText(`${NOTE_MAX - 20} / ${NOTE_MAX}`)).toBeInTheDocument()
     })
 
     it('should keep typed text when the sheet is closed with ×', async () => {

@@ -1,4 +1,6 @@
 // Constants and timing shared by every graphics theme (themes/*/layout.ts re-export what their callers need).
+import type { FontVoice } from './themes/shooot/fonts'
+
 export const DESIGN_W = 1920
 export const DESIGN_H = 1080
 /** Title-safe margins (5 %). */
@@ -32,4 +34,44 @@ export function stingFrame(t: number, d: number): { alpha: number; scale: number
     const inP = easeOut(clamp01(t / STING_IN))
     const out = clamp01((d - t) / STING_OUT)
     return { alpha: Math.min(inP, out), scale: 0.92 + 0.08 * inP }
+}
+
+/**
+ * A caption note on at most `maxLines` rows of `maxWidth`: broken between words (a word wider than a row is broken inside).
+ * Only text that does not fit the rows gets a "…" on the last one. `measure` is the theme's text measure (voice defaults to the notes' shirt voice).
+ */
+export function wrapNote(text: string, maxWidth: number, size: number, measure: (text: string, size: number, voice?: FontVoice) => number, maxLines = 2): string[] {
+    const words = text.split(/\s+/).filter(Boolean)
+    if (!words.length) return ['']
+    const fits = (s: string): boolean => measure(s, size, 'shirt') <= maxWidth
+    const lines: string[] = []
+    let rest = words
+    while (rest.length) {
+        const row = lines.length
+        const last = row === maxLines - 1
+        let line = ''
+        let used = 0
+        while (used < rest.length) {
+            const next = line ? `${line} ${rest[used]}` : rest[used]
+            if (fits(next)) { line = next; used++ } else break
+        }
+        if (used === rest.length) { lines.push(line); break }
+        if (!last && used > 0) { lines.push(line); rest = rest.slice(used); continue }
+        // Either the last row with text left over, or a single word wider than a row.
+        const tail = rest.join(' ')
+        if (!last) {
+            let n = tail.length
+            while (n > 1 && !fits(tail.slice(0, n))) n--
+            lines.push(tail.slice(0, n))
+            rest = tail.slice(n).split(/\s+/).filter(Boolean)
+            continue
+        }
+        let n = tail.length
+        while (n > 0 && !fits(`${tail.slice(0, n).trimEnd()}…`)) n--
+        const cut = tail.slice(0, n)
+        const space = cut.lastIndexOf(' ')
+        lines.push(`${(space > cut.length / 2 ? cut.slice(0, space) : cut).trimEnd()}…`)
+        break
+    }
+    return lines
 }

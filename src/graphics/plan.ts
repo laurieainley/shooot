@@ -1,6 +1,6 @@
 import type { MatchEvent, Team } from '../types'
 import type { Cut } from '../render/types'
-import { assistOf, eventSummary, isScoring, shortNote } from '../utils/eventTypes'
+import { NOTE_MAX, assistOf, eventSummary, isScoring, shortNote } from '../utils/eventTypes'
 import { markerGlobalSec, matchMinute } from '../utils/matchClock'
 import { linkedEvents } from '../utils/relink'
 import { finalScore, formatScore, scoreAt, scoresAfter, type Score } from '../utils/score'
@@ -91,7 +91,7 @@ function eventCaptionSpec(e: MatchEvent, teams: Team[], score: Score | undefined
     if (person) cs.person = person
     const assist = upper(assistOf(e))
     if (assist) cs.assist = assist
-    const note = upper(shortNote(e.notes, 60))
+    const note = upper(shortNote(e.notes, NOTE_MAX))
     if (note) cs.note = note
     const minute = theme.caption.minutes ? minuteOf(e, events, offsets) : undefined
     if (minute) cs.minute = minute

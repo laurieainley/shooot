@@ -4,6 +4,7 @@ import { render, screen, fireEvent, within, act } from '@testing-library/react'
 import { toastStore } from '../toasts'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
+import { NOTE_MAX } from '../utils/eventTypes'
 import { EventLog } from './EventLog'
 import { setReviewDismissed } from './reviewDismiss'
 import { setCoarsePointer } from '../test/pointer'
@@ -452,6 +453,15 @@ describe('EventLog details & running score', () => {
         await userEvent.type(input, 'late tackle{Enter}')
         expect(byId('a')?.notes).toBe('late tackle')
         expect(screen.queryByRole('textbox', { name: 'Note' })).not.toBeInTheDocument()
+    })
+
+    it('should limit the inline note to NOTE_MAX characters', async () => {
+        setup([{ id: 'a', matchTimeSec: 30, type: 'foul', team: 'Whites' }])
+        render(<EventLog />)
+        await userEvent.click(rows()[0])
+        log().focus()
+        fireEvent.keyDown(log(), { key: 'n' })
+        expect(screen.getByRole('textbox', { name: 'Note' })).toHaveAttribute('maxlength', String(NOTE_MAX))
     })
 
     it('should edit the note on double-click, clear it when emptied and cancel on Escape', async () => {

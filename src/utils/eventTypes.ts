@@ -86,6 +86,16 @@ export function controlLabel(e: Pick<MatchEvent, 'type' | 'pen'>): string {
     return e.type === 'goal' && e.pen ? 'Penalty goal' : EVENT_META[e.type].label
 }
 
+/**
+ * Longest note the note boxes accept: what always fits the two caption rows (graphics/layout.ts wrapNote), so a typed note
+ * is never cut in the reel. Measured in Chrome with the real fonts at note size (30 px shooot / TNF, 28 px classic) in the
+ * caption's widest case (score bug + assist + two note rows): room 1200 px (shooot, TNF) / 1340 px (classic); a hard-wrapped
+ * run of solid W holds 102 / 94 / 170 characters, "MMMM WWWW" words 120 / 120 / 201, average text about 180 / 160 / 280.
+ * 100 rounds the tightest realistic figure (TNF, W-heavy words: 99) down to a multiple of 10. Older or imported notes can
+ * be longer and are cut with "…" on screen only.
+ */
+export const NOTE_MAX = 100
+
 /** A note squeezed onto one line, cut at a word with an ellipsis when longer than `max`. */
 export function shortNote(notes: string | undefined, max = 40): string {
     const clean = (notes ?? '').trim().replace(/\s+/g, ' ')

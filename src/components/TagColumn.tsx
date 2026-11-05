@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import type { Team } from '../types'
-import { PICKER_OPTIONS, type PickerOption, type PickerOptionId } from '../utils/eventTypes'
+import { NOTE_MAX, PICKER_OPTIONS, type PickerOption, type PickerOptionId } from '../utils/eventTypes'
 import type { PickerStep } from '../utils/eventPicker'
 import type { Crumb } from '../utils/tagFlow'
 import { teamBackground } from '../utils/teamColor'
 import { EventTag } from './EventTag'
 import { PersonStep } from './PersonStep'
+import { NoteCounter } from './NoteCounter'
 
 /** The first page of "What happened?": a two-column grid; the rest sit behind More…. */
 const MAIN_IDS: PickerOptionId[] = ['goal', 'goal_pen', 'own_goal', 'save', 'foul', 'highlight']
@@ -126,8 +127,9 @@ export function TagColumn(p: TagColumnProps) {
                 )}
                 {p.step === 'text' && (
                     <div className="tagcol__text">
-                        <input aria-label={p.textLabel} className="event-picker__input" placeholder={p.textPlaceholder} enterKeyHint="done" maxLength={200}
+                        <input aria-label={p.textLabel} className="event-picker__input" placeholder={p.textPlaceholder} enterKeyHint="done" maxLength={NOTE_MAX}
                             value={p.query} onChange={(e) => p.onQuery(e.target.value)} />
+                        <NoteCounter value={p.query} />
                         <button type="button" className="btn-primary" onClick={p.onTextDone}>Done</button>
                     </div>
                 )}

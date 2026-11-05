@@ -4,6 +4,7 @@ import { render, screen, fireEvent, act, cleanup } from '@testing-library/react'
 import { useAppState } from '../state'
 import { dismissToast, toastStore } from '../toasts'
 import { setReviewWindow } from './reviewWindowState'
+import { NOTE_MAX } from '../utils/eventTypes'
 import { EventPicker } from './EventPicker'
 import { setCoarsePointer } from '../test/pointer'
 import type { VideoSourceFile } from '../types'
@@ -504,6 +505,19 @@ describe('EventPicker optional note', () => {
         press('Enter')
         expect(s().events[0]).toMatchObject({ type: 'save', team: 'Colours', notes: 'point blank' })
         expect(s().picker).toBeNull()
+    })
+
+    it('should limit the note to NOTE_MAX characters and count them near the limit', () => {
+        render(<EventPicker />)
+        press('Enter'); press('1')
+        fireEvent.click(screen.getByRole('option', { name: /sam taylor/i }))
+        press('Tab') // no assist
+        const input = screen.getByRole('textbox', { name: /note/i })
+        expect(input).toHaveAttribute('maxlength', String(NOTE_MAX))
+        fireEvent.change(input, { target: { value: 'x'.repeat(NOTE_MAX - 21) } })
+        expect(screen.queryByText(new RegExp(`/ ${NOTE_MAX}$`))).not.toBeInTheDocument()
+        fireEvent.change(input, { target: { value: 'x'.repeat(NOTE_MAX - 20) } })
+        expect(screen.getByText(`${NOTE_MAX - 20} / ${NOTE_MAX}`)).toBeInTheDocument()
     })
 
     it('should store a note typed after a goal', () => {
