@@ -43,3 +43,14 @@ export function highlightsCuts(a: {
         segments, teaserSegments, teaserCount: teaser.cuts.length, teaserClips: teaser.origins.map((o) => o.segment),
     }
 }
+
+/** The Export row's recap: how many starred moments, and the length of the teaser's own cuts (no replays, none of the reel). */
+export function teaserLength(a: {
+    events: MatchEvent[]; cumulativeOffsets: number[]; durationsSec: number[]; before: number; after: number
+}): { moments: number; seconds: number } {
+    const { cuts, teaserCount } = highlightsCuts({ ...a, teaser: true })
+    return {
+        moments: teaserEvents(a.events).length,
+        seconds: cuts.slice(0, teaserCount).reduce((sum, c) => sum + (c.endSec - c.startSec) / (c.speed ?? 1), 0),
+    }
+}

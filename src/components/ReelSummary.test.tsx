@@ -25,6 +25,20 @@ describe('ReelSummary', () => {
         expect(screen.getByLabelText('Reel summary')).toHaveTextContent('0:36 reel · 2 clips')
     })
 
+    it('should include the teaser clips in the length when it is on, and not when it is off', () => {
+        useAppState.setState({ events: [
+            { id: 'a', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', marks: ['teaser'] },
+            { id: 'b', matchTimeSec: 300, sourceFileIndex: 0, type: 'highlight' },
+        ], highlightsTeaser: true })
+        const { unmount } = render(<ReelSummary />)
+        // 14 (teaser) + 14 + 8 (replay) + 14
+        expect(screen.getByLabelText('Reel summary')).toHaveTextContent('0:50 reel · 2 clips')
+        unmount()
+        useAppState.setState({ highlightsTeaser: false })
+        render(<ReelSummary />)
+        expect(screen.getByLabelText('Reel summary')).toHaveTextContent('0:36 reel · 2 clips')
+    })
+
     it('should use the singular for one clip', () => {
         useAppState.setState({ events: [{ id: 'h', matchTimeSec: 100, sourceFileIndex: 0, type: 'highlight' }] })
         render(<ReelSummary />)

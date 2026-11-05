@@ -1,7 +1,7 @@
 import type { MatchEvent } from '../types'
-import { mergeOverlappingGoalSegments } from './highlights'
 import { linkedEvents } from './relink'
-import { buildRenderPlan, type ReplayOptions } from './renderPlan'
+import type { ReplayOptions } from './renderPlan'
+import { highlightsCuts } from './teaser'
 
 export type ReelSummary = { seconds: number; clips: number }
 
@@ -13,10 +13,11 @@ export function reelSummary(args: {
     before: number
     after: number
     replay: ReplayOptions
+    /** Starred events play first as the teaser (counted in the length, not in the clip count). */
+    teaser?: boolean
 }): ReelSummary {
-    const { events, cumulativeOffsets, durationsSec, before, after, replay } = args
-    const segments = mergeOverlappingGoalSegments(linkedEvents(events), cumulativeOffsets, before, after)
-    const cuts = buildRenderPlan(segments, durationsSec, replay)
+    const { events, cumulativeOffsets, durationsSec, before, after, replay, teaser = false } = args
+    const { cuts, segments } = highlightsCuts({ events: linkedEvents(events), cumulativeOffsets, durationsSec, before, after, replay, teaser })
     const seconds = cuts.reduce((sum, c) => sum + (c.endSec - c.startSec) / (c.speed ?? 1), 0)
     return { seconds, clips: segments.length }
 }

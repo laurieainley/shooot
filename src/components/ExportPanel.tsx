@@ -12,6 +12,7 @@ import { ReelSummary } from './ReelSummary'
 import { ShareSteps } from './ShareSteps'
 import { getTheme } from '../graphics/themes'
 import { useExportButtonStatus } from './useExportButtonStatus'
+import { useTeaserLength } from './useTeaserLength'
 import { clipsSummary, graphicsSummary } from '../utils/renderSummary'
 
 const TABS = [
@@ -30,6 +31,8 @@ export function ExportPanel() {
     const after = useAppState((s) => s.lengthAfterGoalSec)
     const replaySpeed = useAppState((s) => s.replaySpeed)
     const graphics = useAppState((s) => s.graphics)
+    const teaserOn = useAppState((s) => s.highlightsTeaser)
+    const teaserLen = useTeaserLength()
     // Before any video is loaded, Choose files is the one primary action on screen; Export stays quiet.
     const hasFiles = useAppState((s) => s.files.length > 0)
     const state = rendering ? (open ? 'rendering-open' : 'rendering') : open ? 'open' : 'idle'
@@ -77,7 +80,7 @@ export function ExportPanel() {
                             <PreviewControls onStart={() => setOpen(false)} />
                             <RenderHighlights />
                             <div className="export-disclosures">
-                                <ExportDisclosure id="clips" title="Clips & replays" summary={clipsSummary({ before, after, replaySpeed })}>
+                                <ExportDisclosure id="clips" title="Clips & replays" summary={clipsSummary({ before, after, replaySpeed, teaserSec: teaserOn ? teaserLen.seconds : 0 })}>
                                     <ClipSettings />
                                 </ExportDisclosure>
                                 <ExportDisclosure id="graphics" title="Graphics" summary={graphicsSummary(graphics, getTheme(graphics.theme).name)}>

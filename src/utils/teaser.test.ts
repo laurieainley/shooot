@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { highlightsCuts, teaserEvents } from './teaser'
+import { highlightsCuts, teaserEvents, teaserLength } from './teaser'
 import type { MatchEvent } from '../types'
 import type { ReplayOptions } from './renderPlan'
 
@@ -68,5 +68,15 @@ describe('highlightsCuts', () => {
         const starred = highlightsCuts({ ...base, events: [ev('g', 40, star), ev('h', 70)], teaser: false })
         expect(starred.cuts).toEqual(off.cuts)
         expect(starred.teaserCount).toBe(0)
+    })
+})
+
+describe('teaserLength', () => {
+    it('should count the starred moments and add up the teaser cuts only (no replays, nothing from the reel)', () => {
+        const events = [ev('a', 40, star), ev('b', 70, star), ev('c', 90)]
+        expect(teaserLength({ ...base, events })).toEqual({ moments: 2, seconds: 28 })
+    })
+    it('should be empty when nothing is starred', () => {
+        expect(teaserLength({ ...base, events: [ev('a', 40)] })).toEqual({ moments: 0, seconds: 0 })
     })
 })

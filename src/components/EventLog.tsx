@@ -7,7 +7,7 @@ import { emptyLogLine } from '../utils/voice'
 import { FindGoalsProgress, ReviewRailButton } from './FindGoalsProgress'
 import { useDetectJob } from '../detectJobs'
 import { findGoalsProgress } from '../utils/findGoalsProgress'
-import { NOTE_MAX, controlLabel, isMarker } from '../utils/eventTypes'
+import { NOTE_MAX, controlLabel, hasMark, isMarker } from '../utils/eventTypes'
 import { NoteCounter } from './NoteCounter'
 import { eventRowParts } from '../utils/eventRow'
 import { FindGoalsPrompt } from './FindGoalsPrompt'
@@ -26,6 +26,7 @@ import { ShortcutsButton } from './ShortcutsButton'
 import { useTagViewMode } from './tagView'
 import { EventActions } from './EventActions'
 import { ClipDownload } from './ClipDownload'
+import { StarMenu } from './StarMenu'
 
 type Field = 'scorer' | 'team' | 'time' | 'notes'
 type Editing = { id: string; field: Field } | null
@@ -50,6 +51,7 @@ export function EventLog() {
     const coarse = useMediaQuery(COARSE_QUERY)
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const [editing, setEditing] = useState<Editing>(null)
+    const [starFor, setStarFor] = useState<string | null>(null)
     const rootRef = useRef<HTMLElement | null>(null)
     const listRef = useRef<HTMLOListElement | null>(null)
 
@@ -75,6 +77,8 @@ export function EventLog() {
         window.addEventListener('keydown', onKey)
         return () => window.removeEventListener('keydown', onKey)
     }, [])
+
+    useEffect(() => { setStarFor(null) }, [selectedId])
 
     useEffect(() => {
         if (!selectedId) return
@@ -142,6 +146,7 @@ export function EventLog() {
             case 'e': case 'E': if (sel) setEditing({ id: sel.id, field: 'scorer' }); break
             case 't': case 'T': if (sel) setEditing({ id: sel.id, field: 'team' }); break
             case 'n': case 'N': if (sel) setEditing({ id: sel.id, field: 'notes' }); break
+            case 's': case 'S': if (sel && !isMarker(sel)) setStarFor(sel.id); else handled = false; break
             case 'g': case 'G': { const st = useAppState.getState(); st.markEvent(st.currentTimeInFileSec); break }
             case 'Escape': if (selectedId) setSelectedId(null); else rootRef.current?.blur(); break
             default: handled = false
@@ -156,7 +161,7 @@ export function EventLog() {
             aria-label="Events"
             tabIndex={0}
             onKeyDown={onKeyDown}
-            title="L to focus · ↑↓ select · ⏎ watch · R replay · E person · T team · N note · ⌫ delete · Esc back to video"
+            title="L to focus · ↑↓ select · ⏎ watch · R replay · E person · T team · N note · S star · ⌫ delete · Esc back to video"
             className="event-log group/log flex min-h-0 flex-col outline-none"
         >
             <header className="flex items-center gap-1 border-b border-line px-3 py-2">
@@ -203,6 +208,8 @@ export function EventLog() {
                             onToggleReplay={() => toggleReplay(e)}
                             onFraming={() => useAppState.getState().editEvent(e.id, 'framing')}
                             onRemove={() => remove(events.indexOf(e))}
+                            starOpen={starFor === e.id}
+                            onStarOpen={(open) => setStarFor(open ? e.id : null)}
                             restoreFocus={() => rootRef.current?.focus()}
                             touch={coarse}
                         />
@@ -226,12 +233,14 @@ interface EventRowProps {
     onToggleReplay: () => void
     onFraming: () => void
     onRemove: () => void
+    starOpen: boolean
+    onStarOpen: (open: boolean) => void
     restoreFocus: () => void
     /** Touch: larger icon and action buttons. */
     touch?: boolean
 }
 
-function EventRow({ event: e, teams, selected, clock, score, editing, onSelect, onWatch, onEdit, onToggleReplay, onFraming, onRemove, restoreFocus, touch = false }: EventRowProps) {
+function EventRow({ event: e, teams, selected, clock, score, editing, onSelect, onWatch, onEdit, onToggleReplay, onFraming, onRemove, starOpen, onStarOpen, restoreFocus, touch = false }: EventRowProps) {
     const team = teams.find((t) => t.name === e.team)
     const parts = eventRowParts(e)
     const title = `${parts.title}${e.team ? ` – ${e.team}` : ''}`
@@ -299,6 +308,7 @@ function EventRow({ event: e, teams, selected, clock, score, editing, onSelect, 
                             ? <span className="ev-person">{parts.person}</span>
                             : <span className="event-row__type">{controlLabel(e)}</span>}
                     </span>
+                    {hasMark(e, 'teaser') && <span role="img" aria-label="Starred: teaser" title="Starred: teaser" className="event-row__star">★</span>}
                     {parts.note && <span className="event-row__note" onDoubleClick={(ev) => { stop(ev); onEdit('notes') }}>{parts.note}</span>}
                     {wantsReplay(e) && <span className="event-row__replay" title="Slow-mo replay on"><span aria-hidden="true">↻</span><span className="sr-only">slow-mo replay</span></span>}
                 </span>
@@ -310,7 +320,7 @@ function EventRow({ event: e, teams, selected, clock, score, editing, onSelect, 
                 <WatchButton onWatch={onWatch} disabled={e.unlinked} />
             </span>
             {selected && <EventActions event={e} touch={touch} onToggleReplay={onToggleReplay} onFraming={onFraming}
-                onEdit={() => useAppState.getState().editEvent(e.id)} onRemove={onRemove} download={<ClipDownload event={e} />} />}
+                onEdit={() => useAppState.getState().editEvent(e.id)} onRemove={onRemove} star={<StarMenu event={e} open={starOpen} onOpenChange={onStarOpen} />} download={<ClipDownload event={e} />} />}
         </li>
     )
 }

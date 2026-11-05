@@ -1,6 +1,7 @@
 import { useId } from 'react'
 import { useAppState } from '../state'
 import { smoothSetting } from '../player/msePlan'
+import { useTeaserLength } from './useTeaserLength'
 
 export function ClipSettings() {
     const lengthBeforeGoalSec = useAppState((s) => s.lengthBeforeGoalSec)
@@ -14,6 +15,9 @@ export function ClipSettings() {
     const setReplaySpeed = useAppState((s) => s.setReplaySpeed)
     const smooth = useAppState((s) => s.smoothPlayback)
     const setSmooth = useAppState((s) => s.setSmoothPlayback)
+    const teaserOn = useAppState((s) => s.highlightsTeaser)
+    const setTeaser = useAppState((s) => s.setHighlightsTeaser)
+    const teaser = useTeaserLength()
     const id = useId()
 
     return (
@@ -56,6 +60,25 @@ export function ClipSettings() {
                     </select>
                 </div>
             </fieldset>
+
+            <div className="settings-group">
+                <div className="teaser-row">
+                    <span className="teaser-row__text">
+                        <span className="teaser-row__title" id={`${id}-teaser`}>Teaser</span>
+                        <span className="teaser-row__summary">
+                            {teaser.moments > 0
+                                ? `${teaser.moments} ${teaser.moments === 1 ? 'moment' : 'moments'} · ${Math.round(teaser.seconds)} s`
+                                : 'None starred: use ★ Star on an event'}
+                        </span>
+                    </span>
+                    {teaser.moments > 0 && (
+                        <button type="button" role="switch" aria-checked={teaserOn} aria-labelledby={`${id}-teaser`}
+                            className="act-btn act-switch teaser-row__switch" onClick={() => setTeaser(!teaserOn)}>
+                            <span className="act-switch__pill">{teaserOn ? 'On' : 'Off'}</span>
+                        </button>
+                    )}
+                </div>
+            </div>
 
             <fieldset className="settings-group">
                 <legend>Playback</legend>

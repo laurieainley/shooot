@@ -65,4 +65,15 @@ describe('PreviewControls', () => {
         await userEvent.keyboard('{Escape}')
         expect(s().isPreviewMode).toBe(false)
     })
+
+    it('should size the clip label for "Coming up" too, so the arrows stay put with few clips', async () => {
+        s().toggleMark('g', 'teaser')
+        render(<PreviewControls />)
+        await userEvent.click(screen.getByRole('button', { name: /preview in player/i }))
+        const count = screen.getByRole('group', { name: 'Preview' }).querySelector<HTMLElement>('.preview-controls__count')!
+        expect(count).toHaveTextContent('Coming up')
+        expect(parseFloat(count.style.minWidth)).toBeGreaterThanOrEqual('Coming up'.length + 1)
+        act(() => s().nextPreviewSegment())
+        expect(count).toHaveTextContent(/^Clip 1 \/ 2$/)
+    })
 })

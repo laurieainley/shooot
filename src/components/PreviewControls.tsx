@@ -43,8 +43,8 @@ export function PreviewControls({ onStart }: PreviewControlsProps) {
             <div className="preview-controls" role="group" aria-label="Preview">
                 <span className="preview-controls__label">Preview</span>
                 <button type="button" aria-label="Previous clip" title="Previous clip ([)" onClick={() => stepPreviewClip(-1)} disabled={current === 0} className="btn-icon">←</button>
-                {/* Fixed width (sized for the largest count) so the arrows never move. */}
-                <span className="preview-controls__count tc text-ui-sm" style={{ minWidth: `${6 + 2 * String(clips).length}ch` }}>{step?.teaser ? 'Coming up' : `Clip ${clip} / ${clips}`}</span>
+                {/* Fixed width (sized for the longest label: the largest "Clip N / M" or "Coming up") so the arrows never move. */}
+                <span className="preview-controls__count tc text-ui-sm" style={{ minWidth: `${Math.max('Coming up'.length, 6 + 2 * String(clips).length) + 1}ch` }}>{step?.teaser ? 'Coming up' : `Clip ${clip} / ${clips}`}</span>
                 <button type="button" aria-label="Next clip" title="Next clip (])" onClick={() => stepPreviewClip(1)} disabled={clip >= clips} className="btn-icon">→</button>
                 <button type="button" onClick={exitPreview} className="btn-quiet">Exit</button>
             </div>

@@ -2179,3 +2179,23 @@ button.tagcol__crumb:active { color: var(--sh-text); border-color: var(--sh-text
 .share-step__note { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px 10px; padding-left: 32px; }
 @media (max-width: 480px), (pointer: coarse) { .share-step__actions { justify-content: flex-start; margin-left: 32px; flex-basis: calc(100% - 32px); } }
 .youtube-icon { flex: none; display: block; }
+
+/* ★ Star: the action row's menu button, its popover item, the row's passive ★ and the Export panel's Teaser row. Muted, never lime. */
+.act-star { font-size: 14px; line-height: 1; }
+.act-star--on { color: var(--sh-text); }
+.floating.star-menu { min-width: 240px; }
+.star-menu__body { display: flex; flex-direction: column; }
+.star-menu__item { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 4px 6px; border: 0; border-radius: 6px; background: transparent; color: var(--sh-text); font: 600 var(--sh-text-md) var(--sh-font); text-align: left; cursor: pointer; }
+.star-menu__item:hover { background: var(--sh-line); }
+.star-menu__box { flex: none; box-sizing: border-box; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--sh-muted); border-radius: 4px; font-size: 14px; line-height: 1; }
+.star-menu__item[aria-checked="true"] .star-menu__box { background: var(--sh-text); border-color: var(--sh-text); color: var(--sh-ground); }
+.event-row__star { flex: none; color: var(--sh-muted); font-size: var(--sh-text-sm); line-height: 1; }
+.teaser-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; font-size: var(--sh-text-md); }
+.teaser-row__text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.teaser-row__summary { color: var(--sh-muted); font-size: var(--sh-text-xs); overflow-wrap: anywhere; }
+.teaser-row__switch { flex: none; min-height: 32px; min-width: 56px; }
+@media (pointer: coarse) {
+  .star-menu__item { min-height: 44px; }
+  .teaser-row__summary { font-size: var(--sh-text-sm); }
+  .teaser-row__switch { min-height: 44px; min-width: 64px; }
+}

@@ -10,12 +10,14 @@ export interface EventActionsProps {
     onFraming: () => void
     onEdit: () => void
     onRemove: () => void
+    /** The Star menu (not rendered for a marker, or when absent). */
+    star?: ReactNode
     /** The clip download control (Part B); not rendered when absent. */
     download?: ReactNode
 }
 
-/** The selected row's second line: Replay switch, edit, framing (disabled while the replay is off), download, delete. */
-export function EventActions({ event: e, touch, onToggleReplay, onFraming, onEdit, onRemove, download }: EventActionsProps) {
+/** The selected row's second line: Replay switch, edit, framing (disabled while the replay is off), Star, download, delete. */
+export function EventActions({ event: e, touch, onToggleReplay, onFraming, onEdit, onRemove, star, download }: EventActionsProps) {
     const stop = (ev: React.SyntheticEvent): void => ev.stopPropagation()
     const marker = isMarker(e)
     const replay = !marker && wantsReplay(e)
@@ -38,6 +40,7 @@ export function EventActions({ event: e, touch, onToggleReplay, onFraming, onEdi
                     <span aria-hidden="true">⌖</span><span className="event-actions__label">Framing</span>
                 </button>
             )}
+            {!marker && star ? <span className="event-actions__download">{star}</span> : null}
             {!marker && download ? <span className="event-actions__download">{download}</span> : null}
             <button type="button" className={`${btn} act-btn--delete`} aria-label="Delete event" title="Delete (⌫)" onClick={onRemove}>
                 <span aria-hidden="true">×</span><span className="event-actions__label">Delete</span>

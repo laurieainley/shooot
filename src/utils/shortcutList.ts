@@ -76,6 +76,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
             { keys: ['⏎'], what: 'In the list: watch the clip' },
             { keys: ['R'], what: 'In the list: replay on / off' },
             { keys: ['E', 'T', 'N'], what: 'In the list: edit person, team, note' },
+            { keys: ['S'], what: 'In the list: Star menu (teaser at the top of the video)' },
             { keys: ['⌫'], what: 'In the list: delete the event' },
             { keys: ['Esc'], what: 'Back to the video' },
             { keys: ['⌘Z', '⇧⌘Z'], what: 'Undo / redo' },

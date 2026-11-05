@@ -58,6 +58,10 @@ describe('settings summaries', () => {
     it('should recap clips and replays', () => {
         expect(clipsSummary({ before: 10, after: 4, replaySpeed: 0.5 })).toBe('10 s before · 4 s after · replays 0.5×')
     })
+    it('should add the teaser length when the teaser is on', () => {
+        expect(clipsSummary({ before: 10, after: 4, replaySpeed: 0.5, teaserSec: 28 })).toBe('10 s before · 4 s after · replays 0.5× · teaser 28 s')
+        expect(clipsSummary({ before: 10, after: 4, replaySpeed: 0.5, teaserSec: 0 })).toBe('10 s before · 4 s after · replays 0.5×')
+    })
     it('should list the graphics that are on, with the theme', () => {
         expect(graphicsSummary({ cards: true, lowerThirds: true, replayTag: true }, 'Shooot')).toBe('Shooot · cards, captions, replay tag')
         expect(graphicsSummary({ cards: false, lowerThirds: true, replayTag: false }, 'Classic')).toBe('Classic · captions')
