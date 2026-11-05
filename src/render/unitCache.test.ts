@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildReuseKeys, cacheCap, canonical, digest, planEviction, CACHE_CAP_BYTES } from './unitCache'
+import { buildReuseKeys, cacheCap, canonical, capFor, digest, planEviction, CACHE_CAP_BYTES } from './unitCache'
 import type { Cut, RenderSource } from './types'
 import type { GraphicsSpec, OverlaySpec } from '../graphics/types'
 
@@ -115,5 +115,77 @@ describe('logoFingerprint', () => {
         const { logoFingerprint } = await import('./unitCache')
         expect(await logoFingerprint(null)).toBe('default')
         expect(await logoFingerprint('none')).toBe('none')
+    })
+})
+
+describe('block keys (grid blocks of a normal-speed cut)', () => {
+    const blockBase = {
+        ...base,
+        cuts: [{ sourceIndex: 0, startSec: 100, endSec: 700 }] as Cut[],
+        spec: { theme: 'shooot', overlays: [caption(0, 305, 'A'), caption(0, 502, 'B')] } as unknown as GraphicsSpec,
+    }
+    const b = (o: Partial<typeof blockBase> = {}, a = 200, z = 210.01) => buildReuseKeys({ ...blockBase, ...o }).block(0, a, z)
+
+    it('should not depend on where the cut starts or ends', () => {
+        const same = b()
+        expect(b({ cuts: [{ sourceIndex: 0, startSec: 133.3, endSec: 690 }] })).toBe(same)
+        expect(b({ cuts: [{ sourceIndex: 0, startSec: 100, endSec: 700 }, { sourceIndex: 0, startSec: 900, endSec: 950 }] })).toBe(same)
+    })
+    it('should depend on the footage, the span, the quality and the cut treatment', () => {
+        const same = b()
+        expect(b({}, 210.01, 220.02)).not.toBe(same)
+        expect(b({ sources: [file('a.mp4', 1000, 6)] })).not.toBe(same)
+        expect(b({ quality: '4k' })).not.toBe(same)
+        expect(b({ videoBitrate: 9e6 })).not.toBe(same)
+        expect(b({ logo: 'abc' })).not.toBe(same)
+        for (const patch of [{ crop: { x: 0, y: 0, w: 0.5, h: 0.5 } }, { silent: true }, { gain: 0.5 }, { speed: 0.5 }]) {
+            expect(b({ cuts: [{ sourceIndex: 0, startSec: 100, endSec: 700, ...patch }] })).not.toBe(same)
+        }
+    })
+    it('should change only for the blocks a caption or score bug draws in', () => {
+        const spec = (person: string): GraphicsSpec => ({ theme: 'shooot', overlays: [caption(0, 305, person), caption(0, 502, 'B')] }) as unknown as GraphicsSpec
+        // The caption at 305-310 sits in the block 300-310.01 only.
+        expect(b({ spec: spec('Z') }, 300, 310.01)).not.toBe(b({}, 300, 310.01))
+        expect(b({ spec: spec('Z') }, 290, 300)).toBe(b({}, 290, 300))
+        expect(b({ spec: spec('Z') }, 310.01, 320.02)).toBe(b({}, 310.01, 320.02))
+        // Adding a caption touches nothing else.
+        const added = { theme: 'shooot', overlays: [caption(0, 305, 'A'), caption(0, 402, 'New'), caption(0, 502, 'B')] } as unknown as GraphicsSpec
+        expect(b({ spec: added }, 400, 410.01)).not.toBe(b({}, 400, 410.01))
+        expect(b({ spec: added }, 300, 310.01)).toBe(b({}, 300, 310.01))
+        expect(b({ spec: added }, 500, 510.01)).toBe(b({}, 500, 510.01))
+    })
+    it('should key a caption that straddles two blocks in both, and the score bug scores in their blocks only', () => {
+        const straddle = { theme: 'shooot', overlays: [caption(0, 308, 'A')] } as unknown as GraphicsSpec
+        const other = { theme: 'shooot', overlays: [caption(0, 308, 'Z')] } as unknown as GraphicsSpec
+        expect(b({ spec: straddle }, 300, 310.01)).not.toBe(b({ spec: other }, 300, 310.01))
+        expect(b({ spec: straddle }, 310.01, 320.02)).not.toBe(b({ spec: other }, 310.01, 320.02))
+        expect(b({ spec: straddle }, 320.02, 330.03)).toBe(b({ spec: other }, 320.02, 330.03))
+        const bug = (text: string): OverlaySpec => ({ kind: 'scoreBug', cutIndex: 0, startSec: 401, durationSec: 5, label: 'Score bug', fadeIn: true, fadeOut: true, scores: [{ fromSec: 401, bug: { left: 'A', right: 'B', leftColour: '#fff', rightColour: '#000', text } }] })
+        const bugged = (text: string): GraphicsSpec => ({ theme: 'shooot', overlays: [bug(text)] }) as unknown as GraphicsSpec
+        expect(b({ spec: bugged('1-0') }, 400.4, 410.41)).not.toBe(b({ spec: bugged('2-0') }, 400.4, 410.41))
+        expect(b({ spec: bugged('1-0') }, 410.41, 420.42)).toBe(b({ spec: bugged('2-0') }, 410.41, 420.42))
+    })
+    it('should tie a block that draws a cut-bound caption to the cut edges and the clip before, and no other block', () => {
+        const bound = (end: number): { cuts: Cut[]; spec: GraphicsSpec } => ({
+            cuts: [{ sourceIndex: 0, startSec: 100, endSec: end }, { sourceIndex: 0, startSec: 900, endSec: 1000 }],
+            spec: { theme: 'shooot', overlays: [{ ...caption(0, 303, 'A'), toCutEnd: true, durationSec: end - 303 }] } as unknown as GraphicsSpec,
+        })
+        const k = (end: number, a: number, z: number): string => buildReuseKeys({ ...blockBase, ...bound(end) }).block(0, a, z)
+        // Block 300-310.01 draws the caption that follows the cut's end: moving the end changes it. Block 200-210.01 does not.
+        expect(k(306, 300, 310.01)).not.toBe(k(307, 300, 310.01))
+        expect(k(306, 200, 210.01)).toBe(k(307, 200, 210.01))
+    })
+    it('should be a different key from the whole-cut key of the same span', () => {
+        expect(b()).not.toBe(buildReuseKeys({ ...blockBase }).cut(0, 200, 210.01))
+    })
+})
+
+describe('cache cap with prepared units', () => {
+    it('should grow to what the preparer admitted, never below the normal cap or past most of the quota', () => {
+        expect(capFor(100e9, 14e9)).toBe(14e9)
+        expect(capFor(100e9, 2e9)).toBe(cacheCap(100e9))
+        expect(capFor(10e9, 40e9)).toBe(9e9)
+        expect(capFor(null, 20e9)).toBe(20e9)
+        expect(capFor(null, 0)).toBe(CACHE_CAP_BYTES)
     })
 })

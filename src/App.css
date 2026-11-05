@@ -2178,3 +2178,19 @@ button.tagcol__crumb:active { color: var(--sh-text); border-color: var(--sh-text
 .share-step__note { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px 10px; padding-left: 32px; }
 @media (max-width: 480px), (pointer: coarse) { .share-step__actions { justify-content: flex-start; margin-left: 32px; flex-basis: calc(100% - 32px); } }
 .youtube-icon { flex: none; display: block; }
+
+/* Background preparing: a quiet pill next to the Export button; the tooltip opens on hover (desktop) or tap (touch). */
+.prep-pill { position: relative; display: inline-flex; align-items: center; flex: none; height: 32px; border: 1px solid var(--sh-line); border-radius: 999px; background: var(--sh-surface-2); color: var(--sh-muted); font-size: var(--sh-text-sm); }
+.prep-pill[data-tone='ok'] { color: var(--sh-text); }
+.prep-pill[data-tone='warn'] { color: var(--sh-text); border-color: var(--sh-text); }
+.prep-pill__main, .prep-pill__toggle { height: 100%; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.prep-pill__main { padding: 0 12px; border-radius: 999px; white-space: nowrap; }
+.prep-pill__toggle { min-width: 30px; padding: 0 8px 0 2px; border-radius: 0 999px 999px 0; }
+.prep-pill__toggle:hover, .prep-pill__main:hover { color: var(--sh-text); }
+.prep-pill__main:focus-visible, .prep-pill__toggle:focus-visible { outline: 2px solid var(--sh-text); outline-offset: 1px; }
+.prep-pill[data-tone='busy'] .prep-pill__label::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--sh-text); animation: export-pulse 1.4s ease-in-out infinite; }
+.prep-pill__tip { display: none; position: absolute; top: calc(100% + 6px); right: 0; z-index: 40; width: max-content; max-width: min(320px, 86vw); padding: 10px 12px; border: 1px solid var(--sh-line); border-radius: var(--sh-radius-md); background: var(--sh-surface); color: var(--sh-text); box-shadow: 0 8px 24px var(--sh-scrim); font-size: var(--sh-text-xs); line-height: 1.45; white-space: normal; }
+.prep-pill[data-open] .prep-pill__tip, .prep-pill__main:focus-visible ~ .prep-pill__tip { display: block; }
+@media (pointer: coarse) { .prep-pill { height: 44px; } .prep-pill__tip { font-size: var(--sh-text-sm); } }
+@media (max-width: 700px) { .prep-pill__label { max-width: 11ch; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: bottom; } }
+@media (prefers-reduced-motion: reduce) { .prep-pill[data-tone='busy'] .prep-pill__label::before { animation: none; } }

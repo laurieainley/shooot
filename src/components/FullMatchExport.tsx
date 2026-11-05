@@ -17,6 +17,7 @@ import { RenderStatus } from './RenderStatus'
 import { ResumeOffer } from './ResumeOffer'
 import { saveExportToFile, startExport } from './renderRequest'
 import { useRenderJobs } from '../renderJobs'
+import { useBaseline } from '../prepare/baseline'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 import { useSavedJob } from './useSavedJob'
 import { useReencodeSupport } from './useReencodeSupport'
@@ -40,6 +41,7 @@ export function FullMatchExport() {
     const { files, events, cumulativeOffsets, fullMatch } = st
     const phone = useMediaQuery(COARSE_QUERY)
     const busy = useRenderJobs((s) => s.job?.phase === 'running')
+    const baseline = useBaseline()
     const saved = useSavedJob('fullMatch', busy)
     const [note, setNote] = useState<string | null>(null)
     const [missing, setMissing] = useState<string[]>([])
@@ -108,6 +110,7 @@ export function FullMatchExport() {
             <button type="button" onClick={() => run('full', planOutput(effective))} disabled={disabled} className="btn-primary w-full justify-center">
                 {renderButtonLabel('full match', effective)}
             </button>
+            {baseline && <p className="export-hint m-0">The next export ignores the prepared parts (for the timing comparison).</p>}
             <p className="export-hint render-estimate m-0">{renderSummaryLine({ bytes: chosen.bytes, timeRange: chosen.timeRange, basis: chosen.timeBasis, seconds: firstSource.seconds })}</p>
             {canSave && (
                 <>

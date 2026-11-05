@@ -24,6 +24,14 @@ export type CacheKind = 'highlights' | 'fullMatch'
 
 export const cacheCap = (quota: number | null): number => (quota ? Math.min(CACHE_CAP_BYTES, quota * CACHE_QUOTA_SHARE) : CACHE_CAP_BYTES)
 
+/** The most of the site's quota that prepared units may take (the rest is for the export that builds on them and everything else on the site). */
+export const PREPARED_QUOTA_SHARE = 0.9
+/** The cap with prepared units: whatever the preparer admitted (it checked that it fits), never below the normal cap, never past most of the quota. */
+export const capFor = (quota: number | null, budgets: number): number => {
+    const base = cacheCap(quota)
+    return Math.max(base, quota ? Math.min(budgets, quota * PREPARED_QUOTA_SHARE) : budgets)
+}
+
 /** JSON with sorted keys, so equal data always gives equal text. */
 export function canonical(v: unknown): string {
     if (v === undefined) return 'null'
@@ -51,6 +59,13 @@ export type ReuseKeys = {
     cut: (ci: number, a: number, b: number) => string
     /** The same for the whole cut: what the estimate and the manifest use. */
     wholeCut: (ci: number) => string
+    /**
+     * A block on the source's frame grid (transcodePlan gridSegments) of a normal-speed cut: its pictures and audio come from source
+     * seconds [a, b) alone, so the key holds the footage, the cut's treatment (crop, silence) and the graphics drawn in [a, b) — NOT
+     * where the cut starts or ends, nor any overlay that draws elsewhere. A caption tied to the cut's start or end draws only inside its
+     * own window, and counts (with the cut's real edges) only for the blocks that window touches.
+     */
+    block: (ci: number, a: number, b: number) => string
 }
 
 const identity = (s: RenderSource): { n: string; s: number; m: number } => ({ n: s.name, s: s.file.size, m: s.file.lastModified })
@@ -58,6 +73,9 @@ const stripCut = (o: OverlaySpec): Omit<OverlaySpec, 'cutIndex'> => { const { cu
 const overlaps = (o: OverlaySpec, a: number, b: number): boolean => o.startSec < b + 1e-3 && o.startSec + o.durationSec > a - 1e-3
 /** Captions tied to the start or the end of their cut take their timing from the cut itself, so every part of it counts. */
 const cutBound = (o: OverlaySpec): boolean => o.kind === 'caption' && (!!o.fromCutStart || !!o.toCutEnd)
+/** Where an overlay can draw in a block's frames: its window, and for a cut-bound caption up to its whole clock (the engine may stretch it to the cut's real end). */
+const reach = (o: OverlaySpec): number => o.durationSec + (cutBound(o) && o.kind === 'caption' ? Math.max(0, o.clock.totalSec - o.durationSec) : 0)
+const touches = (o: OverlaySpec, a: number, b: number): boolean => o.startSec < b + 1e-3 && o.startSec + reach(o) > a - 1e-3
 
 /**
  * The reuse keys of a render. `logo`: a fingerprint of the logo picture ('default' for the bundled badge, 'none' for no logo); `fonts`: the graphics look
@@ -82,8 +100,21 @@ export function buildReuseKeys(o: { which: CacheKind; cuts: Cut[]; sources: Rend
         const before = carries ? { cut: cutPart(ci - 1), captions: overlaysOf(ci - 1).filter((x) => x.kind === 'caption').map(stripCut) } : null
         return canonical({ ...common, cut: cutPart(ci), overlays: here, before, gfx: !!spec })
     }
+    /** Everything that decides a grid block's pictures and audio (see ReuseKeys.block). */
+    const block = (ci: number, a: number, b: number): string => {
+        const c = o.cuts[ci]
+        const mine = overlaysOf(ci)
+        const here = mine.filter((x) => touches(x, a, b))
+        // Only a cut-bound caption drawn in this block ties it to the cut's edges (and to the clip before, whose caption a replay carries on).
+        const bound = here.some(cutBound)
+        const treatment = c ? { speed: c.speed ?? 1, crop: c.crop ?? null, silent: !!c.silent, gain: c.gain ?? 1 } : null
+        const edges = bound && c ? { start: c.startSec, end: c.endSec } : null
+        const before = bound ? { cut: cutPart(ci - 1), captions: overlaysOf(ci - 1).filter((x) => x.kind === 'caption').map(stripCut) } : null
+        return canonical({ ...common, grid: [a, b], src: c && o.sources[c.sourceIndex] ? identity(o.sources[c.sourceIndex]) : null, treatment, edges, overlays: here.map(stripCut), before, gfx: !!spec })
+    }
     return {
         which: o.which,
+        block,
         intro: spec?.intro ? card({ intro: spec.intro }) : null,
         outro: spec?.outro ? card({ outro: spec.outro, sting: isSting(spec.outro) }) : null,
         cut: (ci, a, b) => build(ci, a, b, false),
@@ -105,7 +136,12 @@ export async function logoFingerprint(blob: Blob | 'none' | null): Promise<strin
 
 export type UnitMeta = { applied: string[]; video: { codec: string; description: string } | null; bytes: number }
 export type CachedUnit = { records: AsyncIterable<LogRecord>; meta: UnitMeta }
-type Manifest = { v: 1; kinds: Partial<Record<CacheKind, { at: number; units: string[]; sections: { k: string; u: string[] }[] }>> }
+/**
+ * `kinds`: the units of each kind's last export. `prepared`: the units the background preparer is keeping for the plan as it stands
+ * (every key of the plan, finished or not yet, so a unit saved a moment ago is never taken for an orphan), with the bytes it expects
+ * them to take: the cache may grow to that (see capFor).
+ */
+type Manifest = { v: 1; kinds: Partial<Record<CacheKind, { at: number; units: string[]; sections: { k: string; u: string[] }[] }>>; prepared?: Partial<Record<CacheKind, { at: number; units: string[]; budget: number }>> }
 export type CacheEntry = { key: string; bytes: number; at: number; order: number }
 
 const b64 = (u: Uint8Array): string => { let s = ''; for (const x of u) s += String.fromCharCode(x); return btoa(s) }
@@ -138,7 +174,7 @@ export function planEviction(entries: CacheEntry[], keep: Set<string>, cap: numb
 /** Every complete unit in the store, with its size and when it was last part of an export. */
 async function listEntries(dir: DirHandle, manifest: Manifest): Promise<CacheEntry[]> {
     const at = new Map<string, { at: number; order: number }>()
-    for (const k of Object.values(manifest.kinds)) k?.units.forEach((u, i) => { const prev = at.get(u); if (!prev || prev.at < k.at) at.set(u, { at: k.at, order: i }) })
+    for (const k of [...Object.values(manifest.kinds), ...Object.values(manifest.prepared ?? {})]) k?.units.forEach((u, i) => { const prev = at.get(u); if (!prev || prev.at < k.at) at.set(u, { at: k.at, order: i }) })
     const names = new Set<string>()
     if (dir.entries) for await (const [name, h] of dir.entries()) if (h.kind === 'file') names.add(name)
     const out: CacheEntry[] = []
@@ -153,6 +189,10 @@ async function listEntries(dir: DirHandle, manifest: Manifest): Promise<CacheEnt
     }
     return out
 }
+
+/** Every unit some manifest entry refers to (last exports and the preparer's plans). */
+const keepSetOf = (m: Manifest): Set<string> => new Set<string>([...Object.values(m.kinds), ...Object.values(m.prepared ?? {})].flatMap((k) => k?.units ?? []))
+const budgetsOf = (m: Manifest): number => Object.values(m.prepared ?? {}).reduce((a, p) => a + (p?.budget ?? 0), 0)
 
 async function readManifest(dir: DirHandle): Promise<Manifest> {
     try {
@@ -235,6 +275,8 @@ export type UnitStore = {
     free: () => Promise<number | null>
     /** Ends an export: the units it used become the kind's "last export", everything else goes, and the cap is applied. */
     finish: (kind: CacheKind, used: { units: string[]; sections: { k: string; u: string[] }[] }) => Promise<void>
+    /** The preparer's plan for a kind: `keys` are protected from eviction (finished or not); `budget` is the bytes the cache may grow to for them. null = no plan any more. Never throws. */
+    prepare: (kind: CacheKind, plan: { keys: string[]; budget: number } | null) => Promise<void>
 }
 
 export function opfsUnitStore(): UnitStore {
@@ -293,10 +335,10 @@ export function opfsUnitStore(): UnitStore {
                 const dir = await cacheDir(false)
                 if (!dir) return true
                 const manifest = await readManifest(dir)
-                const keep = new Set<string>(Object.values(manifest.kinds).flatMap((k) => k?.units ?? []))
+                const keep = keepSetOf(manifest)
                 // The previous exports' parts are dropped when this export ends unless it reuses them, so only the parts saved since count.
                 const fresh = (await listEntries(dir, manifest)).filter((e) => !keep.has(e.key)).reduce((a, e) => a + e.bytes, 0)
-                return fresh + extra <= cacheCap(quota)
+                return fresh + extra <= capFor(quota, budgetsOf(manifest))
             } catch { return false }
         },
         async trim() {
@@ -304,10 +346,10 @@ export function opfsUnitStore(): UnitStore {
                 const dir = await cacheDir(false)
                 if (!dir) return
                 const manifest = await readManifest(dir)
-                const keep = new Set<string>(Object.values(manifest.kinds).flatMap((k) => k?.units ?? []))
+                const keep = keepSetOf(manifest)
                 let quota: number | null = null
                 try { quota = (await navigator.storage.estimate()).quota ?? null } catch { /* unknown quota */ }
-                await removeKeys(dir, planEviction(await listEntries(dir, manifest), keep, cacheCap(quota)))
+                await removeKeys(dir, planEviction(await listEntries(dir, manifest), keep, capFor(quota, budgetsOf(manifest))))
                 await removeOrphans(dir)
             } catch { /* nothing to trim */ }
         },
@@ -317,16 +359,28 @@ export function opfsUnitStore(): UnitStore {
                 return quota ? Math.max(0, quota - (usage ?? 0)) : null
             } catch { return null }
         },
+        async prepare(kind, plan) {
+            try {
+                const dir = await cacheDir(true)
+                if (!dir) return
+                const manifest = await readManifest(dir)
+                const prepared = { ...(manifest.prepared ?? {}) }
+                if (plan) prepared[kind] = { at: Date.now(), units: plan.keys, budget: plan.budget }
+                else delete prepared[kind]
+                manifest.prepared = prepared
+                await writeManifest(dir, manifest)
+            } catch { /* the cache is an extra */ }
+        },
         async finish(kind, used) {
             try {
                 const dir = await cacheDir(true)
                 if (!dir) return
                 const manifest = await readManifest(dir)
                 manifest.kinds[kind] = { at: Date.now(), units: used.units, sections: used.sections }
-                const keep = new Set<string>(Object.values(manifest.kinds).flatMap((k) => k?.units ?? []))
+                const keep = keepSetOf(manifest)
                 let quota: number | null = null
                 try { quota = (await navigator.storage.estimate()).quota ?? null } catch { /* unknown quota */ }
-                const drop = planEviction(await listEntries(dir, manifest), keep, cacheCap(quota))
+                const drop = planEviction(await listEntries(dir, manifest), keep, capFor(quota, budgetsOf(manifest)))
                 await removeKeys(dir, drop)
                 await removeOrphans(dir)
                 // A section whose units were evicted can no longer be reused.
@@ -341,7 +395,7 @@ export function opfsUnitStore(): UnitStore {
 
 // ---- for the estimate ----
 
-export type ReusableParts = { intro: boolean; outro: boolean; cuts: boolean[] }
+export type ReusableParts = { intro: boolean; outro: boolean; /** true / false, or the share (0..1) of the cut's units that are cached */ cuts: (boolean | number)[] }
 
 /** Which parts of a plan the last export of this kind left in the cache (cheap: the manifest and one directory listing). Nothing reusable on any problem. */
 export async function reusableParts(which: CacheKind, keys: ReuseKeys, cutCount: number): Promise<ReusableParts> {

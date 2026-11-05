@@ -20,8 +20,8 @@ interface RenderStatusProps {
 const STOPPED_NOTE_MS = 5000
 const NAMES: Record<JobKind, string> = { highlights: 'highlights', fullMatch: 'full match', clip: 'clip' }
 
-/** "Reused 6 of 9 parts from your last export": what the unit cache saved this render. */
-export const reusedLine = (r: { units: number; of: number }): string => `Reused ${r.units} of ${r.of} parts from your last export`
+/** "Reused 6 of 9 parts prepared earlier": what the unit cache (prepared while editing, or left by the last export) saved this render. */
+export const reusedLine = (r: { units: number; of: number }): string => `Reused ${r.units} of ${r.of} parts prepared earlier`
 
 /** The render's progress, Cancel (confirmed in place; once confirmed the box goes at once), skipped graphics, and the downloaded file. */
 export function RenderStatus({ kind }: RenderStatusProps) {

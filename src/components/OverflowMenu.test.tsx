@@ -32,7 +32,7 @@ describe('OverflowMenu', () => {
         expect(screen.queryByRole('menu')).not.toBeInTheDocument()
         await open()
         const items = screen.getAllByRole('menuitem').map((b) => b.textContent)
-        expect(items).toEqual(['Find goals AI — Finds likely goals with AI on this device — check each one', 'Advanced settings', 'Send project to another device', 'Import…', 'Export project', 'Shortcuts'])
+        expect(items).toEqual(['Find goals AI — Finds likely goals with AI on this device — check each one', 'Advanced settings', 'Send project to another device', 'Import…', 'Export project', 'Shortcuts', expect.stringMatching(/^Download export timing log/)])
     })
 
     it('should offer Find goals (Beta), or Review moments once there are some', async () => {

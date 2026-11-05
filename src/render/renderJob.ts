@@ -9,10 +9,12 @@ import type { CutTiming, GraphicsReport } from './types'
 /** Before jobs were kept per kind there was one job under this key and folder. */
 const LEGACY = 'render-job'
 const KINDS: JobKind[] = ['highlights', 'fullMatch']
-const keyOf = (kind: JobKind): string => `render-job:${kind}`
-const dirOf = (kind: JobKind): string => `render-job-${kind}`
+const keyOf = (kind: LogKind): string => `render-job:${kind}`
+const dirOf = (kind: LogKind): string => `render-job-${kind}`
 
 export type JobKind = 'highlights' | 'fullMatch' | 'clip'
+/** Folders of unit logs: the renders' journals, and the preparer's scratch space (never a resumable job). */
+export type LogKind = JobKind | 'prepare'
 
 export type JobState = {
     kind: JobKind
@@ -80,7 +82,7 @@ export async function saveJob(state: JobState): Promise<void> {
     await set(keyOf(state.kind), { ...state, updatedAt: Date.now() })
 }
 
-async function dir(kind: JobKind, create: boolean): Promise<FileSystemDirectoryHandle | null> {
+async function dir(kind: LogKind, create: boolean): Promise<FileSystemDirectoryHandle | null> {
     try {
         const root = await navigator.storage.getDirectory()
         return await root.getDirectoryHandle(dirOf(kind), { create })
@@ -102,7 +104,7 @@ export function claimJournal(kind: JobKind): number {
 export const ownsJournal = (kind: JobKind, claim: number): boolean => journalClaims.get(kind) === claim
 
 /** Forgets the saved job of this kind (all kinds, and the pre-per-kind one, when omitted) and deletes its logs. */
-export async function discardJob(kind?: JobKind): Promise<void> {
+export async function discardJob(kind?: LogKind): Promise<void> {
     for (const k of kind ? [kind] : KINDS) {
         await del(keyOf(k)).catch(() => undefined)
         try { await (await navigator.storage.getDirectory()).removeEntry(dirOf(k), { recursive: true }) } catch { /* nothing stored */ }
@@ -115,7 +117,7 @@ export async function discardJob(kind?: JobKind): Promise<void> {
 }
 
 /** True when this browser can keep unit logs (OPFS writable files). */
-export async function canJournal(kind: JobKind): Promise<boolean> {
+export async function canJournal(kind: LogKind): Promise<boolean> {
     const d = await dir(kind, true)
     if (!d) return false
     try {
@@ -133,7 +135,7 @@ const FLUSH_BYTES = 4 * 1024 * 1024
 
 export type UnitWriter = { write: (r: LogRecord) => Promise<void>; close: () => Promise<void>; abort: (reason?: unknown) => Promise<void> }
 
-export async function openUnit(kind: JobKind, index: number): Promise<UnitWriter> {
+export async function openUnit(kind: LogKind, index: number): Promise<UnitWriter> {
     const d = await dir(kind, true)
     if (!d) throw new Error('no storage for the render')
     const handle = await d.getFileHandle(unitName(index), { create: true })
@@ -162,7 +164,7 @@ export async function openUnit(kind: JobKind, index: number): Promise<UnitWriter
 }
 
 /** Reads a finished unit's packets in order (8 MB at a time). */
-export async function* readUnit(kind: JobKind, index: number): AsyncGenerator<LogRecord> {
+export async function* readUnit(kind: LogKind, index: number): AsyncGenerator<LogRecord> {
     const d = await dir(kind, false)
     if (!d) throw new Error('the render’s saved progress is gone')
     const file = await (await d.getFileHandle(unitName(index))).getFile()
@@ -175,7 +177,7 @@ export async function* readUnit(kind: JobKind, index: number): AsyncGenerator<Lo
     if (parser.pending > 0) throw new Error('a saved part of the render is damaged')
 }
 
-export async function removeUnit(kind: JobKind, index: number): Promise<void> {
+export async function removeUnit(kind: LogKind, index: number): Promise<void> {
     const d = await dir(kind, false)
     await d?.removeEntry(unitName(index)).catch(() => undefined)
 }

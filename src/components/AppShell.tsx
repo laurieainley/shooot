@@ -28,6 +28,7 @@ import { useLeaveWarning } from './useLeaveWarning'
 import { useMatchAutosave } from './useMatchAutosave'
 import { useCrashBreadcrumbs } from './useCrashBreadcrumbs'
 import { CrashNotice } from './CrashNotice'
+import { startAppPreparer } from '../prepare/wire'
 
 /**
  * Edit bay. Desktop (≥ 900px): one screen, no page scroll — player and match strip on the left, the event
@@ -40,6 +41,7 @@ export function AppShell() {
     const railTab = useRailTab()
     const setSlot = usePanelSlot((s) => s.setEl)
     useKeyboardInset()
+    useEffect(() => startAppPreparer(), [])
     const hasFiles = useAppState((s) => s.files.length > 0)
     const isPreviewMode = useAppState((s) => s.isPreviewMode)
     const fullscreen = useAppState((s) => s.playerFullscreen || s.immersive) // the player shows its own toast then

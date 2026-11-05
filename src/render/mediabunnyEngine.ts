@@ -74,6 +74,15 @@ export const renderReel: RenderFn = async (cuts, sources, opts) => {
     }
 }
 
+/**
+ * The background preparer's pass: encodes the units of this re-encode plan that the unit cache lacks and keeps them (opts.prepare, opts.reuse
+ * and opts.output are required). Nothing is written but the cache, and its report is not published: it must never replace the last export's.
+ */
+export async function prepareReel(cuts: Cut[], sources: RenderSource[], opts: RenderOptions): Promise<void> {
+    const diag = new RenderDiagnostics({ kind: opts.resumable?.kind ?? opts.kind ?? 'fullMatch', outputName: 'prepare' })
+    await renderTranscoded(cuts, sources, opts, diag)
+}
+
 async function renderGraphicsFirst(cuts: Cut[], sources: RenderSource[], opts: RenderOptions, diag: RenderDiagnostics): Promise<File | Blob> {
     // Replay crops are drawn by the graphics session too: they make the render a graphics render even without any graphics.
     const crops = cropLabels(cuts)
