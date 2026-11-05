@@ -14,7 +14,7 @@ import { FindGoalsPrompt } from './FindGoalsPrompt'
 import { EventIcon } from './icons/EventIcon'
 import { watchFromSec } from '../utils/markers'
 import { wantsReplay } from '../utils/replays'
-import { filterRoster, rosterTeamFor } from '../utils/roster'
+import { filterRoster, rosterTeamFor, rostersFor } from '../utils/roster'
 import { formatScore, scoresAfter } from '../utils/score'
 import { clockWidthCh, formatEventClock } from '../utils/timeline'
 import { TimeInput } from './TimeInput'
@@ -393,14 +393,15 @@ function ScorerEdit({ event: e, teams, onDone }: ScorerEditProps) {
     const [query, setQuery] = useState(e.scorer ?? '')
     const [highlighted, setHighlighted] = useState(0)
     const roster = rosterTeamFor(teams, e.team, e.type)
-    const pool = useMemo(() => roster?.roster ?? teams.flatMap((t) => t.roster), [roster, teams])
+    const both = useMemo(() => rostersFor(teams, e.team, e.type), [teams, e.team, e.type]) // own goal: either team, conceding team first
+    const pool = useMemo(() => (both.length > 0 ? both.flatMap((t) => t.roster) : teams.flatMap((t) => t.roster)), [both, teams])
     const candidates = query.trim() ? filterRoster(pool, query) : []
 
     const save = (name: string): void => {
         const st = useAppState.getState()
         const clean = name.trim()
         st.updateEvent(e.id, { scorer: clean || undefined })
-        if (clean && roster && !roster.roster.some((r) => r.toLowerCase() === clean.toLowerCase())) st.addToRoster(roster.name, clean)
+        if (clean && roster && !both.some((t) => t.roster.some((r) => r.toLowerCase() === clean.toLowerCase()))) st.addToRoster(roster.name, clean)
         onDone()
     }
 

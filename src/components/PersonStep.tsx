@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react'
+import { Fragment, useState, type KeyboardEvent, type ReactElement } from 'react'
 import { orderNames } from '../utils/tagFlow'
 
 interface PersonStepProps {
@@ -6,8 +6,10 @@ interface PersonStepProps {
     label: string
     placeholder: string
     query: string
-    /** Roster names matching the query. */
+    /** Roster names matching the query, in listing order. */
     candidates: string[]
+    /** Own goals: the same names grouped by team (conceding team first), each group labelled with the team name. Only passed for two groups. */
+    groups?: { team: string; names: string[] }[]
     highlighted: number
     /** Show the highlighted row (not on touch, where nothing is preselected). */
     showHighlight: boolean
@@ -42,17 +44,25 @@ export function PersonStep(props: PersonStepProps) {
  * then a last row with + New name (the only thing that opens the keyboard) and the skip button. A disabled name (the scorer on
  * Assist) stays in its place, so the grid never moves between questions.
  */
-function PersonChips({ label, placeholder, query, candidates, onQuery, onChoose, isDisabled, onKeyDown, skipLabel = 'Skip', onSkip, showLabel, appended }: PersonStepProps) {
+function PersonChips({ label, placeholder, query, candidates, groups, onQuery, onChoose, isDisabled, onKeyDown, skipLabel = 'Skip', onSkip, showLabel, appended }: PersonStepProps) {
     const [typing, setTyping] = useState(false)
     const names = orderNames(candidates, appended)
     const typed = query.trim()
+    const nameChip = (n: string): ReactElement => (
+        <button key={n} type="button" className="person-chip person-chip--name" disabled={isDisabled?.(n) ?? false} onClick={() => onChoose(n)}>{n}</button>
+    )
     return (
         <div className="person-chips">
             {showLabel && <p className="person-chips__label" aria-hidden="true">{label}</p>}
             <div className="person-chips__list" role="group" aria-label={label}>
-                {names.map((n) => (
-                    <button key={n} type="button" className="person-chip person-chip--name" disabled={isDisabled?.(n) ?? false} onClick={() => onChoose(n)}>{n}</button>
-                ))}
+                {groups && groups.length > 1
+                    ? groups.map((g, gi) => (
+                        <div key={gi} className="person-chips__group" role="group" aria-label={g.team}>
+                            <p className="person-chips__team">{g.team}</p>
+                            {orderNames(g.names, appended).map(nameChip)}
+                        </div>
+                    ))
+                    : names.map(nameChip)}
                 {typing && (
                     <div className="person-chips__new">
                         <input autoFocus aria-label={label} className="event-picker__input" placeholder={placeholder} value={query} enterKeyHint="done" autoComplete="off"
@@ -67,7 +77,7 @@ function PersonChips({ label, placeholder, query, candidates, onQuery, onChoose,
     )
 }
 
-function PersonTyped({ label, placeholder, query, candidates, highlighted, showHighlight, autoFocus, onQuery, onChoose, isDisabled, onKeyDown, numbered }: PersonStepProps) {
+function PersonTyped({ label, placeholder, query, candidates, groups, highlighted, showHighlight, autoFocus, onQuery, onChoose, isDisabled, onKeyDown, numbered }: PersonStepProps) {
     return (
         <div className="event-picker__person">
             <input
@@ -84,12 +94,16 @@ function PersonTyped({ label, placeholder, query, candidates, highlighted, showH
             <ul role="listbox" className="event-picker__list">
                 {candidates.map((n, i) => {
                     const off = isDisabled?.(n) ?? false
+                    const head = groups && groups.length > 1 ? groups.find((g, gi) => i === groups.slice(0, gi).reduce((a, x) => a + x.names.length, 0) && g.names.length > 0) : undefined
                     return (
-                        <li key={n} role="option" aria-selected={!off && showHighlight && i === highlighted} aria-disabled={off || undefined}
-                            className={`event-picker__item${off ? ' event-picker__item--disabled' : ''}`} onClick={off ? undefined : () => onChoose(n)}>
-                            <span className="voice-shirt event-picker__person-name">{n}</span>
-                            {numbered && i < 9 && <kbd>{i + 1}</kbd>}
-                        </li>
+                        <Fragment key={`${i}-${n}`}>
+                            {head && <li role="presentation" className="event-picker__group-title">{head.team}</li>}
+                            <li role="option" aria-selected={!off && showHighlight && i === highlighted} aria-disabled={off || undefined}
+                                className={`event-picker__item${off ? ' event-picker__item--disabled' : ''}`} onClick={off ? undefined : () => onChoose(n)}>
+                                <span className="voice-shirt event-picker__person-name">{n}</span>
+                                {numbered && i < 9 && <kbd>{i + 1}</kbd>}
+                            </li>
+                        </Fragment>
                     )
                 })}
                 {query.trim() && candidates.length === 0 && (

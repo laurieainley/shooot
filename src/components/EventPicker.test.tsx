@@ -108,6 +108,30 @@ describe('EventPicker', () => {
         setCoarsePointer(false)
     })
 
+    it('should list both rosters under team labels for an own goal on touch (conceding team first) and pick from the other team', () => {
+        setCoarsePointer(true)
+        render(<EventPicker />)
+        fireEvent.click(screen.getByRole('option', { name: /own goal/i }))
+        fireEvent.click(screen.getByRole('option', { name: /whites/i })) // credited team Whites: Colours' player put it in
+        const groups = screen.getAllByRole('group').filter((g) => g.classList.contains('person-chips__group'))
+        expect(groups.map((g) => g.getAttribute('aria-label'))).toEqual(['Colours', 'Whites'])
+        expect(groups.map((g) => [...g.querySelectorAll('.person-chip--name')].map((b) => b.textContent))).toEqual([['Jo'], ['Sam Taylor', 'Sandy Wu']])
+        fireEvent.click(screen.getByRole('button', { name: 'Sandy Wu' }))
+        expect(s().events[0]).toMatchObject({ type: 'own_goal', team: 'Whites', scorer: 'Sandy Wu' })
+        expect(s().teams[1].roster).toEqual(['Jo']) // nothing added to either roster
+        expect(s().teams[0].roster).toEqual(['Sam Taylor', 'Sandy Wu'])
+        setCoarsePointer(false)
+    })
+
+    it('should list both rosters under team names for an own goal with a mouse, numbered across the list', () => {
+        render(<EventPicker />)
+        press('o'); press('1') // own goal, Whites credited
+        expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Jo1', 'Sam Taylor2', 'Sandy Wu3'])
+        expect(document.querySelectorAll('.event-picker__group-title').length).toBe(2)
+        press('3')
+        expect(s().events[0]).toMatchObject({ type: 'own_goal', scorer: 'Sandy Wu' })
+    })
+
     it('should skip the assist with "None" and add a new name only through + New name on touch', () => {
         setCoarsePointer(true)
         render(<EventPicker />)

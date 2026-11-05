@@ -75,3 +75,21 @@ describe('PersonStep with name chips (touch)', () => {
         expect(screen.queryByRole('button', { name: '+ New name' })).toBeNull()
     })
 })
+
+describe('PersonStep with team groups (own goals)', () => {
+    const groups = [{ team: 'Whites', names: ['Sam', 'Sandy'] }, { team: 'Colours', names: ['Alex', 'Jo'] }]
+    it('should label each group with the team name on touch chips, in order', () => {
+        const { container } = render(<PersonStep {...base} chips candidates={['Sam', 'Sandy', 'Alex', 'Jo']} groups={groups} onQuery={() => {}} onChoose={() => {}} />)
+        expect([...container.querySelectorAll('.person-chips__team')].map((h) => h.textContent)).toEqual(['Whites', 'Colours'])
+        expect([...container.querySelectorAll('.person-chip--name')].map((b) => b.textContent)).toEqual(['Sam', 'Sandy', 'Alex', 'Jo'])
+    })
+    it('should label groups in the typed list and number across the combined list', () => {
+        const { container } = render(<PersonStep {...base} autoFocus={false} numbered candidates={['Sam', 'Sandy', 'Alex', 'Jo']} groups={groups} onQuery={() => {}} onChoose={() => {}} />)
+        expect([...container.querySelectorAll('.event-picker__group-title')].map((h) => h.textContent)).toEqual(['Whites', 'Colours'])
+        expect([...container.querySelectorAll('kbd')].map((k) => k.textContent)).toEqual(['1', '2', '3', '4'])
+    })
+    it('should show no team labels without groups', () => {
+        const { container } = render(<PersonStep {...base} chips candidates={['Sam']} onQuery={() => {}} onChoose={() => {}} />)
+        expect(container.querySelector('.person-chips__team')).toBeNull()
+    })
+})

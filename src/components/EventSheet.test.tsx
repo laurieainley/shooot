@@ -212,4 +212,16 @@ describe('EventSheet assist', () => {
         expect(ev()?.assist).toBeUndefined()
         expect(screen.queryByRole('textbox', { name: 'Assist' })).not.toBeInTheDocument()
     })
+
+    it('should offer both rosters for an own goal (conceding team first) and keep the stored scorer field', async () => {
+        cleanup()
+        setup({ type: 'own_goal', team: 'Whites', scorer: undefined })
+        const names = [...document.querySelectorAll('.chip--person')].map((b) => b.textContent)
+        expect(names).toEqual(['Ade', 'Jo Smith', 'Priya', 'Sam Taylor'])
+        expect(screen.getAllByRole('group').map((g) => g.getAttribute('aria-label')).filter((l) => l === 'Colours' || l === 'Whites')).toEqual(['Colours', 'Whites'])
+        await userEvent.click(screen.getByRole('button', { name: 'Priya' }))
+        expect(ev()?.scorer).toBe('Priya')
+        expect(useAppState.getState().teams[0].roster).toEqual(['Sam Taylor', 'Priya'])
+        expect(useAppState.getState().teams[1].roster).toEqual(['Jo Smith', 'Ade'])
+    })
 })

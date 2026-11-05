@@ -36,3 +36,13 @@ export function rosterTeamFor(teams: Team[], team: string | undefined, type: Eve
     return type === 'own_goal' ? teams[1 - idx] : teams[idx]
 }
 
+
+/**
+ * Every roster a person can be picked from, in listing order: the credited team for most events; for an own goal the conceding
+ * team first (the usual case: its player put it in), then the credited team (a player from either team can have the last touch).
+ */
+export function rostersFor(teams: Team[], team: string | undefined, type: EventType): Team[] {
+    const idx = teams.findIndex((t) => t.name === team)
+    if (idx === -1) return []
+    return type === 'own_goal' && teams[1 - idx] ? [teams[1 - idx], teams[idx]] : [teams[idx]]
+}

@@ -2244,3 +2244,9 @@ button.tagcol__crumb:active { color: var(--sh-text); border-color: var(--sh-text
 @media (pointer: coarse) { .prep-pill { height: 44px; } .prep-pill__tip { font-size: var(--sh-text-sm); } }
 @media (max-width: 700px) { .prep-pill__label { max-width: 11ch; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: bottom; } }
 @media (prefers-reduced-motion: reduce) { .prep-pill[data-tone='busy'] .prep-pill__label::before { animation: none; } }
+
+/* Own goals: the person list by team (conceding team first). */
+.person-chips__group { display: contents; }
+.person-chips__team { grid-column: 1 / -1; flex: 1 0 100%; margin: 6px 0 0; font-size: var(--sh-text-xs); font-weight: 700; color: var(--sh-muted); }
+.event-sheet__team { margin: 8px 0 4px; font-size: var(--sh-text-xs); font-weight: 700; color: var(--sh-muted); }
+@media (pointer: coarse) { .person-chips__team, .event-sheet__team { font-size: 14px; } }
