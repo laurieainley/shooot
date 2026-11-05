@@ -482,8 +482,9 @@ export const useAppState = create<AppState>()(
                 const merged = cleanTeaser({ ...target.teaser, ...patch }, true)
                 const next = state.events.map((e) => {
                     if (e.id !== id) return e
-                    const { teaser: _old, ...rest } = e
-                    return merged ? { ...rest, teaser: merged } : rest
+                    const copy = { ...e }
+                    delete copy.teaser
+                    return merged ? { ...copy, teaser: merged } : copy
                 })
                 set({
                     events: next,
