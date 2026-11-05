@@ -1,5 +1,5 @@
 import { migrateReplayCrop } from './crop'
-import type { EventMark, EventType, MarkerType, MatchEvent, Team } from '../types'
+import type { EventMark, TeaserEdit, EventType, MarkerType, MatchEvent, Team } from '../types'
 
 export type EventMeta = {
     label: string
@@ -151,17 +151,40 @@ function cleanMarks(raw: unknown, type: EventType): EventMark[] | undefined {
     return marks.length ? marks : undefined
 }
 
+export const TEASER_CAPTION_MAX = 2 * NOTE_MAX
+export const TEASER_SEC_MAX = 15
+
+const clampSec = (n: number) => Math.min(TEASER_SEC_MAX, Math.max(0, n))
+
+/** Known keys only, valid values only; nothing left = undefined. Used for imports and for store edits. */
+export function cleanTeaser(raw: unknown, whitesAttackLeft = true): TeaserEdit | undefined {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined
+    const r = raw as Record<string, unknown>
+    const out: TeaserEdit = {}
+    if (typeof r.caption === 'string') {
+        const c = r.caption.trim().slice(0, TEASER_CAPTION_MAX).trim()
+        if (c) out.caption = c
+    }
+    if (typeof r.beforeSec === 'number' && Number.isFinite(r.beforeSec)) out.beforeSec = clampSec(r.beforeSec)
+    if (typeof r.afterSec === 'number' && Number.isFinite(r.afterSec)) out.afterSec = clampSec(r.afterSec)
+    if (typeof r.replay === 'boolean') out.replay = r.replay
+    const crop = migrateReplayCrop(r.replayCrop, whitesAttackLeft)
+    if (crop !== undefined) out.replayCrop = crop
+    return Object.keys(out).length ? out : undefined
+}
+
 const LEGACY_TYPES: Record<string, EventType> = { moment: 'highlight', card: 'foul', kickoff: 'kick_off', kickOff: 'kick_off', halftime: 'half_time', halfTime: 'half_time', finalWhistle: 'final_whistle' }
 
 /** `whitesAttackLeft`: the old direction flag, needed only to turn a stored 'left' / 'right' replay framing into a team's goal. */
-export function migrateEvent(raw: Omit<MatchEvent, 'type' | 'replayCrop' | 'marks'> & { type?: string; replayCrop?: unknown; marks?: unknown }, whitesAttackLeft = true, teams: Team[] = []): MatchEvent {
+export function migrateEvent(raw: Omit<MatchEvent, 'type' | 'replayCrop' | 'marks' | 'teaser'> & { type?: string; replayCrop?: unknown; marks?: unknown; teaser?: unknown }, whitesAttackLeft = true, teams: Team[] = []): MatchEvent {
     if (raw.type === 'penalty_awarded') return migrateEvent(awardedToConceded(raw, teams), whitesAttackLeft, teams)
     const t = raw.type ?? 'goal'
     const type = (LEGACY_TYPES[t] ?? (t in EVENT_META ? t : 'highlight')) as EventType
-    const { replayCrop, marks, ...rest } = raw
+    const { replayCrop, marks, teaser, ...rest } = raw
     const crop = migrateReplayCrop(replayCrop, whitesAttackLeft)
     const cleaned = cleanMarks(marks, type)
-    return { ...rest, type, ...(crop !== undefined ? { replayCrop: crop } : {}), ...(cleaned ? { marks: cleaned } : {}) }
+    const cleanedTeaser = cleaned?.includes('teaser') ? cleanTeaser(teaser, whitesAttackLeft) : undefined
+    return { ...rest, type, ...(crop !== undefined ? { replayCrop: crop } : {}), ...(cleaned ? { marks: cleaned } : {}), ...(cleanedTeaser ? { teaser: cleanedTeaser } : {}) }
 }
 
 /**

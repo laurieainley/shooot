@@ -104,6 +104,13 @@ describe('highlightsDescription with a teaser', () => {
         const lines = highlightsDescription({ ...args, introSec: 7, reencoded: true, timeline }).split('\n')
         expect(lines.slice(2, 4)).toEqual(['00:00 Coming up', '00:30 Goal 1-0 (Whites) Sam'])
     })
+    it('should count a moment\'s own seconds and teaser replay before the card', () => {
+        const ed = events.map((e) => (e.id === 'a' ? { ...e, marks: ['teaser' as const], teaser: { beforeSec: 2, afterSec: 3, replay: true } } : e))
+        const replay = { beforeSec: 4, afterSec: 1, speed: 0.5 }
+        const lines = highlightsDescription({ ...args, events: ed, replay, introSec: 7, reencoded: true }).split('\n')
+        // Teaser: 5 s clip + 5 s replay window at 0.5x (10 s), then the 7 s card: the reel starts at 22 s.
+        expect(lines.slice(2, 4)).toEqual(['00:00 Coming up', '00:22 Goal 1-0 (Whites) Sam'])
+    })
     it('should be unchanged without the teaser', () => {
         expect(highlightsDescription({ ...args, teaser: false, introSec: 4 })).toBe(highlightsDescription({ ...base, introSec: 4 }))
         expect(highlightsDescription({ ...base, events: starred, introSec: 4 })).toBe(highlightsDescription({ ...base, introSec: 4 }))

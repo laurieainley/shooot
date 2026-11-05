@@ -9,6 +9,15 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ---
 
+## 2026-11-05 — Coming up section: each starred moment is edited on its own (user + agent)
+- **Decision (user):** starring adds an entry to a Coming up section at the top of the Events list (unstar removes it); each entry has its own
+  caption, slow-mo replay, replay framing and seconds before/after; they change only the teaser, never the same moment later in the video.
+  Supersedes the 2026-11-05 teaser entry's "starred overlaps merge" and "no slow-mo in the teaser" (now optional per moment, off by default).
+- **Agent calls (user: "calls are good"):** teaser replay uses the match replay timing with the REPLAY tag and no banner; "Match" heading over
+  the usual list; ▶ jumps to the teaser clip start; Delete on a teaser row unstars; Reset to automatic; edits kept only while starred.
+- **Why:** teasers want their own words and timing ("LAURIE WAITS PATIENTLY…") without changing the highlights.
+- **Where:** spec `docs/superpowers/specs/2026-11-05-coming-up-section-design.md`, plan `docs/superpowers/plans/2026-11-05-coming-up-section.md`.
+
 ## 2026-11-05 — Touch player: zoom kept across resizes, controls never auto-hide, visible speed button; own goals from either team (user + agent)
 - **Decision (user):** landscape zoom must not keep resetting; touch controls stay visible unless a single tap hides them; speed is a visible
   button; an own goal can name a player from either team (the last touch).

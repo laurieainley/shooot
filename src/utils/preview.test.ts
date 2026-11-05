@@ -23,6 +23,18 @@ describe('buildPreviewPlan with a teaser', () => {
         const steps = buildPreviewPlan(reel, [600], REPLAY, [seg(0, 90, 104, [star])])
         expect(previewStepForEvent(steps, 's')).toBe(1)
     })
+    it('should play a moment\'s teaser replay after its teaser clip, at the replay speed and with its crop', () => {
+        const crop = { x: 0.5, y: 0.5, w: 0.5, h: 0.5 }
+        const s2 = g('s', 100, { marks: ['teaser'], teaser: { replay: true, replayCrop: crop } })
+        const cropFor = (e: MatchEvent) => (typeof e.replayCrop === 'object' ? e.replayCrop : null)
+        const steps = buildPreviewPlan(reel, [600], { ...REPLAY, cropFor }, [seg(0, 93, 106, [s2])])
+        expect(steps.slice(0, 3).map((s) => [s.teaser === true, s.replay, s.speed, s.gain, s.startSec, s.endSec])).toEqual([
+            [true, false, 1, 1, 93, 106], [true, true, 0.5, 0.5, 96, 101], [false, false, 1, 1, 90, 104],
+        ])
+        expect(steps[1].crop).toEqual(crop)
+        expect(steps[1].clipIndex).toBeLessThan(0)
+        expect(previewStepForEvent(steps, 's')).toBe(2)
+    })
     it('should be unchanged without teaser segments', () => {
         expect(buildPreviewPlan(reel, [600], REPLAY, [])).toEqual(buildPreviewPlan(reel, [600], REPLAY))
     })

@@ -9,6 +9,8 @@ import { useFrameAt } from './frameGrab'
 
 interface ReplayFramingProps {
     event: MatchEvent
+    /** Whose framing this is: the event's own replay (default), or its teaser clip's (`teaser.replayCrop`, falling back to the event's). */
+    target?: 'event' | 'teaser'
 }
 
 type ChoiceId = 'auto' | 'team1' | 'team2' | 'full' | 'custom'
@@ -19,21 +21,27 @@ const choiceOf = (c: ReplayCrop | undefined): ChoiceId => (c === undefined ? 'au
  * Edit sheet, replay on: how the slow-mo replay is framed. Auto = the goal for the event's type (Match setup);
  * either team's goal, the whole frame, or a custom box drawn on the event's own frame, with zoom 1-3× around its centre.
  */
-export function ReplayFraming({ event: e }: ReplayFramingProps) {
+export function ReplayFraming({ event: e, target = 'event' }: ReplayFramingProps) {
+    const own = target === 'teaser' ? e.teaser?.replayCrop : e.replayCrop
     const areas = useAppState((s) => s.goalAreas)
     const teams = useAppState((s) => s.teams)
     const resolverState = useAppState(useShallow((s) => ({ events: s.events, teams: s.teams, cumulativeOffsets: s.cumulativeOffsets, areas: s.goalAreas })))
     const file = useAppState((s) => s.files[e.sourceFileIndex ?? 0])
     const frame = useFrameAt(e.unlinked ? null : file?.url, e.unlinked || !file ? null : e.matchTimeSec)
-    const resolved = useMemo(() => replayCropResolver(resolverState)(e), [resolverState, e])
-    const choice = choiceOf(e.replayCrop)
+    // The teaser frames by its own crop first, then the event's, then automatic (as the render does).
+    const framed = useMemo((): MatchEvent => (target === 'teaser' ? { ...e, replayCrop: e.teaser?.replayCrop ?? e.replayCrop } : e), [e, target])
+    const resolved = useMemo(() => replayCropResolver(resolverState)(framed), [resolverState, framed])
+    const choice = choiceOf(own)
     // A drag or slider move is a draft until it is released: one undo step per edit, not one per pixel.
     const [draft, setDraftState] = useState<CropRect | null>(null)
     const draftRef = useRef<CropRect | null>(null)
     const setDraft = (r: CropRect | null): void => { draftRef.current = r; setDraftState(r) }
-    useEffect(() => setDraft(null), [e.replayCrop, e.id])
+    useEffect(() => setDraft(null), [own, e.id])
     const shown = draft ?? resolved ?? null
-    const set = (crop: ReplayCrop | undefined): void => useAppState.getState().updateEvent(e.id, { replayCrop: crop })
+    const set = (crop: ReplayCrop | undefined): void => {
+        if (target === 'teaser') useAppState.getState().setTeaserEdit(e.id, { replayCrop: crop })
+        else useAppState.getState().updateEvent(e.id, { replayCrop: crop })
+    }
     const commit = (): void => {
         const rect = draftRef.current
         if (!rect) return
@@ -43,7 +51,7 @@ export function ReplayFraming({ event: e }: ReplayFramingProps) {
     const zoom = shown ? Math.min(MAX_REPLAY_ZOOM, zoomOf(shown)) : 1
     const boxes: FrameBox[] = shown ? [{ id: 'crop', label: 'Replay framing', short: 'Replay', rect: shown, tone: 'event' }] : []
     const choices: { id: ChoiceId; label: string }[] = [
-        { id: 'auto', label: 'Auto' }, { id: 'team1', label: teamGoalLabel(teams, 'team1') }, { id: 'team2', label: teamGoalLabel(teams, 'team2') },
+        { id: 'auto', label: target === 'teaser' ? 'Same as highlights' : 'Auto' }, { id: 'team1', label: teamGoalLabel(teams, 'team1') }, { id: 'team2', label: teamGoalLabel(teams, 'team2') },
         { id: 'full', label: 'Full frame' }, { id: 'custom', label: 'Custom' },
     ]
     const needsAreas = (id: ChoiceId): boolean => (id === 'team1' || id === 'team2') && !areas?.[id]

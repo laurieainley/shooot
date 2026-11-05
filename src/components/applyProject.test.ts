@@ -20,6 +20,19 @@ describe('project JSON import', () => {
     })
 })
 
+describe('project JSON teaser edits', () => {
+    it('should keep teaser edits on starred events only', async () => {
+        const { applyProjectData } = await import('./importProject')
+        applyProjectData({ events: [
+            { id: 'a', matchTimeSec: 5, type: 'goal', marks: ['teaser'], teaser: { caption: 'Wow', beforeSec: 3 } },
+            { id: 'b', matchTimeSec: 9, type: 'goal', teaser: { caption: 'Wow' } },
+        ] })
+        const ev = useAppState.getState().events
+        expect(ev.find((e) => e.id === 'a')!.teaser).toEqual({ caption: 'Wow', beforeSec: 3 })
+        expect(ev.find((e) => e.id === 'b')!.teaser).toBeUndefined()
+    })
+})
+
 describe('applyTransferPayload', () => {
     it('should cancel detection and clear suggestions', () => {
         useAppState.setState({ suggestions: [{ id: 's', globalTimeSec: 5, score: 1, source: 'audio', status: 'pending' }] })

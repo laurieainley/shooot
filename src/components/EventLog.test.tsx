@@ -17,7 +17,7 @@ const teams: Team[] = [
 ]
 const kickOff = (t: number): MatchEvent => ({ id: 'ko', matchTimeSec: t, sourceFileIndex: 0, type: 'kick_off' })
 const byId = (id: string): MatchEvent | undefined => useAppState.getState().events.find((e) => e.id === id)
-const rows = (): HTMLElement[] => screen.getAllByRole('option')
+const rows = (): HTMLElement[] => within(screen.getByRole('listbox', { name: 'Event list' })).getAllByRole('option')
 const log = (): HTMLElement => screen.getByRole('region', { name: 'Events' })
 
 let seekToGoal: ReturnType<typeof vi.fn<(fileIndex: number, timeSec: number) => void>>
@@ -713,14 +713,14 @@ describe('EventLog action row', () => {
         const listScroll = vi.fn()
         const rect = Element.prototype.getBoundingClientRect
         Element.prototype.getBoundingClientRect = function (this: Element) {
-            const box = this.getAttribute('role') === 'listbox' ? { top: 0, bottom: 100 } : { top: 150, bottom: 200 }
+            const box = this.classList.contains('event-list') ? { top: 0, bottom: 100 } : { top: 150, bottom: 200 }
             return { ...box, left: 0, right: 100, width: 100, height: box.bottom - box.top, x: 0, y: box.top, toJSON: () => ({}) } as DOMRect
         }
         const mm = window.matchMedia
         window.matchMedia = ((q: string) => ({ matches: q.includes('reduce'), media: q, addEventListener: () => undefined, removeEventListener: () => undefined, addListener: () => undefined, removeListener: () => undefined, onchange: null, dispatchEvent: () => false })) as typeof window.matchMedia
         try {
             render(<EventLog />)
-            const list = screen.getByRole('listbox', { name: 'Event list' })
+            const list = screen.getByRole('listbox', { name: 'Event list' }).parentElement!
             list.scrollTo = listScroll as never
             Object.defineProperty(list, 'scrollHeight', { value: 300, configurable: true })
             Object.defineProperty(list, 'clientHeight', { value: 100, configurable: true })

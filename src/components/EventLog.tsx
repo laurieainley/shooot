@@ -27,6 +27,9 @@ import { useTagViewMode } from './tagView'
 import { EventActions } from './EventActions'
 import { ClipDownload } from './ClipDownload'
 import { StarMenu } from './StarMenu'
+import { FileSlot, WatchButton } from './RowParts'
+import { TeaserSection } from './TeaserSection'
+import { starredMoments } from '../utils/teaser'
 
 type Field = 'scorer' | 'team' | 'time' | 'notes'
 type Editing = { id: string; field: Field } | null
@@ -50,18 +53,23 @@ export function EventLog() {
     const canRedo = useAppState((s) => s.redoStack.length > 0)
     const coarse = useMediaQuery(COARSE_QUERY)
     const [selectedId, setSelectedId] = useState<string | null>(null)
+    // The same event can be in both lists; which one is selected decides what the keys act on.
+    const [section, setSection] = useState<'teaser' | 'match'>('match')
     const [editing, setEditing] = useState<Editing>(null)
     const [starFor, setStarFor] = useState<string | null>(null)
     const rootRef = useRef<HTMLElement | null>(null)
-    const listRef = useRef<HTMLOListElement | null>(null)
+    const listRef = useRef<HTMLDivElement | null>(null)
 
     const empty = emptyLogLine(coarse, files.length === 0)
-    const selectedIndex = events.findIndex((e) => e.id === selectedId)
+    const moments = useMemo(() => starredMoments(events), [events])
+    const selectedIndex = section === 'match' ? events.findIndex((e) => e.id === selectedId) : -1
+    const teaserIndex = section === 'teaser' ? moments.findIndex((e) => e.id === selectedId) : -1
+    const before = useAppState((s) => s.lengthBeforeGoalSec)
     const scores = useMemo(() => scoresAfter(events, teams, offsets), [events, teams, offsets])
 
     // A freshly marked event (picker open on it, once it exists) becomes the selection, so the log shows where it landed.
     const pickerEventId = useAppState((s) => (s.picker?.pending ? undefined : s.picker?.eventId))
-    useEffect(() => { if (pickerEventId) setSelectedId(pickerEventId) }, [pickerEventId])
+    useEffect(() => { if (pickerEventId) { setSection('match'); setSelectedId(pickerEventId) } }, [pickerEventId])
 
     // Global L focuses the log (never while typing or while the event picker is open).
     useEffect(() => {
@@ -78,11 +86,17 @@ export function EventLog() {
         return () => window.removeEventListener('keydown', onKey)
     }, [])
 
-    useEffect(() => { setStarFor(null) }, [selectedId])
+    useEffect(() => { setStarFor(null) }, [selectedId, section])
+
+    // A teaser row that goes away (unstarred from the Star menu, undo) leaves the selection on the match list, so the keys still act.
+    useEffect(() => {
+        if (section === 'teaser' && selectedId && !moments.some((m) => m.id === selectedId)) setSection('match')
+    }, [section, selectedId, moments])
 
     useEffect(() => {
         if (!selectedId) return
-        const el = listRef.current?.querySelector<HTMLElement>(`[data-event-id="${CSS.escape(selectedId)}"]`)
+        const sel = section === 'teaser' ? '[data-section="teaser"]' : ':not([data-section])'
+        const el = listRef.current?.querySelector<HTMLElement>(`${sel}[data-event-id="${CSS.escape(selectedId)}"]`)
         // The expanded row (with its action row) comes fully into view. When the list scrolls, only the list moves (the
         // page stays, so the video stays in view). No animation when motion is reduced.
         const list = listRef.current
@@ -93,7 +107,7 @@ export function EventLog() {
         if (list.scrollHeight <= list.clientHeight) { el.scrollIntoView?.({ block: 'nearest', behavior }); return }
         const top = listScrollFor(list, el)
         if (top !== null) list.scrollTo?.({ top, behavior })
-    }, [selectedId])
+    }, [selectedId, section])
 
     // Watch = seek to the clip start and play. Selecting a row never moves or starts the video.
     const watch = (e: MatchEvent): void => {
@@ -102,6 +116,30 @@ export function EventLog() {
         if (st.jumpToPreviewEvent(e.id)) return // during the preview: jump to that clip, stay in the preview
         st.seekToGoal(e.sourceFileIndex ?? 0, watchFromSec(e, st.lengthBeforeGoalSec))
     }
+    // A teaser row's clip starts at its own seconds before (else the match's).
+    const watchTeaser = (e: MatchEvent): void => {
+        if (e.unlinked) return
+        const st = useAppState.getState()
+        // During the preview: jump to that moment's Coming up step (not its reel clip) and stay in the preview.
+        if (st.isPreviewMode) {
+            const i = st.previewSteps.findIndex((x) => x.teaser && !x.replay && x.eventIds.includes(e.id))
+            if (i !== -1) { st.jumpToPreviewStep(i); return }
+        }
+        st.seekToGoal(e.sourceFileIndex ?? 0, Math.max(0, e.matchTimeSec - (e.teaser?.beforeSec ?? before)))
+    }
+    const toggleTeaserReplay = (e: MatchEvent): void => useAppState.getState().setTeaserEdit(e.id, { replay: e.teaser?.replay ? undefined : true })
+    const unstar = (e: MatchEvent): void => {
+        const i = moments.findIndex((m) => m.id === e.id)
+        const next = moments[i + 1] ?? moments[i - 1]
+        useAppState.getState().toggleMark(e.id, 'teaser')
+        const top = useAppState.getState().undoStack.at(-1)
+        showToast('Unstarred', { label: 'Undo', run: () => { useAppState.getState().undoIfTop(top) } })
+        // The next moment, else the same event back in the match list.
+        if (next) setSelectedId(next.id)
+        else { setSection('match'); setSelectedId(e.id) }
+    }
+    const selectTeaser = (id: string): void => { setSection('teaser'); setSelectedId((cur) => (section === 'teaser' && cur === id ? null : id)) }
+    const selectMatch = (id: string): void => { setSection('match'); setSelectedId((cur) => (section === 'match' && cur === id ? null : id)) }
     const toggleReplay = (e: MatchEvent): void => { if (!isMarker(e)) useAppState.getState().updateEvent(e.id, { replay: !wantsReplay(e) }) }
     const remove = (index: number): void => {
         const e = events[index]
@@ -129,23 +167,27 @@ export function EventLog() {
             return
         }
         const sel = events[selectedIndex]
+        const tsel = moments[teaserIndex]
+        // One list: the teaser rows, then the match rows.
+        const nav = [...moments.map((e) => ({ section: 'teaser' as const, id: e.id })), ...events.map((e) => ({ section: 'match' as const, id: e.id }))]
+        const at = nav.findIndex((n) => n.section === section && n.id === selectedId)
+        const go = (i: number): void => { const n = nav[i]; if (n) { setSection(n.section); setSelectedId(n.id) } }
         const move = (d: number): void => {
-            if (events.length === 0) return
-            const i = selectedIndex === -1 ? (d > 0 ? 0 : events.length - 1) : Math.max(0, Math.min(events.length - 1, selectedIndex + d))
-            setSelectedId(events[i].id)
+            if (nav.length === 0) return
+            go(at === -1 ? (d > 0 ? 0 : nav.length - 1) : Math.max(0, Math.min(nav.length - 1, at + d)))
         }
         let handled = true
         switch (ev.key) {
             case 'ArrowDown': move(1); break
             case 'ArrowUp': move(-1); break
-            case 'Home': if (events[0]) setSelectedId(events[0].id); break
-            case 'End': if (events.length) setSelectedId(events[events.length - 1].id); break
-            case 'Enter': if (sel) watch(sel); break
-            case 'Delete': case 'Backspace': remove(selectedIndex); break
-            case 'r': case 'R': if (sel) toggleReplay(sel); break
-            case 'e': case 'E': if (sel) setEditing({ id: sel.id, field: 'scorer' }); break
-            case 't': case 'T': if (sel) setEditing({ id: sel.id, field: 'team' }); break
-            case 'n': case 'N': if (sel) setEditing({ id: sel.id, field: 'notes' }); break
+            case 'Home': go(0); break
+            case 'End': go(nav.length - 1); break
+            case 'Enter': if (tsel) watchTeaser(tsel); else if (sel) watch(sel); break
+            case 'Delete': case 'Backspace': if (tsel) unstar(tsel); else remove(selectedIndex); break
+            case 'r': case 'R': if (tsel) toggleTeaserReplay(tsel); else if (sel) toggleReplay(sel); break
+            case 'e': case 'E': if (tsel) useAppState.getState().editTeaser(tsel.id); else if (sel) setEditing({ id: sel.id, field: 'scorer' }); break
+            case 't': case 'T': if (tsel) handled = false; else if (sel) setEditing({ id: sel.id, field: 'team' }); break
+            case 'n': case 'N': if (tsel) handled = false; else if (sel) setEditing({ id: sel.id, field: 'notes' }); break
             case 's': case 'S': if (sel && !isMarker(sel)) setStarFor(sel.id); else handled = false; break
             case 'g': case 'G': { const st = useAppState.getState(); st.markEvent(st.currentTimeInFileSec); break }
             case 'Escape': if (selectedId) setSelectedId(null); else rootRef.current?.blur(); break
@@ -191,30 +233,42 @@ export function EventLog() {
                     </p>
                 </>
             ) : (
-                <ol ref={listRef} role="listbox" aria-label="Event list" className="event-list m-0 min-h-0 flex-1 list-none overflow-y-auto overscroll-contain p-0"
+                <div ref={listRef} className="event-list min-h-0 flex-1 overflow-y-auto overscroll-contain"
                     style={{ '--clock-ch': clockWidthCh(clockLong, true) } as CSSProperties}>
-                    {events.map((e) => (
-                        <EventRow
-                            key={e.id}
-                            event={e}
-                            teams={teams}
-                            selected={e.id === selectedId}
-                            clock={formatEventClock((offsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec, e.matchTimeSec, matchStartTimeSec, clockLong)}
-                            score={scores.get(e.id)}
-                            editing={editing?.id === e.id ? editing.field : null}
-                            onSelect={() => setSelectedId((id) => (id === e.id ? null : e.id))}
-                            onWatch={() => { setSelectedId(e.id); watch(e) }}
-                            onEdit={(field) => { setSelectedId(e.id); setEditing(field ? { id: e.id, field } : null) }}
-                            onToggleReplay={() => toggleReplay(e)}
-                            onFraming={() => useAppState.getState().editEvent(e.id, 'framing')}
-                            onRemove={() => remove(events.indexOf(e))}
-                            starOpen={starFor === e.id}
-                            onStarOpen={(open) => setStarFor(open ? e.id : null)}
-                            restoreFocus={() => rootRef.current?.focus()}
-                            touch={coarse}
-                        />
-                    ))}
-                </ol>
+                    {moments.length > 0 && (
+                        <>
+                            <TeaserSection moments={moments} teams={teams} selectedId={section === 'teaser' ? selectedId : null} touch={coarse}
+                                clockOf={(e) => formatEventClock((offsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec, e.matchTimeSec, matchStartTimeSec, clockLong)}
+                                onSelect={selectTeaser} onWatch={(e) => { setSection('teaser'); setSelectedId(e.id); watchTeaser(e) }}
+                                onToggleReplay={toggleTeaserReplay} onEdit={(e) => useAppState.getState().editTeaser(e.id)}
+                                onFraming={(e) => useAppState.getState().editTeaser(e.id, 'framing')} onUnstar={unstar} />
+                            <h3 className="teaser-section__head teaser-section__head--match"><span className="teaser-section__title">Match</span></h3>
+                        </>
+                    )}
+                    <ol role="listbox" aria-label="Event list" className="event-list__rows m-0 list-none p-0">
+                        {events.map((e) => (
+                            <EventRow
+                                key={e.id}
+                                event={e}
+                                teams={teams}
+                                selected={section === 'match' && e.id === selectedId}
+                                clock={formatEventClock((offsets[e.sourceFileIndex ?? 0] ?? 0) + e.matchTimeSec, e.matchTimeSec, matchStartTimeSec, clockLong)}
+                                score={scores.get(e.id)}
+                                editing={editing?.id === e.id ? editing.field : null}
+                                onSelect={() => selectMatch(e.id)}
+                                onWatch={() => { setSection('match'); setSelectedId(e.id); watch(e) }}
+                                onEdit={(field) => { setSection('match'); setSelectedId(e.id); setEditing(field ? { id: e.id, field } : null) }}
+                                onToggleReplay={() => toggleReplay(e)}
+                                onFraming={() => useAppState.getState().editEvent(e.id, 'framing')}
+                                onRemove={() => remove(events.indexOf(e))}
+                                starOpen={section === 'match' && starFor === e.id}
+                                onStarOpen={(open) => setStarFor(open ? e.id : null)}
+                                restoreFocus={() => rootRef.current?.focus()}
+                                touch={coarse}
+                            />
+                        ))}
+                    </ol>
+                </div>
             )}
         </section>
     )
@@ -353,33 +407,6 @@ function MarkerRow({ event: e, selected, clock, editing, onSelect, onWatch, onEd
             {selected && <EventActions event={e} touch={touch} onToggleReplay={() => undefined} onFraming={() => undefined}
                 onEdit={() => useAppState.getState().editEvent(e.id)} onRemove={onRemove} />}
         </li>
-    )
-}
-
-interface FileSlotProps {
-    unlinked?: boolean
-    fileKey?: string
-}
-
-/** The "file missing" warning when the event's file is not linked; nothing otherwise. */
-function FileSlot({ unlinked, fileKey }: FileSlotProps) {
-    if (!unlinked) return null
-    // The label hides in narrow rails (icon only), where it would squeeze the event's name out of the row.
-    return <span className="tag tag-warn" title={fileKey ? `File missing: ${fileKey}` : 'File missing'}><span className="tag-warn__label">file missing</span></span>
-}
-
-interface WatchButtonProps {
-    onWatch: () => void
-    disabled?: boolean
-}
-
-/** Row action: seek to the clip start and play (selecting a row never does). */
-function WatchButton({ onWatch, disabled = false }: WatchButtonProps) {
-    return (
-        <button type="button" aria-label="Watch" title="Watch the clip (⏎)" tabIndex={-1} disabled={disabled}
-            onClick={(ev) => { ev.stopPropagation(); onWatch() }} className="row-btn watch-btn">
-            <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor" /></svg>
-        </button>
     )
 }
 

@@ -243,7 +243,7 @@
 .shell--landscape .rail { padding-right: env(safe-area-inset-right, 0px); }
 .shell--landscape .match-strip { grid-template-columns: 84px minmax(0, 1fr); }
 .shell--landscape .strip-label { padding: 0 8px; }
-.shell--landscape .event-log ol { padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); } /* the ＋ is on the picture here, so the rail needs no room for it */
+.shell--landscape .event-log .event-list { padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); } /* the ＋ is on the picture here, so the rail needs no room for it */
 /* Phone on its side: the ＋ sits on the picture's bottom-right corner (above the 44px control bar, which sits above the 52px strip),
    so it never covers a row's ▶ or score in the rail. */
 .shell--landscape .fab { bottom: calc(52px + 44px + 10px + env(safe-area-inset-bottom, 0px)); right: calc(var(--rail-w) + 10px); width: 56px; height: 56px; }
@@ -309,7 +309,7 @@
 .event-row__type { font-size: var(--sh-text-md); font-weight: 600; color: var(--sh-muted); }
 .row-score { font-family: var(--sh-font-mono); font-size: var(--sh-text-sm); color: var(--sh-muted); font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: no-preference) { .event-row { transition: background-color 0.12s; } }
-.shell--phone .event-log ol { overflow: visible; padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)); } /* the last row can scroll clear of the ＋ */
+.shell--phone .event-log .event-list { overflow: visible; padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)); } /* the last row can scroll clear of the ＋ */
 .shell--phone .event-row { min-height: 44px; }
 /* Phone rows are narrow: let a note wrap onto a second line instead of vanishing into an ellipsis. */
 
@@ -1061,7 +1061,7 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 .shell--tablet .stage { flex: none; aspect-ratio: 16 / 9; width: 100%; max-height: 54dvh; }
 .shell--tablet .match-strip { flex: none; height: 64px; border-bottom: 1px solid var(--sh-line); }
 .shell--tablet .event-log { flex: 1 1 0; min-height: 0; }
-.shell--tablet .event-log ol { padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
+.shell--tablet .event-log .event-list { padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
 .shell--tablet .top-bar { padding-inline: max(14px, env(safe-area-inset-left, 0px)) max(14px, env(safe-area-inset-right, 0px)); }
 
 /* Touch tablet on its side (desktop bay): the 16:9 picture sits at the top with the match strip directly under it, so the spare
@@ -2245,6 +2245,25 @@ button.tagcol__crumb:active { color: var(--sh-text); border-color: var(--sh-text
 @media (max-width: 700px) { .prep-pill__label { max-width: 11ch; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: bottom; } }
 @media (prefers-reduced-motion: reduce) { .prep-pill[data-tone='busy'] .prep-pill__label::before { animation: none; } }
 
+/* ---------- Coming up (starred teaser moments) ---------- */
+.teaser-section__head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 0; padding: 10px 12px 6px;
+  border-bottom: 1px solid var(--sh-line); background: var(--sh-surface);
+}
+.teaser-section__title { font-family: var(--sh-font); font-weight: 900; font-style: italic; font-stretch: var(--sh-stretch-heading); font-size: var(--sh-text-sm); letter-spacing: 0.04em; text-transform: uppercase; color: var(--sh-text); }
+.teaser-section__count { font-size: var(--sh-text-sm); color: var(--sh-muted); }
+.teaser-section__head--match { margin-top: 0; border-top: 1px solid var(--sh-line); }
+.teaser-section__head--match .teaser-section__title { color: var(--sh-muted); }
+.event-row--teaser .ev-person { text-transform: none; }
+.teaser-hint { margin: 4px 0 0; font-size: var(--sh-text-sm); color: var(--sh-muted); }
+.teaser-secs__max { font-size: var(--sh-text-sm); color: var(--sh-muted); }
+.teaser-secs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.teaser-secs__field { display: grid; gap: 6px; font-size: var(--sh-text-sm); color: var(--sh-muted); }
+.teaser-replay { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.teaser-replay .act-btn { flex: 1 1 auto; }
+.teaser-reset { display: block; margin: 16px 0 0; min-height: 44px; font-size: var(--sh-text-md); }
+.teaser-reset:disabled { opacity: 0.45; cursor: not-allowed; text-decoration: none; }
+@media (pointer: coarse) { .teaser-section__title, .teaser-section__count { font-size: var(--sh-text-sm); } .teaser-secs__field { font-size: var(--sh-text-sm); } }
 /* Own goals: the person list by team (conceding team first). */
 .person-chips__group { display: contents; }
 .person-chips__team { grid-column: 1 / -1; flex: 1 0 100%; margin: 6px 0 0; font-size: var(--sh-text-xs); font-weight: 700; color: var(--sh-muted); }
