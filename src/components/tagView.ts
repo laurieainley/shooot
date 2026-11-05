@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { create } from 'zustand'
 import { useAppState } from '../state'
 import { tagViewMode, type TagViewMode } from '../utils/tagView'
@@ -26,7 +27,7 @@ export function startTag(): void {
  * Touch-view UI state (never persisted):
  * sheet - the events list / matches overlay opened from ⋯ (landscape view has no rail);
  * menuOpen - the ⋯ menu;
- * controlsVisible / pokes - the overlay controls (fade after 3 s while playing; a poke restarts the timer).
+ * controlsVisible - the overlay controls: they never hide by themselves; a single tap on the picture hides / shows them (pokes counts shows).
  */
 interface TagUi {
     sheet: 'events' | 'matches' | null
@@ -49,3 +50,13 @@ export const useTagUi = create<TagUi>((set) => ({
     setControlsVisible: (controlsVisible) => set({ controlsVisible }),
     poke: () => set((s) => ({ controlsVisible: true, pokes: s.pokes + 1 })),
 }))
+
+/**
+ * Whether the overlay controls are showing. There is no auto-hide: they stay as the user left them (hidden only by a single tap
+ * on the picture, shown by the next one). Back to visible whenever the controls are not over the picture (portrait band).
+ */
+export function useControlsVisibility(overlayView: boolean): boolean {
+    const visible = useTagUi((s) => s.controlsVisible)
+    useEffect(() => { if (!overlayView) useTagUi.getState().setControlsVisible(true) }, [overlayView])
+    return visible
+}

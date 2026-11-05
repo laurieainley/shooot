@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Suggestion } from '../types'
-import { CONTROLS_FADE_MS, fadeDelayMs, jumpStartSec, nextMoment, pendingMoments, prevMoment, tagViewMode } from './tagView'
+import { jumpStartSec, nextMoment, pendingMoments, prevMoment, tagViewMode } from './tagView'
 
 const sug = (id: string, t: number, status: Suggestion['status'] = 'pending'): Suggestion => ({ id, globalTimeSec: t, score: 1, source: 'audio', status })
 const base = { coarse: true, layout: 'landscape' as const, fullscreen: false, hasFiles: true }
@@ -24,20 +24,6 @@ describe('tagViewMode', () => {
     })
     it('should stay on today\'s page until a video is loaded', () => {
         expect(tagViewMode({ ...base, hasFiles: false })).toBe('off')
-    })
-})
-
-describe('fadeDelayMs', () => {
-    it('should fade while playing over the picture', () => {
-        expect(fadeDelayMs({ mode: 'overlay', paused: false, tagging: false })).toBe(CONTROLS_FADE_MS)
-    })
-    it('should never fade while paused or tagging', () => {
-        expect(fadeDelayMs({ mode: 'overlay', paused: true, tagging: false })).toBeNull()
-        expect(fadeDelayMs({ mode: 'overlay', paused: false, tagging: true })).toBeNull()
-    })
-    it('should never fade when the controls are not over the picture', () => {
-        expect(fadeDelayMs({ mode: 'band', paused: false, tagging: false })).toBeNull()
-        expect(fadeDelayMs({ mode: 'off', paused: false, tagging: false })).toBeNull()
     })
 })
 

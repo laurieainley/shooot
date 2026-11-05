@@ -10,9 +10,8 @@ import { FullscreenControls } from './FullscreenControls'
 import { EventPicker } from './EventPicker'
 import { EventsSheet } from './EventsSheet'
 import { MatchStrip } from './MatchStrip'
-import { useTagUi, useTagViewMode } from './tagView'
+import { useControlsVisibility, useTagUi, useTagViewMode } from './tagView'
 import { SpeedButton } from './SpeedButton'
-import { fadeDelayMs } from '../utils/tagView'
 import { Toast } from './Toast'
 import { fullscreenSplit, useFullscreenUi } from './fullscreenUi'
 import { COARSE_QUERY, PORTRAIT_QUERY, useMediaQuery } from './useMediaQuery'
@@ -419,18 +418,8 @@ export function Player() {
         ui.setReviewHidden(false)
         return () => { useFullscreenUi.getState().setHost(null) }
     }, [inFullscreen])
-    // The overlay controls fade 3 s after the last touch while playing; never while paused, tagging or with a menu / sheet open.
-    const sheetOpen = useTagUi((s) => s.sheet !== null)
-    const busy = useAppState((s) => s.picker !== null || s.panel !== null) || sheetOpen
-    const fadeMs = fadeDelayMs({ mode: tagViewMode, paused, tagging: busy })
-    const controlsVisible = useTagUi((s) => s.controlsVisible)
-    const pokes = useTagUi((s) => s.pokes)
-    useEffect(() => {
-        if (fadeMs === null) { useTagUi.getState().setControlsVisible(true); return }
-        if (!controlsVisible) return
-        const t = setTimeout(() => useTagUi.getState().setControlsVisible(false), fadeMs)
-        return () => clearTimeout(t)
-    }, [fadeMs, controlsVisible, pokes])
+    // The overlay controls never hide by themselves: only a single tap on the picture hides / shows them (FullscreenControls).
+    const controlsVisible = useControlsVisibility(overlayView)
     // Touch fullscreen with a panel or the tag box open: the picture sits beside / above it, never behind it.
     const coarseFs = useMediaQuery(COARSE_QUERY)
     const columnPanel = useFullscreenUi((s) => s.columnPanel)

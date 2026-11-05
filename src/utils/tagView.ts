@@ -26,24 +26,6 @@ export function tagViewMode({ coarse, layout, fullscreen, hasFiles }: TagViewInp
     return 'band'
 }
 
-/** Controls over the picture fade this long after the last touch while playing. */
-export const CONTROLS_FADE_MS = 3000
-
-export interface FadeInput {
-    mode: TagViewMode
-    paused: boolean
-    tagging: boolean
-}
-
-/**
- * How long the overlay controls stay up after the last touch, or null when they never fade: not over the picture
- * (band / off), while paused, while tagging.
- */
-export function fadeDelayMs({ mode, paused, tagging }: FadeInput): number | null {
-    if (mode !== 'overlay' || paused || tagging) return null
-    return CONTROLS_FADE_MS
-}
-
 /** Seconds before a found moment that a jump lands on: no replay loop, ⟲5 replays. */
 export const FOUND_LEAD_SEC = 6
 
