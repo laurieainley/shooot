@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateYouTubeChapters, generateHighlightChapters, matchChapterLines } from './chapters'
+import { generateYouTubeChapters, generateHighlightChapters, highlightChapterLines, matchChapterLines } from './chapters'
 import type { MatchEvent, Team } from '../types'
 
 const TEAMS: Team[] = [{ name: 'Whites', color: '#fff', roster: [], initials: 'whi' }, { name: 'Colours', color: '#f00', roster: [] }]
@@ -224,4 +224,18 @@ describe('chapters — notes on every event type', () => {
     expect(out).toContain('02:50 Foul (Colours) Sam: n-foul')
     expect(out).toContain('03:50 Highlight (Whites) Sam: n-highlight')
   })
+})
+
+describe('highlightChapterLines with a teaser', () => {
+    const goals: MatchEvent[] = [
+        { id: 'a', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', team: 'Whites' },
+        { id: 'b', matchTimeSec: 200, sourceFileIndex: 0, type: 'goal', team: 'Whites' },
+    ]
+    it('should open with 00:00 Coming up and place the first event at its own time', () => {
+        const times = new Map([['a', 21], ['b', 36]])
+        expect(highlightChapterLines(goals, [0], 10, 4, undefined, undefined, 7, times, true)).toEqual(['00:00 Coming up', '00:21 Goal 1 (Whites)', '00:36 Goal 2 (Whites)'])
+    })
+    it('should be unchanged without the teaser', () => {
+        expect(highlightChapterLines(goals, [0], 10, 4)[0]).toBe('00:00 Goal 1 (Whites)')
+    })
 })

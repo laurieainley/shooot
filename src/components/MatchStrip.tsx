@@ -182,7 +182,7 @@ export function MatchStrip({ variant }: MatchStripProps = {}) {
                 {isPreviewMode ? (
                     <>
                         <span className="strip-label__clock strip-label__clock--accent tc">Preview</span>
-                        <span className="tc">{previewIndex + 1}/{previewCount}</span>
+                        <span className="tc">{previewIndex < 0 ? 'Coming up' : `${previewIndex + 1}/${previewCount}`}</span>
                     </>
                 ) : (
                     <>

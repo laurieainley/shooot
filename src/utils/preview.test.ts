@@ -8,6 +8,26 @@ const seg = (file: number, start: number, end: number, goals: MatchEvent[]): Hig
     ({ sourceFileIndex: file, startTime: start, endTime: end, duration: end - start, goals })
 const REPLAY = { beforeSec: 4, afterSec: 1, speed: 0.5 }
 
+describe('buildPreviewPlan with a teaser', () => {
+    const star = g('s', 100, { marks: ['teaser'] })
+    const reel = [seg(0, 90, 104, [star]), seg(0, 290, 304, [g('h', 300)])]
+    it('should play the teaser clips first at normal speed, then the reel', () => {
+        const steps = buildPreviewPlan(reel, [600], REPLAY, [seg(0, 90, 104, [star])])
+        expect(steps.map((s) => [s.teaser === true, s.replay, s.speed, s.startSec])).toEqual([
+            [true, false, 1, 90], [false, false, 1, 90], [false, true, 0.5, 96], [false, false, 1, 290], [false, true, 0.5, 296],
+        ])
+        expect(steps[0].clipIndex).toBeLessThan(0)
+        expect(steps[1].clipIndex).toBe(0)
+    })
+    it('should jump to the reel clip for a starred event, never its teaser copy', () => {
+        const steps = buildPreviewPlan(reel, [600], REPLAY, [seg(0, 90, 104, [star])])
+        expect(previewStepForEvent(steps, 's')).toBe(1)
+    })
+    it('should be unchanged without teaser segments', () => {
+        expect(buildPreviewPlan(reel, [600], REPLAY, [])).toEqual(buildPreviewPlan(reel, [600], REPLAY))
+    })
+})
+
 describe('buildPreviewPlan', () => {
     it('should play each clip and then its replays, in reel order', () => {
         const steps = buildPreviewPlan([seg(0, 90, 104, [g('a', 100)]), seg(0, 290, 304, [g('h', 300, { type: 'highlight' })])], [600], REPLAY)

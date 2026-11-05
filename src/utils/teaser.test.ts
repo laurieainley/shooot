@@ -30,6 +30,14 @@ describe('highlightsCuts', () => {
         expect(r.origins[0]).toEqual({ segment: -1, replay: false })
         expect(r.origins.slice(1)).toEqual(off.origins)
     })
+    it('should say which teaser clip each teaser cut belongs to', () => {
+        const events = [ev('a', 95, star), ev('b', 2, { sourceFileIndex: 1, ...star })]
+        const r = highlightsCuts({ ...base, events, teaser: true })
+        // a: one cut; b (8 s before file 1 starts) crosses the join: two cuts, one clip
+        expect(r.teaserClips).toEqual([0, 1, 1])
+        expect(r.teaserClips.length).toBe(r.teaserCount)
+        expect(highlightsCuts({ ...base, events, teaser: false }).teaserClips).toEqual([])
+    })
     it('should plan a starred save by its own window, not the merged reel clip', () => {
         const events = [ev('s', 50, { type: 'save', ...star }), ev('g', 55)]
         const r = highlightsCuts({ ...base, events, teaser: true })

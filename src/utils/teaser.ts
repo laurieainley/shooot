@@ -21,6 +21,8 @@ export type HighlightsCuts = {
     segments: HighlightSegment[]
     teaserSegments: HighlightSegment[]
     teaserCount: number
+    /** One per teaser cut: the index into `teaserSegments` of the clip it belongs to (a clip crossing a file join has two cuts). */
+    teaserClips: number[]
 }
 
 /**
@@ -33,11 +35,11 @@ export function highlightsCuts(a: {
     const segments = mergeOverlappingGoalSegments(a.events, a.cumulativeOffsets, a.before, a.after)
     const reel = buildRenderPlanWithOrigins(segments, a.durationsSec, a.replay)
     const teaserSegments = a.teaser ? mergeOverlappingGoalSegments(teaserEvents(a.events), a.cumulativeOffsets, a.before, a.after) : []
-    if (teaserSegments.length === 0) return { cuts: reel.cuts, origins: reel.origins, segments, teaserSegments: [], teaserCount: 0 }
+    if (teaserSegments.length === 0) return { cuts: reel.cuts, origins: reel.origins, segments, teaserSegments: [], teaserCount: 0, teaserClips: [] }
     const teaser = buildRenderPlanWithOrigins(teaserSegments, a.durationsSec)
     return {
         cuts: [...teaser.cuts, ...reel.cuts],
         origins: [...teaser.origins.map((): CutOrigin => ({ segment: -1, replay: false })), ...reel.origins],
-        segments, teaserSegments, teaserCount: teaser.cuts.length,
+        segments, teaserSegments, teaserCount: teaser.cuts.length, teaserClips: teaser.origins.map((o) => o.segment),
     }
 }

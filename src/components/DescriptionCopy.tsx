@@ -60,6 +60,7 @@ export function DescriptionCopy({ kind }: DescriptionCopyProps) {
             replay: { beforeSec: st.replayBeforeSec, afterSec: st.replayAfterSec, speed: st.replaySpeed },
             durationsSec: st.files.map((f) => f.durationSec),
             fullMatchReplays: st.fullMatch.replays,
+            teaser: kind === 'highlights' && st.highlightsTeaser,
             timeline: exactFor(st),
             reencoded: kind === 'highlights' ? reencoded : st.fullMatch.quality !== 'original',
             introSec: (kind === 'highlights' ? highlightsExport : fullMatchExport)(st, 'full').spec?.intro ? INTRO_SEC : 0,

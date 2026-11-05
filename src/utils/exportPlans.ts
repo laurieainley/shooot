@@ -95,11 +95,11 @@ export function planOutput(q: OutputQuality): PlanOutput | undefined {
  */
 export function highlightsExport(s: ExportState, quality: RenderQuality, output?: PlanOutput): ExportPlan {
     const linked = linkedEvents(s.events)
-    const { cuts, teaserCount } = highlightsCuts({
+    const { cuts, teaserCount, teaserClips } = highlightsCuts({
         events: linked, cumulativeOffsets: s.cumulativeOffsets, durationsSec: s.files.map((f) => f.durationSec ?? Infinity),
         before: s.lengthBeforeGoalSec, after: s.lengthAfterGoalSec, replay: replayOptionsFor({ ...s, events: linked }), teaser: s.highlightsTeaser,
     })
-    const spec = nonEmpty(buildGraphicsSpec({ events: linked, teams: s.teams, cuts, cumulativeOffsets: s.cumulativeOffsets, settings: s.graphics, matchday: matchday(s), teaserCount }))
+    const spec = nonEmpty(buildGraphicsSpec({ events: linked, teams: s.teams, cuts, cumulativeOffsets: s.cumulativeOffsets, settings: s.graphics, matchday: matchday(s), teaserCount, teaserClips }))
     // A re-encoded reel is journaled like a full match (units run two at a time and a reload resumes); the stream copy is not.
     const reencode = quality === 'full' ? output : undefined
     return finish('highlights', quality, s, cuts, spec, !!reencode, undefined, reencode)

@@ -132,8 +132,10 @@ export function buildGraphicsSpec(args: {
     cards?: boolean
     /** The first this many cuts are teaser clips: they get COMING UP banners, the reel's captions and replay tags skip them, the intro card follows them. */
     teaserCount?: number
+    /** For each teaser cut, the teaser clip it belongs to (`highlightsCuts().teaserClips`); cuts sharing one are a clip split across files. */
+    teaserClips?: number[]
 }): GraphicsSpec & { outro?: CardSpec } {
-    const { teams, cuts, cumulativeOffsets, settings, captionEvents, captionScore = true, cards: wantCards = true, teaserCount = 0 } = args
+    const { teams, cuts, cumulativeOffsets, settings, captionEvents, captionScore = true, cards: wantCards = true, teaserCount = 0, teaserClips = [] } = args
     const events = linkedEvents(args.events)
     const theme = getTheme(settings.theme)
     const spec: GraphicsSpec & { outro?: CardSpec } = { theme: theme.id, overlays: [] }
@@ -188,7 +190,7 @@ export function buildGraphicsSpec(args: {
             }
         }
         captions.push(...parts.flat().filter((o) => o.durationSec > 0))
-        captions.push(...teaserCaptions(events, teams, cuts, teaserCount, theme))
+        captions.push(...teaserCaptions(events, teams, cuts, teaserCount, teaserClips, theme))
         captions.sort((x, y) => x.cutIndex - y.cutIndex || x.startSec - y.startSec)
         spec.overlays.push(...captions)
     }
@@ -202,17 +204,16 @@ export function buildGraphicsSpec(args: {
 }
 
 /**
- * COMING UP banners for the first `teaserCount` cuts. A teaser clip is one cut, or two when it crosses a file join (the next
- * cut starts at 0 in the next file); its banner spans the whole clip and fades in/out once. A clip holding several starred
+ * COMING UP banners for the first `teaserCount` cuts. A teaser clip is one cut, or two when it crosses a file join (`clipOf`
+ * gives each cut's clip); its banner spans the whole clip and fades in/out once. A clip holding several starred
  * events shows the next one's banner from 1 s before its moment.
  */
-function teaserCaptions(events: MatchEvent[], teams: Team[], cuts: Cut[], teaserCount: number, theme: GraphicsTheme): CaptionOverlay[] {
+function teaserCaptions(events: MatchEvent[], teams: Team[], cuts: Cut[], teaserCount: number, clipOf: number[], theme: GraphicsTheme): CaptionOverlay[] {
     if (teaserCount <= 0) return []
     const groups: number[][] = []
     for (let i = 0; i < teaserCount; i++) {
         const last = groups[groups.length - 1]
-        const prev = last && cuts[last[last.length - 1]]
-        if (prev && cuts[i].startSec === 0 && cuts[i].sourceIndex === prev.sourceIndex + 1) last.push(i)
+        if (last && clipOf[i] !== undefined && clipOf[i] === clipOf[last[last.length - 1]]) last.push(i)
         else groups.push([i])
     }
     const out: CaptionOverlay[] = []

@@ -523,6 +523,20 @@ describe('preview', () => {
         expect(s().previewSteps.map((p) => [p.clipIndex, p.replay, p.speed])).toEqual([[0, false, 1], [0, true, 0.5], [1, false, 1]])
     })
 
+    it('should preview the starred clips first when the teaser is on, and jump to the reel clip', () => {
+        s().updateEvent('g', { marks: ['teaser'] })
+        s().setHighlightsTeaser(true)
+        s().startPreview()
+        expect(s().previewSteps.map((p) => [p.teaser === true, p.replay, p.speed])).toEqual([[true, false, 1], [false, false, 1], [false, true, 0.5], [false, false, 1]])
+        expect(s().previewSegments).toHaveLength(2)
+        expect(s().jumpToPreviewEvent('g')).toBe(true)
+        expect(s().currentPreviewSegment).toBe(1)
+        s().exitPreview()
+        s().setHighlightsTeaser(false)
+        s().startPreview()
+        expect(s().previewSteps.some((p) => p.teaser)).toBe(false)
+    })
+
     it('should jump to a step, and to the clip of an event, without leaving the preview', () => {
         s().startPreview()
         s().jumpToPreviewStep(2)

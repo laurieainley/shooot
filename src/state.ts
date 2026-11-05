@@ -15,7 +15,8 @@ import { goalRectFromMarks, normaliseGoalMarks } from './utils/goalMarks'
 import { isMarker, sanitiseEvents } from './utils/eventTypes'
 import { computeCumulativeOffsets, isLongTimeline } from './utils/timeline'
 import type { HighlightsQualityChoice } from './utils/outputQuality'
-import { mergeOverlappingGoalSegments, type HighlightSegment } from './utils/highlights'
+import type { HighlightSegment } from './utils/highlights'
+import { highlightsCuts } from './utils/teaser'
 import { applyPlayback as applyPlaybackTo, fallBackToLrv as fallBackToLrvFile, type PlaybackPref } from './utils/playbackSource'
 import { relinkEvents as relinkByKey, linkedEvents } from './utils/relink'
 import { kickOffSec, resolveGlobalEvents, withMigratedKickOff } from './utils/matchClock'
@@ -748,14 +749,13 @@ export const useAppState = create<AppState>()(
             // Preview mode actions
             startPreview: () => {
                 const state = get()
-                const segments = mergeOverlappingGoalSegments(
-                    linkedEvents(state.events),
-                    state.cumulativeOffsets,
-                    state.lengthBeforeGoalSec,
-                    state.lengthAfterGoalSec
-                )
-                const steps = buildPreviewPlan(segments, state.files.map((f) => f.durationSec ?? Infinity),
-                    replayOptionsFor({ ...state, events: linkedEvents(state.events) }))
+                const linked = linkedEvents(state.events)
+                const durations = state.files.map((f) => f.durationSec ?? Infinity)
+                const { segments, teaserSegments } = highlightsCuts({
+                    events: linked, cumulativeOffsets: state.cumulativeOffsets, durationsSec: durations,
+                    before: state.lengthBeforeGoalSec, after: state.lengthAfterGoalSec, teaser: state.highlightsTeaser,
+                })
+                const steps = buildPreviewPlan(segments, durations, replayOptionsFor({ ...state, events: linked }), teaserSegments)
                 if (steps.length > 0) {
                     set({
                         isPreviewMode: true,

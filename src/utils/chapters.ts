@@ -65,24 +65,25 @@ export function generateHighlightChapters(
 /**
  * Chapter lines of the highlights reel (no score header). `times` (event id → second in the video, from
  * chapterTimes) places the chapters; without it they are estimated, `offsetSec` (a title card) delaying every
- * chapter but the first. The first is always 00:00, which YouTube needs.
+ * chapter but the first. The first is always 00:00, which YouTube needs: with a `teaser` that is "Coming up", and the first
+ * event is placed like the others (from `times`).
  */
 export function highlightChapterLines(
     goals: MatchEvent[], cumulativeOffsets: number[], lengthBeforeGoalSec: number, lengthAfterGoalSec: number,
-    teamOrder?: Team[], replay?: ReplayOptions, offsetSec = 0, times?: Map<string, number>,
+    teamOrder?: Team[], replay?: ReplayOptions, offsetSec = 0, times?: Map<string, number>, teaser = false,
 ): string[] {
     goals = goals.filter((g) => !isMarker(g))
     const sorted = [...goals].sort((a, b) => absTime(a, cumulativeOffsets) - absTime(b, cumulativeOffsets))
     const teams = scoreTeams(goals, teamOrder)
     const running: Record<string, number> = {}
-    const lines: string[] = []
+    const lines: string[] = teaser && sorted.length > 0 ? ['00:00 Coming up'] : []
     const segmentLength = lengthBeforeGoalSec + lengthAfterGoalSec
     let extra = 0 // seconds added by earlier replays
     let previous = 0
     sorted.forEach((g, i) => {
         const exact = times?.get(g.id)
         // Chapters never go backwards (merged events can share their clip's start).
-        const at = i === 0 ? 0 : exact !== undefined ? Math.max(previous, Math.floor(exact)) : i * (segmentLength + 1) + extra + offsetSec
+        const at = i === 0 && !lines.length ? 0 : exact !== undefined ? Math.max(previous, Math.floor(exact)) : i * (segmentLength + 1) + extra + offsetSec
         previous = at
         lines.push(`${secondsToStamp(at)} ${chapterLabel(g, teams, running)}`)
         if (replay && wantsReplay(g)) extra += Math.round((replay.beforeSec + replay.afterSec) / replay.speed)

@@ -88,3 +88,24 @@ describe('descriptions with own goals and pens', () => {
         expect(text.split('\n').slice(-3)).toEqual(['Goalscorers', 'DJ: 2 (1 pen)', 'Own goals: Ade 1'])
     })
 })
+
+describe('highlightsDescription with a teaser', () => {
+    const starred = events.map((e) => (e.id === 'a' ? { ...e, marks: ['teaser' as const] } : e))
+    const args = { ...base, events: starred, durationsSec: [600, 600], teaser: true }
+
+    it('should start with 00:00 Coming up, then the first event after the teaser and the card', () => {
+        const lines = highlightsDescription({ ...args, introSec: 7, reencoded: true }).split('\n')
+        // The teaser is the goal's own window (before + after = 14 s), then the 7 s card.
+        expect(lines.slice(2, 6)).toEqual(['00:00 Coming up', '00:21 Goal 1-0 (Whites) Sam', '00:35 Highlight Jo: nutmeg', '00:49 Goal 1-1 (Colours) Priya'])
+    })
+    it('should use the real timeline, which counts the teaser cuts', () => {
+        // 1 teaser cut + 4 reel cuts; the render measured the reel starting at 30 s (card included).
+        const timeline = [0, 30, 44, 58, 72].map((s, i) => ({ outStartSec: s, sourceStartSec: [190, 190, 390, 20, 490][i], outDurationSec: 14 }))
+        const lines = highlightsDescription({ ...args, introSec: 7, reencoded: true, timeline }).split('\n')
+        expect(lines.slice(2, 4)).toEqual(['00:00 Coming up', '00:30 Goal 1-0 (Whites) Sam'])
+    })
+    it('should be unchanged without the teaser', () => {
+        expect(highlightsDescription({ ...args, teaser: false, introSec: 4 })).toBe(highlightsDescription({ ...base, introSec: 4 }))
+        expect(highlightsDescription({ ...base, events: starred, introSec: 4 })).toBe(highlightsDescription({ ...base, introSec: 4 }))
+    })
+})

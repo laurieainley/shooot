@@ -460,12 +460,24 @@ describe('teaser graphics', () => {
     })
     it('should span one clock across a teaser clip split over two files', () => {
         const split: Cut[] = [{ sourceIndex: 0, startSec: 92, endSec: 100 }, { sourceIndex: 1, startSec: 0, endSec: 6 }]
-        const spec = buildGraphicsSpec({ events: [ev('a', 2, { sourceFileIndex: 1, scorer: 'Dan', ...star })], teams, cuts: split, cumulativeOffsets: [0, 100], settings: ALL, matchday: 'M', teaserCount: 2 })
+        const spec = buildGraphicsSpec({ events: [ev('a', 2, { sourceFileIndex: 1, scorer: 'Dan', ...star })], teams, cuts: split, cumulativeOffsets: [0, 100], settings: ALL, matchday: 'M', teaserCount: 2, teaserClips: [0, 0] })
         const caps = spec.overlays.filter((o) => o.kind === 'caption')
         expect(caps).toMatchObject([
             { cutIndex: 0, startSec: 92, durationSec: 8, toCutEnd: true, clock: { offsetSec: 0, totalSec: 14 } },
             { cutIndex: 1, startSec: 0, durationSec: 6, fromCutStart: true, clock: { offsetSec: 8, totalSec: 14 } },
         ])
+    })
+    it('should keep two starred clips separate when the second starts exactly at 0 in the next file', () => {
+        // Clip A ends at the end of file 0; clip B is an event exactly `before` s into file 1 (window 0..6): same cuts as a split clip.
+        const cutsAB: Cut[] = [{ sourceIndex: 0, startSec: 92, endSec: 100 }, { sourceIndex: 1, startSec: 0, endSec: 6 }]
+        const evs = [ev('a', 98, { scorer: 'Dan', ...star }), ev('b', 2, { sourceFileIndex: 1, scorer: 'Sam', ...star })]
+        const spec = buildGraphicsSpec({ events: evs, teams, cuts: cutsAB, cumulativeOffsets: [0, 100], settings: ALL, matchday: 'M', teaserCount: 2, teaserClips: [0, 1] })
+        const caps = spec.overlays.filter((o) => o.kind === 'caption')
+        expect(caps).toMatchObject([
+            { cutIndex: 0, startSec: 92, durationSec: 8, clock: { offsetSec: 0, totalSec: 8 } },
+            { cutIndex: 1, startSec: 0, durationSec: 6, clock: { offsetSec: 0, totalSec: 6 } },
+        ])
+        expect(caps.some((o) => o.kind === 'caption' && (o.fromCutStart || o.toCutEnd))).toBe(false)
     })
     it('should place the intro after the teaser only when cards are on', () => {
         expect(run(tcuts, 1).introAfterCut).toBe(1)
