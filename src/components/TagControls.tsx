@@ -6,6 +6,7 @@ import { momentChipText } from '../utils/foundMoments'
 import { jumpToMoment, rejectMoment, useCurrentMoment } from './foundMoments'
 import { useSuggestionsCurrent } from './findGoals'
 import { runPlayerShortcut, stepPlayer, togglePlayerPlayback, usePlayerPaused } from './playerControl'
+import { SpeedButton } from './SpeedButton'
 import { startTag, useTagUi } from './tagView'
 
 interface TagControlsProps {
@@ -41,7 +42,7 @@ export function TagControls({ variant }: TagControlsProps) {
                     <TvButton label="Next found moment" className="tv-btn--found" disabled={!next || tagging} onClick={() => next && jumpToMoment(next)}><span aria-hidden="true">Found ▶</span></TvButton>
                 </div>
                 <TvButton label="Previous frame" onClick={() => stepPlayer('frame', -1)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg></TvButton>
-                <span />
+                <SpeedButton variant="touch" />
                 <TvButton label="Next frame" onClick={() => stepPlayer('frame', 1)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg></TvButton>
                 <TvButton label="Back 5 seconds" onClick={() => runPlayerShortcut('seekBack')}>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7" /><path d="M4 4v4h4" /></svg>

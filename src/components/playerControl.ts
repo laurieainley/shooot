@@ -63,3 +63,20 @@ export function registerPlayerRate(get: () => number, set: (rate: number) => voi
 }
 export const getPlayerRate = (): number => rateHandle?.get() ?? 1
 export function setPlayerRate(rate: number): void { rateHandle?.set(rate) }
+
+/** The speeds offered by the speed button and the ⋯ menu. */
+export const PLAYBACK_SPEEDS = [0.25, 0.5, 1, 1.5, 2]
+/** "1×", "0.5×", "1.25×": a playback rate as written on the speed button. */
+export const rateLabel = (rate: number): string => `${Number(rate.toFixed(2))}×`
+
+// The current rate, published by Player on every ratechange (keys and the ⋯ menu change it too) so a button can show it.
+let publishedRate = 1
+const rateListeners = new Set<() => void>()
+export function publishPlayerRate(rate: number): void {
+    if (rate === publishedRate) return
+    publishedRate = rate
+    rateListeners.forEach((l) => l())
+}
+export function usePlayerRate(): number {
+    return useSyncExternalStore((cb) => { rateListeners.add(cb); return () => { rateListeners.delete(cb) } }, () => publishedRate, () => publishedRate)
+}

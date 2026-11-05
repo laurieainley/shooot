@@ -4,13 +4,14 @@ import 'video.js/dist/video-js.css'
 import { selectClockLong, useAppState } from '../state'
 import { shortcutFor, shouldHandleShortcut } from '../utils/shortcuts'
 import { FindGoalsLine } from './FindGoalsChip'
-import { registerPlayerRate, registerPlayerSeekPaused, registerPlayerShortcut, registerPlayerStep, registerPlayerToggle, setPlayerPaused } from './playerControl'
+import { registerPlayerRate, registerPlayerSeekPaused, registerPlayerShortcut, registerPlayerStep, publishPlayerRate, registerPlayerToggle, setPlayerPaused } from './playerControl'
 import { runShortcut, seekBy, stepFrame, type ShortcutPlayer } from './playerShortcuts'
 import { FullscreenControls } from './FullscreenControls'
 import { EventPicker } from './EventPicker'
 import { EventsSheet } from './EventsSheet'
 import { MatchStrip } from './MatchStrip'
 import { useTagUi, useTagViewMode } from './tagView'
+import { SpeedButton } from './SpeedButton'
 import { fadeDelayMs } from '../utils/tagView'
 import { Toast } from './Toast'
 import { fullscreenSplit, useFullscreenUi } from './fullscreenUi'
@@ -160,6 +161,7 @@ export function Player() {
             p.on('dispose', () => { detach(); endActivity('playback') })
         }
         p.on('ratechange', () => {
+            publishPlayerRate(p.playbackRate() ?? 1)
             if (!shouldShowSpeedIndicator(useAppState.getState().isPreviewMode, performance.now(), quietRateUntilRef.current)) return
             const rate = p.playbackRate() ?? 1
             setSpeedIndicator(rate)
@@ -483,6 +485,7 @@ export function Player() {
             )}
             <PlayIndicator visible={paused} />
             <Scorebug />
+            {tagViewMode === 'off' && !inFullscreen && <SpeedButton variant="desk" />}
             <ZoomChip zoom={zoomPan.zoom} onReset={zoomPan.reset} />
             {inFullscreen && <RenderChip variant="overlay" />}
             <FullscreenControls playerRef={playerRef} isFullscreen={inFullscreen} />

@@ -15,7 +15,7 @@ import type { Layout } from './useMediaQuery'
 import { ExportPanel } from './ExportPanel'
 import { useExportButtonStatus } from './useExportButtonStatus'
 import { useTagUi } from './tagView'
-import { getPlayerRate, runPlayerShortcut, setPlayerRate } from './playerControl'
+import { PLAYBACK_SPEEDS, getPlayerRate, runPlayerShortcut, setPlayerRate } from './playerControl'
 import { useTagViewMode } from './tagView'
 
 interface OverflowMenuProps {
@@ -59,8 +59,6 @@ function DotsIcon() {
     )
 }
 
-const SPEEDS = [0.25, 0.5, 1, 1.5, 2]
-
 type MenuItem = { label: string; panel: Panel; aria?: string }
 
 interface MenuBodyProps {
@@ -103,7 +101,7 @@ function MenuBody({ setupInMenu, tagView = false }: MenuBodyProps) {
             {touchView && hasFiles && (
                 <div role="group" aria-label="Playback speed" className="menu-speeds">
                     <span className="menu-speeds__label">Speed</span>
-                    {SPEEDS.map((r) => (
+                    {PLAYBACK_SPEEDS.map((r) => (
                         <button key={r} type="button" className="menu-speeds__btn tc" aria-pressed={Math.abs(rate - r) < 0.01} onClick={() => { setPlayerRate(r); setRate(r) }}>{r}×</button>
                     ))}
                 </div>
