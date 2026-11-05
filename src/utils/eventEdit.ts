@@ -1,6 +1,6 @@
 import type { MatchEvent, Team } from '../types'
 import { PICKER_OPTIONS, type PickerOption } from './eventTypes'
-import { rosterTeamFor } from './roster'
+import { rosterTeamFor, rostersFor } from './roster'
 
 /** The picker option an existing event corresponds to (a penalty goal is "Penalty goal"). */
 export function optionForEvent(e: Pick<MatchEvent, 'type' | 'pen'>): PickerOption {
@@ -31,7 +31,7 @@ export function personEdit(teams: Team[], e: Pick<MatchEvent, 'team' | 'type'>, 
     const clean = name.trim()
     if (!clean) return { patch: { scorer: undefined } }
     const roster = rosterTeamFor(teams, e.team, e.type)
-    const known = roster?.roster.some((r) => r.toLowerCase() === clean.toLowerCase()) ?? false
+    const known = rostersFor(teams, e.team, e.type).some((t) => t.roster.some((r) => r.toLowerCase() === clean.toLowerCase())) // an own goal can name a player from either team
     return roster && !known ? { patch: { scorer: clean }, addToRoster: { team: roster.name, name: clean } } : { patch: { scorer: clean } }
 }
 

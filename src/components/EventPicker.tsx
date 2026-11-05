@@ -16,7 +16,7 @@ import { useTagViewMode } from './tagView'
 import { momentAt } from '../utils/foundMoments'
 import { pendingMoments } from '../utils/tagView'
 import { NOTE_MAX, PICKER_GROUPS, PICKER_OPTIONS, assistOf, isMarker, controlLabel, type PickerOption } from '../utils/eventTypes'
-import { SKIP, initialPickerState, pickerReducer, touchPickerState, scorerCandidates, isDisabledName, previousStep, type PickerInput, type PickerState } from '../utils/eventPicker'
+import { SKIP, initialPickerState, pickerReducer, touchPickerState, scorerCandidates, scorerGroups, isDisabledName, previousStep, type PickerInput, type PickerState } from '../utils/eventPicker'
 import { formatClock } from '../utils/timeline'
 import type { MatchEvent } from '../types'
 import { panelPlacement, usePanelSlot } from './panelSlot'
@@ -167,6 +167,7 @@ export function EventPicker() {
 
     const names = teams.map((t) => t.name)
     const candidates = scorerCandidates(state, { teams, touch: coarse })
+    const groups = scorerGroups(state, { teams, touch: coarse })
     const title = formatClock(event.matchTimeSec, clockLong)
     const { option } = state
     const canSkip = (state.step === 'team' && option.teamOptional) || (state.step === 'scorer' && option.personOptional) || state.step === 'assist'
@@ -197,6 +198,7 @@ export function EventPicker() {
                 question={questionFor(state.step, option)}
                 teams={teams}
                 candidates={candidates}
+                groups={groups.length > 1 ? groups : undefined}
                 added={added}
                 query={state.query}
                 textLabel={textLabel}
@@ -285,6 +287,7 @@ export function EventPicker() {
                     placeholder={coarse ? `Type a new ${personLabel.toLowerCase()}` : state.step === 'assist' ? 'Assist (optional) — type to filter, Enter to pick, Tab to skip' : `${personLabel} — type to filter, Enter to pick`}
                     query={state.query}
                     candidates={candidates}
+                    groups={groups.length > 1 ? groups : undefined}
                     highlighted={state.highlighted}
                     showHighlight={!coarse}
                     onQuery={(value) => dispatch({ kind: 'text', value })}

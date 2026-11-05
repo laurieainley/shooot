@@ -69,9 +69,9 @@ describe('stepPeople', () => {
         p = stepPeople(p, { kind: 'key', key: 'Tab' }, teams)
         expect(peopleOpen(p)).toBe(false)
     })
-    it('should take an own goal player from the other team roster', () => {
+    it('should take an own goal player from either roster, the other team first', () => {
         const p = startPeople('own_goal', 'Whites', 2)
-        expect(peopleCandidates(p, teams)).toEqual(['Jo'])
+        expect(peopleCandidates(p, teams)).toEqual(['Jo', 'Álvaro', 'Bob', 'Sam', 'Sandy', 'zoe'])
     })
     it('should reopen at the scorer step with the names cleared', () => {
         let p = stepPeople(startPeople('goal', 'Whites', 2), { kind: 'choose', value: 'Sam' }, teams)

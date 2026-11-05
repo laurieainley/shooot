@@ -9,6 +9,14 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ---
 
+## 2026-11-05 — Touch player: zoom kept across resizes, controls never auto-hide, visible speed button; own goals from either team (user + agent)
+- **Decision (user):** landscape zoom must not keep resetting; touch controls stay visible unless a single tap hides them; speed is a visible
+  button; an own goal can name a player from either team (the last touch).
+- **Agent calls:** zoom resets only on orientation flip / fullscreen / preview, other resizes keep it and clamp the pan; the speed button
+  sits in the touch left cluster and as a desktop pill top-right of the picture; own-goal lists put the conceding team first.
+- **Why:** browser bars and overlays resize the player constantly on a phone; the controls faded mid-tagging.
+- **Where:** brief `docs/superpowers/agents/briefs/touchplayer-brief.md`, branch feat/touchplayer.
+
 ## 2026-11-05 — Starred events open the highlights as a "Coming up" teaser; whole notes in captions (user + agent)
 - **Decision (user):** any event can be starred (★ Star menu in the Events row, option B, room for later marks such as goal of the
   season); starred moments play their whole clip before the VS card under a COMING UP banner that replaces the event word, with the
