@@ -22,7 +22,7 @@ import { GpuPath } from './gpuScaler'
 import { encodeReplayAudio } from './replayAudio'
 import { makeSilentAudio, type SilentAudio } from './silentAudio'
 import { makeTarget, openSource, type OpenSource } from './sourceInput'
-import { MIN_PARALLEL_UNIT_SEC, PARALLEL_UNITS, aacConfig, cutFrames, keyEvery, outputDimensions, outputFrameSec, planSegments, sourceTimeOf, type Segment } from './transcodePlan'
+import { MIN_PARALLEL_UNIT_SEC, PARALLEL_UNITS, aacConfig, cutFrames, keyEvery, outputDimensions, outputFrameSec, orderUnits, planSegments, sourceTimeOf, type OrderedUnit, type Segment } from './transcodePlan'
 import { runPool } from './unitPool'
 import { OrderedSink } from './orderedSink'
 import { pickH264Encoder, type H264Encoder } from './transcodeSupport'
@@ -42,7 +42,7 @@ const isAbort = (e: unknown): boolean => e instanceof DOMException && e.name ===
 /** What one unit draws on: normally the engine's single canvas and WebGL scaler; parallel units each get their own. `work`: model seconds this unit has credited so far. */
 type UnitEnv = { canvas: OffscreenCanvas; ctx: OffscreenCanvasRenderingContext2D; gl: GlScaler | null; writer: UnitWriter | null; cancelled: boolean; /** Aborts when the pool gives up on this unit (a sibling failed): everything the unit awaits stops at once. */ stop: AbortController; work: number; /** Labels of the graphics this unit drew (kept with a cached unit). */ labels: Set<string> }
 
-type Unit = { kind: 'intro' } | { kind: 'outro' } | { kind: 'segment'; segment: Segment }
+type Unit = OrderedUnit<Segment>
 
 /** Frame bookkeeping for the diagnostics: every VideoFrame the engine made must be closed again. */
 class FrameCount {
@@ -147,7 +147,10 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         const reuse = journaled && exp?.unitCache !== false ? opts.reuse : undefined
         if (!journaled && !exp?.targetFile && (exp?.parallelUnits ?? 1) > 1) diag.note('Parallel units need a resumable (journaled) render or a file to save into: running one unit at a time')
         const segments = planSegments(planCuts, frameSec, Math.round((exp?.segmentSec ?? SEGMENT_SEC) / frameSec), parallelN > 1 ? { units: parallelN, minFrames: Math.round(MIN_PARALLEL_UNIT_SEC / frameSec), ...(reuse ? { stable: true } : {}) } : undefined)
-        const units: Unit[] = [{ kind: 'intro' }, ...segments.map((segment): Unit => ({ kind: 'segment', segment })), { kind: 'outro' }]
+        // Output order: title card, segments, full-time card; after a teaser the title card follows the teaser's segments
+        // (introAfterCut counts the plan's cuts; segments count the valid ones, so it is mapped onto them).
+        const introAfter = g?.introAfterCut ? valid.filter((v) => v.ci < g.introAfterCut!).length : 0
+        const units: Unit[] = orderUnits(segments, introAfter)
         const cardFrames = (c: RenderCard | undefined): number => (c ? Math.max(1, Math.round(c.durationSec / frameSec)) : 0)
 
         const overlaysByCut = new Map<number, RenderOverlay[]>()

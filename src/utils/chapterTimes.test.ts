@@ -26,6 +26,18 @@ describe('estimateTimeline', () => {
             { outStartSec: 25, sourceStartSec: 94.5, outDurationSec: 18 },
         ])
     })
+    it('should put the title card after the teaser cuts when introAfterCut is set', () => {
+        const cuts: Cut[] = [{ sourceIndex: 0, startSec: 100, endSec: 108 }, { sourceIndex: 0, startSec: 90, endSec: 110 }]
+        expect(estimateTimeline(cuts, 4, 0, 1)).toEqual([
+            { outStartSec: 0, sourceStartSec: 100, outDurationSec: 8 },
+            { outStartSec: 12, sourceStartSec: 90, outDurationSec: 20 },
+        ])
+    })
+    it('should keep the title card first when introAfterCut is 0', () => {
+        const cuts: Cut[] = [{ sourceIndex: 0, startSec: 100, endSec: 108 }]
+        expect(estimateTimeline(cuts, 4, 0, 0)).toEqual(estimateTimeline(cuts, 4, 0))
+        expect(estimateTimeline(cuts, 4, 0)[0]!.outStartSec).toBe(4)
+    })
 })
 
 describe('highlight chapters from the plan (before a render)', () => {

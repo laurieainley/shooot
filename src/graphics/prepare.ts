@@ -19,5 +19,6 @@ export async function prepareSpec(spec: GraphicsSpec | undefined, cache?: Overla
     await ensureGraphicsFonts(getTheme(spec.theme))
     const logo = await loadLogo(await loadCustomLogo())
     const wordmark = isSting(spec.outro) ? await loadWordmark() : null
-    return toRenderGraphics(spec, { logo, wordmark }, cache)
+    const graphics = toRenderGraphics(spec, { logo, wordmark }, cache)
+    return spec.introAfterCut && graphics.intro ? { ...graphics, introAfterCut: spec.introAfterCut } : graphics
 }

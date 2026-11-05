@@ -12,10 +12,14 @@ export function cutTiming(cursor: number, cutStart: number, cutEnd: number, spee
     return { outStartSec: cursor, sourceStartSec: cutStart, outDurationSec: (cutEnd - cutStart) / speed }
 }
 
-/** The timeline the plan implies, after a title card of `introSec` (each cut padded by the expected key-frame slack). */
-export function estimateTimeline(cuts: Cut[], introSec: number, slackSec = ESTIMATED_GOP_SLACK_SEC): RenderTimeline {
-    let cursor = introSec
-    return cuts.map((c) => {
+/**
+ * The timeline the plan implies, with a title card of `introSec` before cut `introAfterCut` (0 = at the start; after a
+ * teaser it follows the teaser's cuts). Each cut is padded by the expected key-frame slack.
+ */
+export function estimateTimeline(cuts: Cut[], introSec: number, slackSec = ESTIMATED_GOP_SLACK_SEC, introAfterCut = 0): RenderTimeline {
+    let cursor = 0
+    return cuts.map((c, i) => {
+        if (i === introAfterCut) cursor += introSec
         const t = cutTiming(cursor, Math.max(0, c.startSec - slackSec / 2), c.endSec + slackSec / 2, c.speed ?? 1)
         cursor += t.outDurationSec
         return t
