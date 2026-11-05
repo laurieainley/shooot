@@ -15,7 +15,7 @@ const state = (extra: Partial<ExportState> = {}): ExportState => ({
     lengthBeforeGoalSec: 10, lengthAfterGoalSec: 4, replayBeforeSec: 4, replayAfterSec: 1, replaySpeed: 0.5,
     graphics: { cards: true, lowerThirds: true, replayTag: false, theme: 'shooot' },
     teams: [{ name: 'Whites', color: '#fff', roster: [] }, { name: 'Colours', color: '#f00', roster: [] }],
-    matchdayLabel: null, fullMatch: { cards: true, scoreBug: 'periodic', intervalMin: 5, captions: false, replays: false, quality: 'original' },
+    matchdayLabel: null, highlightsTeaser: true, fullMatch: { cards: true, scoreBug: 'periodic', intervalMin: 5, captions: false, replays: false, quality: 'original' },
     ...extra,
 })
 
@@ -220,5 +220,33 @@ describe('clipExport', () => {
         expect(clipExport(cs(), 'ko', both, 'full')).toBeNull()
         expect(clipExport(cs(), 'nope', both, 'full')).toBeNull()
         expect(clipExport(cs(), 'U', both, 'full')).toBeNull()
+    })
+})
+
+describe('highlightsExport teaser', () => {
+    const starred: MatchEvent[] = events.map((e) => (e.id === 'g' ? { ...e, marks: ['teaser' as const] } : e))
+    it('should open with the starred clip, then the card, and count it in the length', () => {
+        const none = highlightsExport(state(), 'full')
+        const plan = highlightsExport(state({ events: starred }), 'full')
+        expect(plan.cuts[0]).toEqual({ sourceIndex: 0, startSec: 50, endSec: 64 })
+        expect(plan.cuts.slice(1)).toEqual(none.cuts)
+        expect(plan.seconds).toBeCloseTo(none.seconds + 14)
+        expect(plan.spec?.introAfterCut).toBe(1)
+        expect(none.spec).not.toHaveProperty('introAfterCut')
+    })
+    it('should plan exactly as before with the switch off', () => {
+        const off = highlightsExport(state({ events: starred, highlightsTeaser: false }), 'full')
+        const plain = highlightsExport(state(), 'full')
+        expect(off.cuts).toEqual(plain.cuts)
+        expect(off.spec).toEqual(plain.spec)
+        expect(off.signature).toBe(plain.signature)
+    })
+    it('should change the signature when a star is toggled or the switch turned off', () => {
+        const on = highlightsExport(state({ events: starred }), 'full').signature
+        expect(on).not.toBe(highlightsExport(state(), 'full').signature)
+        expect(on).not.toBe(highlightsExport(state({ events: starred, highlightsTeaser: false }), 'full').signature)
+    })
+    it('should leave the full match alone', () => {
+        expect(fullMatchExport(state({ events: starred }), 'full').cuts).toEqual(fullMatchExport(state(), 'full').cuts)
     })
 })

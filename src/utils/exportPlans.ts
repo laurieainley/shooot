@@ -7,6 +7,7 @@ import { isSting, type GraphicsSpec } from '../graphics/types'
 import { CARD_SEC, INTRO_SEC, STING_SEC } from '../graphics/layout'
 import { estimateBytes, fullMatchCuts, fullMatchSpan, recordingGaps, withReplays } from './fullMatch'
 import { mergeOverlappingGoalSegments } from './highlights'
+import { highlightsCuts } from './teaser'
 import { eventLabel, isMarker } from './eventTypes'
 import { markerGlobalSec, matchMinute } from './matchClock'
 import { wantsReplay } from './replays'
@@ -43,6 +44,8 @@ export type ExportState = {
     teams: Team[]
     matchdayLabel: string | null
     fullMatch: FullMatchSettings
+    /** Highlights only: open with the starred events as a "COMING UP" teaser. */
+    highlightsTeaser: boolean
     /** Replay zoom: where the goals are in the picture and which way the first team attacks in the first half. */
     goalAreas?: GoalAreas | null
 }
@@ -92,9 +95,11 @@ export function planOutput(q: OutputQuality): PlanOutput | undefined {
  */
 export function highlightsExport(s: ExportState, quality: RenderQuality, output?: PlanOutput): ExportPlan {
     const linked = linkedEvents(s.events)
-    const segments = mergeOverlappingGoalSegments(linked, s.cumulativeOffsets, s.lengthBeforeGoalSec, s.lengthAfterGoalSec)
-    const cuts = buildRenderPlan(segments, s.files.map((f) => f.durationSec ?? Infinity), replayOptionsFor({ ...s, events: linked }))
-    const spec = nonEmpty(buildGraphicsSpec({ events: linked, teams: s.teams, cuts, cumulativeOffsets: s.cumulativeOffsets, settings: s.graphics, matchday: matchday(s) }))
+    const { cuts, teaserCount } = highlightsCuts({
+        events: linked, cumulativeOffsets: s.cumulativeOffsets, durationsSec: s.files.map((f) => f.durationSec ?? Infinity),
+        before: s.lengthBeforeGoalSec, after: s.lengthAfterGoalSec, replay: replayOptionsFor({ ...s, events: linked }), teaser: s.highlightsTeaser,
+    })
+    const spec = nonEmpty(buildGraphicsSpec({ events: linked, teams: s.teams, cuts, cumulativeOffsets: s.cumulativeOffsets, settings: s.graphics, matchday: matchday(s), teaserCount }))
     // A re-encoded reel is journaled like a full match (units run two at a time and a reload resumes); the stream copy is not.
     const reencode = quality === 'full' ? output : undefined
     return finish('highlights', quality, s, cuts, spec, !!reencode, undefined, reencode)

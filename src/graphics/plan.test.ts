@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildGraphicsSpec, normaliseGraphics, scorerColumns, fullMatchCaptionWindows, fullMatchGraphicsSpec, wantsFullMatchCaption, wantsLowerThird, type GraphicsSettings } from './plan'
+import { buildGraphicsSpec, teaserCaptionSpec, normaliseGraphics, scorerColumns, fullMatchCaptionWindows, fullMatchGraphicsSpec, wantsFullMatchCaption, wantsLowerThird, type GraphicsSettings } from './plan'
 import { captionWord } from './themes/shooot'
 import { classicTheme } from './themes/classic'
 import { getTheme, isThemeId, THEMES } from './themes'
@@ -410,5 +410,66 @@ describe('buildGraphicsSpec clip options', () => {
         const spec = run({ cards: false })
         expect(spec.intro).toBeUndefined()
         expect(spec.outro).toBeUndefined()
+    })
+})
+
+describe('teaserCaptionSpec', () => {
+    const t = (e: MatchEvent) => teaserCaptionSpec(e, teams, getTheme('shooot'))
+    it('should say COMING UP in the goal tone with the event word and name', () => {
+        const s = t(ev('a', 10, { scorer: 'Dan', team: 'Walford Town', notes: 'makes it 3-2', assist: 'Bo' }))
+        expect(s).toEqual({ label: 'COMING UP', tone: 'goal', note: 'GOAL · DAN', stripe: getTheme('shooot').caption.defaultStripe })
+    })
+    it('should name penalties and the event word alone', () => {
+        expect(t(ev('a', 10, { scorer: 'Dan', pen: true })).note).toBe('PEN GOAL · DAN')
+        expect(t(ev('a', 10, { type: 'penalty_conceded', scorer: 'A Lo' })).note).toBe('PENALTY CONCEDED · A LO')
+        expect(t(ev('a', 10, { type: 'save' })).note).toBe('SAVE')
+    })
+    it('should give a highlight its note, else its name, else HIGHLIGHT', () => {
+        expect(t(ev('a', 10, { type: 'highlight', notes: 'Nutmeg on the wing', scorer: 'Sam' })).note).toBe('NUTMEG ON THE WING')
+        expect(t(ev('a', 10, { type: 'highlight', scorer: 'Sam' })).note).toBe('SAM')
+        expect(t(ev('a', 10, { type: 'highlight' })).note).toBe('HIGHLIGHT')
+    })
+})
+
+describe('teaser graphics', () => {
+    const star = { marks: ['teaser' as const] }
+    const tcuts: Cut[] = [
+        { sourceIndex: 0, startSec: 30, endSec: 44 },
+        { sourceIndex: 0, startSec: 30, endSec: 44 },
+        { sourceIndex: 0, startSec: 36, endSec: 41, speed: 0.5, gain: 0.5 },
+    ]
+    const events = [ev('g', 40, { scorer: 'Dan', team: 'Walford Town', notes: 'late winner', ...star })]
+    const run = (c: Cut[], n: number, settings = { ...ALL, replayTag: true }, evs = events) =>
+        buildGraphicsSpec({ events: evs, teams, cuts: c, cumulativeOffsets: [0], settings, matchday: 'M', teaserCount: n })
+
+    it('should banner the whole teaser clip and keep reel captions and replay tags off teaser cuts', () => {
+        const spec = run(tcuts, 1)
+        const caps = spec.overlays.filter((o) => o.kind === 'caption')
+        const teaser = caps.filter((o) => o.cutIndex === 0)
+        expect(teaser).toHaveLength(1)
+        expect(teaser[0]).toMatchObject({ startSec: 30, durationSec: 14, spec: { label: 'COMING UP', note: 'GOAL · DAN' }, clock: { offsetSec: 0, rate: 1, totalSec: 14 } })
+        const reel = caps.filter((o) => o.kind === 'caption' && o.cutIndex !== 0)
+        expect(reel.map((o) => o.cutIndex)).toEqual([1, 2])
+        expect(spec.overlays.filter((o) => o.kind === 'replayTag').map((o) => o.cutIndex)).toEqual([2])
+        for (const o of teaser) expect(o.kind === 'caption' && o.spec).not.toHaveProperty('bug')
+    })
+    it('should switch to the next starred event 1 s before its moment on a merged clip', () => {
+        const two = [ev('a', 40, { scorer: 'Dan', ...star }), ev('b', 46, { type: 'save', ...star })]
+        const caps = run([{ sourceIndex: 0, startSec: 30, endSec: 50 }], 1, ALL, two).overlays.filter((o) => o.kind === 'caption')
+        expect(caps.map((o) => o.kind === 'caption' && [o.spec.note, o.startSec, o.durationSec])).toEqual([['GOAL · DAN', 30, 15], ['SAVE', 45, 5]])
+    })
+    it('should span one clock across a teaser clip split over two files', () => {
+        const split: Cut[] = [{ sourceIndex: 0, startSec: 92, endSec: 100 }, { sourceIndex: 1, startSec: 0, endSec: 6 }]
+        const spec = buildGraphicsSpec({ events: [ev('a', 2, { sourceFileIndex: 1, scorer: 'Dan', ...star })], teams, cuts: split, cumulativeOffsets: [0, 100], settings: ALL, matchday: 'M', teaserCount: 2 })
+        const caps = spec.overlays.filter((o) => o.kind === 'caption')
+        expect(caps).toMatchObject([
+            { cutIndex: 0, startSec: 92, durationSec: 8, toCutEnd: true, clock: { offsetSec: 0, totalSec: 14 } },
+            { cutIndex: 1, startSec: 0, durationSec: 6, fromCutStart: true, clock: { offsetSec: 8, totalSec: 14 } },
+        ])
+    })
+    it('should place the intro after the teaser only when cards are on', () => {
+        expect(run(tcuts, 1).introAfterCut).toBe(1)
+        expect(run(tcuts, 1, { ...ALL, cards: false })).not.toHaveProperty('introAfterCut')
+        expect(run(tcuts, 0)).not.toHaveProperty('introAfterCut')
     })
 })
