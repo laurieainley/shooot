@@ -9,6 +9,28 @@ const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: 
 const goalIn = (fileIndex: number, id = `g${fileIndex}`): MatchEvent => ({ id, matchTimeSec: 10, sourceFileIndex: fileIndex, type: 'goal' })
 const s = () => useAppState.getState()
 
+describe('toggleMark', () => {
+    beforeEach(() => {
+        useAppState.setState({ events: [{ id: 'g', matchTimeSec: 10, type: 'goal' }, { id: 'k', matchTimeSec: 1, type: 'kick_off' }], undoStack: [], redoStack: [] })
+    })
+
+    it('should add then remove the teaser mark, and undo restores', () => {
+        s().toggleMark('g', 'teaser')
+        expect(s().events.find((e) => e.id === 'g')!.marks).toEqual(['teaser'])
+        s().toggleMark('g', 'teaser')
+        expect(s().events.find((e) => e.id === 'g')!.marks ?? []).toEqual([])
+        s().undo()
+        expect(s().events.find((e) => e.id === 'g')!.marks).toEqual(['teaser'])
+    })
+
+    it('should do nothing on a marker or unknown id', () => {
+        s().toggleMark('k', 'teaser')
+        s().toggleMark('nope', 'teaser')
+        expect(s().events.find((e) => e.id === 'k')!.marks).toBeUndefined()
+        expect(s().undoStack).toHaveLength(0)
+    })
+})
+
 describe('file changes keep events', () => {
     beforeEach(() => {
         useAppState.setState({ files: [], events: [], cumulativeOffsets: [], undoStack: [], redoStack: [], currentFileIndex: 0 })
@@ -209,9 +231,20 @@ describe('teams and picker', () => {
         expect((migrate({ replayAfterSec: 1 }, 27) as { replayAfterSec: number }).replayAfterSec).toBe(1)
     })
 
+    it('should turn the teaser on for saved state from before v28 and persist it', () => {
+        const opts = useAppState.persist.getOptions()
+        expect((opts.migrate!({}, 27) as { highlightsTeaser: boolean }).highlightsTeaser).toBe(true)
+        expect((opts.migrate!({ highlightsTeaser: false }, 28) as { highlightsTeaser: boolean }).highlightsTeaser).toBe(false)
+        expect(opts.partialize!(s())).toHaveProperty('highlightsTeaser')
+        expect(s().highlightsTeaser).toBe(true)
+        s().setHighlightsTeaser(false)
+        expect(s().highlightsTeaser).toBe(false)
+        s().setHighlightsTeaser(true)
+    })
+
     it('should migrate v8 legacy event types and persist teams (v9+)', () => {
         const opts = useAppState.persist.getOptions()
-        expect(opts.version).toBe(27)
+        expect(opts.version).toBe(28)
         const migrated = opts.migrate!({ events: [{ id: 'a', matchTimeSec: 1, type: 'moment' }, { id: 'b', matchTimeSec: 2, type: 'card' }] }, 8) as { events: MatchEvent[] }
         expect(migrated.events.map((e) => e.type)).toEqual(['highlight', 'foul'])
         expect(opts.partialize!(s())).toHaveProperty('teams')

@@ -1,5 +1,5 @@
 import { migrateReplayCrop } from './crop'
-import type { EventType, MarkerType, MatchEvent, Team } from '../types'
+import type { EventMark, EventType, MarkerType, MatchEvent, Team } from '../types'
 
 export type EventMeta = {
     label: string
@@ -127,16 +127,30 @@ export function isMarker<T extends Pick<MatchEvent, 'type'>>(e: T): e is T & { t
     return EVENT_META[e.type].marker === true
 }
 
+const EVENT_MARKS: readonly EventMark[] = ['teaser']
+
+export function hasMark(e: Pick<MatchEvent, 'marks'>, m: EventMark): boolean {
+    return e.marks?.includes(m) ?? false
+}
+
+/** Known marks only, once each; none left (or a marker event) = no `marks` key at all. */
+function cleanMarks(raw: unknown, type: EventType): EventMark[] | undefined {
+    if (!Array.isArray(raw) || EVENT_META[type].marker) return undefined
+    const marks = EVENT_MARKS.filter((m) => raw.includes(m))
+    return marks.length ? marks : undefined
+}
+
 const LEGACY_TYPES: Record<string, EventType> = { moment: 'highlight', card: 'foul', kickoff: 'kick_off', kickOff: 'kick_off', halftime: 'half_time', halfTime: 'half_time', finalWhistle: 'final_whistle' }
 
 /** `whitesAttackLeft`: the old direction flag, needed only to turn a stored 'left' / 'right' replay framing into a team's goal. */
-export function migrateEvent(raw: Omit<MatchEvent, 'type' | 'replayCrop'> & { type?: string; replayCrop?: unknown }, whitesAttackLeft = true, teams: Team[] = []): MatchEvent {
+export function migrateEvent(raw: Omit<MatchEvent, 'type' | 'replayCrop' | 'marks'> & { type?: string; replayCrop?: unknown; marks?: unknown }, whitesAttackLeft = true, teams: Team[] = []): MatchEvent {
     if (raw.type === 'penalty_awarded') return migrateEvent(awardedToConceded(raw, teams), whitesAttackLeft, teams)
     const t = raw.type ?? 'goal'
     const type = (LEGACY_TYPES[t] ?? (t in EVENT_META ? t : 'highlight')) as EventType
-    const { replayCrop, ...rest } = raw
+    const { replayCrop, marks, ...rest } = raw
     const crop = migrateReplayCrop(replayCrop, whitesAttackLeft)
-    return { ...rest, type, ...(crop !== undefined ? { replayCrop: crop } : {}) }
+    const cleaned = cleanMarks(marks, type)
+    return { ...rest, type, ...(crop !== undefined ? { replayCrop: crop } : {}), ...(cleaned ? { marks: cleaned } : {}) }
 }
 
 /**

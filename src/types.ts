@@ -50,6 +50,8 @@ export type GoalTeam = 'team1' | 'team2'
 /** How an event's replay is framed: a goal area, the whole frame or a custom box (undefined = automatic). */
 export type ReplayCrop = CropRect | GoalTeam | 'full'
 
+export type EventMark = 'teaser'
+
 export type MatchEvent = {
     id: string
     matchTimeSec: number
@@ -64,6 +66,8 @@ export type MatchEvent = {
     notes?: string
     replay?: boolean         // explicit replay override; undefined = default for the type
     replayCrop?: ReplayCrop  // replay framing; undefined = automatic, by event type (utils/attack.ts)
+    /** Stars on the event (Star menu); absent = none. 'teaser' plays it at the top of the highlights video. */
+    marks?: EventMark[]
     /** Migrated kick-off: time on the whole timeline, until loaded files cover it (see utils/matchClock.ts). */
     globalTimeSec?: number
 }
