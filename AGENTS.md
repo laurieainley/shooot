@@ -170,6 +170,15 @@ npm run lint       # baseline: 12 known problems — add none
   Chapters start "00:00 Coming up"; preview plays the teaser first (`PreviewStep.teaser`, `previewStepForEvent` skips it). Setting
   `highlightsTeaser` (persist v28, default on). UI: ★ Star in the row's action line (`StarMenu`, key S), muted ★ on starred rows,
   Export → Clips & replays "Teaser · N moments · S s" switch. The first star added while the switch is off turns it back on; starred events in unloaded files say so in the row. Future marks (goal of the season…) join `EventMark` and the menu.
+- **Coming up section (2026-11-05, spec `2026-11-05-coming-up-section-design.md`):** each starred moment has its own entry at the top of
+  the Events list (`TeaserSection`: "★ COMING UP · N moments · S s", rows show the teaser line via `teaserLine`; unloaded ones flagged;
+  a "Match" heading over the usual list). `MatchEvent.teaser?: TeaserEdit` (`caption`, `beforeSec`, `afterSec`, `replay`, `replayCrop`;
+  `cleanTeaser`: kept only while starred, caption ≤ 2×NOTE_MAX, seconds 0–15; unstar/`placeMarker` drop it; `setTeaserEdit` undoable).
+  Every teaser moment is its own clip (`teaserClipPlan`, never merged) from its own seconds; an optional teaser slow-mo replay uses the match
+  replay window and `teaser.replayCrop ?? event.replayCrop ?? auto`, with the REPLAY tag and no banner. The reel, full match and clip download
+  never change with teaser edits. Row actions: teaser Replay · Edit (`TeaserSheet`: caption with the automatic line as placeholder, seconds,
+  replay, Reset to automatic) · Framing (`ReplayFraming` target `'teaser'`, `editTeaser` / `editingTarget`) · Unstar; ↑/↓ run through both
+  sections; Delete on a teaser row unstars.
 - **Notes:** `NOTE_MAX` = 100 (utils/eventTypes.ts; realistic two-row capacity measured with `scripts/measure-note-max.mjs`): every note
   input has `maxLength={NOTE_MAX}` + `NoteCounter` ("84 / 100" from 80); captions wrap the note onto two rows (`wrapNote`) instead of
   cutting it (old longer notes up to 200 characters go to `wrapNote` whole; "…" only when two rows can't hold them); chapters keep their 40-character cut.
