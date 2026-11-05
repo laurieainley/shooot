@@ -458,8 +458,11 @@ export const useAppState = create<AppState>()(
                     const list = had ? (marks ?? []).filter((m) => m !== mark) : [...(marks ?? []), mark]
                     return list.length ? { ...rest, marks: list } : rest
                 })
+                // The first star, with the teaser switched off, is a wish for one: switch it back on (undo only tracks events, so the switch stays on, which is harmless with nothing starred).
+                const firstStar = !(target.marks?.includes(mark)) && !state.events.some((e) => !isMarker(e) && e.marks?.includes('teaser'))
                 set({
                     events: next,
+                    ...(firstStar && mark === 'teaser' && !state.highlightsTeaser ? { highlightsTeaser: true } : {}),
                     undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), state.events],
                     redoStack: [],
                 })

@@ -68,7 +68,7 @@ export function ClipSettings() {
                         <span className="teaser-row__summary">
                             {teaser.moments > 0
                                 ? `${teaser.moments} ${teaser.moments === 1 ? 'moment' : 'moments'} · ${Math.round(teaser.seconds)} s`
-                                : 'None starred: use ★ Star on an event'}
+                                : teaser.unloaded ? "Starred moments are in files that aren't loaded" : 'None starred: use ★ Star on an event'}
                         </span>
                     </span>
                     {teaser.moments > 0 && (

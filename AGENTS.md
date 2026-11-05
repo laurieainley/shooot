@@ -168,10 +168,10 @@ npm run lint       # baseline: 12 known problems — add none
   puts the VS card after the teaser in both engines (`orderUnits` in render/transcodePlan.ts; `estimateTimeline(..., introAfterCut)`).
   Chapters start "00:00 Coming up"; preview plays the teaser first (`PreviewStep.teaser`, `previewStepForEvent` skips it). Setting
   `highlightsTeaser` (persist v28, default on). UI: ★ Star in the row's action line (`StarMenu`, key S), muted ★ on starred rows,
-  Export → Clips & replays "Teaser · N moments · S s" switch. Future marks (goal of the season…) join `EventMark` and the menu.
+  Export → Clips & replays "Teaser · N moments · S s" switch. The first star added while the switch is off turns it back on; starred events in unloaded files say so in the row. Future marks (goal of the season…) join `EventMark` and the menu.
 - **Notes:** `NOTE_MAX` = 100 (utils/eventTypes.ts; realistic two-row capacity measured with `scripts/measure-note-max.mjs`): every note
   input has `maxLength={NOTE_MAX}` + `NoteCounter` ("84 / 100" from 80); captions wrap the note onto two rows (`wrapNote`) instead of
-  cutting it; chapters keep their 40-character cut.
+  cutting it (old longer notes up to 200 characters go to `wrapNote` whole; "…" only when two rows can't hold them); chapters keep their 40-character cut.
 - **Cards (2026-10-21):** the VS card lists each team's roster when it has one (mini kit-colour shirt + name, left-aligned columns
   centred under the team; ≤ 6 one column, 7–12 two, more "+N MORE"; `graphics/rosterLayout.ts`, `CardSpec.left/right.roster`, intro only;
   the heading, initials, team name and kit bar shrink and move up when either team has a roster; classic uses mini shields). Full-time

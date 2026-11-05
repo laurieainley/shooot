@@ -24,6 +24,12 @@ describe('wrapNote', () => {
         expect(estimateTextWidth(lines[1], 30)).toBeLessThanOrEqual(400)
     })
 
+    it('should add an ellipsis to a 300-character note that cannot fit two rows', () => {
+        const lines = wrapNote('word '.repeat(60).trim(), 600, 30, estimateTextWidth)
+        expect(lines).toHaveLength(2)
+        expect(lines[1].endsWith('…')).toBe(true)
+    })
+
     it('should return one empty line for an empty note and break a word wider than the line', () => {
         expect(wrapNote('  ', 600, 30, estimateTextWidth)).toEqual([''])
         const lines = wrapNote('SUPERCALIFRAGILISTICEXPIALIDOCIOUS', 300, 30, estimateTextWidth)

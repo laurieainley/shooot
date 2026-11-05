@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { useAppState } from '../state'
 import type { MatchEvent } from '../types'
 import { hasMark } from '../utils/eventTypes'
@@ -20,11 +20,13 @@ export function StarMenu({ event, open: controlled, onOpenChange }: StarMenuProp
     const [placement, setPlacement] = useState<'below' | 'above'>('below')
     const anchorRef = useRef<HTMLButtonElement>(null)
     const open = controlled ?? own
+    // Placed whenever it opens, by click or by the row's S key: above the button when there is little room below it.
+    useLayoutEffect(() => {
+        if (!open) return
+        const r = anchorRef.current?.getBoundingClientRect()
+        setPlacement(r && r.height > 0 && window.innerHeight - r.bottom < 160 && r.top > window.innerHeight - r.bottom ? 'above' : 'below')
+    }, [open])
     const setOpen = (next: boolean): void => {
-        if (next) {
-            const r = anchorRef.current?.getBoundingClientRect()
-            setPlacement(r && r.height > 0 && window.innerHeight - r.bottom < 160 && r.top > window.innerHeight - r.bottom ? 'above' : 'below')
-        }
         setOwn(next)
         onOpenChange?.(next)
     }

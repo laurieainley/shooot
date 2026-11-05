@@ -23,6 +23,20 @@ describe('toggleMark', () => {
         expect(s().events.find((e) => e.id === 'g')!.marks).toEqual(['teaser'])
     })
 
+    it('should switch the teaser back on when the first star is added while it was off', () => {
+        useAppState.setState({ highlightsTeaser: false })
+        s().toggleMark('g', 'teaser')
+        expect(s().highlightsTeaser).toBe(true)
+        s().undo()
+        expect(s().events.find((e) => e.id === 'g')!.marks).toBeUndefined()
+    })
+
+    it('should leave a switched-off teaser alone when other events are already starred', () => {
+        useAppState.setState({ events: [{ id: 'g', matchTimeSec: 10, type: 'goal' }, { id: 'h', matchTimeSec: 20, type: 'goal', marks: ['teaser'] }], highlightsTeaser: false })
+        s().toggleMark('g', 'teaser')
+        expect(s().highlightsTeaser).toBe(false)
+    })
+
     it('should drop the mark when a starred event becomes a marker', () => {
         s().toggleMark('g', 'teaser')
         s().placeMarker('g', 'final_whistle')

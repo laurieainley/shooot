@@ -94,6 +94,13 @@ describe('buildGraphicsSpec', () => {
         expect(spec.overlays[0]).toMatchObject({ spec: { note: note.toUpperCase() } })
     })
 
+    it('should keep an old 150-character note whole on the caption (wrapNote decides where any "…" goes)', () => {
+        const note = 'word '.repeat(30).trim()
+        expect(note.length).toBe(149)
+        const spec = build([ev('a', 20, { team: 'Walford Town', scorer: 'Sam', notes: note })])
+        expect(spec.overlays[0]).toMatchObject({ spec: { note: note.toUpperCase() } })
+    })
+
     it('should credit an own goal to the team it counts for', () => {
         const spec = build([ev('a', 20, { type: 'own_goal', team: 'Walford Town', scorer: 'Smith' })])
         expect(spec.overlays[0]).toMatchObject({ spec: { label: 'OWN GOAL', tone: 'ownGoal', person: 'SMITH', stripe: '#ec5fa4', bug: { text: '0–1' } } })

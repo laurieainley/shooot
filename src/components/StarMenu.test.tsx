@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
@@ -64,5 +64,22 @@ describe('StarMenu', () => {
     it('should open from outside when told to (the S key)', () => {
         render(<StarMenu event={goal} open onOpenChange={() => undefined} />)
         expect(screen.getByRole('menu')).toBeInTheDocument()
+    })
+
+    it('should place the menu above when opened by the S key near the bottom of the screen', () => {
+        const rect = { top: 700, bottom: 740, height: 40, left: 0, right: 40, width: 40, x: 0, y: 700, toJSON: () => ({}) }
+        const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect as DOMRect)
+        const h = window.innerHeight
+        Object.defineProperty(window, 'innerHeight', { value: 768, configurable: true })
+        try {
+            const { rerender } = render(<StarMenu event={goal} open={false} onOpenChange={() => undefined} />)
+            rerender(<StarMenu event={goal} open onOpenChange={() => undefined} />)
+            const panel = screen.getByRole('dialog')
+            expect(panel.style.bottom).not.toBe('')
+            expect(panel.style.top).toBe('')
+        } finally {
+            spy.mockRestore()
+            Object.defineProperty(window, 'innerHeight', { value: h, configurable: true })
+        }
     })
 })

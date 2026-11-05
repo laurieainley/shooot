@@ -35,6 +35,14 @@ describe('ClipSettings', () => {
             expect(screen.queryByRole('switch', { name: 'Teaser' })).toBeNull()
         })
 
+        it('should say starred moments are in files that are not loaded, with no switch', () => {
+            useAppState.setState({ ...base, events: [{ id: 'g', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', marks: ['teaser'], unlinked: true }] })
+            render(<ClipSettings />)
+            expect(screen.getByText("Starred moments are in files that aren't loaded")).toBeInTheDocument()
+            expect(screen.queryByText(/None starred/)).toBeNull()
+            expect(screen.queryByRole('switch', { name: 'Teaser' })).toBeNull()
+        })
+
         it('should show the moments and length with a switch', () => {
             useAppState.setState({ ...base, events: [
                 { id: 'g', matchTimeSec: 100, sourceFileIndex: 0, type: 'goal', marks: ['teaser'] },

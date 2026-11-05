@@ -92,7 +92,7 @@ function eventCaptionSpec(e: MatchEvent, teams: Team[], score: Score | undefined
     if (person) cs.person = person
     const assist = upper(assistOf(e))
     if (assist) cs.assist = assist
-    const note = upper(shortNote(e.notes, NOTE_MAX))
+    const note = upper(shortNote(e.notes, 2 * NOTE_MAX))
     if (note) cs.note = note
     const minute = theme.caption.minutes ? minuteOf(e, events, offsets) : undefined
     if (minute) cs.minute = minute
@@ -105,7 +105,7 @@ export function teaserCaptionSpec(e: MatchEvent, _teams: Team[], theme: Graphics
     const th = typeof theme === 'string' ? getTheme(theme) : theme
     const word = th.caption.word(e).replace(/!$/, '')
     const name = upper(e.scorer)
-    const note = upper(shortNote(e.notes, NOTE_MAX))
+    const note = upper(shortNote(e.notes, 2 * NOTE_MAX))
     const row = e.type === 'highlight' ? (note ?? name ?? word) : name ? `${word} · ${name}` : word
     return { label: 'COMING UP', tone: 'goal', note: row, stripe: th.caption.defaultStripe }
 }

@@ -1298,6 +1298,8 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 :root { --sh-raised: var(--sh-surface-2); }
 :root[data-theme="light"] { --sh-raised: var(--sh-surface); }
 @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --sh-raised: var(--sh-surface); } }
+/* The touch view's player re-declares the dark tokens (index.css); --sh-raised must resolve against them there, not inherit the light value from :root. */
+.player-container--tagview { --sh-raised: var(--sh-surface-2); }
 .link-btn { padding: 0; border: 0; background: none; color: var(--sh-text); font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 
 /* Export drawer: right side over a scrim; full screen on phones. */
