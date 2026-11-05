@@ -85,6 +85,7 @@ npm run lint       # baseline: 12 known problems — add none
   when two files share a name).
 - **Default file order:** GoPro chapter order for GoPro names, else recording time from the container
   (`utils/mp4Meta.ts`), else `lastModified`, else natural name order (`utils/fileOrder.ts`). Users can reorder.
+- **Own goals:** the scorer (last touch) can be from either team: person steps list the conceding team first, then the other, each labelled, A–Z (`rosterGroups`, utils/roster.ts); a new name joins the conceding team's roster.
 - **Events:** types in `utils/eventTypes.ts` (goal, pen goal, own goal, penalty conceded, penalty missed, save, foul,
   highlight) + markers Kick off / Half time / Final whistle. Optional team, person, assist (goals), note.
   The match clock starts at Kick off; ends swap after Half time (replay zoom target).
@@ -456,7 +457,7 @@ npm run lint       # baseline: 12 known problems — add none
 - **Touch view** (2026-10-20, spec `2026-10-20-unified-tag-review-design.md`): on touch, `useTagViewMode()` (`utils/tagView.ts`) is
   `overlay` (landscape phone, tablet landscape, any fullscreen: picture full screen, no top bar/rail, `TagControls` over the picture —
   left thumb: ◀/▶ found, frame ‹ ›, ⟲5 · Play · ⟳5 lowest; right thumb: Tag — the MatchStrip `overlay` variant inside the player, ⋯ menu +
-  `EventsSheet`, controls fade 3 s after the last touch while playing), `band` (portrait phone / upright tablet: the same controls in
+  `EventsSheet`; the controls never hide on their own — only a single tap on the picture shows/hides them), `band` (portrait phone / upright tablet: the same controls in
   `.tv-band` under the video) or `off` (mouse: desktop unchanged). One lime Tag button (`startTag`: pause, stamp, open the Tag column)
   replaces the ＋ on touch; the Tag column is the touch presentation of `EventPicker` (`TagColumn`; breadcrumbs via the reducer's `goto`;
   frame buttons call `retimePicker`). Person choices: two-column grid, A–Z, bottom-anchored, never reordering (the scorer stays,
@@ -464,14 +465,13 @@ npm run lint       # baseline: 12 known problems — add none
   shows/hides the controls: no tap-to-play, no double-tap (seek zones or fullscreen) and no playback Lock in the touch view. Turning
   a phone sideways (video loaded) fills the screen at once (CSS immersive) and the first tap asks for real fullscreen
   (`useLandscapeFill`, `utils/landscapeFill.ts`); turning back leaves a fill the app made; leaving it while sideways stays out until
-  the next rotation. Clusters sit at `--tv-clear` (76px) above the bottom edge. Any player resize resets zoom to 1× and pan to 0.
+  the next rotation. Clusters sit at `--tv-clear` (76px) above the bottom edge. Zoom/pan reset to 1× only on a landscape/portrait flip, entering/leaving fullscreen or the preview (`shouldResetZoom`, utils/zoom.ts); other player resizes (browser bars, sheets) keep the zoom and rescale + clamp the pan (`useZoomPan` `fit`).
 - **Find goals on touch** (2026-10-20): in the touch view (`useTagViewMode() !== 'off'`) there is no review card, Review (N) button or
   rail Review button. `FindGoalsChip` (top right / band) shows not run / % / "N found · M top picks" / "All found moments checked";
   tapping opens `FindGoalsSheet` (panel `'review'` renders it on touch: start form, progress, summary). Found moments are pending
   suggestions: rings on the strip (tap = jump 6 s before), ◀ Found / Found ▶, and while the playhead is in a moment's window
   (`utils/foundMoments.ts`, −8…+3 s) a read-only chip plus ✕ Not a goal under Tag (`rejectMoment`: reject, Undo toast, next moment or
-  pause; its slot is always reserved so Tag never moves). Tagging on a pending moment links it (`EventPicker.finish`). Speeds live in
-  the touch ⋯ menu. Desktop keeps the review card and keyboard flow.
+  pause; its slot is always reserved so Tag never moves). Tagging on a pending moment links it (`EventPicker.finish`). Speeds: a speed button (`SpeedButton`: "1×", popover of `PLAYBACK_SPEEDS`) in the touch left cluster and as a pill top-right of the picture on desktop (hidden in fullscreen, in the preview and with no video); also in the touch ⋯ menu. Desktop keeps the review card and keyboard flow.
 - **Touch fullscreen** (UI state in `components/fullscreenUi.ts`, not persisted): column panels render into the fullscreen element; the tag
   box (`event-picker--compact`) and the review are a right-hand column (landscape) or a 60% bottom panel (portrait), and the picture
   shrinks to the free space beside / above them (`player-container--split`, `fullscreenSplit()`, `--fs-panel-w` / `--fs-panel-h`);

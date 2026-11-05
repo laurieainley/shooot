@@ -12,7 +12,7 @@ import {
 import { showToast } from '../toasts'
 import { confirmedCopy, discardedCopy, matchClock } from '../utils/toastCopy'
 import { shortcutFor } from '../utils/shortcuts'
-import { NO_PEOPLE, peopleCandidates, peopleDisabled, peopleLabel, peopleOpen, reopenPeople, startPeople, stepPeople, type PeopleState } from '../utils/reviewPeople'
+import { NO_PEOPLE, peopleCandidates, peopleDisabled, peopleGroups, peopleLabel, peopleOpen, reopenPeople, startPeople, stepPeople, type PeopleState } from '../utils/reviewPeople'
 import { PersonStep } from './PersonStep'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 import { useReviewLoop } from './useReviewLoop'
@@ -282,7 +282,7 @@ export function SuggestionCard({ suggestion, index, total, onNext, onPrev, onSav
                         skipLabel={people.pk?.step === 'assist' ? 'No assist' : 'Skip'}
                         onSkip={() => setPeople((p) => stepPeople(p, { kind: 'key', key: 'Tab' }, teams))}
                         placeholder={coarse ? 'Type a new name' : `${peopleLabel(people)} (optional) — type to filter, Enter to pick, Tab to skip`}
-                        query={people.pk?.query ?? ''} candidates={peopleCandidates(people, teams)} highlighted={people.pk?.highlighted ?? 0} showHighlight numbered={!coarse} isDisabled={(n) => peopleDisabled(people, n)}
+                        query={people.pk?.query ?? ''} candidates={peopleCandidates(people, teams)} groups={peopleGroups(people, teams)} highlighted={people.pk?.highlighted ?? 0} showHighlight numbered={!coarse} isDisabled={(n) => peopleDisabled(people, n)}
                         onQuery={(value) => setPeople((p) => stepPeople(p, { kind: 'text', value }, teams))}
                         onChoose={(value) => setPeople((p) => stepPeople(p, { kind: 'choose', value }, teams))}
                         onKeyDown={(e) => {

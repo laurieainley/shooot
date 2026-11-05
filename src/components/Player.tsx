@@ -4,20 +4,20 @@ import 'video.js/dist/video-js.css'
 import { selectClockLong, useAppState } from '../state'
 import { shortcutFor, shouldHandleShortcut } from '../utils/shortcuts'
 import { FindGoalsLine } from './FindGoalsChip'
-import { registerPlayerRate, registerPlayerSeekPaused, registerPlayerShortcut, registerPlayerStep, registerPlayerToggle, setPlayerPaused } from './playerControl'
+import { registerPlayerRate, registerPlayerSeekPaused, registerPlayerShortcut, registerPlayerStep, publishPlayerRate, registerPlayerToggle, setPlayerPaused } from './playerControl'
 import { runShortcut, seekBy, stepFrame, type ShortcutPlayer } from './playerShortcuts'
 import { FullscreenControls } from './FullscreenControls'
 import { EventPicker } from './EventPicker'
 import { EventsSheet } from './EventsSheet'
 import { MatchStrip } from './MatchStrip'
-import { useTagUi, useTagViewMode } from './tagView'
-import { fadeDelayMs } from '../utils/tagView'
+import { useControlsVisibility, useTagViewMode } from './tagView'
+import { SpeedButton } from './SpeedButton'
 import { Toast } from './Toast'
 import { fullscreenSplit, useFullscreenUi } from './fullscreenUi'
 import { COARSE_QUERY, PORTRAIT_QUERY, useMediaQuery } from './useMediaQuery'
 import { patchPlayerFullscreen, type FullscreenPlayer } from './fullscreen'
 import { cropTransform } from '../utils/crop'
-import { viewportChanged } from '../utils/zoom'
+import { shouldResetZoom } from '../utils/zoom'
 import { attachPictureGestures } from './pictureGestures'
 import { useLandscapeFill } from './useLandscapeFill'
 import { useZoomPan, type ZoomPan } from './useZoomPan'
@@ -71,19 +71,24 @@ export function Player() {
     // Zoom is locked in the preview and starts from 1× (clips show the whole picture, as rendered); 1× again afterwards.
     const resetZoom = zoomPan.reset
     useEffect(() => { resetZoom() }, [isPreviewMode, resetZoom])
-    // Rotating (or entering / leaving fullscreen) resizes the picture: the pan is in pixels of the old size, so start again at 1×.
+    // Only a rotation (aspect flips) or entering / leaving fullscreen starts again at 1×. Any other resize (browser bars, safe areas,
+    // sheets, controls) keeps the zoom: the pan is rescaled and clamped to the new bounds.
+    const fitZoom = zoomPan.fit
     useEffect(() => {
         const el = containerRef.current
         if (!el || typeof ResizeObserver === 'undefined') return
         let last: { width: number; height: number } | null = null
         const ro = new ResizeObserver(() => {
             const now = { width: el.clientWidth, height: el.clientHeight }
-            if (viewportChanged(last, now)) resetZoom()
+            if (shouldResetZoom(last, now)) resetZoom()
+            else if (last && (last.width !== now.width || last.height !== now.height)) fitZoom(last, now)
             last = now
         })
         ro.observe(el)
-        return () => ro.disconnect()
-    }, [resetZoom])
+        const onFullscreen = (): void => resetZoom()
+        document.addEventListener('fullscreenchange', onFullscreen)
+        return () => { ro.disconnect(); document.removeEventListener('fullscreenchange', onFullscreen) }
+    }, [resetZoom, fitZoom])
 
     // Every player shortcut, wherever focus is (see utils/shortcuts.ts); the event log's own keys stop propagation first.
     useEffect(() => {
@@ -152,9 +157,11 @@ export function Player() {
                     startActivity('playback', { kind: 'playback', files: f?.file ? [{ name: f.name, sizeBytes: f.file.size, codec: f.codec, kind: f.kind }] : [] }, () => ({ currentTime: media.currentTime }))
                 } else if (name === 'pause' || name === 'ended' || name === 'emptied' || name === 'error') endActivity('playback')
             } })
-            p.on('dispose', () => { detach(); endActivity('playback') })
+            p.on('dispose', () => { detach(); endActivity('playback'); publishPlayerRate(1) })
         }
+        p.ready(() => publishPlayerRate(p.playbackRate() ?? 1)) // a re-created player starts at 1×: never leave the previous label
         p.on('ratechange', () => {
+            publishPlayerRate(p.playbackRate() ?? 1)
             if (!shouldShowSpeedIndicator(useAppState.getState().isPreviewMode, performance.now(), quietRateUntilRef.current)) return
             const rate = p.playbackRate() ?? 1
             setSpeedIndicator(rate)
@@ -412,18 +419,8 @@ export function Player() {
         ui.setReviewHidden(false)
         return () => { useFullscreenUi.getState().setHost(null) }
     }, [inFullscreen])
-    // The overlay controls fade 3 s after the last touch while playing; never while paused, tagging or with a menu / sheet open.
-    const sheetOpen = useTagUi((s) => s.sheet !== null)
-    const busy = useAppState((s) => s.picker !== null || s.panel !== null) || sheetOpen
-    const fadeMs = fadeDelayMs({ mode: tagViewMode, paused, tagging: busy })
-    const controlsVisible = useTagUi((s) => s.controlsVisible)
-    const pokes = useTagUi((s) => s.pokes)
-    useEffect(() => {
-        if (fadeMs === null) { useTagUi.getState().setControlsVisible(true); return }
-        if (!controlsVisible) return
-        const t = setTimeout(() => useTagUi.getState().setControlsVisible(false), fadeMs)
-        return () => clearTimeout(t)
-    }, [fadeMs, controlsVisible, pokes])
+    // The overlay controls never hide by themselves: only a single tap on the picture hides / shows them (FullscreenControls).
+    const controlsVisible = useControlsVisibility(overlayView)
     // Touch fullscreen with a panel or the tag box open: the picture sits beside / above it, never behind it.
     const coarseFs = useMediaQuery(COARSE_QUERY)
     const columnPanel = useFullscreenUi((s) => s.columnPanel)
@@ -478,10 +475,11 @@ export function Player() {
             )}
             <PlayIndicator visible={paused} />
             <Scorebug />
+            {tagViewMode === 'off' && !inFullscreen && <SpeedButton variant="desk" />}
             <ZoomChip zoom={zoomPan.zoom} onReset={zoomPan.reset} />
             {inFullscreen && <RenderChip variant="overlay" />}
             <FullscreenControls playerRef={playerRef} isFullscreen={inFullscreen} />
-            {overlayView && <div className="tv-fades tv-strip" onPointerDown={() => useTagUi.getState().poke()}><FindGoalsLine /><MatchStrip variant="overlay" /></div>}
+            {overlayView && <div className="tv-fades tv-strip"><FindGoalsLine /><MatchStrip variant="overlay" /></div>}
             {overlayView && <EventsSheet />}
             <EventPicker />
             {inFullscreen && <div className="toast-host toast-host--fs"><Toast /></div>}

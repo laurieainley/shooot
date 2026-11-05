@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { zoomTowards, clampPan, clampZoom, nextZoom, settleZoom, MAX_ZOOM, type Pan } from '../utils/zoom'
+import { zoomTowards, clampPan, clampZoom, nextZoom, settleZoom, rescalePan, MAX_ZOOM, type Pan } from '../utils/zoom'
 
 type Viewport = { width: number; height: number }
 type View = { zoom: number; pan: Pan }
@@ -7,6 +7,8 @@ type View = { zoom: number; pan: Pan }
 export type ZoomPan = View & {
     cycle: () => void
     reset: () => void
+    /** The player changed size without a real layout change: keep the zoom, rescale the pan and clamp it to the new bounds. */
+    fit: (prev: Viewport, next: Viewport) => void
     panBy: (dx: number, dy: number) => void
     pinchTo: (zoom: number) => void
     pinchEnd: () => void
@@ -26,6 +28,7 @@ export function useZoomPan(getViewport: () => Viewport, maxZoom: number = MAX_ZO
 
     const cycle = useCallback(() => setView((v) => withZoom(nextZoom(v.zoom), v.pan)), [withZoom])
     const reset = useCallback(() => setView(HOME), [])
+    const fit = useCallback((prev: Viewport, next: Viewport) => setView((v) => withZoom(v.zoom, rescalePan(v.pan, prev, next))), [withZoom])
     const panBy = useCallback((dx: number, dy: number) => setView((v) => withZoom(v.zoom, { x: v.pan.x + dx, y: v.pan.y + dy })), [withZoom])
     const pinchTo = useCallback((zoom: number) => setView((v) => withZoom(clampZoom(zoom, maxZoom), v.pan)), [withZoom, maxZoom])
     const pinchEnd = useCallback(() => setView((v) => withZoom(settleZoom(v.zoom, maxZoom), v.pan)), [withZoom, maxZoom])
@@ -35,5 +38,5 @@ export function useZoomPan(getViewport: () => Viewport, maxZoom: number = MAX_ZO
         return r.zoom <= 1 ? HOME : r
     }), [getViewport, maxZoom])
 
-    return useMemo(() => ({ ...view, cycle, reset, panBy, pinchTo, pinchEnd, zoomAt }), [view, cycle, reset, panBy, pinchTo, pinchEnd, zoomAt])
+    return useMemo(() => ({ ...view, cycle, reset, fit, panBy, pinchTo, pinchEnd, zoomAt }), [view, cycle, reset, fit, panBy, pinchTo, pinchEnd, zoomAt])
 }

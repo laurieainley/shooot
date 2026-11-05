@@ -51,6 +51,12 @@ describe('personEdit', () => {
         expect(personEdit(teams, ev({ type: 'own_goal', team: 'Whites' }), 'Kim').addToRoster).toEqual({ team: 'Colours', name: 'Kim' })
     })
 
+    it('should not add an own goal scorer who is already in either roster', () => {
+        expect(personEdit(teams, ev({ type: 'own_goal', team: 'Whites' }), 'Priya')).toEqual({ patch: { scorer: 'Priya' } })
+        const other = teams.find((t) => t.name !== 'Whites') as Team
+        expect(personEdit(teams, ev({ type: 'own_goal', team: 'Whites' }), other.roster[0])).toEqual({ patch: { scorer: other.roster[0] } })
+    })
+
     it('should clear the person when the name is blank', () => {
         expect(personEdit(teams, ev({ team: 'Whites', scorer: 'Sam' }), '  ')).toEqual({ patch: { scorer: undefined } })
     })

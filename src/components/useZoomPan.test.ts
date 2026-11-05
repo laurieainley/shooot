@@ -74,4 +74,29 @@ describe('useZoomPan maximum', () => {
         act(() => editor.result.current.zoomAt(100, { x: 0, y: 0 }))
         expect(editor.result.current.zoom).toBe(10)
     })
+
+    it('should keep the zoom on fit and clamp the pan to the new, smaller bounds', () => {
+        let vp = { width: 1000, height: 500 }
+        const { result } = renderHook(() => useZoomPan(() => vp))
+        act(() => { result.current.cycle(); result.current.cycle() })
+        act(() => result.current.panBy(900, 900))
+        expect(result.current.pan).toEqual({ x: 500, y: 250 })
+        const prev = vp
+        vp = { width: 1000, height: 400 }
+        act(() => result.current.fit(prev, vp))
+        expect(result.current.zoom).toBe(2)
+        expect(result.current.pan.y).toBeLessThanOrEqual(200)
+        expect(result.current.pan).toEqual({ x: 500, y: 200 })
+    })
+
+    it('should not leave empty edges after fit when the viewport grows or shrinks', () => {
+        let vp = { width: 1000, height: 500 }
+        const { result } = renderHook(() => useZoomPan(() => vp))
+        act(() => { result.current.cycle(); result.current.cycle(); result.current.cycle() })
+        act(() => result.current.panBy(-900, 0))
+        const prev = vp
+        vp = { width: 500, height: 250 }
+        act(() => result.current.fit(prev, vp))
+        expect(Math.abs(result.current.pan.x)).toBeLessThanOrEqual(((3 - 1) * 500) / 2)
+    })
 })

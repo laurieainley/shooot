@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pickerReducer, initialPickerState, touchPickerState, scorerCandidates, isDisabledName, SKIP, type PickerState, type PickerInput, type PickerContext } from './eventPicker'
+import { pickerReducer, initialPickerState, touchPickerState, scorerCandidates, scorerGroups, isDisabledName, SKIP, type PickerState, type PickerInput, type PickerContext } from './eventPicker'
 import type { Team } from '../types'
 import { PICKER_OPTIONS } from './eventTypes'
 
@@ -126,9 +126,37 @@ describe('pickerReducer — scorer step', () => {
         ])
     })
 
-    it('should use the other team roster for own goals', () => {
+    it('should list both rosters for own goals: the conceding team first, each A–Z, then the other team', () => {
         const r = run([key('o'), key('1')])
-        expect(scorerCandidates(r.state, ctx)).toEqual(['Alex Wu', 'Jo'])
+        expect(scorerCandidates(r.state, ctx)).toEqual(['Alex Wu', 'Jo', 'Sam Taylor', 'Sandy Wu'])
+        expect(scorerGroups(r.state, ctx)).toEqual([
+            { team: 'Colours', names: ['Alex Wu', 'Jo'] },
+            { team: 'Whites', names: ['Sam Taylor', 'Sandy Wu'] },
+        ])
+    })
+
+    it('should offer one group for other events', () => {
+        expect(scorerGroups(run([key('Enter'), key('1')]).state, ctx)).toEqual([{ team: 'Whites', names: ['Sam Taylor', 'Sandy Wu'] }])
+    })
+
+    it('should filter both own goal groups by the typed text and keep the group order', () => {
+        const r = run([key('o'), key('1'), { kind: 'text', value: 'wu' }])
+        expect(scorerCandidates(r.state, ctx)).toEqual(['Alex Wu', 'Sandy Wu'])
+        expect(scorerGroups(r.state, ctx).map((g) => g.team)).toEqual(['Colours', 'Whites'])
+    })
+
+    it('should number the combined own goal list: 1-9 pick the Nth listed name', () => {
+        const third = run([key('o'), key('1'), key('3')])
+        expect(third.effects).toContainEqual({ kind: 'update', patch: { scorer: 'Sam Taylor' } })
+        const first = run([key('o'), key('1'), key('1')])
+        expect(first.effects).toContainEqual({ kind: 'update', patch: { scorer: 'Alex Wu' } })
+    })
+
+    it('should not add a name from either roster to a roster, only a new name (to the conceding team)', () => {
+        const fromCredited = run([key('o'), key('1'), key('4')])
+        expect(fromCredited.effects.some((fx) => fx.kind === 'addToRoster')).toBe(false)
+        const fromConceding = run([key('o'), key('1'), key('1')])
+        expect(fromConceding.effects.some((fx) => fx.kind === 'addToRoster')).toBe(false)
         const added = run([key('o'), key('1'), { kind: 'text', value: 'Zed' }, key('Enter')])
         expect(added.effects).toContainEqual({ kind: 'addToRoster', team: 'Colours', name: 'Zed' })
     })

@@ -10,7 +10,7 @@ import { deletedCopy, eventGlobalSec, matchClock } from '../utils/toastCopy'
 import { EventTag } from './EventTag'
 import { watchFromSec } from '../utils/markers'
 import { wantsReplay } from '../utils/replays'
-import { filterRoster, rosterTeamFor } from '../utils/roster'
+import { filterRoster, rostersFor, rosterGroups } from '../utils/roster'
 import { fileKeys } from '../utils/fileKey'
 import { formatEventClock } from '../utils/timeline'
 import { ColumnPanel } from './ColumnPanel'
@@ -135,9 +135,12 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
     }
 
     const hasTeams = teams.length >= 2 && teams.every((t) => t.name.trim() !== '')
-    const roster = rosterTeamFor(teams, e.team, e.type)
-    const pool = useMemo(() => roster?.roster ?? teams.flatMap((t) => t.roster), [roster, teams])
-    const suggestions = person.trim() && person.trim() !== e.scorer ? filterRoster(pool, person) : pool
+    // An own goal names a player from either team: the conceding team's players first, then the other team's, each group labelled.
+    const rosters = useMemo(() => rostersFor(teams, e.team, e.type), [teams, e.team, e.type])
+    const pool = useMemo(() => (rosters.length > 0 ? rosters.flatMap((t) => t.roster) : teams.flatMap((t) => t.roster)), [rosters, teams])
+    const filterPerson = person.trim() && person.trim() !== e.scorer
+    const suggestions = filterPerson ? filterRoster(pool, person) : pool
+    const suggestionGroups = rosters.length > 1 ? rosterGroups(teams, e.team, e.type, filterPerson ? person : '') : null
     const personLabel = option.personLabel ?? 'Scorer'
     const assistPool = pool.filter((n) => n.toLowerCase() !== (e.scorer ?? '').trim().toLowerCase())
     const assistSuggestions = assist.trim() && assist.trim() !== e.assist ? filterRoster(assistPool, assist) : assistPool
@@ -200,15 +203,28 @@ function EventSheetBody({ event: e, teams }: EventSheetBodyProps) {
                         onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); savePerson(person); ev.currentTarget.blur() } }}
                         onBlur={() => savePerson(latest.current.person)}
                     />
-                    {suggestions.length > 0 && (
-                        <div className="chips">
-                            {suggestions.map((n) => (
-                                <button key={n} type="button" className="chip chip--person" aria-pressed={e.scorer === n}
-                                    onMouseDown={(ev) => ev.preventDefault()}
-                                    onClick={() => { setPerson(n); savePerson(n) }}>{n}</button>
-                            ))}
-                        </div>
-                    )}
+                    {suggestions.length > 0 && (suggestionGroups
+                        ? suggestionGroups.filter((g) => g.names.length > 0).map((g) => (
+                            <div key={g.team} role="group" aria-label={g.team}>
+                                <p className="event-sheet__team">{g.team}</p>
+                                <div className="chips">
+                                    {g.names.map((n) => (
+                                        <button key={n} type="button" className="chip chip--person" aria-pressed={e.scorer === n}
+                                            onMouseDown={(ev) => ev.preventDefault()}
+                                            onClick={() => { setPerson(n); savePerson(n) }}>{n}</button>
+                                    ))}
+                                </div>
+                            </div>
+                        ))
+                        : (
+                            <div className="chips">
+                                {suggestions.map((n) => (
+                                    <button key={n} type="button" className="chip chip--person" aria-pressed={e.scorer === n}
+                                        onMouseDown={(ev) => ev.preventDefault()}
+                                        onClick={() => { setPerson(n); savePerson(n) }}>{n}</button>
+                                ))}
+                            </div>
+                        ))}
                 </fieldset>
             )}
 

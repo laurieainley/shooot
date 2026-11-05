@@ -1,6 +1,6 @@
 import type { KeepType, Team } from '../types'
 import { PICKER_OPTIONS } from './eventTypes'
-import { initialPickerState, isDisabledName, pickerReducer, scorerCandidates, type PickerInput, type PickerState } from './eventPicker'
+import { initialPickerState, isDisabledName, pickerReducer, scorerCandidates, scorerGroups, type PickerInput, type PickerState } from './eventPicker'
 
 /** The optional scorer / assist steps on the review card: the event picker's own reducer, run for the person steps only. */
 export type PeopleState = {
@@ -29,6 +29,12 @@ export function peopleOpen(p: PeopleState): boolean {
 
 export function peopleCandidates(p: PeopleState, teams: Team[]): string[] {
     return p.pk ? scorerCandidates(p.pk, { teams, touch: false }) : []
+}
+
+/** Own goals: the names by team (conceding team first); a single group (no labels) for everything else. */
+export function peopleGroups(p: PeopleState, teams: Team[]): { team: string; names: string[] }[] | undefined {
+    const g = p.pk ? scorerGroups(p.pk, { teams, touch: false }) : []
+    return g.length > 1 ? g : undefined
 }
 
 /** The scorer in the assist list: shown, dimmed, not selectable. */

@@ -25,6 +25,8 @@ interface TagColumnProps {
     teams: Team[]
     /** The person step's roster names, already filtered by the typed text. */
     candidates: string[]
+    /** Own goals: the same names by team (conceding team first), labelled. */
+    groups?: { team: string; names: string[] }[]
     /** Names added during this tag, shown after the A–Z names. */
     added: string[]
     query: string
@@ -117,6 +119,7 @@ export function TagColumn(p: TagColumnProps) {
                         placeholder={`Type a new ${p.personLabel.toLowerCase()}`}
                         query={p.query}
                         candidates={p.candidates}
+                        groups={p.groups}
                         appended={p.added}
                         highlighted={-1}
                         showHighlight={false}
