@@ -163,7 +163,7 @@ npm run lint       # baseline: 12 known problems — add none
 - **Teaser and stars (2026-11-05, spec `2026-11-05-teaser-and-marks-design.md`):** `MatchEvent.marks?: EventMark[]` (`'teaser'` only;
   `hasMark`, cleaned by `sanitiseEvents`; never on markers; store `toggleMark`, undoable). Starred events play as a teaser at the top of the
   highlights only: `utils/teaser.ts` `highlightsCuts()` (used by the export plan, description/chapters and preview, so cut indices agree)
-  puts each starred event's own padded window (no replay, not merged with unstarred neighbours; starred overlaps merge) before the reel;
+  puts each starred event's own padded window (its own seconds and optional replay — see Coming up section; never merged) before the reel;
   `teaserClips` groups split clips. Caption: slab COMING UP, the row below "GOAL · DAN" (event word without "!", + name) or a
   Highlight's note; no bug, minute, assist, team colour; follows the captions setting. `GraphicsSpec.introAfterCut` = teaser cut count
   puts the VS card after the teaser in both engines (`orderUnits` in render/transcodePlan.ts; `estimateTimeline(..., introAfterCut)`).
