@@ -39,8 +39,12 @@ export const PARALLEL_UNITS = 2
 /** Shortest piece of output worth a unit of its own when splitting a render to have something to run in parallel (each unit starts with a key frame). */
 export const MIN_PARALLEL_UNIT_SEC = 10
 
-/** A resumable stretch of a cut: output frames `firstFrame` … `firstFrame + frames - 1` of cut `cutIndex`. */
-export type Segment = { cutIndex: number; firstFrame: number; frames: number }
+/**
+ * A resumable stretch of a cut: output frames `firstFrame` … `firstFrame + frames - 1` of cut `cutIndex`.
+ * `grid` (blocks, see gridSegments): the absolute source frame number of its first frame, i.e. it shows the source pictures at
+ * `grid × frameSec` onwards whatever the cut's own start; absent = the stretch is timed from the cut's start.
+ */
+export type Segment = { cutIndex: number; firstFrame: number; frames: number; grid?: number }
 
 /**
  * Splits every cut into segments of at most `maxFrames` output frames (a render saves progress after each).
@@ -112,6 +116,78 @@ export function stableSegments(totals: number[], maxFrames: number, minFrames: n
         starts.forEach((first, k) => out.push({ cutIndex, firstFrame: first, frames: (starts[k + 1] ?? total) - first }))
     })
     return out
+}
+
+// ---- blocks on the source's own frame grid (for the unit cache) ----
+
+/** Shortest and longest block (seconds of output) gridBlockFrames aims for. */
+export const BLOCK_SEC = 10
+export const BLOCK_MAX_SEC = 30
+const AAC_FRAME_SAMPLES = 1024
+
+/**
+ * Frames per block. Normally ~BLOCK_SEC rounded to whole key-frame intervals. When the audio of a block is built per block (silence, or
+ * re-encoded to AAC) the block must also last a whole number of AAC frames, or every join would gain or lose a fraction of a frame
+ * of audio (and a 110-minute match would drift): then the shortest such length of BLOCK_SEC … BLOCK_MAX_SEC.
+ */
+export function gridBlockFrames(frameSec: number, keyFrames: number, audio: { sampleRate: number; exact: boolean } | null): number {
+    const plain = Math.max(keyFrames, Math.round(BLOCK_SEC / frameSec / keyFrames) * keyFrames)
+    if (!audio?.exact) return plain
+    for (let n = Math.ceil(BLOCK_SEC / frameSec); n <= Math.floor(BLOCK_MAX_SEC / frameSec); n++) {
+        const samples = n * frameSec * audio.sampleRate
+        if (Math.abs(samples / AAC_FRAME_SAMPLES - Math.round(samples / AAC_FRAME_SAMPLES)) < 1e-6) return n
+    }
+    return Math.max(keyFrames, Math.round(20 / frameSec / keyFrames) * keyFrames)
+}
+
+/** Snaps away float noise when turning a time into a frame number (1/1000 of a frame). */
+const SNAP = 1e-3
+
+/** A speed-1 cut's frames on the source grid: absolute frame numbers `first` … `end - 1` (the frames whose time lies in [start, end)). At least one. */
+export function gridSpan(c: PlanCut, frameSec: number): { first: number; end: number } {
+    const first = Math.ceil(c.startSec / frameSec - SNAP)
+    return { first, end: Math.max(first + 1, Math.ceil(c.endSec / frameSec - SNAP)) }
+}
+
+/** Cuts played at normal speed sit on the source's frame grid; slowed replays keep being timed from their own start. */
+export const onGrid = (c: PlanCut): boolean => (c.speed ?? 1) === 1
+
+/** Output frames of a cut in the render (grid cuts: frames on the source grid; others: cutFrames). */
+export function planFrames(c: PlanCut, frameSec: number): number {
+    if (!onGrid(c)) return cutFrames(c, frameSec)
+    const g = gridSpan(c, frameSec)
+    return g.end - g.first
+}
+
+/**
+ * Blocks for the unit cache: every normal-speed cut is split on a fixed grid of the SOURCE's frame numbers (a multiple of
+ * `blockFrames`), not from the cut's own first frame, so a block shows the same pictures, with the same frame numbers, whatever the
+ * cut around it does: moving kick-off, adding a replay or trimming a clip only changes the partial blocks at the cut's edges. The
+ * frames of a cut are the source frames inside it; the output keeps each one at its own source frame number, so picture and audio
+ * of a block depend on its source span alone. Slowed cuts (replays) are short: pieces of at most `maxFrames` from their own start.
+ */
+export function gridSegments(cuts: PlanCut[], frameSec: number, blockFrames: number, maxFrames: number): Segment[] {
+    const out: Segment[] = []
+    cuts.forEach((c, cutIndex) => {
+        if (!onGrid(c)) {
+            const total = cutFrames(c, frameSec)
+            for (let f = 0; f < total; f += maxFrames) out.push({ cutIndex, firstFrame: f, frames: Math.min(maxFrames, total - f) })
+            return
+        }
+        const { first, end } = gridSpan(c, frameSec)
+        for (let m = first; m < end;) {
+            const next = Math.min(end, (Math.floor(m / blockFrames) + 1) * blockFrames)
+            out.push({ cutIndex, firstFrame: m - first, frames: next - m, grid: m })
+            m = next
+        }
+    })
+    return out
+}
+
+/** The source seconds [a, b) a segment draws from (the pictures at a + j × frameSec × speed, the audio between a and b). */
+export function segmentSpan(c: PlanCut, seg: Segment, frameSec: number): { a: number; b: number } {
+    if (seg.grid !== undefined) return { a: seg.grid * frameSec, b: (seg.grid + seg.frames) * frameSec }
+    return { a: sourceTimeOf(c, seg.firstFrame, frameSec), b: sourceTimeOf(c, seg.firstFrame + seg.frames, frameSec) }
 }
 
 /** Source time of output frame `frame` of a cut. */

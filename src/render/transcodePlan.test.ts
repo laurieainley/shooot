@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aacConfig, cutFrames, keyEvery, orderUnits, outputDimensions, outputFrameSec, planSegments, sourceTimeOf, type OrderedUnit } from './transcodePlan'
+import { aacConfig, cutFrames, gridBlockFrames, gridSegments, gridSpan, keyEvery, orderUnits, outputDimensions, outputFrameSec, planFrames, planSegments, segmentSpan, sourceTimeOf, type OrderedUnit } from './transcodePlan'
 
 describe('outputDimensions', () => {
     it('should keep 4K footage at 3840x2160 and halve it for 1080p', () => {
@@ -104,6 +104,16 @@ describe('orderUnits', () => {
         expect(u.flatMap((x) => (x.kind === 'segment' ? [x.segment] : []))).toEqual(segs)
         expect(u.length).toBe(segs.length + 2)
     })
+    it('should order grid blocks (reusable renders) the same way: the title card after every block of the teaser cuts', () => {
+        const FS = 1001 / 30000
+        const blocks = gridSegments([{ startSec: 100, endSec: 108 }, { startSec: 500, endSec: 540 }, { startSec: 900, endSec: 930 }], FS, 300, 3600)
+        const u = orderUnits(blocks, 1)
+        const at = u.findIndex((x) => x.kind === 'intro')
+        expect(at).toBe(blocks.filter((s) => s.cutIndex === 0).length)
+        expect(u.slice(0, at).every((x) => x.kind === 'segment' && x.segment.cutIndex === 0)).toBe(true)
+        expect(u.slice(at + 1, -1).every((x) => x.kind === 'segment' && x.segment.cutIndex > 0)).toBe(true)
+        expect(u[u.length - 1].kind).toBe('outro')
+    })
 })
 
 describe('stableSegments', () => {
@@ -122,5 +132,87 @@ describe('stableSegments', () => {
         const s = planSegments([{ startSec: 0, endSec: 40 }], 0.5, 240, { units: 2, minFrames: 20, stable: true })
         expect(s.length).toBe(2)
         expect(s.reduce((a, x) => a + x.frames, 0)).toBe(80)
+    })
+})
+
+describe('gridBlockFrames', () => {
+    it('should be about 10 s in whole key-frame intervals', () => {
+        expect(gridBlockFrames(1001 / 30000, 60, null)).toBe(300)
+        expect(gridBlockFrames(1 / 25, 50, null)).toBe(250)
+        expect(gridBlockFrames(1 / 30, 60, { sampleRate: 48000, exact: false })).toBe(300)
+    })
+    it('should be a whole number of AAC frames when the audio is built per block, or every join would drift', () => {
+        for (const [fs, rate] of [[1001 / 30000, 48000], [1 / 30, 48000], [1 / 25, 48000], [1 / 24, 48000]] as const) {
+            const n = gridBlockFrames(fs, 60, { sampleRate: rate, exact: true })
+            const aac = (n * fs * rate) / 1024
+            expect(Math.abs(aac - Math.round(aac))).toBeLessThan(1e-6)
+            expect(n * fs).toBeGreaterThanOrEqual(10 - fs)
+            expect(n * fs).toBeLessThanOrEqual(30)
+        }
+        expect(gridBlockFrames(1001 / 30000, 60, { sampleRate: 48000, exact: true })).toBe(640)
+    })
+    it('should fall back to ~20 s blocks when no length is a whole number of AAC frames (44.1 kHz with 29.97 fps)', () => {
+        const n = gridBlockFrames(1001 / 30000, 60, { sampleRate: 44100, exact: true })
+        expect(n * (1001 / 30000)).toBeGreaterThan(15)
+        expect(n * (1001 / 30000)).toBeLessThan(25)
+    })
+})
+
+describe('gridSegments', () => {
+    const FS = 1001 / 30000
+    const N = 300
+    const cover = (segs: ReturnType<typeof gridSegments>, ci: number): number[] => segs.filter((s) => s.cutIndex === ci).flatMap((s) => Array.from({ length: s.frames }, (_, j) => s.grid! + j))
+
+    it('should cut a speed-1 cut on multiples of the block size of the SOURCE frame numbers, covering each frame inside it once', () => {
+        const c = { startSec: 123.4, endSec: 163.2 }
+        const segs = gridSegments([c], FS, N, 3600)
+        const { first, end } = gridSpan(c, FS)
+        expect(cover(segs, 0)).toEqual(Array.from({ length: end - first }, (_, i) => first + i))
+        for (const s of segs.slice(0, -1)) expect((s.grid! + s.frames) % N).toBe(0)
+        for (const s of segs.slice(1)) expect(s.grid! % N).toBe(0)
+        expect(segs[0].firstFrame).toBe(0)
+        expect(segs.map((s) => s.firstFrame)).toEqual(segs.map((s) => s.grid! - first))
+    })
+    it('should keep every interior block exactly as it was when the cut starts or ends elsewhere', () => {
+        const interior = (c: { startSec: number; endSec: number }) => gridSegments([c], FS, N, 3600).filter((s) => s.frames === N).map((s) => [s.grid, s.frames])
+        const a = interior({ startSec: 120, endSec: 600 })
+        const b = interior({ startSec: 133.3, endSec: 590.7 })
+        const common = a.filter((x) => b.some((y) => y[0] === x[0]))
+        expect(common.length).toBeGreaterThan(a.length - 4)
+        expect(common.length).toBe(b.length)
+    })
+    it('should split a cut into two without touching the blocks away from the split (an inserted replay)', () => {
+        const whole = gridSegments([{ startSec: 100, endSec: 500 }], FS, N, 3600)
+        const split = gridSegments([{ startSec: 100, endSec: 301.5 }, { startSec: 290, endSec: 295, speed: 0.5 }, { startSec: 301.5, endSec: 500 }], FS, N, 3600)
+        const blocks = (s: typeof whole) => new Set(s.filter((x) => x.frames === N && x.grid !== undefined).map((x) => x.grid))
+        const lost = [...blocks(whole)].filter((g) => !blocks(split).has(g))
+        expect(lost.length).toBeLessThanOrEqual(1) // only the block the split falls in
+    })
+    it('should plan a slowed cut from its own start in pieces, off the grid', () => {
+        const segs = gridSegments([{ startSec: 10, endSec: 20, speed: 0.5 }], FS, N, 100)
+        expect(segs.every((s) => s.grid === undefined)).toBe(true)
+        expect(segs.reduce((a, s) => a + s.frames, 0)).toBe(cutFrames({ startSec: 10, endSec: 20, speed: 0.5 }, FS))
+        expect(Math.max(...segs.map((s) => s.frames))).toBeLessThanOrEqual(100)
+    })
+    it('should give a very short cut one frame, and a cut inside one block a single partial block', () => {
+        expect(gridSegments([{ startSec: 5.001, endSec: 5.002 }], FS, N, 3600)).toHaveLength(1)
+        const one = gridSegments([{ startSec: 21, endSec: 25 }], FS, N, 3600)
+        expect(one).toHaveLength(1)
+        expect(one[0].frames).toBeGreaterThan(100)
+    })
+    it('should tile a whole match with equal blocks, and cover the same frames in total whatever the start', () => {
+        const total = (c: { startSec: number; endSec: number }): number => gridSegments([c], FS, N, 3600).reduce((a, s) => a + s.frames, 0)
+        const first = (t: number): number => gridSpan({ startSec: t, endSec: 6700 }, FS).first
+        expect(total({ startSec: 120, endSec: 6700 }) - total({ startSec: 123.3, endSec: 6700 })).toBe(first(123.3) - first(120))
+        expect(planFrames({ startSec: 0, endSec: 1 }, 0.25)).toBe(4)
+    })
+})
+
+describe('segmentSpan', () => {
+    it('should give a block its own source frames and a timed segment its cut-relative span', () => {
+        expect(segmentSpan({ startSec: 3, endSec: 9 }, { cutIndex: 0, firstFrame: 2, frames: 30, grid: 300 }, 0.1)).toEqual({ a: 30, b: 33 })
+        const s = segmentSpan({ startSec: 10, endSec: 20, speed: 0.5 }, { cutIndex: 0, firstFrame: 20, frames: 40 }, 0.1)
+        expect(s.a).toBeCloseTo(11, 6)
+        expect(s.b).toBeCloseTo(13, 6)
     })
 })

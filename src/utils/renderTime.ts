@@ -297,12 +297,12 @@ export function estimateRenderTime(
 }
 
 /** Parts of a re-encode that the unit cache holds from the last export (render/unitCache `reusableParts`): they cost no encoding. */
-export type ReusedParts = { intro: boolean; outro: boolean; cuts: boolean[] }
+export type ReusedParts = { intro: boolean; outro: boolean; /** Per cut: true / false, or the share (0..1) of its units the cache holds. */ cuts: (boolean | number)[] }
 
 /** Model seconds of the sections that will be reused. */
 export function reusedSeconds(work: WorkPlan, reused: ReusedParts | null | undefined): number {
     if (!reused) return 0
-    return work.sections.reduce((a, sec) => a + ((sec.kind === 'intro' ? reused.intro : sec.kind === 'outro' ? reused.outro : !!reused.cuts[sec.index]) ? sec.seconds : 0), 0)
+    return work.sections.reduce((a, sec) => a + sec.seconds * (sec.kind === 'intro' ? Number(reused.intro) : sec.kind === 'outro' ? Number(reused.outro) : Math.min(1, Math.max(0, Number(reused.cuts[sec.index] ?? 0)))), 0)
 }
 
 // ---- learned rates (localStorage) ----

@@ -43,6 +43,15 @@ export type PipelineStats = {
     reused?: { units: number; of: number }
     /** #11: frames made by the WebGPU path (0 when it was off or unavailable). */
     gpuFrames?: number
+    /** All units of the render, the output seconds that came from the cache and the seconds that were encoded, and the wall time of the encode (units, muxing, cache copies; not opening the sources). */
+    unitsTotal?: number
+    reusedSec?: number
+    encodedSec?: number
+    encodeWallMs?: number
+    /** Wall time summed over the units that were encoded / restored from the cache, and the units run at once (to estimate an all-encoded run). */
+    encodedUnitMs?: number
+    restoredUnitMs?: number
+    parallel?: number
 }
 
 export const emptyStats = (): PipelineStats => ({ frames: 0, units: 0, decodeWaitMs: 0, paintMs: 0, encodeCallMs: 0, backpressureMs: 0, drainMs: 0, unitSpans: [] })

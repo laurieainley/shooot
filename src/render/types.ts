@@ -77,6 +77,29 @@ export type RenderOverlay = {
     crop?: { x: number; y: number; w: number; h: number }
 }
 
+/** How far the background preparer has got: units of the plan that sit in the cache, and the share of each part. */
+export type PrepareState = {
+    totalUnits: number; readyUnits: number
+    /** Output seconds of all the plan's units and of the ready ones. */
+    totalSec: number; readySec: number
+    intro: boolean; outro: boolean
+    /** Ready share (0..1) of each cut of the request. */
+    cuts: number[]
+}
+
+/** The background preparer's hooks into the engine (RenderOptions.prepare): the engine only encodes the units the cache lacks and keeps them; the editor decides when and how fast. */
+export type PrepareHooks = {
+    /** Resolves when one more unit may start (the editor decides how many run at once); the result ends it. Rejects when `signal` aborts. */
+    acquire: (signal: AbortSignal | undefined) => Promise<() => void>
+    /** Awaited before every frame: at once while the editor is idle, later while the video plays. */
+    pace: () => Promise<void> | void
+    /** Free bytes to leave on the device (the room the real export needs when it builds its file in browser storage). */
+    reserveBytes: number
+    /** Bytes the plan's units are expected to take: the cache may grow to that. */
+    budgetBytes: number
+    onState: (s: PrepareState) => void
+}
+
 export type RenderGraphics = {
     intro?: RenderCard
     outro?: RenderCard
@@ -118,6 +141,8 @@ export type RenderOptions = {
      * same kind that no edit touched (see unitCache.ts). Omitted = nothing is cached or reused.
      */
     reuse?: ReuseKeys
+    /** The background preparer (needs `reuse` and `output`): encode the units the cache lacks, keep them, and write no file. */
+    prepare?: PrepareHooks
     /** Benchmarks only: opt-in speed-up experiments (see experiments.ts). Omitted = production behaviour. */
     experiments?: RenderExperiments
     /** Benchmarks: called at the end of a render with cheap counters (re-encode time breakdown, re-encoded spans). */
