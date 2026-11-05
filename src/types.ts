@@ -52,6 +52,9 @@ export type ReplayCrop = CropRect | GoalTeam | 'full'
 
 export type EventMark = 'teaser'
 
+/** Edits to one starred moment in the Coming up teaser; absent keys = the global teaser settings. Kept only while the event is starred. */
+export type TeaserEdit = { caption?: string; beforeSec?: number; afterSec?: number; replay?: boolean; replayCrop?: ReplayCrop }
+
 export type MatchEvent = {
     id: string
     matchTimeSec: number
@@ -68,6 +71,8 @@ export type MatchEvent = {
     replayCrop?: ReplayCrop  // replay framing; undefined = automatic, by event type (utils/attack.ts)
     /** Stars on the event (Star menu); absent = none. 'teaser' plays it at the top of the highlights video. */
     marks?: EventMark[]
+    /** This moment's own teaser edits (Coming up section); only on a teaser-starred event. */
+    teaser?: TeaserEdit
     /** Migrated kick-off: time on the whole timeline, until loaded files cover it (see utils/matchClock.ts). */
     globalTimeSec?: number
 }

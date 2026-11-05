@@ -3,7 +3,7 @@ import { showToast } from './toasts'
 import { markerSetCopy, matchClock } from './utils/toastCopy'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { EventMark, GoalAreas, GoalMarks, GoalMarksByTeam, GoalTeam, KeepType, MarkerType, MatchEvent, PairSide, Suggestion, SuggestionRun, Team, VideoSourceFile } from './types'
+import type { EventMark, TeaserEdit, GoalAreas, GoalMarks, GoalMarksByTeam, GoalTeam, KeepType, MarkerType, MatchEvent, PairSide, Suggestion, SuggestionRun, Team, VideoSourceFile } from './types'
 import type { ScoredMoment } from './utils/goalAudioScore'
 import type { Score } from './utils/score'
 import { effectiveStatus, firstPendingIndex, mergeSuggestions, runMatchesFiles } from './utils/suggestions'
@@ -12,7 +12,7 @@ import { AUDIO_DETECT } from './detect/detectConfig'
 import { replayOptionsFor } from './utils/attack'
 import { normaliseAreas } from './utils/crop'
 import { goalRectFromMarks, normaliseGoalMarks } from './utils/goalMarks'
-import { isMarker, sanitiseEvents } from './utils/eventTypes'
+import { cleanTeaser, isMarker, sanitiseEvents } from './utils/eventTypes'
 import { computeCumulativeOffsets, isLongTimeline } from './utils/timeline'
 import type { HighlightsQualityChoice } from './utils/outputQuality'
 import type { HighlightSegment } from './utils/highlights'
@@ -96,6 +96,8 @@ export type AppState = {
     updateEvent: (id: string, partial: Partial<MatchEvent>) => void
     /** Star / unstar an event (undoable). Markers can't be starred. */
     toggleMark: (id: string, mark: EventMark) => void
+    /** Edit one starred moment's teaser settings: `undefined` (or a blank caption) unsets a key; ignored unless the event is starred. */
+    setTeaserEdit: (id: string, patch: Partial<TeaserEdit>) => void
     /** Make an event the Kick off / Final whistle, moving any existing one (single instance; one undo step). */
     placeMarker: (id: string, type: MarkerType) => void
     /** Put Kick off / Final whistle at a time in a file, moving any existing one (single instance; one undo step). */
@@ -453,16 +455,33 @@ export const useAppState = create<AppState>()(
                 if (!target || isMarker(target)) return
                 const next = state.events.map((e) => {
                     if (e.id !== id) return e
-                    const { marks, ...rest } = e
+                    const { marks, teaser: kept, ...rest } = e
                     const had = marks?.includes(mark) ?? false
                     const list = had ? (marks ?? []).filter((m) => m !== mark) : [...(marks ?? []), mark]
-                    return list.length ? { ...rest, marks: list } : rest
+                    // Unstarring drops the moment's teaser edits too (same undo step); keeping a mark keeps them.
+                    return list.length ? { ...rest, marks: list, ...(kept ? { teaser: kept } : {}) } : rest
                 })
                 // The first star, with the teaser switched off, is a wish for one: switch it back on (undo only tracks events, so the switch stays on, which is harmless with nothing starred).
                 const firstStar = !(target.marks?.includes(mark)) && !state.events.some((e) => !isMarker(e) && e.marks?.includes('teaser'))
                 set({
                     events: next,
                     ...(firstStar && mark === 'teaser' && !state.highlightsTeaser ? { highlightsTeaser: true } : {}),
+                    undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), state.events],
+                    redoStack: [],
+                })
+            },
+            setTeaserEdit: (id, patch) => {
+                const state = get()
+                const target = state.events.find((e) => e.id === id)
+                if (!target || !target.marks?.includes('teaser')) return
+                const merged = cleanTeaser({ ...target.teaser, ...patch }, true)
+                const next = state.events.map((e) => {
+                    if (e.id !== id) return e
+                    const { teaser: _old, ...rest } = e
+                    return merged ? { ...rest, teaser: merged } : rest
+                })
+                set({
+                    events: next,
                     undoStack: [...state.undoStack.slice(-(MAX_UNDO_DEPTH - 1)), state.events],
                     redoStack: [],
                 })
@@ -475,7 +494,7 @@ export const useAppState = create<AppState>()(
                     .map((e) => {
                         if (e.id !== id) return e
                         const m: MatchEvent = { ...e, type }
-                        for (const k of ['team', 'scorer', 'assist', 'notes', 'replay', 'pen', 'marks'] as const) delete m[k]
+                        for (const k of ['team', 'scorer', 'assist', 'notes', 'replay', 'pen', 'marks', 'teaser'] as const) delete m[k]
                         return m
                     })
                 set({

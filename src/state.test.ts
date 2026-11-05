@@ -9,6 +9,49 @@ const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: 
 const goalIn = (fileIndex: number, id = `g${fileIndex}`): MatchEvent => ({ id, matchTimeSec: 10, sourceFileIndex: fileIndex, type: 'goal' })
 const s = () => useAppState.getState()
 
+describe('teaser edits', () => {
+    const ev = () => s().events.find((e) => e.id === 'g')!
+    beforeEach(() => {
+        useAppState.setState({ events: [{ id: 'g', matchTimeSec: 10, type: 'goal', marks: ['teaser'] }, { id: 'u', matchTimeSec: 20, type: 'goal' }], undoStack: [], redoStack: [] })
+    })
+    it('should set and unset fields, undoably', () => {
+        s().setTeaserEdit('g', { caption: ' Big save ', beforeSec: 3, replay: true })
+        expect(ev().teaser).toEqual({ caption: 'Big save', beforeSec: 3, replay: true })
+        s().setTeaserEdit('g', { beforeSec: undefined, caption: '  ' })
+        expect(ev().teaser).toEqual({ replay: true })
+        s().setTeaserEdit('g', { replay: undefined })
+        expect(ev().teaser).toBeUndefined()
+        s().undo()
+        expect(ev().teaser).toEqual({ replay: true })
+    })
+    it('should clamp seconds and cap the caption', () => {
+        s().setTeaserEdit('g', { beforeSec: 40, afterSec: -2, caption: 'x'.repeat(250) })
+        expect(ev().teaser).toMatchObject({ beforeSec: 15, afterSec: 0 })
+        expect(ev().teaser!.caption).toHaveLength(200)
+    })
+    it('should ignore unstarred events', () => {
+        s().setTeaserEdit('u', { caption: 'hi' })
+        expect(s().events.find((e) => e.id === 'u')!.teaser).toBeUndefined()
+        expect(s().undoStack).toHaveLength(0)
+    })
+    it('should delete edits on unstar, restore both on one undo, and start clean on re-star', () => {
+        s().setTeaserEdit('g', { caption: 'hi' })
+        s().toggleMark('g', 'teaser')
+        expect('teaser' in ev()).toBe(false)
+        s().undo()
+        expect(ev().marks).toEqual(['teaser'])
+        expect(ev().teaser).toEqual({ caption: 'hi' })
+        s().toggleMark('g', 'teaser')
+        s().toggleMark('g', 'teaser')
+        expect(ev().teaser).toBeUndefined()
+    })
+    it('should delete edits when the event becomes a marker', () => {
+        s().setTeaserEdit('g', { caption: 'hi' })
+        s().placeMarker('g', 'final_whistle')
+        expect('teaser' in ev()).toBe(false)
+    })
+})
+
 describe('toggleMark', () => {
     beforeEach(() => {
         useAppState.setState({ events: [{ id: 'g', matchTimeSec: 10, type: 'goal' }, { id: 'k', matchTimeSec: 1, type: 'kick_off' }], undoStack: [], redoStack: [] })

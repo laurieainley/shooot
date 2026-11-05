@@ -243,3 +243,24 @@ describe('sanitiseEvents', () => {
         expect(sanitiseEvents(undefined)).toEqual([])
     })
 })
+
+describe('teaser edits', () => {
+    const star = { marks: ['teaser'] }
+    it('should keep teaser edits on a starred event and clean them', () => {
+        const out = sanitiseEvents([
+            { id: 'a', matchTimeSec: 1, type: 'goal', ...star, teaser: { caption: ' hi ', beforeSec: 40, afterSec: -2, replay: true, replayCrop: 'full', junk: 1 } },
+            { id: 'b', matchTimeSec: 2, type: 'goal', ...star, teaser: { caption: 'x'.repeat(250) } },
+        ])
+        expect(out[0].teaser).toEqual({ caption: 'hi', beforeSec: 15, afterSec: 0, replay: true, replayCrop: 'full' })
+        expect(out[1].teaser!.caption).toHaveLength(200)
+    })
+    it('should drop teaser edits on unstarred events and markers, and empty ones', () => {
+        const out = sanitiseEvents([
+            { id: 'a', matchTimeSec: 1, type: 'goal', teaser: { caption: 'hi' } },
+            { id: 'k', matchTimeSec: 1, type: 'kick_off', ...star, teaser: { caption: 'hi' } },
+            { id: 'c', matchTimeSec: 3, type: 'goal', ...star, teaser: {} },
+            { id: 'd', matchTimeSec: 4, type: 'goal', ...star, teaser: 'nope' },
+        ])
+        for (const e of out) expect('teaser' in e).toBe(false)
+    })
+})
