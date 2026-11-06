@@ -21,6 +21,9 @@ export function captionWord(e: Pick<MatchEvent, 'type' | 'pen'>): string {
     }
 }
 
+/** The Shooot caption marks an own goal with its OG chip after the name, so the word is a plain GOAL! (not OWN GOAL twice over). */
+const shoootWord = (e: Pick<MatchEvent, 'type' | 'pen'>): string => (e.type === 'own_goal' ? 'GOAL!' : captionWord(e))
+
 const captionTone = (e: Pick<MatchEvent, 'type'>): CaptionTone => (e.type === 'goal' ? 'goal' : e.type === 'own_goal' ? 'ownGoal' : 'other')
 
 export const shoootTheme: GraphicsTheme = {
@@ -30,7 +33,7 @@ export const shoootTheme: GraphicsTheme = {
     fonts: FONT_VOICES.map((v) => ({ family: VOICES[v].family, url: VOICES[v].url })),
     fontChecks: FONT_VOICES.map((v) => fontCss(v, 48)),
     glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 –-.'()!:×GOAL REPLAY",
-    caption: { word: captionWord, tone: captionTone, defaultStripe: C.muted, minutes: true, scorers: true },
+    caption: { word: shoootWord, tone: captionTone, defaultStripe: C.muted, minutes: true, scorers: true },
     rows: { bug: BUG_ROWS, caption: CAPTION_ROWS, replay: REPLAY_ROWS },
     paintCard: (ctx, spec, t, d, assets) => paintOps(ctx, cardLayout(spec, t, d, !!assets.logo, measureWith(ctx)), assets),
     paintCaption: (ctx, spec, t, d, assets) => paintOps(ctx, captionLayout(spec, t, !!assets.logo, d, measureWith(ctx)), assets),
