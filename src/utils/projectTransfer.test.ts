@@ -27,7 +27,7 @@ describe('assist in transfers', () => {
 
 describe('teaser edits in transfers', () => {
     it('should round trip teaser edits through a transfer link', async () => {
-        const edit = { caption: 'Wow', beforeSec: 3, afterSec: 2, replay: false, replayCrop: 'full' as const }
+        const edit = { caption: 'Wow', beforeSec: 3, afterSec: 2, replay: false, replayCrop: 'full' as const, crop: { x: 0.1, y: 0.1, w: 0.5, h: 0.5 } }
         const starred = [{ ...events[0], marks: ['teaser' as const], teaser: edit }, events[1]]
         const decoded = await decodeProject(await encodeProject(buildTransferPayload(payload({ events: starred }))))
         expect(sanitiseEvents(decoded.events)[0].teaser).toEqual(edit)

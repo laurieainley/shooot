@@ -24,6 +24,12 @@ describe('teaser edits', () => {
         s().undo()
         expect(ev().teaser).toEqual({ replay: true })
     })
+    it('should keep the clip crop alongside the replay crop, and clear it on unset', () => {
+        s().setTeaserEdit('g', { crop: 'team2', replayCrop: 'full' })
+        expect(ev().teaser).toEqual({ crop: 'team2', replayCrop: 'full' })
+        s().setTeaserEdit('g', { caption: undefined, replay: undefined, replayCrop: undefined, crop: undefined })
+        expect(ev().teaser).toBeUndefined()
+    })
     it('should clamp seconds and cap the caption', () => {
         s().setTeaserEdit('g', { beforeSec: 40, afterSec: -2, caption: 'x'.repeat(250) })
         expect(ev().teaser).toMatchObject({ beforeSec: 15, afterSec: 0 })

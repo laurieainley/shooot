@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { highlightsCuts, teaserEvents, teaserLength } from './teaser'
+import { highlightsCuts, teaserClipPlan, teaserEvents, teaserLength, teaserSegment } from './teaser'
 import type { MatchEvent } from '../types'
 import type { ReplayOptions } from './renderPlan'
 
@@ -136,5 +136,46 @@ describe('teaserLength', () => {
     })
     it('should be empty when nothing is starred', () => {
         expect(teaserLength({ ...base, events: [ev('a', 40)] })).toEqual({ moments: 0, seconds: 0 })
+    })
+})
+
+describe('teaserClipPlan crop', () => {
+    const seg = (e: MatchEvent) => teaserSegment(e, 10, 4)
+    const areas = { team1: { x: 0.1, y: 0.2, w: 0.4, h: 0.4 }, team2: { x: 0.5, y: 0.2, w: 0.4, h: 0.4 } }
+    const withAreas: ReplayOptions = { ...replay, cropFor: (e) => (e.replayCrop === 'team1' || e.replayCrop === 'team2' ? areas[e.replayCrop] : null) }
+    const box = { x: 0.2, y: 0.2, w: 0.5, h: 0.5 }
+
+    it('should zoom the clip itself, at normal speed, when the replay is off', () => {
+        const { cuts } = teaserClipPlan(seg(ev('g', 40, { ...star, teaser: { crop: box } })), [100, 100], replay)
+        expect(cuts).toHaveLength(1)
+        expect(cuts[0]).toMatchObject({ startSec: 30, endSec: 44, crop: box })
+        expect(cuts[0].speed).toBeUndefined()
+        expect(cuts[0].cropLabel).toMatch(/^Teaser zoom: .* 00:40$/)
+    })
+    it('should put the crop on both cuts of a clip crossing a file join', () => {
+        const { cuts } = teaserClipPlan(seg(ev('g', 2, { sourceFileIndex: 1, ...star, teaser: { crop: box } })), [100, 100], replay)
+        expect(cuts).toHaveLength(2)
+        expect(cuts.every((c) => c.crop?.w === box.w)).toBe(true)
+    })
+    it('should resolve a team goal with the replay resolver', () => {
+        const { cuts } = teaserClipPlan(seg(ev('g', 40, { ...star, teaser: { crop: 'team2' } })), [100, 100], withAreas)
+        expect(cuts[0].crop).toEqual(areas.team2)
+    })
+    it('should stay wide when unset or full, and ignore the event\'s own crop', () => {
+        for (const e of [ev('g', 40, { ...star, replayCrop: 'team1' }), ev('g', 40, { ...star, replayCrop: 'team1', teaser: { crop: 'full' } })]) {
+            expect(teaserClipPlan(seg(e), [100, 100], withAreas).cuts[0]).toEqual({ sourceIndex: 0, startSec: 30, endSec: 44 })
+        }
+    })
+    it('should leave the clip wide when the replay is on, and keep the replay crop separate', () => {
+        const e = ev('g', 40, { ...star, teaser: { replay: true, crop: box, replayCrop: 'team1' } })
+        const { cuts } = teaserClipPlan(seg(e), [100, 100], withAreas)
+        expect(cuts).toHaveLength(2)
+        expect(cuts[0].crop).toBeUndefined()
+        expect(cuts[1]).toMatchObject({ speed: 0.5, crop: areas.team1 })
+    })
+    it('should not touch the reel clip of the same event', () => {
+        const r = highlightsCuts({ ...base, events: [ev('g', 40, { ...star, teaser: { crop: box } })], teaser: true })
+        expect(r.cuts[0].crop).toEqual(box)
+        expect(r.cuts[1].crop).toBeUndefined()
     })
 })

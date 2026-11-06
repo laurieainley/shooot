@@ -53,7 +53,7 @@ export type ReplayCrop = CropRect | GoalTeam | 'full'
 export type EventMark = 'teaser'
 
 /** Edits to one starred moment in the Coming up teaser; absent keys = the global teaser settings. Kept only while the event is starred. */
-export type TeaserEdit = { caption?: string; beforeSec?: number; afterSec?: number; replay?: boolean; replayCrop?: ReplayCrop }
+export type TeaserEdit = { caption?: string; beforeSec?: number; afterSec?: number; replay?: boolean; replayCrop?: ReplayCrop; crop?: ReplayCrop }
 
 export type MatchEvent = {
     id: string

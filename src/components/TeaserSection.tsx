@@ -87,8 +87,8 @@ function TeaserActions({ event: e, touch, onToggleReplay, onEdit, onFraming, onU
             <button type="button" className={btn} aria-label="Edit teaser" title="Edit this teaser moment (E)" onClick={onEdit}>
                 <span aria-hidden="true">✎</span><span className="event-actions__label">Edit</span>
             </button>
-            <button type="button" className={btn} aria-label="Teaser framing" disabled={!replay}
-                title={replay ? 'Teaser replay framing (zoom to the goal)' : 'Turn Replay on to frame it'} onClick={onFraming}>
+            <button type="button" className={btn} aria-label="Teaser framing"
+                title={replay ? 'Teaser replay framing (zoom to the goal)' : 'Teaser framing (zoom in on this moment)'} onClick={onFraming}>
                 <span aria-hidden="true">⌖</span><span className="event-actions__label">Framing</span>
             </button>
             <button type="button" className={`${btn} act-btn--unstar`} aria-label="Unstar" title="Take it out of the teaser (⌫)" onClick={onUnstar}>

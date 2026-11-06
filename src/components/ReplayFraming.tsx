@@ -9,7 +9,7 @@ import { useFrameAt } from './frameGrab'
 
 interface ReplayFramingProps {
     event: MatchEvent
-    /** Whose framing this is: the event's own replay (default), or its teaser clip's (`teaser.replayCrop`, falling back to the event's). */
+    /** Whose framing this is: the event's own replay (default), or its teaser clip's (its slow-mo replay's `teaser.replayCrop` while that is on, else the clip's own `teaser.crop`). */
     target?: 'event' | 'teaser'
 }
 
@@ -22,14 +22,16 @@ const choiceOf = (c: ReplayCrop | undefined): ChoiceId => (c === undefined ? 'au
  * either team's goal, the whole frame, or a custom box drawn on the event's own frame, with zoom 1-3× around its centre.
  */
 export function ReplayFraming({ event: e, target = 'event' }: ReplayFramingProps) {
-    const own = target === 'teaser' ? e.teaser?.replayCrop : e.replayCrop
+    // A teaser frames its replay while that is on, else the clip itself (both are kept, so switching the replay restores each).
+    const clip = target === 'teaser' && e.teaser?.replay !== true
+    const own = target === 'teaser' ? (clip ? e.teaser?.crop : e.teaser?.replayCrop) : e.replayCrop
     const areas = useAppState((s) => s.goalAreas)
     const teams = useAppState((s) => s.teams)
     const resolverState = useAppState(useShallow((s) => ({ events: s.events, teams: s.teams, cumulativeOffsets: s.cumulativeOffsets, areas: s.goalAreas })))
     const file = useAppState((s) => s.files[e.sourceFileIndex ?? 0])
     const frame = useFrameAt(e.unlinked ? null : file?.url, e.unlinked || !file ? null : e.matchTimeSec)
     // The teaser frames by its own crop first, then the event's, then automatic (as the render does).
-    const framed = useMemo((): MatchEvent => (target === 'teaser' ? { ...e, replayCrop: e.teaser?.replayCrop ?? e.replayCrop } : e), [e, target])
+    const framed = useMemo((): MatchEvent => (target !== 'teaser' ? e : { ...e, replayCrop: clip ? e.teaser?.crop ?? 'full' : e.teaser?.replayCrop ?? e.replayCrop }), [e, target, clip])
     const resolved = useMemo(() => replayCropResolver(resolverState)(framed), [resolverState, framed])
     const choice = choiceOf(own)
     // A drag or slider move is a draft until it is released: one undo step per edit, not one per pixel.
@@ -39,7 +41,7 @@ export function ReplayFraming({ event: e, target = 'event' }: ReplayFramingProps
     useEffect(() => setDraft(null), [own, e.id])
     const shown = draft ?? resolved ?? null
     const set = (crop: ReplayCrop | undefined): void => {
-        if (target === 'teaser') useAppState.getState().setTeaserEdit(e.id, { replayCrop: crop })
+        if (target === 'teaser') useAppState.getState().setTeaserEdit(e.id, clip ? { crop } : { replayCrop: crop })
         else useAppState.getState().updateEvent(e.id, { replayCrop: crop })
     }
     const commit = (): void => {
@@ -49,16 +51,16 @@ export function ReplayFraming({ event: e, target = 'event' }: ReplayFramingProps
         set(rect.w >= 1 - 1e-6 ? 'full' : clampRect(rect))
     }
     const zoom = shown ? Math.min(MAX_REPLAY_ZOOM, zoomOf(shown)) : 1
-    const boxes: FrameBox[] = shown ? [{ id: 'crop', label: 'Replay framing', short: 'Replay', rect: shown, tone: 'event' }] : []
+    const boxes: FrameBox[] = shown ? [{ id: 'crop', label: clip ? 'Teaser framing' : 'Replay framing', short: clip ? 'Teaser' : 'Replay', rect: shown, tone: 'event' }] : []
     const choices: { id: ChoiceId; label: string }[] = [
-        { id: 'auto', label: target === 'teaser' ? 'Same as highlights' : 'Auto' }, { id: 'team1', label: teamGoalLabel(teams, 'team1') }, { id: 'team2', label: teamGoalLabel(teams, 'team2') },
+        { id: 'auto', label: target !== 'teaser' ? 'Auto' : clip ? 'Wide' : 'Same as highlights' }, { id: 'team1', label: teamGoalLabel(teams, 'team1') }, { id: 'team2', label: teamGoalLabel(teams, 'team2') },
         { id: 'full', label: 'Full frame' }, { id: 'custom', label: 'Custom' },
     ]
     const needsAreas = (id: ChoiceId): boolean => (id === 'team1' || id === 'team2') && !areas?.[id]
 
     return (
         <fieldset className="event-sheet__group replay-framing">
-            <legend className="sr-only">Replay framing</legend>{/* the sheet's title says it */}
+            <legend className="sr-only">{clip ? 'Teaser framing' : 'Replay framing'}</legend>{/* the sheet's title says it */}
             <div className="chips">
                 {choices.map((c) => (
                     <button
@@ -98,7 +100,7 @@ export function ReplayFraming({ event: e, target = 'event' }: ReplayFramingProps
                     onBlur={() => commit()}
                 />
             </label>
-            {shown && isSoft(shown) && <p className="replay-framing__warn" role="status">Zoomed in tightly: the replay will look soft on 1080p footage.</p>}
+            {shown && isSoft(shown) && <p className="replay-framing__warn" role="status">Zoomed in tightly: the {clip ? 'clip' : 'replay'} will look soft on 1080p footage.</p>}
         </fieldset>
     )
 }

@@ -18,14 +18,12 @@ function useCloseWhenUnstarred(e: MatchEvent): boolean {
     return starred
 }
 
-/** The Framing action's view for a teaser: only how this moment's teaser slow-mo replay is framed. Closes when that replay is switched off. */
+/** The Framing action's view for a teaser: how the teaser clip is framed, or its slow-mo replay while that is on. */
 export function TeaserFramingBody({ event: e }: { event: MatchEvent }) {
     const starred = useCloseWhenUnstarred(e)
-    const on = starred && e.teaser?.replay === true
-    useEffect(() => { if (starred && !on) close() }, [starred, on])
-    if (!on) return null
+    if (!starred) return null
     return (
-        <ColumnPanel label="Teaser framing" onClose={close} className="event-sheet">
+        <ColumnPanel label={e.teaser?.replay ? 'Teaser replay framing' : 'Teaser framing'} onClose={close} className="event-sheet">
             <ReplayFraming event={e} target="teaser" />
         </ColumnPanel>
     )
@@ -129,14 +127,14 @@ export function TeaserSheet({ event: e }: { event: MatchEvent }) {
                     <span>Slow-mo replay</span>
                     <span className="act-switch__pill">{replay ? 'On' : 'Off'}</span>
                 </button>
-                <button type="button" className="act-btn act-btn--touch" aria-label="Teaser framing" disabled={!replay}
+                <button type="button" className="act-btn act-btn--touch" aria-label="Teaser framing" title={replay ? 'Teaser replay framing (zoom to the goal)' : 'Teaser framing (zoom in on this moment)'}
                     onClick={() => { saveAll(); useAppState.getState().editTeaser(e.id, 'framing') }}>
                     <span aria-hidden="true">⌖</span><span>Framing</span>
                 </button>
             </div>
 
             <button type="button" className="link-btn teaser-reset" disabled={!t}
-                onClick={() => patch({ caption: undefined, beforeSec: undefined, afterSec: undefined, replay: undefined, replayCrop: undefined })}>Reset to automatic</button>
+                onClick={() => patch({ caption: undefined, beforeSec: undefined, afterSec: undefined, replay: undefined, replayCrop: undefined, crop: undefined })}>Reset to automatic</button>
 
             <div className="sheet__actions">
                 <button type="button" className="btn-quiet btn-danger" onClick={() => { useAppState.getState().toggleMark(e.id, 'teaser'); close() }}>Unstar</button>
