@@ -97,9 +97,9 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
         }
     }
 
-    /** Touch view: a tap on the picture shows or hides the controls. Nothing plays, seeks or toggles fullscreen. */
+    /** Touch view (also the portrait row over the picture): a tap on the picture shows or hides the controls. Nothing plays, seeks or toggles fullscreen. */
     const tapControls = (): void => {
-        if (!overlayView) return
+        if (!touchView) return
         const ui = useTagUi.getState()
         if (ui.controlsVisible) ui.setControlsVisible(false)
         else ui.poke()
@@ -201,6 +201,7 @@ export function FullscreenControls({ playerRef, isFullscreen }: FullscreenContro
                     {overlayView ? <TagControls variant="overlay" /> : !reviewShown && <Fab />}
                 </>
             )}
+            {mode === 'band' && coarse && !isFullscreen && <TagControls variant="portrait" />}
         </div>
     )
 }

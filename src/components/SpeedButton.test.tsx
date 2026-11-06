@@ -70,11 +70,18 @@ describe('SpeedButton', () => {
 })
 
 describe('TagControls speed button', () => {
-    it('should sit in the left cluster in both the overlay and the band', () => {
-        for (const variant of ['overlay', 'band'] as const) {
+    it('should sit in the left cluster in both the overlay and the portrait row', () => {
+        for (const variant of ['overlay', 'portrait'] as const) {
             const { container, unmount } = render(<TagControls variant={variant} />)
             expect(container.querySelector('.tv-left [aria-label^="Playback speed"]')).toBeTruthy()
             unmount()
         }
+    })
+
+    it('should order the portrait row ⟲5 · Play · ⟳5, frame ‹ ›, speed, with Tag at the right and no Found buttons', () => {
+        const { container } = render(<TagControls variant="portrait" />)
+        const names = [...container.querySelectorAll('.tv-dock button')].map((b) => b.getAttribute('aria-label'))
+        expect(names).toEqual(['Back 5 seconds', 'Play', 'Forward 5 seconds', 'Previous frame', 'Next frame', expect.stringMatching(/^Playback speed/), 'Tag this moment'])
+        expect(container.querySelector('.tv-dock > .tv-tag:last-child')).toBeTruthy()
     })
 })

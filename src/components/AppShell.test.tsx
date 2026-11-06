@@ -12,6 +12,7 @@ vi.mock('idb-keyval', async () => (await import('../files/idbMock')).idbMock())
 vi.mock('../render', () => ({ renderReel: vi.fn() }))
 
 import { AppShell } from './AppShell'
+import { TagControls } from './TagControls'
 
 const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec: 600, kind: 'full' })
 
@@ -46,15 +47,19 @@ describe('AppShell', () => {
         expect(screen.queryByRole('button', { name: 'Tag event' })).not.toBeInTheDocument()
     })
 
-    it('should stack the phone layout with the Tag band under the strip under 900px', async () => {
+    it('should stack the phone layout with the controls over the picture and a slim band under the strip under 900px', async () => {
         setWidth(false)
         const { container } = render(<AppShell />)
-        expect(container.querySelector('.tv-band')).toContainElement(screen.getByRole('button', { name: 'Tag this moment' }))
+        // The Player is mocked here: the transport row and Tag over the picture are covered in FullscreenControls.test.tsx.
+        expect(container.querySelector('.tv-band')).not.toContainElement(screen.queryByRole('button', { name: 'Tag this moment' }))
+        expect(within(container.querySelector('.tv-band') as HTMLElement).getByRole('button', { name: /Find goals/ })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Previous found moment' })).not.toBeInTheDocument() // nothing found yet
         expect(screen.queryByRole('button', { name: 'Tag event' })).not.toBeInTheDocument() // the ＋ is gone on touch
         expect(screen.queryByRole('complementary', { name: 'Event rail' })).not.toBeInTheDocument()
         expect(screen.queryByText('tag')).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Keyboard shortcuts' })).not.toBeInTheDocument()
         expect(screen.getByRole('region', { name: 'Events' })).toBeInTheDocument()
+        render(<TagControls variant="portrait" />)
         await userEvent.click(screen.getByRole('button', { name: 'Tag this moment' }))
         // The time is captured, but no event exists until a type is chosen
         expect(useAppState.getState().events).toEqual([])

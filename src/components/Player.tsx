@@ -420,7 +420,8 @@ export function Player() {
         return () => { useFullscreenUi.getState().setHost(null) }
     }, [inFullscreen])
     // The overlay controls never hide by themselves: only a single tap on the picture hides / shows them (FullscreenControls).
-    const controlsVisible = useControlsVisibility(overlayView)
+    const controlsOverPicture = overlayView || tagViewMode === 'band' // portrait touch: the transport row sits on the picture's bottom edge
+    const controlsVisible = useControlsVisibility(controlsOverPicture)
     // Touch fullscreen with a panel or the tag box open: the picture sits beside / above it, never behind it.
     const coarseFs = useMediaQuery(COARSE_QUERY)
     const columnPanel = useFullscreenUi((s) => s.columnPanel)
@@ -461,7 +462,7 @@ export function Player() {
     }, [])
 
     return (
-        <div ref={containerRef} className={`player-container${zoomPan.zoom > 1 ? ' player-container--zoomed' : ''}${immersive ? ' player-container--immersive' : ''}${overlayView ? ' player-container--tagview' : ''}${tagViewMode === 'band' ? ' player-container--band' : ''}${overlayView && !controlsVisible ? ' player-container--faded' : ''}${split ? ' player-container--split' : ''}`}>
+        <div ref={containerRef} className={`player-container${zoomPan.zoom > 1 ? ' player-container--zoomed' : ''}${immersive ? ' player-container--immersive' : ''}${overlayView ? ' player-container--tagview' : ''}${tagViewMode === 'band' ? ' player-container--band' : ''}${controlsOverPicture && !controlsVisible ? ' player-container--faded' : ''}${split ? ' player-container--split' : ''}`}>
             <video ref={videoRef} className="video-js vjs-default-skin" />
             {speedIndicator !== null && (
                 <div className="speed-indicator" key={speedIndicator + '-' + Date.now()}>

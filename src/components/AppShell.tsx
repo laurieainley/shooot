@@ -107,7 +107,7 @@ export function AppShell() {
                     {!sideBySide && isPreviewMode && <div className="preview-bar preview-bar--inline"><PreviewControls /></div>}
                     {!overlay && <MatchStrip />}
                     {tagViewMode === 'band' && <FindGoalsLine />}
-                    {tagViewMode === 'band' && <div className="tv-band"><div className="tv-band__chips"><FindGoalsChip /></div><TagControls variant="band" /></div>}
+                    {tagViewMode === 'band' && <div className="tv-band"><TagControls variant="band"><FindGoalsChip /></TagControls></div>}
                 </div>
                 <aside className="rail" aria-label={sideBySide ? 'Event rail' : undefined}>
                     <div className="rail__main">
