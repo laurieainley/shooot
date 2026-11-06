@@ -27,9 +27,9 @@ export function normaliseGraphics(v: unknown, fallback: GraphicsSettings): Graph
     return { cards: pick('cards'), lowerThirds: pick('lowerThirds'), replayTag: pick('replayTag'), theme: isThemeId(o.theme) ? o.theme : isThemeId(fallback.theme) ? fallback.theme : DEFAULT_THEME_ID }
 }
 
-/** Captions go on goals (incl. penalties and own goals), conceded and missed penalties and highlights (with or without a note). */
+/** Captions go on goals (incl. penalties and own goals), conceded and missed penalties, saves and highlights (with or without a note). */
 export function wantsLowerThird(e: Pick<MatchEvent, 'type' | 'notes' | 'pen'>): boolean {
-    return isScoring(e) || e.type === 'penalty_missed' || e.type === 'penalty_conceded' || e.type === 'highlight'
+    return isScoring(e) || e.type === 'penalty_missed' || e.type === 'penalty_conceded' || e.type === 'save' || e.type === 'highlight'
 }
 
 const upper = (s: string | undefined): string | undefined => (s?.trim() ? s.trim().toUpperCase() : undefined)
@@ -100,6 +100,9 @@ function eventCaptionSpec(e: MatchEvent, teams: Team[], score: Score | undefined
     return cs
 }
 
+/** The teaser banner's word: it leads into the clips that follow. */
+export const TEASER_WORD = 'COMING UP...'
+
 /**
  * The teaser banner for one starred event: COMING UP, then the moment's own caption (`teaser.caption`) when set, else the event
  * word and name (a highlight: its note). Nothing that gives the result away. The row wraps onto two lines when drawn (`wrapNote`).
@@ -107,12 +110,12 @@ function eventCaptionSpec(e: MatchEvent, teams: Team[], score: Score | undefined
 export function teaserCaptionSpec(e: MatchEvent, _teams: Team[], theme: GraphicsTheme | ThemeId = DEFAULT_THEME_ID): CaptionSpec {
     const th = typeof theme === 'string' ? getTheme(theme) : theme
     const own = upper(shortNote(e.teaser?.caption, 2 * NOTE_MAX))
-    if (own) return { label: 'COMING UP', tone: 'goal', note: own, stripe: th.caption.defaultStripe }
+    if (own) return { label: TEASER_WORD, tone: 'goal', note: own, stripe: th.caption.defaultStripe }
     const word = th.caption.word(e).replace(/!$/, '')
     const name = upper(e.scorer)
     const note = upper(shortNote(e.notes, 2 * NOTE_MAX))
     const row = e.type === 'highlight' ? (note ?? name ?? word) : name ? `${word} · ${name}` : word
-    return { label: 'COMING UP', tone: 'goal', note: row, stripe: th.caption.defaultStripe }
+    return { label: TEASER_WORD, tone: 'goal', note: row, stripe: th.caption.defaultStripe }
 }
 
 /** The line the teaser banner shows for one starred event (its caption, else the automatic one), for the Coming up rows. */
@@ -120,9 +123,9 @@ export function teaserLine(e: MatchEvent, theme: GraphicsTheme | ThemeId = DEFAU
     return teaserCaptionSpec(e, [], theme).note ?? ''
 }
 
-/** The full match captions goals (incl. penalties, own goals), conceded and missed penalties; not highlights, saves or fouls. */
+/** The full match captions goals (incl. penalties, own goals), conceded and missed penalties and saves; not highlights or fouls. */
 export function wantsFullMatchCaption(e: Pick<MatchEvent, 'type' | 'notes' | 'pen'>): boolean {
-    return isScoring(e) || e.type === 'penalty_missed' || e.type === 'penalty_conceded'
+    return isScoring(e) || e.type === 'penalty_missed' || e.type === 'penalty_conceded' || e.type === 'save'
 }
 
 type CaptionOverlay = Extract<OverlaySpec, { kind: 'caption' }>

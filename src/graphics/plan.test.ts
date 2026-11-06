@@ -48,8 +48,8 @@ describe('wantsLowerThird', () => {
         expect(wantsLowerThird({ type: 'highlight', notes: '  ' })).toBe(true)
     })
 
-    it('should skip saves and fouls', () => {
-        expect(wantsLowerThird({ type: 'save' })).toBe(false)
+    it('should caption saves and skip fouls', () => {
+        expect(wantsLowerThird({ type: 'save' })).toBe(true)
         expect(wantsLowerThird({ type: 'foul', notes: 'late' })).toBe(false)
     })
 })
@@ -103,7 +103,7 @@ describe('buildGraphicsSpec', () => {
 
     it('should credit an own goal to the team it counts for', () => {
         const spec = build([ev('a', 20, { type: 'own_goal', team: 'Walford Town', scorer: 'Smith' })])
-        expect(spec.overlays[0]).toMatchObject({ spec: { label: 'OWN GOAL', tone: 'ownGoal', person: 'SMITH', stripe: '#ec5fa4', bug: { text: '0–1' } } })
+        expect(spec.overlays[0]).toMatchObject({ spec: { label: 'GOAL!', tone: 'ownGoal', person: 'SMITH', stripe: '#ec5fa4', bug: { text: '0–1' } } })
     })
 
     it('should show the current score on a highlight caption, and use muted grey without a team', () => {
@@ -140,7 +140,7 @@ describe('buildGraphicsSpec', () => {
 
     it('should skip captions when turned off, and for unlinked, unwanted or marker events', () => {
         expect(build([ev('a', 20, {})], { ...ALL, lowerThirds: false }).overlays).toEqual([])
-        expect(build([ev('a', 20, { unlinked: true }), ev('s', 21, { type: 'save' }), ev('k', 22, { type: 'kick_off' })]).overlays).toEqual([])
+        expect(build([ev('a', 20, { unlinked: true }), ev('s', 21, { type: 'foul' }), ev('k', 22, { type: 'kick_off' })]).overlays).toEqual([])
     })
 
     it('should never put a caption on a slowed replay', () => {
@@ -192,9 +192,9 @@ describe('fullMatchGraphicsSpec', () => {
 })
 
 describe('wantsFullMatchCaption', () => {
-    it('should cover goals, penalties, own goals, conceded and missed penalties only', () => {
-        for (const e of [{ type: 'goal' }, { type: 'goal', pen: true }, { type: 'own_goal' }, { type: 'penalty_conceded' }, { type: 'penalty_missed' }] as const) expect(wantsFullMatchCaption(e)).toBe(true)
-        for (const e of [{ type: 'save' }, { type: 'foul' }, { type: 'highlight', notes: 'x' }, { type: 'kick_off' }] as const) expect(wantsFullMatchCaption(e)).toBe(false)
+    it('should cover goals, penalties, own goals, conceded and missed penalties and saves only', () => {
+        for (const e of [{ type: 'goal' }, { type: 'goal', pen: true }, { type: 'own_goal' }, { type: 'penalty_conceded' }, { type: 'penalty_missed' }, { type: 'save' }] as const) expect(wantsFullMatchCaption(e)).toBe(true)
+        for (const e of [{ type: 'foul' }, { type: 'highlight', notes: 'x' }, { type: 'kick_off' }] as const) expect(wantsFullMatchCaption(e)).toBe(false)
     })
 })
 
@@ -227,7 +227,7 @@ describe('fullMatchGraphicsSpec event captions', () => {
 
     it('should credit an own goal to the team it is credited to', () => {
         const [c] = caps([ev('o', 60, { type: 'own_goal', team: W, scorer: 'Ned' })])
-        expect(c.kind === 'caption' && c.spec).toMatchObject({ label: 'OWN GOAL', person: 'NED' })
+        expect(c.kind === 'caption' && c.spec).toMatchObject({ label: 'GOAL!', tone: 'ownGoal', person: 'NED' })
         expect(c.kind === 'caption' && c.spec.bug?.text).toBe('0–1')
     })
 
@@ -242,8 +242,9 @@ describe('fullMatchGraphicsSpec event captions', () => {
         expect(c.kind === 'caption' && c.spec).toMatchObject({ label: 'PENALTY MISSED', person: 'CY' })
     })
 
-    it('should not caption saves, fouls or highlights', () => {
-        expect(caps([ev('s', 60, { type: 'save' }), ev('f', 62, { type: 'foul' }), ev('h', 70, { type: 'highlight', notes: 'x' })])).toEqual([])
+    it('should caption saves, not fouls or highlights', () => {
+        expect(caps([ev('s', 60, { type: 'save', scorer: 'Kim' })]).map((c) => c.kind === 'caption' && c.spec.label)).toEqual(['SAVE'])
+        expect(caps([ev('f', 62, { type: 'foul' }), ev('h', 70, { type: 'highlight', notes: 'x' })])).toEqual([])
     })
 
     it('should add nothing when captions are off', () => {
@@ -291,6 +292,13 @@ describe('captionWord', () => {
         expect(captionWord({ type: 'penalty_missed' })).toBe('PENALTY MISSED')
         expect(captionWord({ type: 'save' })).toBe('SAVE')
         expect(captionWord({ type: 'highlight' })).toBe('HIGHLIGHT')
+    })
+
+    it('should say GOAL! for an own goal in the Shooot look (the OG chip marks it), OWN GOAL where there is no chip', () => {
+        const og = { type: 'own_goal' as const }
+        expect(getTheme('shooot').caption.word(og)).toBe('GOAL!')
+        expect(getTheme('shooot').caption.tone?.(og)).toBe('ownGoal')
+        expect(getTheme('tnf').caption.word(og)).toBe('OWN GOAL')
     })
 })
 
@@ -424,7 +432,7 @@ describe('teaserCaptionSpec', () => {
     const t = (e: MatchEvent) => teaserCaptionSpec(e, teams, getTheme('shooot'))
     it('should say COMING UP in the goal tone with the event word and name', () => {
         const s = t(ev('a', 10, { scorer: 'Dan', team: 'Walford Town', notes: 'makes it 3-2', assist: 'Bo' }))
-        expect(s).toEqual({ label: 'COMING UP', tone: 'goal', note: 'GOAL · DAN', stripe: getTheme('shooot').caption.defaultStripe })
+        expect(s).toEqual({ label: 'COMING UP...', tone: 'goal', note: 'GOAL · DAN', stripe: getTheme('shooot').caption.defaultStripe })
     })
     it('should name penalties and the event word alone', () => {
         expect(t(ev('a', 10, { scorer: 'Dan', pen: true })).note).toBe('PEN GOAL · DAN')
@@ -461,7 +469,7 @@ describe('teaser graphics', () => {
         const caps = spec.overlays.filter((o) => o.kind === 'caption')
         const teaser = caps.filter((o) => o.cutIndex === 0)
         expect(teaser).toHaveLength(1)
-        expect(teaser[0]).toMatchObject({ startSec: 30, durationSec: 14, spec: { label: 'COMING UP', note: 'GOAL · DAN' }, clock: { offsetSec: 0, rate: 1, totalSec: 14 } })
+        expect(teaser[0]).toMatchObject({ startSec: 30, durationSec: 14, spec: { label: 'COMING UP...', note: 'GOAL · DAN' }, clock: { offsetSec: 0, rate: 1, totalSec: 14 } })
         const reel = caps.filter((o) => o.kind === 'caption' && o.cutIndex !== 0)
         expect(reel.map((o) => o.cutIndex)).toEqual([1, 2])
         expect(spec.overlays.filter((o) => o.kind === 'replayTag').map((o) => o.cutIndex)).toEqual([2])
@@ -497,7 +505,7 @@ describe('teaser graphics', () => {
         ]
         const spec = buildGraphicsSpec({ events, teams, cuts: withReplay, cumulativeOffsets: [0], settings: { ...ALL, replayTag: true }, matchday: 'M', teaserCount: 2, teaserClips: [0, 0] })
         const caps = spec.overlays.filter((o) => o.kind === 'caption')
-        const coming = caps.filter((o) => o.kind === 'caption' && o.spec.label === 'COMING UP')
+        const coming = caps.filter((o) => o.kind === 'caption' && o.spec.label === 'COMING UP...')
         expect(coming).toHaveLength(1)
         expect(coming[0]).toMatchObject({ cutIndex: 0, startSec: 30, durationSec: 14, clock: { offsetSec: 0, totalSec: 14 } })
         expect(coming[0]).not.toHaveProperty('toCutEnd')
