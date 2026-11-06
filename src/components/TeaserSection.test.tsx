@@ -103,7 +103,7 @@ describe('Coming up section', () => {
         const actions = screen.getByRole('group', { name: 'Teaser actions' })
         expect(within(actions).getByRole('switch', { name: 'Teaser slow-mo replay' })).toHaveAttribute('aria-checked', 'false')
         expect(within(actions).getByRole('button', { name: 'Edit teaser' })).toBeEnabled()
-        expect(within(actions).getByRole('button', { name: 'Teaser framing' })).toBeDisabled()
+        expect(within(actions).getByRole('button', { name: 'Teaser framing' })).toBeEnabled()
         expect(within(actions).getByRole('button', { name: 'Unstar' })).toBeEnabled()
         // Only the teaser row opened, not the same event's match row
         expect(screen.queryAllByRole('group', { name: 'Event actions' }).length).toBe(0)

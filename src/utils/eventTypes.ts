@@ -170,6 +170,8 @@ export function cleanTeaser(raw: unknown, whitesAttackLeft = true): TeaserEdit |
     if (typeof r.replay === 'boolean') out.replay = r.replay
     const crop = migrateReplayCrop(r.replayCrop, whitesAttackLeft)
     if (crop !== undefined) out.replayCrop = crop
+    const clipCrop = migrateReplayCrop(r.crop, whitesAttackLeft)
+    if (clipCrop !== undefined) out.crop = clipCrop
     return Object.keys(out).length ? out : undefined
 }
 

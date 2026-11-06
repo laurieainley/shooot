@@ -122,8 +122,22 @@ describe('Teaser framing', () => {
         expect(screen.getByRole('button', { name: 'Same as highlights' })).toHaveAttribute('aria-pressed', 'true')
     })
 
-    it('should appear only while the teaser replay is on', () => {
+    it('should frame the clip itself, as Wide by default, while the replay is off', async () => {
         setup({ teaser: { caption: 'x' } }, 'framing')
-        expect(screen.queryByRole('group', { name: 'Replay framing' })).not.toBeInTheDocument()
+        expect(screen.getByRole('dialog', { name: 'Teaser framing' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Wide' })).toHaveAttribute('aria-pressed', 'true')
+        await userEvent.click(screen.getByRole('button', { name: 'Full frame' }))
+        expect(ev().teaser?.crop).toBe('full')
+        expect(ev().teaser?.replayCrop).toBeUndefined()
+        expect(ev().replayCrop).toBeUndefined()
+        await userEvent.click(screen.getByRole('button', { name: 'Wide' }))
+        expect(ev().teaser?.crop).toBeUndefined()
+    })
+
+    it('should frame the replay while it is on, keeping the clip crop', async () => {
+        setup({ teaser: { replay: true, crop: 'team1' } }, 'framing')
+        expect(screen.getByRole('dialog', { name: 'Teaser replay framing' })).toBeInTheDocument()
+        await userEvent.click(screen.getByRole('button', { name: 'Full frame' }))
+        expect(ev().teaser).toMatchObject({ crop: 'team1', replayCrop: 'full' })
     })
 })

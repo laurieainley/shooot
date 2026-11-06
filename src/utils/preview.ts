@@ -14,7 +14,7 @@ export type PreviewStep = {
     clipIndex: number  // which clip of the reel this step belongs to
     eventIds: string[] // the events in that clip (the event list highlights them while it plays)
     teaser?: true      // a COMING UP clip (or its teaser replay) played ahead of the reel (clipIndex -1; the reel's clips start at 0)
-    crop?: CropRect    // replays: the part of the picture shown (same as the render)
+    crop?: CropRect    // replays and zoomed teaser clips: the part of the picture shown (same as the render)
 }
 
 /** The preview follows the render plan exactly, so what you preview is what gets rendered. */

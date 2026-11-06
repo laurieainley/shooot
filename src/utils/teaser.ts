@@ -1,7 +1,9 @@
 // The "COMING UP" teaser: starred events' own clips (each with its own edits), planned ahead of the reel.
-import type { MatchEvent } from '../types'
+import type { CropRect, MatchEvent } from '../types'
+import { clampRect, isFullFrame } from './crop'
+import { formatHMS } from './timeline'
 import type { Cut } from '../render/types'
-import { hasMark, isMarker } from './eventTypes'
+import { eventLabel, hasMark, isMarker } from './eventTypes'
 import { mergeOverlappingGoalSegments, type HighlightSegment } from './highlights'
 import { buildRenderPlanWithOrigins, type CutOrigin, type ReplayOptions } from './renderPlan'
 
@@ -24,14 +26,24 @@ export function teaserSegment(e: MatchEvent, before: number, after: number): Hig
     return { startTime: e.matchTimeSec - b, endTime: e.matchTimeSec + a, sourceFileIndex: e.sourceFileIndex ?? 0, goals: [e], duration: a + b }
 }
 
+/** The zoom of the teaser clip itself (`teaser.crop`; wide when unset or 'full'): a team's goal goes by the replay resolver. */
+function teaserClipCrop(e: MatchEvent | undefined, replay?: ReplayOptions): CropRect | null {
+    const c = e?.teaser?.crop
+    if (!e || c === undefined || c === 'full') return null
+    if (typeof c === 'object') return isFullFrame(c) ? null : clampRect(c)
+    return replay?.cropFor?.({ ...e, replayCrop: c }) ?? null
+}
+
 /**
  * The cuts of one teaser clip (a segment of `teaserSegment`): the clip, split at a file join, then its slow-mo replay when the
- * moment has `teaser.replay`, with the match's replay window / speed / gain and the framing `teaser.replayCrop ?? event.replayCrop
+ * moment has `teaser.replay`, else the clip itself is zoomed by `teaser.crop` (wide by default), with the match's replay window / speed / gain and the framing `teaser.replayCrop ?? event.replayCrop
  * ?? automatic` (the reel's own crop resolver, given the teaser crop). No `replay` options = no replay.
  */
 export function teaserClipPlan(s: HighlightSegment, durationsSec: number[], replay?: ReplayOptions): { cuts: Cut[]; origins: CutOrigin[] } {
     const e = s.goals[0]
     const clip = buildRenderPlanWithOrigins([s], durationsSec)
+    const crop = e?.teaser?.replay ? null : teaserClipCrop(e, replay)
+    if (crop) for (const c of clip.cuts) { c.crop = crop; c.cropLabel = `Teaser zoom: ${eventLabel(e)} ${formatHMS(e.matchTimeSec)}` }
     // No replay asked for, or the clip itself came out empty (0 s, or clamped away): a bare slow-mo with no banner is never planned.
     if (!replay || !e?.teaser?.replay || clip.cuts.length === 0) return clip
     // The replay goes by the teaser's switch, not the event's own replay setting, and frames by the teaser crop first.
