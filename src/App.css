@@ -1972,6 +1972,9 @@ html:has(.player-container--tagview), body:has(.player-container--tagview) { ove
 /* The clusters sit above the timeline's touch area (44px) and the event icons stacked above its track (3 lanes reach 64px), with a gap. */
 .player-container--tagview { --tv-clear: 76px; }
 .player-container--tagview .vjs-control-bar, .player-container--band .vjs-control-bar { display: none !important; } /* the clusters replace it */
+/* Portrait: the row over the picture's bottom edge is 50 px tall; the zoom chip and the error copy button sit above it. */
+.player-container--band .zoom-chip { bottom: 58px; }
+.player-container--band .player-error-copy { bottom: 60px; }
 .player-container--tagview .tap-zone { bottom: 44px; }
 /* Sheets and menus opened from the touch view live inside the player (portalRoot): above the controls. */
 .player-container--tagview .drawer-scrim { z-index: 19999; }
@@ -2070,15 +2073,25 @@ html:has(.player-container--tagview), body:has(.player-container--tagview) { ove
 .tv-sheet__body > .event-log, .tv-sheet__body > .match-list { flex: 1 1 0; min-height: 0; }
 
 /* The band under the picture (portrait phone, upright tablet). */
-.tv-band { flex: none; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; box-sizing: border-box; padding: 10px max(12px, env(safe-area-inset-right, 0px)) 10px max(12px, env(safe-area-inset-left, 0px)); background: var(--sh-surface); border-bottom: 1px solid var(--sh-line); }
-.tv-band .tv-left { --tv: 52px; }
-.tv-band .tv-btn { background: var(--sh-surface-2); color: var(--sh-text); border-color: var(--sh-line); -webkit-backdrop-filter: none; backdrop-filter: none; }
-.tv-band .speedbtn__list { background: var(--sh-surface-2); border-color: var(--sh-line); }
-.tv-band .speedbtn__opt { color: var(--sh-text); border-color: var(--sh-line); }
-.tv-band .speedbtn__opt[aria-pressed="true"] { background: var(--sh-ground); box-shadow: 0 0 0 2px var(--sh-text); }
-.tv-band .tv-btn--play { background: var(--sh-text); color: var(--sh-ground); }
-.tv-band .tv-right { align-self: center; }
-.shell:has(.tagcol) .tv-band .tv-found-row { display: none; } /* while tagging, room for the question */
+/* Portrait: the transport row and Tag overlay the bottom edge of the picture (one compact row, same look as the landscape overlay);
+   under the picture a slim row holds Found ◀ ▶ around the Find goals chip, with the found-moment chip and Not a goal when on a moment. */
+.tv-dock {
+  position: absolute; z-index: 30; left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); bottom: 6px;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; pointer-events: none; touch-action: manipulation;
+}
+.tv-dock .tv-left { --tv: 42px; display: flex; gap: 4px; min-width: 0; pointer-events: auto; }
+.tv-dock .tv-btn { flex: none; height: 44px; border-radius: 12px; }
+.tv-dock .tv-btn--speed { width: auto; min-width: var(--tv); padding: 0 4px; font-size: 13px; }
+.tv-dock .speedbtn--touch { position: static; } /* the speeds open above the whole row, from its left edge, so they never run off the screen */
+.tv-dock .speedbtn--touch .speedbtn__list { left: 0; bottom: calc(100% + 6px); }
+.tv-dock .btn-primary.tv-tag { flex: none; width: 64px; height: 44px; min-height: 44px; border-radius: 14px; font-size: 16px; pointer-events: auto; }
+@media (max-width: 349px) { .tv-dock .tv-btn--frame { display: none; } } /* the narrowest phones: the frame steps go first (the keyboard and the ⟲5 / Play cover the rest) */
+@media (min-width: 600px) { .tv-dock { bottom: 10px; gap: 12px; } .tv-dock .tv-left { --tv: 48px; gap: 8px; } .tv-dock .tv-btn { height: 48px; } .tv-dock .btn-primary.tv-tag { width: 84px; height: 48px; min-height: 48px; font-size: 17px; } }
+.tv-band { flex: none; display: flex; flex-direction: column; gap: 4px; box-sizing: border-box; padding: 4px max(12px, env(safe-area-inset-right, 0px)) 4px max(12px, env(safe-area-inset-left, 0px)); background: var(--sh-surface); border-bottom: 1px solid var(--sh-line); }
+.tv-band__row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tv-band__row > .tv-chip { flex: 1 1 0; min-width: 0; justify-content: center; }
+.tv-band__row > .tv-chip > span { overflow: hidden; text-overflow: ellipsis; }
+.tv-band .tv-btn { width: auto; height: 40px; flex: none; padding: 0 12px; border-radius: 999px; background: var(--sh-surface-2); color: var(--sh-text); border-color: var(--sh-line); -webkit-backdrop-filter: none; backdrop-filter: none; }
 
 /* The Tag column: from the right edge over the picture (landscape) or the panel under the band (portrait); choices sit low, by the thumb. */
 .tagcol {
@@ -2140,9 +2153,7 @@ button.tagcol__crumb:active { color: var(--sh-text); border-color: var(--sh-text
 /* Find goals on the timeline (touch view). */
 .control-btn.tv-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border-radius: 999px; font-size: var(--sh-text-sm); font-weight: 600; white-space: nowrap; }
 .tv-chip--running { font-variant-numeric: tabular-nums; }
-.tv-band__chips { flex: 1 0 100%; display: flex; gap: 8px; }
-.tv-band { flex-wrap: wrap; }
-.tv-band .tv-chip { background: var(--sh-surface-2); color: var(--sh-text); border: 1px solid var(--sh-line); }
+.tv-band .tv-chip { min-height: 40px; background: var(--sh-surface-2); color: var(--sh-text); border: 1px solid var(--sh-line); }
 .tv-findline { position: absolute; z-index: 31; left: 0; right: 0; bottom: 44px; height: 3px; background: rgb(243 241 234 / 0.2); pointer-events: none; }
 .tv-findline > div { height: 100%; background: var(--sh-on-video); }
 .bay__left > .tv-findline { position: relative; bottom: auto; z-index: auto; background: var(--sh-line); }
@@ -2155,15 +2166,14 @@ button.tagcol__crumb:active { color: var(--sh-text); border-color: var(--sh-text
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); font-size: var(--sh-text-sm); font-weight: 600; white-space: nowrap; pointer-events: none;
 }
 .tv-moment__meta { color: rgb(243 241 234 / 0.8); }
-.tv-band { position: relative; }
-.tv-band .tv-moment { position: absolute; transform: none; left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); top: 10px; height: 44px; box-sizing: border-box; justify-content: center; padding: 0 12px; background: var(--sh-surface-2); color: var(--sh-text); border: 1px solid var(--sh-line); border-radius: 999px; -webkit-backdrop-filter: none; backdrop-filter: none; z-index: 2; }
+.tv-band .tv-moment { position: static; transform: none; flex: 1 1 0; min-width: 0; height: 40px; box-sizing: border-box; justify-content: center; padding: 0 12px; background: var(--sh-surface-2); color: var(--sh-text); border: 1px solid var(--sh-line); border-radius: 999px; -webkit-backdrop-filter: none; backdrop-filter: none; overflow: hidden; }
 .tv-band .tv-moment__meta { color: var(--sh-muted); }
 .tv-notgoal {
   min-width: 76px; min-height: 44px; padding: 0 12px; border-radius: 14px; border: 1px solid rgb(243 241 234 / 0.18); background: rgb(10 14 12 / 0.72); color: var(--sh-on-video);
   font: inherit; font-size: var(--sh-text-sm); font-weight: 700; cursor: pointer; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); white-space: nowrap;
 }
 .tv-notgoal--slot { visibility: hidden; pointer-events: none; }
-.tv-band .tv-notgoal { background: var(--sh-surface-2); color: var(--sh-text); border-color: var(--sh-line); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.tv-band .tv-notgoal { flex: none; min-height: 40px; border-radius: 999px; background: var(--sh-surface-2); color: var(--sh-text); border-color: var(--sh-line); -webkit-backdrop-filter: none; backdrop-filter: none; }
 .menu-speeds { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; padding: 6px 4px; }
 .menu-speeds__label { flex: 1 0 100%; font-size: var(--sh-text-xs); color: var(--sh-muted); padding: 0 4px; }
 .menu-speeds__btn { min-width: 44px; min-height: 44px; padding: 0 8px; border-radius: var(--sh-radius-sm); border: 1px solid var(--sh-line); background: transparent; color: var(--sh-text); font: inherit; font-size: var(--sh-text-sm); font-weight: 700; cursor: pointer; }

@@ -300,3 +300,22 @@ describe('FullscreenControls picture taps in the touch view', () => {
         expect(player.play).not.toHaveBeenCalled()
     })
 })
+
+describe('FullscreenControls on touch, portrait (not fullscreen)', () => {
+    beforeEach(() => {
+        setMedia({ coarse: true, portrait: true })
+        useAppState.setState({ files: [{ id: 'a', name: 'a.mp4', url: '', file: new File([''], 'a.mp4'), durationSec: 600, kind: 'full' }], events: [], suggestions: [], suggestionRun: null, panel: null, picker: null })
+        useTagUi.setState({ controlsVisible: true })
+    })
+    afterEach(() => { setMedia({}); useAppState.setState({ files: [] }) })
+
+    it('should put the transport row and Tag over the picture, and show / hide them on a tap', () => {
+        const { container, getByRole } = render(<FullscreenControls playerRef={{ current: fakePlayer() }} isFullscreen={false} />)
+        expect(container.querySelector('.tv-dock')).toContainElement(getByRole('button', { name: 'Tag this moment' }))
+        expect(container.querySelector('.tv-dock')).toContainElement(getByRole('button', { name: 'Back 5 seconds' }))
+        fireEvent.click(container.querySelector('.tap-zone')!)
+        expect(useTagUi.getState().controlsVisible).toBe(false)
+        fireEvent.click(container.querySelector('.tap-zone')!)
+        expect(useTagUi.getState().controlsVisible).toBe(true)
+    })
+})

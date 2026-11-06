@@ -125,3 +125,25 @@ describe('Find goals chip and sheet (touch view)', () => {
         expect(document.querySelector('.review')).not.toBeNull() // the review card
     })
 })
+
+describe('portrait band (under the picture)', () => {
+    it('should hold Found ◀ ▶ around the Find goals chip, the moment chip and Not a goal, and no transport', () => {
+        seed(95)
+        const { container } = render(<TagControls variant="band"><FindGoalsChip /></TagControls>)
+        const row = container.querySelector('.tv-band__row') as HTMLElement
+        expect([...row.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual([
+            'Previous found moment', expect.stringMatching(/^Find goals/), 'Next found moment'])
+        expect(screen.getByRole('status', { name: /Found moment · 1 of 2/ })).toBeTruthy()
+        expect(screen.getByRole('button', { name: /Not a goal/ })).toBeTruthy()
+        expect(screen.queryByRole('button', { name: 'Play' })).toBeNull()
+        expect(screen.queryByRole('button', { name: 'Tag this moment' })).toBeNull()
+    })
+
+    it('should show only the chip when nothing is found', () => {
+        seed(95)
+        act(() => useAppState.setState({ suggestions: [], suggestionRun: null }))
+        const { container } = render(<TagControls variant="band"><FindGoalsChip /></TagControls>)
+        expect(container.querySelectorAll('.tv-band__row button')).toHaveLength(1)
+        expect(container.querySelector('.tv-moment')).toBeNull()
+    })
+})
