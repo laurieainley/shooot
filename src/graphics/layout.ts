@@ -7,8 +7,8 @@ export const DESIGN_H = 1080
 export const SAFE_X = 96
 export const SAFE_Y = 54
 
-/** The full-time card; the title card (line-ups) stays longer so there is time to read it. */
-export const CARD_SEC = 4
+/** The full-time card (8 s: time to take in the final score and scorers) and the title card (line-ups). */
+export const CARD_SEC = 8
 export const INTRO_SEC = 7
 /** Event captions stay on screen for 5 s. */
 export const CAPTION_SEC = 5
