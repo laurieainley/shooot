@@ -1,4 +1,5 @@
 // Saved matches on this device: one IndexedDB record per match (see utils/matchRecord.ts).
+import { forgetPrepared } from '../prepare/prepared'
 import { createStore, del, entries, get, set } from 'idb-keyval'
 import { bumpMatches } from '../components/openMatch'
 import type { MatchRecord, MatchSummary } from '../utils/matchRecord'
@@ -45,6 +46,7 @@ export async function putMatch(r: MatchRecord): Promise<void> {
 
 export async function deleteMatch(id: string): Promise<void> {
     await del(id, store)
+    forgetPrepared(id)
     try { await del(`match-handles:${id}`) } catch { /* nothing stored */ }
     bumpMatches()
 }

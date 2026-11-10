@@ -9,6 +9,16 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 
 ---
 
+## 2026-11-10 — Prepare on the go: encode in the pub on a phone/iPad, finish on the Mac (user + agent)
+- **Decision (user):** 4K is the export to optimise (Original too big to upload, 1080p loses the far goal); no YouTube API upload.
+  Prepare on the phone (Pixel 9 Pro) or iPad in the pub with the screen on; carry prepared parts to the Mac on the microSD card; the
+  cross-device part is a try.
+- **Agent calls:** wake lock while a prepare pass runs on touch; one-tap "Prepare 4K" (top bar row on portrait phone/tablet, touch-view
+  menu in landscape), never a silent settings change; prepared % remembered per kind for the relink banner; spike verdict for mixed
+  encoders: one covering `avc1` entry + in-band SPS/PPS per unit (avc3 fails in AVFoundation).
+- **Why:** the user's 4K export waited until the footage reached the Mac; the pub hours were idle.
+- **Where:** spec `docs/superpowers/specs/2026-11-10-prepare-on-the-go-design.md`, plans `…/2026-11-10-prepare-in-the-pub.md`, `…/2026-11-10-prepared-parts-handoff.md`.
+
 ## 2026-11-05 — Coming up section: each starred moment is edited on its own (user + agent)
 - **Decision (user):** starring adds an entry to a Coming up section at the top of the Events list (unstar removes it); each entry has its own
   caption, slow-mo replay, replay framing and seconds before/after; they change only the teaser, never the same moment later in the video.

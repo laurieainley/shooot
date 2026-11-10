@@ -17,6 +17,9 @@ import { useExportButtonStatus } from './useExportButtonStatus'
 import { useTagUi } from './tagView'
 import { PLAYBACK_SPEEDS, getPlayerRate, runPlayerShortcut, setPlayerRate } from './playerControl'
 import { useTagViewMode } from './tagView'
+import { accept4k, offer4k } from '../prepare/offer4k'
+import { isCoarsePointer } from '../prepare/wire'
+import { OFFER_TIP } from './Prepare4kOffer'
 
 interface OverflowMenuProps {
     /** Desktop and tablet have a Match setup button in the bar; narrower layouts keep it in here. */
@@ -79,6 +82,11 @@ function MenuBody({ setupInMenu, tagView = false }: MenuBodyProps) {
     const touchView = useTagViewMode() !== 'off'
     const [rate, setRate] = useState(getPlayerRate)
     const filesCount = useAppState((s) => s.files.length)
+    const files = useAppState((s) => s.files)
+    const fullMatchQuality = useAppState((s) => s.fullMatch.quality)
+    const highlightsQuality = useAppState((s) => s.highlightsQuality)
+    // The touch view (landscape) has no top bar to carry the offer, so it lives here.
+    const prepare4k = tagView && isCoarsePointer() && offer4k({ fullMatchQuality, highlightsQuality, files })
     const items: MenuItem[] = [
         ...(setupInMenu ? [{ label: 'Match setup', panel: 'match' as const }] : []),
         { label: 'Advanced settings', panel: 'settings' },
@@ -111,6 +119,7 @@ function MenuBody({ setupInMenu, tagView = false }: MenuBodyProps) {
                 <>
                     <button type="button" role="menuitem" onClick={() => { useAppState.getState().closePanel(); useTagUi.getState().setSheet('events') }}>Events list</button>
                     <button type="button" role="menuitem" onClick={() => { useAppState.getState().closePanel(); useTagUi.getState().setSheet('matches') }}>Matches</button>
+                    {prepare4k && <button type="button" role="menuitem" onClick={() => { useAppState.getState().closePanel(); accept4k() }}><span><span className="block">Prepare 4K</span><span className="block text-muted">{OFFER_TIP}</span></span></button>}
                     <button type="button" role="menuitem" onClick={() => useAppState.getState().openPanel('export')}>Export</button>
                     <button type="button" role="menuitem" onClick={() => useAppState.getState().openPanel('files')}>Files{filesCount > 0 ? ` (${filesCount})` : ''}</button>
                     <button type="button" role="menuitem" onClick={() => { useAppState.getState().closePanel(); runPlayerShortcut('fullscreen') }}>{fullscreen ? 'Exit fullscreen' : 'Fullscreen'}</button>
