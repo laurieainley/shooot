@@ -5,6 +5,8 @@
 export type LogRecord = { track: 0 | 1; key: boolean; timestamp: number; duration: number; data: Uint8Array }
 
 export const RECORD_HEADER = 24
+/** A record longer than this is a damaged log (a packet is a few MB at most). */
+export const MAX_RECORD = 64 * 1024 * 1024
 
 export function encodeRecord(r: LogRecord): Uint8Array {
     const out = new Uint8Array(RECORD_HEADER + r.data.byteLength)
@@ -39,6 +41,7 @@ export class LogParser {
         let o = 0
         while (data.byteLength - o >= RECORD_HEADER) {
             const len = v.getUint32(o + 4, true)
+            if (len > MAX_RECORD) throw new Error('damaged packet log: a record is too long')
             if (data.byteLength - o < RECORD_HEADER + len) break
             out.push({
                 track: v.getUint8(o) === 1 ? 1 : 0,

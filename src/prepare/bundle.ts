@@ -8,16 +8,18 @@ import { LogParser, type LogRecord } from '../render/packetLog'
 import { buildTransferPayload, decodeProject, encodeProject, type TransferPayload } from '../utils/projectTransfer'
 import { useAppState } from '../state'
 
-// Written in two pieces: brand.test forbids the product's old spelling in source, but these bytes are the file format and must not change.
-const MAGIC_TEXT = 'SHOOO' + 'TPARTS\n'
-export const MAGIC = new TextEncoder().encode(MAGIC_TEXT)
+export const MAGIC = new TextEncoder().encode('shooot-parts\n')
 export const FORMAT = 1
-const MAX_HEADER = 64 * 1024 * 1024
+const MAX_HEADER = 16 * 1024 * 1024
+const MAX_UNITS = 20_000
+const MAX_PROJECT_CHARS = 8 * 1024 * 1024
+const MAX_PROJECT_BYTES = 32 * 1024 * 1024
+const MAX_DEVICE = 64
 const STEP = 8 * 1024 * 1024
 
-export type BundleUnit = { portable: string; which: CacheKind; bytes: number; offset: number; codec: string; description: string; applied: string[] }
+export type BundleUnit = { portable: string; which: CacheKind; bytes: number; records: number; offset: number; codec: string; description: string; applied: string[] }
 export type BundleHeader = { format: number; renderVersion: string; device: string; createdAt: number; projectId?: string | null; project: string; units: BundleUnit[] }
-export type BundleImport = { project: TransferPayload | null; imported: number; refused: string | null; device: string; cancelled: boolean }
+export type BundleImport = { project: TransferPayload | null; imported: number; refused: string | null; device: string; cancelled: boolean; skipped: { space: number; damaged: number; failed: number } }
 
 /** A short name for this device, for "prepared on <device>". */
 export function deviceLabel(ua: string = typeof navigator === 'undefined' ? '' : navigator.userAgent, touchPoints: number = typeof navigator === 'undefined' ? 0 : navigator.maxTouchPoints): string {
@@ -29,16 +31,25 @@ export function deviceLabel(ua: string = typeof navigator === 'undefined' ? '' :
     return 'another device'
 }
 
+/** How many records a stored unit holds (read in steps, never whole). */
+async function countRecords(file: File): Promise<number> {
+    const parser = new LogParser()
+    let n = 0
+    for (let o = 0; o < file.size; o += STEP) n += parser.push(new Uint8Array(await file.slice(o, Math.min(file.size, o + STEP)).arrayBuffer())).length
+    return n
+}
+
 /** The prepared units for the open project that are complete on disk, with their stored bytes. */
-async function completeUnits(): Promise<{ which: CacheKind; portable: string; file: File; applied: string[]; codec: string; description: string }[]> {
-    const out: { which: CacheKind; portable: string; file: File; applied: string[]; codec: string; description: string }[] = []
+async function completeUnits(): Promise<{ key: string; which: CacheKind; portable: string; file: File; applied: string[]; codec: string; description: string; records: number }[]> {
+    const out: { key: string; which: CacheKind; portable: string; file: File; applied: string[]; codec: string; description: string; records: number }[] = []
     const seen = new Set<string>()
     for (const { which, key } of await preparedUnits()) {
         const u = await readUnitFiles(key)
         const portable = u?.meta.portable
         if (!u || !u.meta.video || !portable || !isPortableKey(portable) || seen.has(portable)) continue
         seen.add(portable)
-        out.push({ which, portable, file: u.file, applied: u.meta.applied, codec: u.meta.video.codec, description: u.meta.video.description })
+        if (u.file.size <= 0) continue
+        out.push({ key, which, portable, file: u.file, applied: u.meta.applied, codec: u.meta.video.codec, description: u.meta.video.description, records: await countRecords(u.file) })
     }
     return out
 }
@@ -56,11 +67,18 @@ export async function buildBundle(projectId: string | null, o: { project?: Trans
     const header: BundleHeader = {
         format: FORMAT, renderVersion: RENDER_VERSION, device: o.device ?? deviceLabel(), createdAt: o.now ?? Date.now(), projectId,
         project: await encodeProject(o.project ?? buildTransferPayload(useAppState.getState())),
-        units: units.map((u) => { const e: BundleUnit = { portable: u.portable, which: u.which, bytes: u.file.size, offset, codec: u.codec, description: u.description, applied: u.applied }; offset += u.file.size; return e }),
+        units: units.map((u) => { const e: BundleUnit = { portable: u.portable, which: u.which, bytes: u.file.size, records: u.records, offset, codec: u.codec, description: u.description, applied: u.applied }; offset += u.file.size; return e }),
     }
     const json = new TextEncoder().encode(JSON.stringify(header))
     const len = new Uint8Array(4)
     new DataView(len.buffer).setUint32(0, json.length, true)
+    // The cache may trim a unit while the file is being made (the Blob only points at it): look at each once more just before returning. The cache has no
+    // pin for this; the caller keeps the render and the preparer quiet while saving, and a File that is gone throws here rather than later in the writer.
+    for (const u of units) {
+        const again = await readUnitFiles(u.key)
+        if (!again || again.file.size !== u.file.size) throw new Error('A prepared part changed while the file was being made. Try saving again.')
+        await again.file.slice(0, 1).arrayBuffer()
+    }
     return new Blob([MAGIC, len, json, ...units.map((u) => u.file)], { type: 'application/octet-stream' })
 }
 
@@ -81,9 +99,11 @@ export async function readBundleHeader(file: File): Promise<{ header: BundleHead
 
 const isUnit = (u: unknown): u is BundleUnit => {
     const x = u as BundleUnit
-    return !!x && typeof x.portable === 'string' && Number.isFinite(x.bytes) && x.bytes >= 0 && Number.isFinite(x.offset) && x.offset >= 0
-        && typeof x.codec === 'string' && typeof x.description === 'string' && Array.isArray(x.applied)
+    return !!x && typeof x.portable === 'string' && Number.isSafeInteger(x.bytes) && x.bytes > 0 && Number.isSafeInteger(x.records) && x.records > 0
+        && Number.isSafeInteger(x.offset) && x.offset >= 0 && typeof x.codec === 'string' && typeof x.description === 'string' && Array.isArray(x.applied)
 }
+
+const freeBytes = async (): Promise<number | null> => { try { const { quota, usage } = await navigator.storage.estimate(); return quota ? Math.max(0, quota - (usage ?? 0)) : null } catch { return null } }
 
 const abortError = (): DOMException => new DOMException('cancelled', 'AbortError')
 
@@ -95,13 +115,23 @@ export async function importBundle(file: File, onProgress: (doneBytes: number, t
     const parsed = await readBundleHeader(file)
     if (!parsed) throw new Error('This is not a prepared parts file.')
     const { header: h, dataStart } = parsed
-    const device = typeof h.device === 'string' && h.device ? h.device : 'another device'
+    const device = (typeof h.device === 'string' ? h.device.trim().slice(0, MAX_DEVICE) : '') || 'another device'
     let project: TransferPayload | null = null
-    try { project = await decodeProject(h.project) } catch { /* the parts can still be used */ }
-    const out: BundleImport = { project, imported: 0, refused: null, device, cancelled: false }
+    try { if (typeof h.project === 'string' && h.project.length <= MAX_PROJECT_CHARS) project = await decodeProject(h.project, MAX_PROJECT_BYTES) } catch { /* the parts can still be used */ }
+    const out: BundleImport = { project, imported: 0, refused: null, device, cancelled: false, skipped: { space: 0, damaged: 0, failed: 0 } }
     if (h.format !== FORMAT) { out.refused = 'This prepared parts file is from a different version of the app, so its parts were skipped. The project was loaded.'; return out }
     if (h.renderVersion !== RENDER_VERSION) { out.refused = 'These prepared parts were made by a different version of the app, so they were skipped. The project was loaded.'; return out }
-    const units = h.units.filter(isUnit).filter((u) => isPortableKey(u.portable) && dataStart + u.offset + u.bytes <= file.size)
+    if (h.units.length > MAX_UNITS) { out.refused = 'This prepared parts file is damaged, so its parts were skipped. The project was loaded.'; return out }
+    // Sound units only: whole fields, a portable key, inside the file, and no byte range or key shared with another unit.
+    const units: BundleUnit[] = []
+    const keys = new Set<string>()
+    const ranges: [number, number][] = []
+    for (const raw of h.units) {
+        if (!isUnit(raw) || !isPortableKey(raw.portable) || dataStart + raw.offset + raw.bytes > file.size) { out.skipped.damaged++; continue }
+        if (keys.has(raw.portable) || ranges.some(([a, b]) => raw.offset < b && a < raw.offset + raw.bytes)) { out.skipped.damaged++; continue }
+        keys.add(raw.portable); ranges.push([raw.offset, raw.offset + raw.bytes])
+        units.push({ ...raw, applied: raw.applied.filter((a): a is string => typeof a === 'string') })
+    }
     const total = units.reduce((a, u) => a + u.bytes, 0)
     const batch = `${device}·${h.createdAt}`
     let done = 0
@@ -109,20 +139,28 @@ export async function importBundle(file: File, onProgress: (doneBytes: number, t
     for (const u of units) {
         if (signal.aborted) { out.cancelled = true; return out }
         const base = done
+        let bad = false
         async function* records(): AsyncGenerator<LogRecord> {
             const parser = new LogParser()
+            let count = 0
             const from = dataStart + u.offset
             for (let o = 0; o < u.bytes; o += STEP) {
                 if (signal.aborted) throw abortError()
                 const end = Math.min(u.bytes, o + STEP)
-                yield* parser.push(new Uint8Array(await file.slice(from + o, from + end).arrayBuffer()))
+                let got: LogRecord[]
+                try { got = parser.push(new Uint8Array(await file.slice(from + o, from + end).arrayBuffer())) } catch (e) { bad = true; throw e }
+                count += got.length
+                yield* got
                 onProgress(base + end, total)
             }
-            if (parser.pending > 0) throw new Error('prepared part ends in the middle of a packet')
+            if (parser.pending > 0 || count !== u.records) { bad = true; throw new Error('prepared part is damaged') }
         }
         const ok = await importUnit(u.portable, records(), { applied: u.applied, video: { codec: u.codec, description: u.description }, device, batch, bytes: u.bytes })
         if (signal.aborted) { out.cancelled = true; if (ok) out.imported++; return out }
         if (ok) out.imported++
+        else if (bad) out.skipped.damaged++
+        else if ((await freeBytes()) !== null && (await freeBytes())! < u.bytes * 1.1) out.skipped.space++
+        else out.skipped.failed++
         done += u.bytes
         onProgress(done, total)
     }

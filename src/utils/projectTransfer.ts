@@ -55,11 +55,25 @@ function fromBase64Url(s: string): Uint8Array {
     return out
 }
 
-async function pipe(bytes: Uint8Array, stream: CompressionStream | DecompressionStream): Promise<Uint8Array> {
+async function pipe(bytes: Uint8Array, stream: CompressionStream | DecompressionStream, maxOut = Infinity): Promise<Uint8Array> {
     const writer = stream.writable.getWriter()
     void writer.write(bytes as BufferSource).catch(() => undefined)
     void writer.close().catch(() => undefined)
-    return new Uint8Array(await new Response(stream.readable).arrayBuffer())
+    if (maxOut === Infinity) return new Uint8Array(await new Response(stream.readable).arrayBuffer())
+    const reader = stream.readable.getReader()
+    const parts: Uint8Array[] = []
+    let n = 0
+    for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        n += value.byteLength
+        if (n > maxOut) { void reader.cancel().catch(() => undefined); throw new Error('too large') }
+        parts.push(value)
+    }
+    const out = new Uint8Array(n)
+    let o = 0
+    for (const p of parts) { out.set(p, o); o += p.byteLength }
+    return out
 }
 
 /** Project → `z1.<base64url(deflate-raw(json))>` (or `r1.<base64url(json)>` where CompressionStream is missing). */
@@ -74,7 +88,8 @@ function isPayload(v: unknown): v is TransferPayload {
 }
 
 /** Inverse of `encodeProject`; throws on anything that is not a project link. */
-export async function decodeProject(data: string): Promise<TransferPayload> {
+/** `maxOut`: refuse a project that inflates to more bytes than this (a file from outside can be a decompression bomb). */
+export async function decodeProject(data: string, maxOut = Infinity): Promise<TransferPayload> {
     const prefix = data.slice(0, 3)
     if (prefix !== COMPRESSED && prefix !== RAW) throw new Error('This link was made by a different version of the app.')
     try {
@@ -82,8 +97,9 @@ export async function decodeProject(data: string): Promise<TransferPayload> {
         let raw = bytes
         if (prefix === COMPRESSED) {
             if (typeof DecompressionStream === 'undefined') throw new Error('This browser cannot open compressed links.')
-            raw = await pipe(bytes, new DecompressionStream('deflate-raw'))
+            raw = await pipe(bytes, new DecompressionStream('deflate-raw'), maxOut)
         }
+        if (raw.byteLength > maxOut) throw new Error('too large')
         const parsed: unknown = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(raw))
         if (!isPayload(parsed)) throw new Error('not a project')
         return parsed

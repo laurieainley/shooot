@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { opfsUnitStore, importUnit, RENDER_VERSION } from '../render/unitCache'
 import type { LogRecord } from '../render/packetLog'
-const MAGIC_TEXT = 'SHOOO' + 'TPARTS\n'
-import { buildBundle, importBundle, readBundleHeader, MAGIC } from './bundle'
+import { buildBundle, importBundle, readBundleHeader, MAGIC, type BundleHeader } from './bundle'
 import type { TransferPayload } from '../utils/projectTransfer'
+
+const MAGIC_TEXT = 'shooot-parts\n'
 
 // A small in-memory OPFS (same idea as render/unitCache.import.test.ts); getFile hands out the same File object per read so identity can be checked.
 type FileNode = { kind: 'file'; chunks: Uint8Array[]; handed: File[] }
@@ -169,6 +170,83 @@ describe('prepared parts file', () => {
         wipe(root)
         const r = await importBundle(cut, () => undefined, new AbortController().signal)
         expect(r.imported).toBe(1)
+    })
+    const reframe = (head: BundleHeader, bytes: Uint8Array, dataStart: number): File => {
+        const enc = new TextEncoder().encode(JSON.stringify(head)); const l = new Uint8Array(4); new DataView(l.buffer).setUint32(0, enc.length, true)
+        return new File([MAGIC, l, enc, bytes.slice(dataStart)], 'x')
+    }
+    const made = async (): Promise<{ bytes: Uint8Array; head: NonNullable<Awaited<ReturnType<typeof readBundleHeader>>> }> => {
+        const bytes = new Uint8Array(await (await buildBundle('p', opts)).arrayBuffer())
+        return { bytes, head: (await readBundleHeader(new File([bytes], 'x')))! }
+    }
+    it('should count the skipped units: damaged (overlap, record count), and keep a good one', async () => {
+        const root = install()
+        await prepared()
+        const { bytes, head } = await made()
+        const [a, b] = head.header.units
+        expect(a.records).toBeGreaterThan(0)
+        wipe(root)
+        const overlap = reframe({ ...head.header, units: [a, { ...b, offset: a.offset }] }, bytes, head.dataStart)
+        const r1 = await importBundle(overlap, () => undefined, new AbortController().signal)
+        expect(r1).toMatchObject({ imported: 1, skipped: { damaged: 1, space: 0, failed: 0 } })
+        wipe(root)
+        const wrong = reframe({ ...head.header, units: [{ ...a, records: a.records + 1 }, b] }, bytes, head.dataStart)
+        const r2 = await importBundle(wrong, () => undefined, new AbortController().signal)
+        expect(r2).toMatchObject({ imported: 1, skipped: { damaged: 1 } })
+        expect(await opfsUnitStore().findPortable(a.portable)).toBeNull()
+        expect([...((root.kids.get('unit-cache') as DirNode).kids.keys())].filter((k) => k.startsWith(a.portable))).toEqual([])
+    })
+    it('should treat zero or fractional sizes, a duplicate key and an oversized device name as damaged / trimmed', async () => {
+        const root = install()
+        await prepared()
+        const { bytes, head } = await made()
+        const [a, b] = head.header.units
+        wipe(root)
+        const f = reframe({ ...head.header, device: `  ${'x'.repeat(100)}  `, units: [{ ...a, bytes: 0 }, { ...b, bytes: 1.5 }, { ...a, applied: ['ok', 3] as unknown as string[] }, { ...a }] }, bytes, head.dataStart)
+        const r = await importBundle(f, () => undefined, new AbortController().signal)
+        expect(r.device).toBe('x'.repeat(64))
+        expect(r.imported).toBe(1)
+        expect(r.skipped.damaged).toBe(3)
+        expect((await opfsUnitStore().findPortable(a.portable))!.meta.applied).toEqual(['ok'])
+    })
+    it('should count units that do not fit the free space', async () => {
+        const root = install()
+        await prepared()
+        const f = new File([await buildBundle('p', opts)], 'x')
+        wipe(root)
+        vi.stubGlobal('navigator', { storage: { getDirectory: async () => dirHandle(root), estimate: async () => ({ quota: 10, usage: 0 }) } })
+        const r = await importBundle(f, () => undefined, new AbortController().signal)
+        expect(r).toMatchObject({ imported: 0, skipped: { space: 2, damaged: 0 } })
+    })
+    it('should drop a project that is too big or inflates past the cap, and still import the parts', async () => {
+        const root = install()
+        await prepared()
+        const { bytes, head } = await made()
+        wipe(root)
+        const huge = reframe({ ...head.header, project: 'r1.' + 'A'.repeat(9 * 1024 * 1024) }, bytes, head.dataStart)
+        const r = await importBundle(huge, () => undefined, new AbortController().signal)
+        expect(r.project).toBeNull()
+        expect(r.imported).toBe(2)
+        wipe(root)
+        const bomb = new Uint8Array(new ArrayBuffer(40 * 1024 * 1024))
+        const gz = new Uint8Array(await new Response(new Blob([bomb]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer())
+        let bin = ''; for (const c of gz) bin += String.fromCharCode(c)
+        const z = 'z1.' + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+        const r2 = await importBundle(reframe({ ...head.header, project: z }, bytes, head.dataStart), () => undefined, new AbortController().signal)
+        expect(r2.project).toBeNull()
+        expect(r2.imported).toBe(2)
+    })
+    it('should refuse to save when a prepared part disappears while the file is made', async () => {
+        const root = install()
+        await prepared()
+        const cache = root.kids.get('unit-cache') as DirNode
+        const real = cache.kids.get(`${L2}.bin`) as FileNode
+        let reads = 0
+        // The second look at L2 finds it gone (trimmed meanwhile).
+        const origGet = cache.kids.get.bind(cache.kids)
+        cache.kids.get = (k: string) => (k === `${L2}.json` && ++reads > 1 ? undefined : origGet(k))
+        void real
+        await expect(buildBundle('p', opts)).rejects.toThrow(/changed while/)
     })
     it('should skip a unit whose key is not a portable key (the file comes from outside)', async () => {
         const root = install()
