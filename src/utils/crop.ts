@@ -1,9 +1,9 @@
 import type { CropRect, GoalAreas, ReplayCrop } from '../types'
 
-/** Smallest box the editors allow (a goal area of 20 % of the frame width). */
-export const MIN_BOX_W = 0.2
-/** Replay zoom range of the slider: 1× is the whole frame. */
-export const MAX_REPLAY_ZOOM = 3
+/** Smallest box the editors allow (10 % of the frame width, a 10× zoom): soft, but it can show a moment up close. */
+export const MIN_BOX_W = 0.1
+/** Replay zoom range of the slider: 1× is the whole frame, up to the smallest box. */
+export const MAX_REPLAY_ZOOM = 1 / MIN_BOX_W
 /** Crops narrower than this are visibly soft on 1080p footage. */
 export const SOFT_BELOW_W = 0.35
 export const DEFAULT_BOX_W = 0.4
