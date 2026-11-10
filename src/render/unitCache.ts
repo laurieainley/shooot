@@ -540,6 +540,27 @@ export function opfsUnitStore(): UnitStore {
     return store
 }
 
+/** A complete cached unit as it lies on disk: its stored meta and the `.bin` file itself (not read: for composing a prepared parts file). null when it is missing or damaged. */
+export async function readUnitFiles(key: string): Promise<{ meta: UnitMeta; file: File } | null> {
+    try {
+        const dir = await cacheDir(false)
+        if (!dir) return null
+        const meta = JSON.parse(await (await (await dir.getFileHandle(`${key}.json`)).getFile()).text()) as UnitMeta
+        const file = await (await dir.getFileHandle(`${key}.bin`)).getFile()
+        return Array.isArray(meta.applied) && file.size === meta.bytes ? { meta, file } : null
+    } catch { return null }
+}
+
+/** The keys of the units the preparer is keeping for each kind (finished or not yet: check with `readUnitFiles`). Never throws. */
+export async function preparedUnits(): Promise<{ which: CacheKind; key: string }[]> {
+    try {
+        const dir = await cacheDir(false)
+        if (!dir) return []
+        const m = await readManifest(dir)
+        return (Object.entries(m.prepared ?? {}) as [CacheKind, { units: string[] }][]).flatMap(([which, p]) => p.units.map((key) => ({ which, key })))
+    } catch { return [] }
+}
+
 // ---- diagnostics ----
 
 /** "Reused 4 parts prepared on iPhone, 3 encoded here" (several devices: "Reused 4 parts prepared on iPhone, 2 on iPad, …"). */
