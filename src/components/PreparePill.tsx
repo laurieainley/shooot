@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { usePrepare, appPreparer } from '../prepare/wire'
+import { usePrepare, appPreparer, isCoarsePointer } from '../prepare/wire'
 import { PAUSE, PLAY, pillText } from '../prepare/pillText'
 
 /** The editor header's pill: how far the background preparing of the exports has got. Hover (or tap on a touch screen) for the details. */
@@ -17,7 +17,8 @@ export function PreparePill() {
         document.addEventListener('keydown', esc)
         return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', esc) }
     }, [open])
-    const text = pillText(status)
+    const touch = isCoarsePointer()
+    const text = pillText(status, { touch })
     if (!text) return null
     const toggle = status.kind === 'preparing' ? { label: 'Pause preparing', glyph: PAUSE, paused: true } : status.kind === 'paused' && status.byUser ? { label: 'Resume preparing', glyph: PLAY, paused: false } : null
     return (

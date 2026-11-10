@@ -17,6 +17,7 @@ vi.mock('./addFiles', () => ({ addPickedFiles: (f: File[]) => addPickedFiles(f) 
 
 import { openMatchStore } from './openMatch'
 import { RelinkBanner } from './RelinkBanner'
+import { rememberPrepared } from '../prepare/prepared'
 
 const ev = (id: string, key: string, extra: Partial<MatchEvent> = {}): MatchEvent => ({ id, type: 'goal', matchTimeSec: 10, sourceFileIndex: 0, sourceFileKey: key, ...extra })
 const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec: 90, kind: 'full' })
@@ -84,6 +85,25 @@ describe('RelinkBanner', () => {
         openMatchStore.setState({ id: 'm-1', files: ['a', 'b', 'c', 'd', 'e'].map((n) => ({ name: `${n}.mp4`, size: 1, key: n })) })
         render(<RelinkBanner />)
         expect(await screen.findByText('Pick a.mp4, b.mp4, c.mp4 and 2 more')).toBeInTheDocument()
+        openMatchStore.setState({ id: null, files: [] })
+    })
+
+    it('should say how much is already prepared when some of the match was prepared before the reload', async () => {
+        store.supported = false
+        openMatchStore.setState({ id: 'm-1', files: [] })
+        rememberPrepared('m-1', 'fullMatch', 's', '4k', 62)
+        render(<RelinkBanner />)
+        expect(await screen.findByText('62% is already prepared — pick the files again to carry on.')).toBeInTheDocument()
+        localStorage.clear()
+        openMatchStore.setState({ id: null, files: [] })
+    })
+
+    it('should not mention prepared parts when there are none', async () => {
+        store.supported = false
+        openMatchStore.setState({ id: 'm-1', files: [] })
+        render(<RelinkBanner />)
+        expect(await screen.findByText(/3 events need their videos/i)).toBeInTheDocument()
+        expect(screen.queryByText(/already prepared/)).not.toBeInTheDocument()
         openMatchStore.setState({ id: null, files: [] })
     })
 })

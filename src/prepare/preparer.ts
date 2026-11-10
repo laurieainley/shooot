@@ -33,7 +33,7 @@ export type PrepareStatus =
     | { kind: 'hidden' }
     | { kind: 'preparing'; what: string; percent: number }
     | { kind: 'paused'; byUser: boolean }
-    | { kind: 'ready'; text: string }
+    | { kind: 'ready'; text: string; what?: string }
     | { kind: 'nospace'; text: string }
 
 export type PrepareUi = {
@@ -60,6 +60,15 @@ export type PrepareDeps = {
     savePaused: (projectId: string | null, paused: boolean) => void
     /** Keeps the screen awake while a pass runs. */
     wakeLock?: () => { acquire: () => Promise<void>; release: () => Promise<void> }
+    /** Remembers how much of the project is prepared, so a reload can say so (the units themselves stay in the cache). */
+    progress?: {
+        remember: (projectId: string | null, kind: CacheKind, signature: string, quality: Quality, percent: number) => void
+        /** The kind's plan is this signature now (forget what was remembered for another). */
+        sync: (projectId: string | null, kind: CacheKind, signature: string) => void
+        forget: (projectId: string | null, kind: CacheKind) => void
+    }
+    /** True when the user's settings have this kind off (Original) while files are loaded: its remembered progress goes. */
+    settingOff?: (kind: CacheKind) => boolean
     log: (r: PrepareRecord) => void
     device: () => string
     now: () => number
@@ -224,8 +233,10 @@ export class Preparer {
                 } while (this.again && !this.stopped)
             } finally {
                 this.cycling = null
-                await this.lock?.release().catch(() => undefined)
+                // Cleared before the release is awaited: a cycle that starts meanwhile takes a lock of its own.
+                const lock = this.lock
                 this.lock = null
+                await lock?.release().catch(() => undefined)
                 const waiters = this.idleWaiters.splice(0)
                 for (const w of waiters) w()
                 this.refreshStatus()
@@ -239,7 +250,8 @@ export class Preparer {
     private async runOnce(): Promise<void> {
         const wanted = this.deps.wanted()
         // Forget what is no longer wanted (quality back to Original, files gone).
-        for (const k of ['fullMatch', 'highlights'] as const) if (!wanted.some((w) => w.kind === k)) { this.done.delete(k); this.blocked.delete(k); this.dropShare(k) }
+        for (const k of ['fullMatch', 'highlights'] as const) if (!wanted.some((w) => w.kind === k)) { this.done.delete(k); this.blocked.delete(k); this.dropShare(k); if (this.deps.settingOff?.(k)) this.deps.progress?.forget(this.projectId, k) }
+        for (const w of wanted) this.deps.progress?.sync(this.projectId, w.kind, w.plan.signature)
         this.refreshStatus()
         if (this.blockedNow()) return
         let committed = 0
@@ -307,6 +319,7 @@ export class Preparer {
                 onState: (st) => {
                     first ??= st
                     last = st
+                    if (st.totalSec > 0) this.deps.progress?.remember(this.projectId, w.kind, w.plan.signature, w.quality, Math.floor(100 * st.readySec / st.totalSec))
                     this.store.setState({ shares: { ...this.store.getState().shares, [w.kind]: { quality: w.quality, signature: w.plan.signature, state: st } } })
                     this.refreshStatus()
                 },
@@ -357,7 +370,7 @@ export class Preparer {
         } else if (this.blocked.size > 0) status = { kind: 'nospace', text: [...this.blocked.values()].join(' ') }
         else if (wanted.every((w) => this.done.get(w.kind) === w.plan.signature)) {
             const parts = wanted.map((w, i) => { const t = `${NAMES[w.kind]} ${LABEL[w.quality]}`; return i === 0 ? t[0].toUpperCase() + t.slice(1) : t })
-            status = { kind: 'ready', text: `${parts.join(' and ')} ${wanted.length > 1 ? 'are' : 'is'} ready; the export will only redo what you change.` }
+            status = { kind: 'ready', what: wanted.map((w) => NAMES[w.kind]).join(' and '), text: `${parts.join(' and ')} ${wanted.length > 1 ? 'are' : 'is'} ready; the export will only redo what you change.` }
         } else {
             // Waiting for the quiet spell (or the next pass): show the kind with work left.
             const next = wanted.find((w) => this.done.get(w.kind) !== w.plan.signature)!

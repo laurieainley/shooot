@@ -7,6 +7,7 @@
 // a SHA-256 of EVERYTHING that decides the unit's packets: see `buildReuseKeys` (what the caller knows: footage, cut, graphics) and
 // `unitFacts` in transcodeEngine.ts (what only the engine knows: size, rate, bitrate, encoder, key frames, audio).
 // A wrong reuse is far worse than a miss, so anything unsure belongs in the key. A read problem anywhere is a miss.
+import { forgetAllPrepared } from '../prepare/prepared'
 import { LogParser, encodeRecord, type LogRecord } from './packetLog'
 import { isSting, type GraphicsSpec, type OverlaySpec } from '../graphics/types'
 import type { Cut, RenderSource } from './types'
@@ -235,6 +236,7 @@ export async function unitCacheBytes(): Promise<number> {
 
 /** Deletes every cached unit. Never throws. */
 export async function clearUnitCache(): Promise<void> {
+    forgetAllPrepared() // the relink banner must not claim units that are gone
     try {
         const root = await navigator.storage.getDirectory()
         await root.removeEntry(CACHE_DIR, { recursive: true }).catch(() => undefined)
