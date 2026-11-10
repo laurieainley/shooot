@@ -83,12 +83,12 @@ describe('Replay framing', () => {
         expect(choice('Custom')).toHaveAttribute('aria-pressed', 'true')
     })
 
-    it('should zoom around the centre of the box with the slider (1x to 3x)', () => {
+    it('should zoom around the centre of the box with the slider (1x to 10x)', () => {
         const before = { x: 0.3, y: 0.25, w: 0.4, h: 0.4 }
         setup({ replayCrop: before })
         const slider = screen.getByRole('slider', { name: 'Replay zoom' }) as HTMLInputElement
         expect(slider.min).toBe('1')
-        expect(slider.max).toBe('3')
+        expect(slider.max).toBe('10')
         expect(slider.value).toBe('2.5')
         fireEvent.change(slider, { target: { value: '2' } })
         fireEvent.pointerUp(slider)

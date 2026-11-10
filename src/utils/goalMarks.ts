@@ -1,5 +1,8 @@
 import type { CropRect, GoalMarks, GoalMarksByTeam, Pt } from '../types'
-import { MIN_BOX_W, clampRect } from './crop'
+import { clampRect } from './crop'
+
+/** The box drawn around a goal's marks never gets smaller than this (20 % of the frame width), however far away the goal is. */
+const GOAL_BOX_MIN_W = 0.2
 
 const pts = (m: GoalMarks): Pt[] => [m.postL, m.postR, m.barL, m.barR, ...(m.backL ? [m.backL] : []), ...(m.backR ? [m.backR] : [])]
 
@@ -9,7 +12,7 @@ export function goalRectFromMarks(m: GoalMarks): CropRect {
     const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys)
     const pad = Math.max(0.04, 0.3 * Math.abs(m.postR.x - m.postL.x))
     // Widen to the smallest allowed box before centring, so a small far goal stays centred in its box.
-    const side = Math.min(1, Math.max(MIN_BOX_W, Math.max(x1 - x0, y1 - y0) + 2 * pad))
+    const side = Math.min(1, Math.max(GOAL_BOX_MIN_W, Math.max(x1 - x0, y1 - y0) + 2 * pad))
     return clampRect({ x: (x0 + x1) / 2 - side / 2, y: (y0 + y1) / 2 - side / 2, w: side, h: side })
 }
 

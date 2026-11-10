@@ -187,3 +187,12 @@ describe('migrateReplayCrop', () => {
         expect(migrateReplayCrop('nonsense', true)).toBeUndefined()
     })
 })
+
+describe('zoom limit', () => {
+    it('should allow a 10x box and slider, and no further', () => {
+        expect(clampRect({ x: 0.5, y: 0.5, w: 0.1, h: 0.1 }).w).toBeCloseTo(0.1)
+        expect(clampRect({ x: 0.5, y: 0.5, w: 0.05, h: 0.05 }).w).toBeCloseTo(0.1)
+        expect(zoomRect({ x: 0.3, y: 0.3, w: 0.4, h: 0.4 }, 10).w).toBeCloseTo(0.1)
+        expect(zoomRect({ x: 0.3, y: 0.3, w: 0.4, h: 0.4 }, 20).w).toBeCloseTo(0.1)
+    })
+})
