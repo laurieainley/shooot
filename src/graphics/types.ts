@@ -1,8 +1,8 @@
 import type { TeamBadge } from './teamStyle'
 import type { ThemeId } from './themes/types'
 
-/** One scorer on the full-time card: the name and their minutes, e.g. `13' 44'`. */
-export type ScorerLine = { name: string; minutes: string }
+/** One scorer on the full-time card: the name and their minutes, e.g. `13' 44'`. A tally card (many goals) sets `tally` instead, e.g. `8 GOALS (2 ASSISTS)`, drawn in place of the minutes. */
+export type ScorerLine = { name: string; minutes: string; tally?: string }
 
 /** VS / full-time card content; `scorers` (full time only) are the two columns, one per team. */
 export type CardSpec = { heading: string; centre: string; left: TeamBadge; right: TeamBadge; scorers?: { left: ScorerLine[]; right: ScorerLine[] } }

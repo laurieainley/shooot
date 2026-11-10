@@ -435,6 +435,32 @@ const big = ft(
 const scorerOps = (ops: DrawOp[]): TextOp[] => texts(ops).filter((o) => o.y > 650 && o.y < END_LINE_Y - 20 && (o.voice === 'mono' || o.voice === 'shirt'))
 
 describe('full-time scorers', () => {
+    it('should draw tally lines on one line beside the name, clear of the centre line and the safe area', () => {
+        const spec = ft([{ name: 'DAN', minutes: '', tally: '8 GOALS (2 ASSISTS)' }, { name: 'SMITH (OG)', minutes: '', tally: '2' }, { name: 'SAM', minutes: '', tally: '' }], [{ name: 'JO', minutes: '', tally: '1 GOAL' }])
+        const ops = texts(cardLayout(spec, 2, 4, false))
+        const t = ops.find((o) => o.text === '8 GOALS (2 ASSISTS)')!
+        expect(t.voice).toBe('mono')
+        expect(t.x + estimateTextWidth(t.text, t.size, 'mono')).toBeLessThanOrEqual(940)
+        expect(ops.find((o) => o.text === '1 GOAL')!.x).toBeGreaterThan(960)
+        expect(ops.some((o) => o.text === '' )).toBe(false)
+        expect(ops.find((o) => o.text === '2')).toBeDefined()
+    })
+
+    it('should wrap a very long tally between the goals and the assists, never inside', () => {
+        const ops = texts(cardLayout(ft([{ name: 'DAN', minutes: '', tally: '10 GOALS (10 ASSISTS)' }], []), 2, 4, false))
+        expect(ops.filter((o) => o.text === '10 GOALS' || o.text === '(10 ASSISTS)')).toHaveLength(2)
+    })
+
+    it('should end a long tally column with a +N MORE line instead of overflowing', () => {
+        const rows = Array.from({ length: 12 }, (_, i) => ({ name: `P${i}`, minutes: '', tally: `${12 - i} GOALS` }))
+        const ops = texts(cardLayout(ft(rows, []), 2, 4, false))
+        const more = ops.find((o) => /^\+\d+ MORE$/.test(o.text))!
+        expect(more).toBeDefined()
+        expect(more.y).toBeLessThan(END_LINE_Y - 20)
+        const shown = ops.filter((o) => o.voice === 'shirt' && o.y > 650 && o.y < END_LINE_Y - 20).length
+        expect(more.text).toBe(`+${12 - shown} MORE`)
+    })
+
     it('should wrap an 8-goal scorer onto 2 lines at full size, between minutes', () => {
         const ops = cardLayout(big, 2, 4, false)
         const lines = texts(ops).filter((o) => o.voice === 'mono' && o.x > 500 && o.x < 960 && mono8.includes(o.text) && o.text.length > 3)
