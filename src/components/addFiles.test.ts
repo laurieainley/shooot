@@ -7,8 +7,8 @@ type Probe = (f: File) => Promise<ProbedMetadata>
 const processVideoFiles = vi.fn<(files: File[], probe: Probe) => Promise<{ files: VideoSourceFile[]; error: string | null }>>()
 vi.mock('../utils/processFiles', () => ({ processVideoFiles: (files: File[], probe: Probe) => processVideoFiles(files, probe) }))
 vi.mock('../utils/probe', () => ({ probeVideoFile: vi.fn(async () => ({ accepted: true, playable: true, durationSec: 60 })) }))
-const loadPartsFile = vi.fn<(f: File) => Promise<void>>(async () => undefined)
-vi.mock('../prepare/partsLoad', () => ({ loadPartsFile: (f: File) => loadPartsFile(f) }))
+const loadPartsFile = vi.fn<(f: File, o?: { leftOut: number }) => Promise<void>>(async () => undefined)
+vi.mock('../prepare/partsLoad', () => ({ loadPartsFile: (f: File, o?: { leftOut: number }) => loadPartsFile(f, o) }))
 
 import { addPickedFiles, replacePickedFile } from './addFiles'
 
@@ -57,7 +57,15 @@ describe('addPickedFiles with a prepared parts file', () => {
         const parts = sized('Whites v Colours · prepared parts.shooot-parts', 10)
         await expect(addPickedFiles([parts])).resolves.toBeNull()
         expect(processVideoFiles).not.toHaveBeenCalled()
-        expect(loadPartsFile).toHaveBeenCalledWith(parts)
+        expect(loadPartsFile).toHaveBeenCalledWith(parts, { leftOut: 0 })
+    })
+
+    it('should load one parts file and say how many others were left out', async () => {
+        const a = sized('a.shooot-parts', 10)
+        const b = sized('b.shooot-parts', 10)
+        await addPickedFiles([a, b])
+        expect(loadPartsFile).toHaveBeenCalledTimes(1)
+        expect(loadPartsFile).toHaveBeenCalledWith(a, { leftOut: 1 })
     })
 
     it('should add the videos picked with it first, then load the parts', async () => {
@@ -86,7 +94,7 @@ describe('addPickedFiles with a renamed parts file', () => {
             loadPartsFile.mockClear()
             const f = partsBytes(name)
             await addPickedFiles([f])
-            expect(loadPartsFile).toHaveBeenCalledWith(f)
+            expect(loadPartsFile).toHaveBeenCalledWith(f, { leftOut: 0 })
             expect(processVideoFiles).not.toHaveBeenCalled()
         }
     })

@@ -4,13 +4,16 @@ import { planOutput, type ExportPlan } from '../utils/exportPlans'
 import type { OutputQuality } from '../utils/outputQuality'
 import { reuseKeysFor } from './renderRequest'
 import { usePrepare } from '../prepare/wire'
+import { usePartsLoaded } from '../prepare/partsLoad'
 
 /**
  * What the cache holds for each re-encode quality (none while unknown): for the quality the background preparer works on, how much of each part is
- * prepared right now; for the others, what the last export left. Re-read when the plan changes or a render ends.
+ * prepared right now; for the others, what the last export left. Re-read when the plan changes, a render ends or a parts file is loaded.
  */
 export function useReusableParts(kind: CacheKind, plan: ExportPlan, busy: boolean): (q: OutputQuality) => ReusableParts | null {
     const prepared = usePrepare((s) => s.shares[kind])
+    // A prepared parts file just loaded: read again for every quality.
+    const loads = usePartsLoaded()
     const [parts, setParts] = useState<Partial<Record<OutputQuality, ReusableParts>>>({})
     useEffect(() => {
         if (busy) return
@@ -24,7 +27,7 @@ export function useReusableParts(kind: CacheKind, plan: ExportPlan, busy: boolea
             if (live) setParts(next)
         })().catch(() => undefined)
         return () => { live = false }
-    }, [kind, plan, busy])
+    }, [kind, plan, busy, loads])
     return (q) => {
         const p = prepared?.quality === q && prepared.state.cuts.length === plan.cuts.length ? prepared.state : null
         if (p) return { intro: p.intro, outro: p.outro, cuts: p.cuts }

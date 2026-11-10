@@ -9,7 +9,9 @@ export function PartsLoadStatus() {
         return (
             <Sheet label="Replace project" onClose={cancelPartsLoad} className="sheet--narrow">
                 <div role="alertdialog" aria-label="Replace project" className="flex flex-col gap-3 py-2 text-ui-md">
-                    <p className="m-0">Replace your {s.existing} {s.existing === 1 ? 'event' : 'events'} with the {s.incoming} in this file from {s.device}?</p>
+                    <p className="m-0">{s.incoming === 0
+                        ? <>Replace your {s.existing} {s.existing === 1 ? 'event' : 'events'} with the project in this file from {s.device}? It has no events.</>
+                        : <>Replace your {s.existing} {s.existing === 1 ? 'event' : 'events'} with the {s.incoming} in this file from {s.device}?</>}</p>
                     <p className="m-0 text-muted">The prepared parts load either way. ⌘Z brings your events back.</p>
                     <div className="flex flex-wrap gap-2">
                         <button type="button" className="btn-primary" onClick={() => answerReplace(true)}>Replace</button>

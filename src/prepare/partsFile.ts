@@ -33,9 +33,9 @@ export function partsFileName(a: { title: string | null; teams: Team[] }): strin
     return `${[title, versus].filter(Boolean).join(' - ') || 'Match'} · prepared parts${PARTS_EXT}`
 }
 
-/** Same rule as importing a project file: ask only when both sides have events (and here: when they are not the same events). */
+/** Same rule as a project link (ReceiveProject): ask whenever the open match has events, unless the file holds exactly those events. */
 export function needsReplace(existing: MatchEvent[], incoming: MatchEvent[]): boolean {
-    return existing.length > 0 && incoming.length > 0 && JSON.stringify(existing) !== JSON.stringify(incoming)
+    return existing.length > 0 && JSON.stringify(existing) !== JSON.stringify(incoming)
 }
 
 const parts = (n: number): string => `${n} part${n === 1 ? '' : 's'}`

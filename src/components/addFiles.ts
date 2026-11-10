@@ -40,10 +40,10 @@ export async function addPickedFiles(all: File[]): Promise<string | null> {
     // Known by its first bytes too: iOS may rename the copy or drop the extension. Videos (by extension) are not read, and need no wait.
     const known = all.map((f): boolean | null => (isPartsFileName(f.name) ? true : VIDEO_NAME.test(f.name) ? false : null))
     const isParts = known.includes(null) ? await Promise.all(all.map((f, i) => known[i] ?? isPartsFile(f))) : known
-    const parts = all.find((_, i) => isParts[i])
+    const parts = all.filter((_, i) => isParts[i])
     const picked = all.filter((_, i) => !isParts[i])
     const error = await addVideoFiles(picked)
-    if (parts) void loadPartsFile(parts)
+    if (parts[0]) void loadPartsFile(parts[0], { leftOut: parts.length - 1 })
     return error
 }
 

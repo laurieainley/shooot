@@ -6,6 +6,7 @@ import { useStore } from 'zustand'
 import type { CacheKind } from '../render/unitCache'
 import { buildBundle } from './bundle'
 import { holdPreparer } from './control'
+import { formatBytes } from '../utils/fullMatch'
 
 export type PartsSaveState =
     | { phase: 'idle' }
@@ -24,7 +25,16 @@ type SaveHandle = { name: string; createWritable: () => Promise<WritableStream> 
 type SavePicker = (o: object) => Promise<SaveHandle>
 
 const savedText = (name: string): string => `Saved ${name}. Put it on the card with the match videos and add it with them on the other device.`
-const downloadText = (name: string): string => `Downloading ${name}. On iPhone or iPad: Save to Files, then the card. Add it with the match videos on the other device.`
+const downloadingText = (name: string): string => `Downloading ${name}. On iPhone or iPad: Save to Files, then the card. Add it with the match videos on the other device.`
+export const DOWNLOAD_STARTED = 'Download started — choose Save to Files, then the card.'
+
+/** Free space the browser reports for this site (null when it will not say). A download is a copy, so the device needs about the file's size. */
+async function freeBytes(): Promise<number | null> {
+    try {
+        const e = await navigator.storage?.estimate?.()
+        return e?.quota ? Math.max(0, e.quota - (e.usage ?? 0)) : null
+    } catch { return null }
+}
 
 let lastUrl: string | null = null
 
@@ -69,6 +79,8 @@ export async function savePreparedParts(o: { name: string; projectId: string | n
             await blob.stream().pipeTo(await handle.createWritable())
             set({ phase: 'saved', text: savedText(handle.name) })
         } else {
+            const free = await freeBytes()
+            if (free !== null && free < blob.size * 1.1) { set({ phase: 'failed', text: `Not enough free space on this device to save the file (about ${formatBytes(blob.size)} needed).` }); return }
             if (lastUrl) URL.revokeObjectURL(lastUrl)
             const url = URL.createObjectURL(blob)
             lastUrl = url
@@ -76,9 +88,9 @@ export async function savePreparedParts(o: { name: string; projectId: string | n
             a.href = url
             a.download = o.name
             a.click()
-            set({ phase: 'saving', text: downloadText(o.name), url, name: o.name })
+            set({ phase: 'saving', text: downloadingText(o.name), url, name: o.name })
             await downloadSettled()
-            set({ phase: 'saved', text: downloadText(o.name), url, name: o.name })
+            set({ phase: 'saved', text: DOWNLOAD_STARTED, url, name: o.name })
         }
     } catch (e) {
         set({ phase: 'failed', text: e instanceof Error ? e.message : String(e) })

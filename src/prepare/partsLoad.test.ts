@@ -93,6 +93,31 @@ describe('loading a prepared parts file', () => {
         expect(partsLoadStore.getState()).toEqual({ phase: 'idle' })
     })
 
+    it('should ask before replacing goals with a project that has none', async () => {
+        useAppState.setState({ events: [ev('a')] })
+        readBundleProject.mockResolvedValue({ project: project([]), device: 'Android phone', units: 12 })
+        const run = loadPartsFile(file)
+        await settle()
+        expect(partsLoadStore.getState()).toEqual({ phase: 'confirm', device: 'Android phone', incoming: 0, existing: 1 })
+        answerReplace(false)
+        await run
+        expect(applyTransferPayload).not.toHaveBeenCalled()
+    })
+
+    it('should take one file at a time, deciding before anything is awaited', async () => {
+        const a = loadPartsFile(file)
+        const b = loadPartsFile(file)
+        await Promise.all([a, b])
+        expect(readBundleProject).toHaveBeenCalledTimes(1)
+        expect(importBundle).toHaveBeenCalledTimes(1)
+    })
+
+    it('should say that other parts files picked with it were left out', async () => {
+        await loadPartsFile(file, { leftOut: 2 })
+        expect(showToast).toHaveBeenCalledWith('Loaded 12 prepared parts from Android phone')
+        expect(partsLoadStore.getState()).toEqual({ phase: 'notice', text: 'Loaded one prepared parts file at a time: 2 others were left out.' })
+    })
+
     it('should not ask when the open match is the same one', async () => {
         useAppState.setState({ events: [ev('b')] })
         await loadPartsFile(file)

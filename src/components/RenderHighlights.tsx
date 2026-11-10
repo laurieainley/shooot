@@ -13,6 +13,7 @@ import { MissingFullFiles } from './MissingFullFiles'
 import { OutputQualityField } from './OutputQualityField'
 import { RenderStatus } from './RenderStatus'
 import { ResumeOffer } from './ResumeOffer'
+import { SaveToFileNote } from './SaveToFileNote'
 import { useLayout } from './useMediaQuery'
 import { useReencodeSupport } from './useReencodeSupport'
 import { useSavedJob } from './useSavedJob'
@@ -106,6 +107,7 @@ export function RenderHighlights() {
                 <>
                     <button onClick={saveToFile} disabled={disabled || busy} className="btn-quiet w-full justify-center">Save to file… ({QUALITY_LABEL[saveQuality]})</button>
                     <p className="export-hint m-0">{SAVE_TO_FILE_HINT}</p>
+                    <SaveToFileNote />
                 </>
             )}
             {job && (

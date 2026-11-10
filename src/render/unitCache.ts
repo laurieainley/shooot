@@ -209,7 +209,7 @@ type Manifest = {
      * The units of the last prepared parts file loaded from another device (`bytes[i]` is the size of `units[i]`; `batch` names the file). Never evicted,
      * and allowed past the normal cap, until a newer file is loaded, the saved parts are cleared, or they are IMPORTED_KEEP_MS old.
      */
-    imported?: { batch: string; at: number; units: string[]; bytes: number[] }
+    imported?: { batch: string; at: number; units: string[]; bytes: number[]; /** The device that made them (older manifests: none). */ device?: string }
 }
 export type CacheEntry = { key: string; bytes: number; at: number; order: number }
 
@@ -520,7 +520,7 @@ export function opfsUnitStore(): UnitStore {
                 }
                 const i = (prev ? prev.units.map((u, j) => [u, prev!.bytes[j] ?? 0] as const) : []).filter(([u]) => u !== portable)
                 if (bytes !== null) i.push([portable, bytes])
-                if (i.length > 0) m.imported = { batch: meta.batch, at: prev?.at ?? Date.now(), units: i.map(([u]) => u), bytes: i.map(([, b]) => b) }
+                if (i.length > 0) m.imported = { batch: meta.batch, at: prev?.at ?? Date.now(), units: i.map(([u]) => u), bytes: i.map(([, b]) => b), device: meta.device }
                 else delete m.imported
                 await writeManifest(dir, m)
             }
@@ -550,6 +550,16 @@ export async function readUnitFiles(key: string): Promise<{ meta: UnitMeta; file
         const meta = JSON.parse(await (await (await dir.getFileHandle(`${key}.json`)).getFile()).text()) as UnitMeta
         const file = await (await dir.getFileHandle(`${key}.bin`)).getFile()
         return Array.isArray(meta.applied) && file.size === meta.bytes ? { meta, file } : null
+    } catch { return null }
+}
+
+/** The prepared parts loaded from another device that are still kept: who made them and how many. null when there are none. Never throws. */
+export async function importedParts(): Promise<{ device: string; units: number } | null> {
+    try {
+        const dir = await cacheDir(false)
+        if (!dir) return null
+        const i = liveImport(await readManifest(dir))
+        return i && i.units.length > 0 ? { device: i.device || 'another device', units: i.units.length } : null
     } catch { return null }
 }
 

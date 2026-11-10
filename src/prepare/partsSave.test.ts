@@ -109,6 +109,27 @@ describe('Save prepared parts', () => {
         expect(isSavingParts()).toBe(false)
     })
 
+    it('should not start a download that the device has no room for, and say how much is needed', async () => {
+        const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+        vi.stubGlobal('navigator', { ...navigator, storage: { estimate: async () => ({ quota: 1000, usage: 999 }) } })
+        buildBundle.mockResolvedValue(new Blob([new Uint8Array(500)]))
+        await savePreparedParts({ name: NAME, projectId: 'm1', kinds: ['fullMatch'] })
+        expect(click).not.toHaveBeenCalled()
+        expect(partsSaveStore.getState()).toEqual({ phase: 'failed', text: 'Not enough free space on this device to save the file (about 1 MB needed).' })
+        expect(release).toHaveBeenCalledTimes(1)
+        vi.unstubAllGlobals()
+    })
+
+    it('should say the download started (not that it was saved)', async () => {
+        vi.useFakeTimers()
+        vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+        const run = savePreparedParts({ name: NAME, projectId: 'm1', kinds: ['fullMatch'] })
+        await vi.advanceTimersByTimeAsync(61_000)
+        await run
+        expect(partsSaveStore.getState()).toMatchObject({ phase: 'saved', text: 'Download started — choose Save to Files, then the card.' })
+        vi.useRealTimers()
+    })
+
     it('should show why saving failed, as the bundle says it', async () => {
         buildBundle.mockRejectedValue(new Error('A prepared part changed while the file was being made. Try saving again.'))
         await savePreparedParts({ name: NAME, projectId: 'm1', kinds: ['fullMatch'] })

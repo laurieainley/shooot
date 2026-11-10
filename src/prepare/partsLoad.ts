@@ -23,10 +23,13 @@ export const usePartsLoad = <T,>(sel: (s: PartsLoadState) => T): T => useStore(p
 
 let answer: ((a: 'replace' | 'keep' | 'cancel') => void) | null = null
 let ctl: AbortController | null = null
-let loads = 0
+/** Set before anything is awaited: a second file picked meanwhile is turned away at once. */
+let busy = false
 
-/** How many parts files were loaded in this session (the Export panel reads its estimate again when this moves). */
-export const partsLoaded = (): number => loads
+/** How many parts files were loaded in this session: the Export panel reads its estimates again (every quality) when this moves. */
+export const partsLoadedStore = createStore<{ loads: number }>(() => ({ loads: 0 }))
+export const partsLoaded = (): number => partsLoadedStore.getState().loads
+export const usePartsLoaded = (): number => useStore(partsLoadedStore, (s) => s.loads)
 
 export function answerReplace(replace: boolean): void { answer?.(replace ? 'replace' : 'keep') }
 /** While asking: load nothing. While copying: stop (the parts already stored stay). */
@@ -35,8 +38,16 @@ export function dismissPartsNotice(): void { if (partsLoadStore.getState().phase
 
 const say = (text: string): void => set({ phase: 'notice', text })
 
-export async function loadPartsFile(file: File): Promise<void> {
-    if (ctl || answer) return // one at a time
+const others = (n: number): string => `Loaded one prepared parts file at a time: ${n} ${n === 1 ? 'other was' : 'others were'} left out.`
+
+/** Loads one parts file. `leftOut`: other parts files picked with it, which are not loaded (said in the note). */
+export async function loadPartsFile(file: File, o: { leftOut?: number } = {}): Promise<void> {
+    if (busy) { showToast('A prepared parts file is already loading'); return }
+    busy = true
+    try { await load(file, o.leftOut ?? 0) } finally { busy = false }
+}
+
+async function load(file: File, leftOut: number): Promise<void> {
     const peek = await readBundleProject(file).catch(() => null)
     if (!peek) { say('This is not a prepared parts file.'); return }
     const { project, device } = peek
@@ -60,10 +71,11 @@ export async function loadPartsFile(file: File): Promise<void> {
     try {
         await hold.idle
         const r = await importBundle(file, (done, total) => set({ phase: 'loading', device, done, total }), ctl.signal)
-        if (r.imported > 0) loads++
+        if (r.imported > 0) partsLoadedStore.setState({ loads: partsLoaded() + 1 })
         const { toast, notice } = loadOutcome(r)
         if (toast) showToast(toast)
-        set(notice ? { phase: 'notice', text: notice } : { phase: 'idle' })
+        const text = [notice, leftOut > 0 ? others(leftOut) : null].filter(Boolean).join(' ')
+        set(text ? { phase: 'notice', text } : { phase: 'idle' })
     } catch (e) {
         say(e instanceof Error ? e.message : String(e))
     } finally {

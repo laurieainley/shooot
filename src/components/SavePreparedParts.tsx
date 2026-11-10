@@ -7,6 +7,7 @@ import { partsFileName } from '../prepare/partsFile'
 import { savePreparedParts, usePartsSave } from '../prepare/partsSave'
 import type { CacheKind } from '../render/unitCache'
 import { formatBytes } from '../utils/fullMatch'
+import { hasSavePicker } from '../utils/savePicker'
 import { useOpenMatch } from './openMatch'
 
 /**
@@ -53,6 +54,7 @@ export function SavePreparedParts({ kind }: { kind: CacheKind }) {
                 {saving ? 'Saving prepared parts…' : `Save prepared parts (${formatBytes(summary.bytes)})`}
             </button>
             <p className="export-hint m-0">{countLine(kind, summary.byKind)} Put the file on the card with the videos, and the other device only encodes the rest.</p>
+            {!hasSavePicker() && <p className="export-hint m-0">Saving needs about {formatBytes(summary.bytes)} free on this device.</p>}
             {save.phase === 'saving' && !save.text && <p role="status" className="export-hint m-0">Keep this page open; Render waits until the file is written.</p>}
             {(save.phase === 'saved' || (save.phase === 'saving' && save.text)) && (
                 <p role="status" className="export-hint m-0">

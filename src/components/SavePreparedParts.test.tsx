@@ -51,6 +51,12 @@ describe('SavePreparedParts', () => {
         expect(screen.getByText(/^12 parts prepared for the full match\./)).toBeInTheDocument()
     })
 
+    it('should say how much room a download needs where there is no save picker', async () => {
+        ui = { ...ui, shares: { fullMatch: share(3) } }
+        render(<SavePreparedParts kind="fullMatch" />)
+        expect(await screen.findByText('Saving needs about 1.2 GB free on this device.')).toBeInTheDocument()
+    })
+
     it('should count the parts of the tab\'s kind and name the other kind\'s', async () => {
         ui = { ...ui, shares: { fullMatch: share(3), highlights: share(2) } }
         preparedSummary.mockResolvedValue({ units: 15, bytes: 1.3e9, byKind: { fullMatch: { units: 7, bytes: 1e9 }, highlights: { units: 8, bytes: 3e8 } } })

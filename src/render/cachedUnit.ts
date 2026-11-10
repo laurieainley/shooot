@@ -60,3 +60,8 @@ export class ReuseLedger {
         if (pick.portable) { const d = pick.hit.meta.device || 'another device'; this.importedFrom.set(d, (this.importedFrom.get(d) ?? 0) + 1) }
     }
 }
+
+/** The portable key a kept unit gets: none when its audio fell back to silence (fine here, but never a part for another device). */
+export function portableToKeep(portable: string | null, audioReplaced: boolean): string | null {
+    return audioReplaced ? null : portable
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ReuseLedger, pickCachedUnit, type PickInput } from './cachedUnit'
+import { ReuseLedger, pickCachedUnit, type PickInput, portableToKeep } from './cachedUnit'
 import { encodeDescription, type CachedUnit, type UnitMeta } from './unitCache'
 import { OPENH264_4K_AVCC, VT_4K_AVCC, hex } from './nal.fixtures'
 
@@ -80,5 +80,13 @@ describe('pickCachedUnit (the engine restoring a unit from the cache)', () => {
     it('should miss when neither key is in the store', async () => {
         expect(await pickCachedUnit(input({ imported: null }))).toBeNull()
         expect(await pickCachedUnit(input({ portableKey: async () => null }))).toBeNull()
+    })
+})
+
+describe('portableToKeep', () => {
+    it('should not give a portable key to a unit whose audio fell back to silence (another device must not reuse it)', () => {
+        expect(portableToKeep('a'.repeat(32), false)).toBe('a'.repeat(32))
+        expect(portableToKeep('a'.repeat(32), true)).toBeNull()
+        expect(portableToKeep(null, false)).toBeNull()
     })
 })

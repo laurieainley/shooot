@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { clearUnitCache, importUnit, opfsUnitStore, IMPORTED_KEEP_MS } from './unitCache'
+import { clearUnitCache, importUnit, importedParts, opfsUnitStore, IMPORTED_KEEP_MS } from './unitCache'
 import type { LogRecord } from './packetLog'
 
 // A small in-memory OPFS: files hold real bytes, so units round-trip through the store's own reader and writer.
@@ -159,5 +159,12 @@ describe('imported units (prepared on another device)', () => {
         await store.finish('fullMatch', { units: [P1, 'c'.repeat(32)], sections: [] })
         expect(unitNames(root)).toContain(`${P1}.json`)
         expect(unitNames(root)).not.toContain(`${'c'.repeat(32)}.json`)
+    })
+    it('should say which device the loaded parts came from (for the Save to file note), and nothing without any', async () => {
+        install()
+        expect(await importedParts()).toBeNull()
+        expect(await importUnit(P1, records(3), meta)).toBe(true)
+        expect(await importUnit(P2, records(2), meta)).toBe(true)
+        expect(await importedParts()).toEqual({ device: 'iPhone', units: 2 })
     })
 })

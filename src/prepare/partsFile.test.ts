@@ -34,9 +34,9 @@ describe('parts file names', () => {
 })
 
 describe('replacing the open project', () => {
-    it('should ask only when both sides have events and they differ (same rule as a project file)', () => {
+    it('should ask whenever the open match has events that the file would replace (same rule as a project link)', () => {
         expect(needsReplace([], [ev('a')])).toBe(false)
-        expect(needsReplace([ev('a')], [])).toBe(false)
+        expect(needsReplace([ev('a')], [])).toBe(true) // a phone project with no events onto a Mac match with goals: ask
         expect(needsReplace([ev('a')], [ev('a')])).toBe(false)
         expect(needsReplace([ev('a')], [ev('b')])).toBe(true)
     })

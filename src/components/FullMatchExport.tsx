@@ -15,6 +15,7 @@ import { OutputQualityField } from './OutputQualityField'
 import { MissingFullFiles } from './MissingFullFiles'
 import { RenderStatus } from './RenderStatus'
 import { ResumeOffer } from './ResumeOffer'
+import { SaveToFileNote } from './SaveToFileNote'
 import { saveExportToFile, startExport } from './renderRequest'
 import { useRenderJobs } from '../renderJobs'
 import { usePartsSave } from '../prepare/partsSave'
@@ -119,6 +120,7 @@ export function FullMatchExport() {
                 <>
                     <button type="button" onClick={saveToFile} disabled={disabled || busy} className="btn-quiet w-full justify-center">Save to file… ({QUALITY_LABEL[saveQuality]})</button>
                     <p className="export-hint m-0">{SAVE_TO_FILE_HINT}</p>
+                    <SaveToFileNote />
                 </>
             )}
             {job && (

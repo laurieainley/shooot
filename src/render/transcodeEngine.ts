@@ -9,6 +9,7 @@
 // most the unit in progress (about two minutes of output).
 import { emptyStats } from './experiments'
 import { devExperiments } from './devExperiments'
+import { checkUnitJoins, importedLeftOut, takeImportedRestart } from './importedOff'
 import { EncodedAudioPacketSource, EncodedPacket, EncodedPacketSink, EncodedVideoPacketSource, Mp4OutputFormat, Output, VideoSampleSink, type VideoSample } from 'mediabunny'
 import { RenderDiagnostics, errorInfo } from './diagnostics'
 import type { LogRecord } from './packetLog'
@@ -17,8 +18,8 @@ import { clipPartSeconds, replayPartAfter } from './captionJoin'
 import { planAudio } from './audioPlan'
 import { nominalFrameRate } from './frameGrid'
 import { muxUnits } from './muxUnits'
-import { ReuseLedger, pickCachedUnit } from './cachedUnit'
-import { admitsUnit, assertUnitJoins, outputColorSpace, planEncoderJoin, sameVideo, type UnitVideo } from './encoderJoin'
+import { ReuseLedger, pickCachedUnit, portableToKeep } from './cachedUnit'
+import { admitsUnit, outputColorSpace, planEncoderJoin, sameVideo, type UnitVideo } from './encoderJoin'
 import { toU8 } from './nal'
 import { coverRect } from './outputSize'
 import { type JobKind, type LogKind, canJournal, claimJournal, ownsJournal, discardJob, loadJob, openUnit, readUnit, removeUnit, saveJob, type JobState, type UnitWriter } from './renderJob'
@@ -45,7 +46,7 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message : Stri
 const isAbort = (e: unknown): boolean => e instanceof DOMException && e.name === 'AbortError'
 
 /** What one unit draws on: normally the engine's single canvas and WebGL scaler; parallel units each get their own. `work`: model seconds this unit has credited so far. */
-type UnitEnv = { /** The unit being made (-1 = none yet). */ u: number; /** Its own H.264 record, once its encoder gave one (or the cached unit's). */ video: UnitVideo | null; /** Starts this unit's writer again (a damaged cached unit that was being copied in). */ reopen?: () => Promise<UnitWriter> | UnitWriter; canvas: OffscreenCanvas; ctx: OffscreenCanvasRenderingContext2D; gl: GlScaler | null; writer: UnitWriter | null; cancelled: boolean; /** Aborts when the pool gives up on this unit (a sibling failed): everything the unit awaits stops at once. */ stop: AbortController; work: number; /** Labels of the graphics this unit drew (kept with a cached unit). */ labels: Set<string> }
+type UnitEnv = { /** The unit being made (-1 = none yet). */ u: number; /** Its own H.264 record, once its encoder gave one (or the cached unit's). */ video: UnitVideo | null; /** Starts this unit's writer again (a damaged cached unit that was being copied in). */ reopen?: () => Promise<UnitWriter> | UnitWriter; canvas: OffscreenCanvas; ctx: OffscreenCanvasRenderingContext2D; gl: GlScaler | null; writer: UnitWriter | null; cancelled: boolean; /** Aborts when the pool gives up on this unit (a sibling failed): everything the unit awaits stops at once. */ stop: AbortController; work: number; /** Labels of the graphics this unit drew (kept with a cached unit). */ labels: Set<string>; /** Its audio could not be encoded and is silence: kept here, never a part for another device. */ audioReplaced?: boolean }
 
 type Unit = OrderedUnit<Segment>
 
@@ -290,6 +291,10 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         let restoredMs = 0
         let keyedUnits = 0
         const ledger = new ReuseLedger()
+        // After this device's encoder could not join other devices' parts (importedOff.ts), the same render leaves them out.
+        const signature = opts.resumable?.signature ?? null
+        const skipImported = !!signature && importedLeftOut(signature)
+        if (skipImported) diag.note('Parts prepared on other devices are left out: this device’s encoder could not join them last time')
         const usedKeys = ledger.usedKeys // unit -> key, for the units that came from or went to the cache
         let unitKeys: (string | null)[] = []
         /** Each unit's portable key (what another device calls it); null without one. */
@@ -350,7 +355,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 const total = units.reduce((a, _, u) => a + unitFrames(u), 0)
                 const keys = await Promise.all(units.map((_, u) => unitKeyOf(u)))
                 unitKeys = keys
-                portableKeys = await Promise.all(units.map((_, u) => portableKeyOf(u)))
+                portableKeys = skipImported ? units.map(() => null) : await Promise.all(units.map((_, u) => portableKeyOf(u)))
                 keyedUnits = keys.filter((k) => k !== null).length
                 cached = await store.keys()
                 // Room first: the render itself needs about twice its output (unit logs plus the file); cached units are reclaimable, the ones about to be reused last.
@@ -387,7 +392,9 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         if (journaled) {
             claim = claimJournal(jobKind)
             const prev = await loadJob(jobKind)
-            const same = prev && prev.signature === opts.resumable!.signature && prev.graphics === !!g && prev.unitCount === units.length
+            // The saved progress of an attempt that failed to join other devices' parts holds those parts: start afresh (once).
+            const fresh = takeImportedRestart(opts.resumable!.signature)
+            const same = !fresh && prev && prev.signature === opts.resumable!.signature && prev.graphics === !!g && prev.unitCount === units.length
             if (same && prev.unitsDone > 0 && prev.video) {
                 journal = { state: prev }
                 startUnit = prev.unitsDone
@@ -492,7 +499,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                     if (!description) throw new Error('the encoder gave no parameter sets')
                     const own: UnitVideo = { codec: codec ?? config.codec, description }
                     // A journaled render stops at the first unit no sample entry can share with the others, not after all the encoding.
-                    if (journal && env.u >= 0) assertUnitJoins(unitVideo, env.u, own)
+                    if (journal && env.u >= 0) checkUnitJoins(unitVideo, env.u, own, { signature, importedUsed: ledger.importedFrom.size > 0 })
                     env.video = own
                     if (env.u >= 0) unitVideo[env.u] = own
                 }
@@ -698,6 +705,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                         .catch((e: unknown) => { console.warn('Audio: re-encoding failed, using silence', e); return null })
                     if (!packets) {
                         diag.note(`Audio at ${a.toFixed(1)} s of source #${cut.sourceIndex} could not be encoded: replaced by silence`)
+                        env.audioReplaced = true
                         packets = await silencePackets(outSec)
                     }
                 }
@@ -765,7 +773,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             try {
                 // The local key first; on a miss, a part prepared on another device under the unit's portable key (see cachedUnit).
                 const pick = await pickCachedUnit({
-                    u, store, cached, key: await unitKeyOf(u), portableKey: () => portableKeyOf(u),
+                    u, store, cached, key: await unitKeyOf(u), portableKey: () => (skipImported ? Promise.resolve(null) : portableKeyOf(u)),
                     // A file written as it goes keeps one encoder's profile and level; a part from elsewhere must be this encoder's own record.
                     direct: direct ? { entry: (vConfig?.description as Uint8Array | undefined) ?? null, sameEntry: sameBytes } : null,
                     localVideo, admit: (v, local) => admit(u, v, local), note: (t) => diag.note(t),
@@ -819,7 +827,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 const startSec = startFrame * frameSec
                 let videoFrames = 0
                 async function* rel(): AsyncGenerator<LogRecord> { for await (const r of readUnit(scratchKind, u)) { if (r.track === 0) videoFrames++; yield { ...r, timestamp: r.timestamp - startSec } } }
-                const portable = await portableKeyOf(u)
+                const portable = portableToKeep(await portableKeyOf(u), !!env.audioReplaced)
                 if (!(await store.save(key, rel(), { applied: [...env.labels], video: { codec: video.codec, description }, ...(portable ? { portable } : {}) }))) { cacheOn = false; return }
                 if (videoFrames !== expected) { await store.remove(key); return } // not every frame was drawn: not a unit to reuse
                 usedKeys.set(u, key)
@@ -984,7 +992,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 const card = units[u].kind === 'intro' ? g?.intro : g?.outro
                 if (!card) continue
                 mainEnv.writer = await openUnit(scratchKind, u)
-                mainEnv.labels = new Set()
+                mainEnv.labels = new Set(); mainEnv.audioReplaced = false
                 mainEnv.u = u
                 cursorFrames = 0
                 try {
@@ -1033,7 +1041,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 const reusedBefore = reusedActual
                 for (let attempt = 0; ; attempt++) {
                     if (journal) mainEnv.writer = await openUnit(jobKind, u)
-                    mainEnv.labels = new Set()
+                    mainEnv.labels = new Set(); mainEnv.audioReplaced = false
                     mainEnv.u = u
                     try {
                         if (journal && await restoreUnit(u, cursorFrames, mainEnv)) { cursorFrames += unitFrames(u); break }
