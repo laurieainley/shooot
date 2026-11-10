@@ -189,3 +189,111 @@ describe('cache cap with prepared units', () => {
         expect(capFor(null, 0)).toBe(CACHE_CAP_BYTES)
     })
 })
+
+describe('portable keys (the same piece on another device)', () => {
+    const fp = (s: string) => ({ fingerprints: [s] })
+    const pk = (o: Partial<typeof base> & { fingerprints?: (string | null)[] } = {}) => buildReuseKeys({ ...base, fingerprints: ['f1'], ...o }).portable!
+    it('should not depend on the file\'s modified time (another OS or a copy changes it)', () => {
+        const here = pk({ sources: [file('a.mp4', 1000, 5)] })
+        const there = pk({ sources: [file('a.mp4', 1000, 999_999)] })
+        expect(there.cut(1, 100, 110)).toBe(here.cut(1, 100, 110))
+        expect(there.block(1, 100, 110)).toBe(here.block(1, 100, 110))
+        expect(there.wholeCut(2)).toBe(here.wholeCut(2))
+        // The local key still does.
+        expect(k({ sources: [file('a.mp4', 1000, 999_999)] }).cut(1, 100, 110)).not.toBe(cut1())
+    })
+    it('should change with the footage bytes, name and size', () => {
+        const same = pk().block(1, 100, 110)
+        expect(pk(fp('f2')).block(1, 100, 110)).not.toBe(same)
+        expect(pk({ sources: [file('b.mp4', 1000, 5)] }).block(1, 100, 110)).not.toBe(same)
+        expect(pk({ sources: [file('a.mp4', 1001, 5)] }).block(1, 100, 110)).not.toBe(same)
+    })
+    it('should change with the overlays, quality, bitrate, logo and theme', () => {
+        const same = pk().cut(1, 100, 110)
+        expect(pk({ spec: { ...base.spec!, overlays: [caption(0, 12, 'A'), caption(1, 102, 'Other')] } as GraphicsSpec }).cut(1, 100, 110)).not.toBe(same)
+        expect(pk({ quality: '4k' }).cut(1, 100, 110)).not.toBe(same)
+        expect(pk({ videoBitrate: 9e6 }).cut(1, 100, 110)).not.toBe(same)
+        expect(pk({ logo: 'abc' }).cut(1, 100, 110)).not.toBe(same)
+        expect(pk({ spec: { ...base.spec!, theme: 'other' } as unknown as GraphicsSpec }).cut(1, 100, 110)).not.toBe(same)
+    })
+    it('should not exist without a fingerprint for every source a cut uses (an unknown footage must never match)', () => {
+        expect(buildReuseKeys({ ...base }).portable).toBeUndefined()
+        expect(buildReuseKeys({ ...base, fingerprints: [null] }).portable).toBeUndefined()
+        expect(buildReuseKeys({ ...base, fingerprints: [] }).portable).toBeUndefined()
+    })
+    it('should be a different string from the local key', () => {
+        expect(pk().cut(1, 100, 110)).not.toBe(cut1())
+    })
+})
+
+describe('portableKey (engine facts)', () => {
+    const facts = { v: 'v1', W: 3840, H: 2160, frameSec: 1 / 30, quality: '4k', bitrate: 20e6, keyFrames: 60, encoder: { hw: 'prefer-hardware', config: { codec: 'avc1.640033' } }, scale: { direct: true, gl: true, canvas: false }, audio: { copyAac: true, codec: 'aac', rate: 48000, channels: 2 } }
+    const input = { facts, kind: 'segment', frames: 120, part: { spec: 'p' } }
+    it('should ignore the encoder and the scale path', async () => {
+        const { portableKey } = await import('./unitCache')
+        const same = await portableKey(input)
+        expect(same).toMatch(/^[0-9a-f]{32}$/)
+        expect(await portableKey({ ...input, facts: { ...facts, encoder: { hw: 'prefer-software', config: { codec: 'avc1.4d0033' } }, scale: { direct: false, gl: false, canvas: true } } })).toBe(same)
+    })
+    it('should change with RENDER_VERSION, size, rate, bitrate, quality, key interval, audio, frames and the part', async () => {
+        const { portableKey } = await import('./unitCache')
+        const same = await portableKey(input)
+        for (const patch of [{ v: 'v2' }, { W: 1920 }, { H: 1080 }, { frameSec: 1 / 25 }, { bitrate: 10e6 }, { quality: '1080p' }, { keyFrames: 30 }, { audio: null }, { audio: { ...facts.audio, rate: 44100 } }]) {
+            expect(await portableKey({ ...input, facts: { ...facts, ...patch } })).not.toBe(same)
+        }
+        expect(await portableKey({ ...input, frames: 121 })).not.toBe(same)
+        expect(await portableKey({ ...input, part: { spec: 'q' } })).not.toBe(same)
+        expect(await portableKey({ ...input, kind: 'intro' })).not.toBe(same)
+    })
+})
+
+describe('footageFingerprint', () => {
+    const MiB = 1024 * 1024
+    const make = (size: number, patch: Record<number, number> = {}, lastModified = 1, name = 'GX010042.MP4'): File => {
+        const b = new Uint8Array(size)
+        for (let i = 0; i < size; i += 4096) b[i] = (i / 4096) & 0xff
+        for (const [i, v] of Object.entries(patch)) b[Number(i)] = v
+        return new File([b], name, { lastModified })
+    }
+    it('should hash the first and last MiB: same bytes give the same print whatever the modified time', async () => {
+        const { footageFingerprint } = await import('./unitCache')
+        const a = await footageFingerprint(make(3 * MiB, {}, 1))
+        expect(a).toMatch(/^[0-9a-f]{64}$/)
+        expect(await footageFingerprint(make(3 * MiB, {}, 2))).toBe(a)
+        expect(await footageFingerprint(make(3 * MiB, { 5: 9 }, 3))).not.toBe(a)
+        expect(await footageFingerprint(make(3 * MiB, { [3 * MiB - 2]: 9 }, 4))).not.toBe(a)
+        // Small files are hashed whole.
+        expect(await footageFingerprint(make(1000, {}, 5))).not.toBe(await footageFingerprint(make(1000, { 999: 7 }, 6)))
+    })
+    it('should read a file once per name, size and modified time in a session', async () => {
+        const { footageFingerprint } = await import('./unitCache')
+        const f = make(3 * MiB, {}, 77, 'memo.mp4')
+        let reads = 0
+        const spy = new Proxy(f, { get: (t, p) => (p === 'slice' ? (...a: [number?, number?]) => { reads++; return t.slice(...a) } : Reflect.get(t, p, t)) })
+        const one = await footageFingerprint(spy)
+        const n = reads
+        expect(n).toBeGreaterThan(0)
+        expect(await footageFingerprint(spy)).toBe(one)
+        expect(reads).toBe(n)
+    })
+})
+
+describe('eviction with imported parts', () => {
+    const e = (key: string, bytes: number, at: number, order = 0) => ({ key, bytes, at, order })
+    it('should never drop a pinned (imported, in use) unit, even over the cap', () => {
+        const entries = [e('imp1', 100, 0, 0), e('imp2', 100, 0, 1), e('old', 40, 1), e('new', 40, 2)]
+        const keep = new Set(entries.map((x) => x.key))
+        const drop = planEviction(entries, keep, 50, new Set(['imp1', 'imp2']))
+        expect(drop).not.toContain('imp1')
+        expect(drop).not.toContain('imp2')
+        expect(drop).toEqual(['old', 'new'])
+    })
+})
+
+describe('importedNote', () => {
+    it('should say how many parts came from which device and how many were encoded here', async () => {
+        const { importedNote } = await import('./unitCache')
+        expect(importedNote(new Map([['iPhone', 4]]), 3)).toBe('Reused 4 parts prepared on iPhone, 3 encoded here')
+        expect(importedNote(new Map([['iPhone', 4], ['iPad', 2]]), 0)).toBe('Reused 4 parts prepared on iPhone, 2 on iPad, 0 encoded here')
+    })
+})

@@ -11,7 +11,7 @@ import { emptyStats } from './experiments'
 import { EncodedAudioPacketSource, EncodedPacket, EncodedPacketSink, EncodedVideoPacketSource, Mp4OutputFormat, Output, VideoSampleSink, type VideoSample } from 'mediabunny'
 import { RenderDiagnostics, errorInfo } from './diagnostics'
 import type { LogRecord } from './packetLog'
-import { RENDER_VERSION, decodeDescription, digest, encodeDescription, evictForRoom, opfsUnitStore } from './unitCache'
+import { RENDER_VERSION, decodeDescription, digest, encodeDescription, evictForRoom, importedNote, opfsUnitStore, portableKey, type PortableReuseKeys } from './unitCache'
 import { clipPartSeconds, replayPartAfter } from './captionJoin'
 import { planAudio } from './audioPlan'
 import { nominalFrameRate } from './frameGrid'
@@ -289,15 +289,18 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         let keyedUnits = 0
         const usedKeys = new Map<number, string>() // unit -> key, for the units that came from or went to the cache
         let unitKeys: (string | null)[] = []
+        /** Each unit's portable key (what another device calls it); null without one. */
+        let portableKeys: (string | null)[] = []
+        /** Units restored from parts prepared on another device, per device name. */
+        const importedFrom = new Map<string, number>()
         const unitFrames = (u: number): number => { const x = units[u]; return x.kind === 'intro' ? (g?.intro ? cardFrames(g.intro) : 0) : x.kind === 'outro' ? (g?.outro ? cardFrames(g.outro) : 0) : x.segment.frames }
         /** Everything the engine decides about a unit's packets: size, rate, bitrate, key frames, the encoder in use, the scale path and the audio. */
-        const unitFacts = (): unknown => ({
+        const unitFacts = (): Record<string, unknown> => ({
             v: RENDER_VERSION, W, H, frameSec, quality: out.quality, bitrate: out.videoBitrate, keyFrames, encoder: { hw: encoder!.hardware, config: encoder!.config },
             scale: { direct: directScale, gl: !!gl0, canvas: !!out.forceCanvas }, audio: hasAudio ? { copyAac, codec: refAudio?.codec ?? null, rate: aConfig?.sampleRate ?? null, channels: aConfig?.numberOfChannels ?? null } : null,
         })
-        /** The key of unit `u` as it would be encoded now; null for a unit that is not cached (no card, or no reuse). */
-        const unitKeyOf = async (u: number): Promise<string | null> => {
-            if (!reuse) return null
+        /** What decides unit `u`'s pictures beyond the engine's facts, from the local or the portable reuse keys; null for a unit that is not cached. */
+        const partOf = (u: number, reuse: PortableReuseKeys): unknown => {
             const unit = units[u]
             let part: unknown
             if (unit.kind === 'intro') part = g?.intro && reuse.intro ? { spec: reuse.intro, label: g.intro.label, sec: g.intro.durationSec } : null
@@ -316,9 +319,24 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                     part = { spec: reuse.cut(v.ci, a, b), drawn, first: sg.firstFrame }
                 }
             }
-            if (part === null) return null
-            return digest({ facts: unitFacts(), kind: unit.kind, frames: unitFrames(u), part })
+            return part
         }
+        /** The key of unit `u` as it would be encoded now; null for a unit that is not cached (no card, or no reuse). */
+        const unitKeyOf = async (u: number): Promise<string | null> => {
+            if (!reuse) return null
+            const part = partOf(u, reuse)
+            if (part === null) return null
+            return digest({ facts: unitFacts(), kind: units[u].kind, frames: unitFrames(u), part })
+        }
+        /** The device-independent key of unit `u` (see unitCache portableKey); null when the keys have no portable half. */
+        const portableKeyOf = async (u: number): Promise<string | null> => {
+            if (!reuse?.portable) return null
+            const part = partOf(u, reuse.portable)
+            if (part === null) return null
+            return portableKey({ facts: unitFacts(), kind: units[u].kind, frames: unitFrames(u), part })
+        }
+        /** A unit whose local key misses but that a part prepared on another device may stand in for. */
+        const importedHit = (u: number): boolean => !(unitKeys[u] && cached.has(unitKeys[u]!)) && !!portableKeys[u] && cached.has(portableKeys[u]!)
         const unitWork = (u: number): number => {
             const x = units[u]
             if (x.kind === 'intro') return work.sections[0].seconds
@@ -331,15 +349,20 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 const total = units.reduce((a, _, u) => a + unitFrames(u), 0)
                 const keys = await Promise.all(units.map((_, u) => unitKeyOf(u)))
                 unitKeys = keys
+                portableKeys = await Promise.all(units.map((_, u) => portableKeyOf(u)))
                 keyedUnits = keys.filter((k) => k !== null).length
                 cached = await store.keys()
                 // Room first: the render itself needs about twice its output (unit logs plus the file); cached units are reclaimable, the ones about to be reused last.
                 // (Only a journaled render stages its output in browser storage; the preparer never evicts, it was admitted by its own room check.)
-                const freed = journaled ? await evictForRoom(total * frameSec * out.videoBitrate / 8 * 2.2, new Set(keys.filter((k): k is string => !!k && cached.has(k)))) : 0
+                const spare = (): Set<string> => new Set(units.flatMap((_, u) => (keys[u] && cached.has(keys[u]!) ? [keys[u]!] : importedHit(u) ? [portableKeys[u]!] : [])))
+                const freed = journaled ? await evictForRoom(total * frameSec * out.videoBitrate / 8 * 2.2, spare()) : 0
                 if (freed > 0) { cached = await store.keys(); diag.note(`Cleared ${(freed / 1e6).toFixed(0)} MB of saved parts from earlier exports to make room`) }
-                keys.forEach((k, u) => { if (k && cached.has(k)) reusedWork += unitWork(u) })
-                const n = keys.filter((k) => k && cached.has(k)).length
-                if (n > 0) diag.note(`Unit cache: ${n} of ${keyedUnits} parts can be reused (prepared earlier or from the last export)`)
+                keys.forEach((k, u) => { if ((k && cached.has(k)) || importedHit(u)) reusedWork += unitWork(u) })
+                const local = keys.filter((k) => k && cached.has(k)).length
+                const imported = units.filter((_, u) => importedHit(u)).length
+                const n = local + imported
+                if (local > 0) diag.note(`Unit cache: ${local} of ${keyedUnits} parts can be reused (prepared earlier or from the last export)`)
+                if (imported > 0) diag.note(`Unit cache: ${imported} of ${keyedUnits} parts were prepared on another device (checked against this render as they are used)`)
                 totalWork = Math.max(1e-3, fullWork - reusedWork)
                 meter = new WorkMeter(totalWork)
                 reusedPlanned = n
@@ -739,15 +762,31 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         const restoreUnit = async (u: number, startFrame: number, env: UnitEnv): Promise<boolean> => {
             if (!store || !cacheOn || !reuse) return false
             try {
-                const key = await unitKeyOf(u)
-                if (!key || !cached.has(key)) return false
-                const hit = await store.load(key)
+                // The local key first; on a miss, a part prepared on another device under the unit's portable key.
+                let key = await unitKeyOf(u)
+                let portable = false
+                if (!key || !cached.has(key)) {
+                    const pk = await portableKeyOf(u)
+                    if (!pk || !cached.has(pk)) return false
+                    key = pk
+                    portable = true
+                }
+                const hit = portable ? await store.findPortable(key) : await store.load(key)
                 if (!hit) { cached.delete(key); return false }
                 if (!hit.meta.video) return false
                 const description = decodeDescription(hit.meta.video.description)
                 const own: UnitVideo = { codec: hit.meta.video.codec, description }
-                if (direct) { if (vConfig && !sameBytes(vConfig.description as Uint8Array | undefined, description)) return false } // a file written as it goes keeps one encoder's profile and level
-                else if (!(await admit(u, own, true))) return false // (every hit is on a local key so far; parts from another device will pass false)
+                if (direct) {
+                    // A file written as it goes keeps one encoder's record: a part from elsewhere must be byte for byte what this encoder makes.
+                    if (vConfig && !sameBytes(vConfig.description as Uint8Array | undefined, description)) return false
+                    if (portable) {
+                        const mine = await localVideo().catch(() => null)
+                        if (!mine || !sameBytes(mine.description, description)) {
+                            diag.note(`Unit ${u}: its part prepared on ${hit.meta.device ?? 'another device'} (${own.codec}) is not this encoder's own: encoded here (a file saved as it goes keeps one encoder)`)
+                            return false
+                        }
+                    }
+                } else if (!(await admit(u, own, !portable))) return false
                 const startSec = startFrame * frameSec
                 try {
                     // Video lands back on the frame grid (the unit's first frame is frame `startFrame`); audio keeps its own times.
@@ -774,6 +813,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 usedKeys.set(u, key)
                 reusedActual++
                 reusedFrames += unitFrames(u)
+                if (portable) { const d = hit.meta.device || 'another device'; importedFrom.set(d, (importedFrom.get(d) ?? 0) + 1) }
                 return true
             } catch { return false }
         }
@@ -794,7 +834,8 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 const startSec = startFrame * frameSec
                 let videoFrames = 0
                 async function* rel(): AsyncGenerator<LogRecord> { for await (const r of readUnit(scratchKind, u)) { if (r.track === 0) videoFrames++; yield { ...r, timestamp: r.timestamp - startSec } } }
-                if (!(await store.save(key, rel(), { applied: [...env.labels], video: { codec: video.codec, description } }))) { cacheOn = false; return }
+                const portable = await portableKeyOf(u)
+                if (!(await store.save(key, rel(), { applied: [...env.labels], video: { codec: video.codec, description }, ...(portable ? { portable } : {}) }))) { cacheOn = false; return }
                 if (videoFrames !== expected) { await store.remove(key); return } // not every frame was drawn: not a unit to reuse
                 usedKeys.set(u, key)
             } catch (e) { if (e instanceof PrepareFull) throw e /* not kept */ }
@@ -891,6 +932,8 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         // ---- the background preparer: encode the units the cache lacks, keep them, write no file ----
         const runPrepare = async (): Promise<void> => {
             const have = new Set<string>(unitKeys.filter((k): k is string => !!k && cached.has(k)))
+            // A unit a part prepared on another device stands in for is not encoded here (the render checks it fits; if not, it encodes it then).
+            units.forEach((_, u) => { if (importedHit(u)) have.add(unitKeys[u]!) })
             const snapshot = (): PrepareState => {
                 const s: PrepareState = { totalUnits: 0, readyUnits: 0, totalSec: 0, readySec: 0, intro: !g?.intro, outro: !g?.outro, cuts: cuts.map(() => 1) }
                 const cutAll = cuts.map(() => 0)
@@ -910,7 +953,8 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 return s
             }
             prep!.onState(snapshot())
-            await store!.prepare(reuse!.which, { keys: unitKeys.filter((k): k is string => !!k), budget: prep!.budgetBytes })
+            // The plan lists the imported parts it relies on too, so no eviction takes them.
+            await store!.prepare(reuse!.which, { keys: [...unitKeys.filter((k): k is string => !!k), ...units.flatMap((_, u) => (importedHit(u) ? [portableKeys[u]!] : []))], budget: prep!.budgetBytes })
             await store!.trim() // units no plan refers to any more (older edits) go before new ones are added
             const todo = units.map((_, u) => u).filter((u) => unitKeys[u] && !have.has(unitKeys[u]!))
             const finishUnit = (u: number): void => { if (usedKeys.has(u)) { have.add(unitKeys[u]!); prep!.onState(snapshot()) } }
@@ -1037,6 +1081,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             diag.note(`Time breakdown (ms): decode wait ${Math.round(stats.decodeWaitMs)}, paint/scale ${Math.round(stats.paintMs)}, encode call ${Math.round(stats.encodeCallMs)}, encoder back-pressure ${Math.round(stats.backpressureMs)}, packet writes ${Math.round(stats.drainMs)} over ${stats.frames} frames`)
             if (shrinks) diag.note(`Scale path frames: ${scaled.direct} by the encoder, ${scaled.webgl} by WebGL, ${scaled.canvas} by the 2D canvas`)
             diag.note(`Re-encode took ${((Date.now() - t0) / 1000).toFixed(1)} s for ${cursorFrames} frames; VideoFrames made ${frames.made}, closed ${frames.closed}`)
+            if (importedFrom.size > 0) diag.note(importedNote(importedFrom, units.length - startUnit - reusedActual))
             if (!vConfig) throw new Error('the encoder produced no video')
             let file: File | Blob
             if (journal) {

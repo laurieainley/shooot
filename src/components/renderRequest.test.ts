@@ -5,8 +5,9 @@ import type { ExportPlan } from '../utils/exportPlans'
 
 vi.mock('../render', () => ({ renderReel: vi.fn() }))
 vi.mock('../graphics/prepare', () => ({ prepareSpec: vi.fn(async () => undefined) }))
+vi.mock('../graphics/logoStore', () => ({ loadCustomLogo: vi.fn(async () => null) }))
 
-import { saveExportToFile } from './renderRequest'
+import { reuseKeysFor, saveExportToFile } from './renderRequest'
 
 const plan = { cuts: [{ sourceIndex: 0, startSec: 0, endSec: 1 }], sources: [], outputName: 'match.mp4', signature: 's', kind: 'fullMatch', spec: undefined } as unknown as ExportPlan
 
@@ -26,5 +27,19 @@ describe('saveExportToFile', () => {
         await saveExportToFile('fullMatch', plan, true)
         expect(renderJobs().getState().job).toBeNull()
         vi.unstubAllGlobals()
+    })
+})
+
+describe('reuseKeysFor', () => {
+    const footage = (lastModified: number, byte = 1): File => new File([new Uint8Array(3 * 1024 * 1024).fill(byte)], 'GX010042.MP4', { lastModified })
+    const rePlan = (file: File): ExportPlan => ({ ...plan, sources: [{ name: 'GX010042.MP4', file }], output: { quality: '4k', videoBitrate: 20e6 } } as unknown as ExportPlan)
+    it('should give portable keys that match the same footage read on another device (other modified time)', async () => {
+        const here = (await reuseKeysFor(rePlan(footage(1))))!
+        const there = (await reuseKeysFor(rePlan(footage(2))))!
+        expect(here.portable).toBeDefined()
+        expect(there.portable!.block(0, 0, 1)).toBe(here.portable!.block(0, 0, 1))
+        expect(there.block(0, 0, 1)).not.toBe(here.block(0, 0, 1))
+        const other = (await reuseKeysFor(rePlan(footage(3, 2))))!
+        expect(other.portable!.block(0, 0, 1)).not.toBe(here.portable!.block(0, 0, 1))
     })
 })
