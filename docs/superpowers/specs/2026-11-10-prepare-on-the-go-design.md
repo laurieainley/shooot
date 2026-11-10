@@ -78,6 +78,21 @@ choose a sample entry that covers all pieces (profile, level, size), as the HEVC
 cleanly in QuickTime (`scripts/avcheck.swift`, no gap > 0.1 s, picture right after each join), the handoff is not shipped and
 imported pieces are ignored with a diagnostics note.
 
+### Spike result (2026-11-10, branch `spike/handoff`, `spikes/handoff.ts`)
+
+Approach **A works**: VideoToolbox (High 5.1, CABAC, 2 refs, VUI colour unspecified) and OpenH264 (High 5.1, CAVLC, 1 ref,
+BT.709) units alternating in one 4K MP4, in both orders → ffmpeg silent, avcheck clean (gap 0.033 s), AVFoundation frames
+right at every join, Chrome plays to the end. Rules learned:
+- The `avc1` entry must be the unit SPS that **covers** all others (`pickSampleEntry` + `raiseEntry`): an entry with fewer
+  ref frames (dpb 1) than a later unit → QuickTime stops at that unit (-12137) while Chrome/ffmpeg play fine. Only avcheck
+  catches it.
+- `avc3` does not decode in AVFoundation (-12906). Naive (no in-band sets) silently drops units in QuickTime.
+- Colour signalling differs between encoders (shift visible outside QuickTime): set the colour space explicitly (BT.709
+  limited) on the encoder / entry.
+- Untested: a different **profile** (MediaCodec may emit Main/Baseline: `pickSampleEntry` returns -1 today), B-frames,
+  non-zero SPS/PPS ids. The build tests High entry over in-band Main units first; if QuickTime refuses, units with another
+  profile are not reused (diagnostics note).
+
 ## Testing
 
 - Utils: portable key ignores device facts and `lastModified`, changes with each real input; compatibility check; bundle
