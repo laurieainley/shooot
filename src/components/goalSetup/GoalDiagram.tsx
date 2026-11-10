@@ -8,9 +8,10 @@ interface GoalDiagramProps {
     onPick?: (key: MarkKey) => void
 }
 
+// The camera looks at the goal from the front: the back corners are further away, so they sit higher and nearer the middle than the posts, behind the frame.
 const CORNER: Record<MarkKey, { x: number; y: number }> = {
     postL: { x: 70, y: 74 }, postR: { x: 250, y: 74 }, barL: { x: 70, y: 16 }, barR: { x: 250, y: 16 },
-    backL: { x: 26, y: 98 }, backR: { x: 294, y: 98 },
+    backL: { x: 102, y: 60 }, backR: { x: 218, y: 60 },
 }
 
 const LABELS: Record<MarkKey, string> = { postL: 'Left post bottom', postR: 'Right post bottom', barL: 'Left post top', barR: 'Right post top', backL: 'Back-left corner', backR: 'Back-right corner' }
@@ -18,8 +19,8 @@ const LABELS: Record<MarkKey, string> = { postL: 'Left post bottom', postR: 'Rig
 /** A goal drawing across the column: the point being placed is ringed, points already placed are filled and ticked, the rest hollow. */
 export function GoalDiagram({ current, placed, onPick }: GoalDiagramProps) {
     return (
-        <svg className="gs-diagram" viewBox="-4 -8 328 130" role="img" aria-label={current ? `Diagram of a goal: the ${current.startsWith('back') ? 'back corner' : 'post corner'} to place is highlighted` : 'Diagram of a goal'}>
-            <path className="gs-diagram__net" d="M70 74L26 98L294 98L250 74Z" />
+        <svg className="gs-diagram" viewBox="-4 -8 328 106" role="img" aria-label={current ? `Diagram of a goal: the ${current.startsWith('back') ? 'back corner' : 'post corner'} to place is highlighted` : 'Diagram of a goal'}>
+            <path className="gs-diagram__net" d="M70 74L102 60H218L250 74ZM70 16L102 28V60L70 74ZM250 16L218 28V60L250 74ZM102 28H218V60H102Z" />
             <path className="gs-diagram__frame" d="M70 74V16H250V74" />
             {MARK_STEPS.map(({ key }, i) => {
                 const { x, y } = CORNER[key]

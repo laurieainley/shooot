@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import { railTabStore, setRailTab } from './railTab'
@@ -36,5 +36,20 @@ describe('RailTabs', () => {
     it('should default to Matches when there are no files and no events', () => {
         render(<RailTabs />)
         expect(screen.getByRole('tab', { name: 'Matches' })).toHaveAttribute('aria-selected', 'true')
+    })
+
+    it('should bring Events forward when the first footage lands (Tag event lives there)', () => {
+        render(<RailTabs />)
+        expect(railTabStore.getState().tab).toBe('matches')
+        act(() => { useAppState.setState({ files: [{ id: 'f' } as never] }) })
+        expect(railTabStore.getState().tab).toBe('events')
+    })
+
+    it('should leave the tab alone when files change while some are already loaded', () => {
+        useAppState.setState({ files: [{ id: 'f' } as never] })
+        render(<RailTabs />)
+        setRailTab('matches')
+        act(() => { useAppState.setState({ files: [{ id: 'f' } as never, { id: 'g' } as never] }) })
+        expect(railTabStore.getState().tab).toBe('matches')
     })
 })

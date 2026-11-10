@@ -315,4 +315,22 @@ describe('MatchDetails remembered players', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Forget Bea' }))
         expect(useAppState.getState().knownPlayers.map((p) => p.name)).not.toContain('Bea')
     })
+
+    it('should clear both teams (names, initials, colours, line-ups) and Undo them back', async () => {
+        useAppState.setState({ events: [], teams: [{ name: 'Reds', color: '#3a6ea5', initials: 'RD', roster: ['Sam'] }, { name: 'Blues', color: '#2f8a4c', roster: ['Al'] }] })
+        render(<MatchDetails compact />)
+        await userEvent.click(screen.getByRole('button', { name: 'Clear teams' }))
+        expect(s().teams.map((t) => [t.name, t.initials, t.roster])).toEqual([['', undefined, []], ['', undefined, []]])
+        expect(screen.getByLabelText('Team 1 name')).toHaveValue('')
+        await userEvent.click(screen.getByRole('button', { name: 'Undo clear teams' }))
+        expect(s().teams[0]).toMatchObject({ name: 'Reds', color: '#3a6ea5', initials: 'RD', roster: ['Sam'] })
+        expect(screen.getByLabelText('Team 1 name')).toHaveValue('Reds')
+    })
+
+    it('should not offer Clear teams once events are tagged', () => {
+        useAppState.setState({ events: [{ id: 'a', type: 'goal', matchTimeSec: 1, sourceFileIndex: 0, team: 'Walford Town' } as never] })
+        render(<MatchDetails compact />)
+        expect(screen.queryByRole('button', { name: 'Clear teams' })).toBeNull()
+        useAppState.setState({ events: [] })
+    })
 })

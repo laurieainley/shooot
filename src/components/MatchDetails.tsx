@@ -104,6 +104,7 @@ function TeamCard({ index: i }: TeamCardProps) {
     // While the initials box has focus it shows exactly what is typed, so clearing it to retype works.
     const [typed, setTyped] = useState<string | null>(null)
     const derived = deriveInitials(name)
+    useEffect(() => setName(team.name), [team.name]) // follows the store (Clear teams, Undo)
     const patch = (p: Partial<Team>): void => setTeams(useAppState.getState().teams.map((t, j) => (j === i ? { ...t, ...p } : t)))
 
     return (
@@ -265,6 +266,32 @@ function FinalScoreField() {
     )
 }
 
+const BLANK_TEAM: Team = { name: '', color: '#f5f5f5', roster: [] }
+
+/** Quiet "Clear teams" beside the team cards: both teams back to blank (names, initials, colour, line-ups) for a different fixture; Undo brings them back. Hidden once events are tagged (they carry the team names). */
+function ClearTeams() {
+    const hasEvents = useAppState((s) => s.events.length > 0)
+    const [undo, setUndo] = useState<Team[] | null>(null)
+    if (undo) {
+        return (
+            <p className="team-clear m-0 text-ui-sm text-muted" role="status">
+                Teams cleared. <button type="button" className="btn-quiet" aria-label="Undo clear teams" onClick={() => { useAppState.getState().setTeams(undo); setUndo(null) }}>Undo</button>
+            </p>
+        )
+    }
+    if (hasEvents) return null
+    const clear = (): void => {
+        const { teams, setTeams } = useAppState.getState()
+        setUndo(teams)
+        setTeams(teams.map((_, i) => ({ ...BLANK_TEAM, color: i === 0 ? '#f5f5f5' : '#c2364a' })))
+    }
+    return (
+        <div className="team-clear">
+            <button type="button" className="btn-quiet" title="Empty both teams' names, colours and line-ups" onClick={clear}>Clear teams</button>
+        </div>
+    )
+}
+
 /** "Whites v Colours" under the title, from the live team names, each with a little kit shirt. Decorative. */
 function Fixture() {
     const teams = useAppState((s) => s.teams)
@@ -312,6 +339,7 @@ export function MatchDetails({ compact = false, aside }: MatchDetailsProps = {})
                     />
                 </label>
                 <Fixture />
+                <ClearTeams />
                 <div className="team-grid">
                     {Array.from({ length: teamCount }, (_, i) => <TeamCard key={i} index={i} />)}
                 </div>
