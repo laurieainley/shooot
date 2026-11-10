@@ -15,3 +15,11 @@ export const hex = (s: string): Uint8Array => new Uint8Array(s.match(/../g)!.map
 
 /** x265 3840×2160 Main, general_level_idc 180 (level 6.0), full-range BT.709: GoPro-like 4K (`--level-idc 6`, SEI array dropped). */
 export const GOPRO4K_HVCC = '010160000000900000000000b4f000fcfdf8f800000f03a00001001840010c01ffff0160000003009000000300000300b4959409a10001002d4201010160000003009000000300000300b4a001e020021c5965654a4c2f016e0404020800001f480003a98040a2000100064401c073c189'
+
+// Chrome WebCodecs H.264 encoders at 3840×2160 on macOS (handoff spike, 2026-11-10): one 4K render's units can come from either.
+/** prefer-hardware (VideoToolbox) avc1.640033: High 5.1, 2 reference frames, colour unspecified in the VUI. */
+export const VT_4K_AVCC = '01640033ffe1001f27640033ac1316c03c0043ec05a8081011818002ee0000bb82f7be0f84423701000428ee1f2cfdf8f800'
+/** prefer-software (OpenH264) avc1.640033: High 5.1, 1 reference frame, BT.709 in the VUI. */
+export const OPENH264_4K_AVCC = '01640c33ffe1001367640c33ac18d00780087d35010d010784423501000468ce3c80fdf8f800'
+/** prefer-software (OpenH264) avc1.4d0033: Main 5.1, 1 reference frame. */
+export const OPENH264_MAIN_4K_AVCC = '014d4c33ffe10013674d4c338c6803c0043e9a80868083c2211a8001000468ce3c80'

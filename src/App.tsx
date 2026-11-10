@@ -2,6 +2,7 @@ import './App.css'
 import { useEffect } from 'react'
 import { AppShell } from './components/AppShell'
 import { ReceiveProject } from './components/ReceiveProject'
+import { PartsLoadStatus } from './components/PartsLoadStatus'
 import { useAppState } from './state'
 import { labsFromSearch } from './utils/labs'
 import { shouldHandleShortcut } from './utils/shortcuts'
@@ -74,7 +75,7 @@ function App() {
         return () => { cancelled = true }
     }, [])
 
-    return <><AppShell /><ReceiveProject /></>
+    return <><AppShell /><ReceiveProject /><PartsLoadStatus /></>
 }
 
 export default App

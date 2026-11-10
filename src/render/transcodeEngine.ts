@@ -4,17 +4,23 @@
 //
 // Resumable like the stream-copy engine: the render is a list of units (title card, segments of at most
 // SEGMENT_SEC of output, full-time card); each finished unit is a packet log in OPFS and the job is saved in IndexedDB.
-// Every unit starts with a key frame from its own encoder, so units join anywhere. An interrupted render loses at
+// Every unit starts with a key frame from its own encoder, so units join anywhere; on the journaled path the encoders may
+// differ (hardware/software, parts from another device): see encoderJoin. An interrupted render loses at
 // most the unit in progress (about two minutes of output).
 import { emptyStats } from './experiments'
+import { devExperiments } from './devExperiments'
+import { checkUnitJoins, importedLeftOut, takeImportedRestart } from './importedOff'
 import { EncodedAudioPacketSource, EncodedPacket, EncodedPacketSink, EncodedVideoPacketSource, Mp4OutputFormat, Output, VideoSampleSink, type VideoSample } from 'mediabunny'
 import { RenderDiagnostics, errorInfo } from './diagnostics'
 import type { LogRecord } from './packetLog'
-import { RENDER_VERSION, decodeDescription, digest, encodeDescription, evictForRoom, opfsUnitStore } from './unitCache'
+import { RENDER_VERSION, digest, encodeDescription, evictForRoom, importedNote, opfsUnitStore, portableKey, type PortableReuseKeys } from './unitCache'
 import { clipPartSeconds, replayPartAfter } from './captionJoin'
 import { planAudio } from './audioPlan'
 import { nominalFrameRate } from './frameGrid'
 import { muxUnits } from './muxUnits'
+import { ReuseLedger, pickCachedUnit, portableToKeep } from './cachedUnit'
+import { admitsUnit, outputColorSpace, planEncoderJoin, sameVideo, type UnitVideo } from './encoderJoin'
+import { toU8 } from './nal'
 import { coverRect } from './outputSize'
 import { type JobKind, type LogKind, canJournal, claimJournal, ownsJournal, discardJob, loadJob, openUnit, readUnit, removeUnit, saveJob, type JobState, type UnitWriter } from './renderJob'
 import { GlScaler, isDownscale, probeDirectScale } from './downscale'
@@ -40,7 +46,7 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message : Stri
 const isAbort = (e: unknown): boolean => e instanceof DOMException && e.name === 'AbortError'
 
 /** What one unit draws on: normally the engine's single canvas and WebGL scaler; parallel units each get their own. `work`: model seconds this unit has credited so far. */
-type UnitEnv = { /** Starts this unit's writer again (a damaged cached unit that was being copied in). */ reopen?: () => Promise<UnitWriter> | UnitWriter; canvas: OffscreenCanvas; ctx: OffscreenCanvasRenderingContext2D; gl: GlScaler | null; writer: UnitWriter | null; cancelled: boolean; /** Aborts when the pool gives up on this unit (a sibling failed): everything the unit awaits stops at once. */ stop: AbortController; work: number; /** Labels of the graphics this unit drew (kept with a cached unit). */ labels: Set<string> }
+type UnitEnv = { /** The unit being made (-1 = none yet). */ u: number; /** Its own H.264 record, once its encoder gave one (or the cached unit's). */ video: UnitVideo | null; /** Starts this unit's writer again (a damaged cached unit that was being copied in). */ reopen?: () => Promise<UnitWriter> | UnitWriter; canvas: OffscreenCanvas; ctx: OffscreenCanvasRenderingContext2D; gl: GlScaler | null; writer: UnitWriter | null; cancelled: boolean; /** Aborts when the pool gives up on this unit (a sibling failed): everything the unit awaits stops at once. */ stop: AbortController; work: number; /** Labels of the graphics this unit drew (kept with a cached unit). */ labels: Set<string>; /** Its audio could not be encoded and is silence: kept here, never a part for another device. */ audioReplaced?: boolean }
 
 type Unit = OrderedUnit<Segment>
 
@@ -60,7 +66,7 @@ class FrameCount {
 export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opts: RenderOptions, diag: RenderDiagnostics): Promise<File | Blob> {
     const out = opts.output!
     const jobKind: JobKind = opts.resumable?.kind ?? 'fullMatch'
-    const exp = opts.experiments
+    const exp = opts.experiments ?? devExperiments()
     const stats = emptyStats()
     const perfStart = performance.now()
     const now = (): number => performance.now()
@@ -89,6 +95,10 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             if (!(await opened[i].video.canDecode())) throw new Error(`${sources[i].name}: this browser cannot decode its ${opened[i].video.codec ?? 'video'}`)
         }
 
+        // The output's colour label (sample entry colr box): BT.709 limited unless a source is something else (see encoderJoin).
+        const colour = outputColorSpace([...used].map((i) => opened[i].config.colorSpace))
+        if (!colour) diag.note('Colour: a source is not BT.709 limited, so the output carries no colour label of its own')
+
         // Output size and the constant frame rate.
         const { width: W, height: H } = outputDimensions(out.quality, first.video.displayWidth, first.video.displayHeight)
         const sample: number[] = []
@@ -114,6 +124,34 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         if (!encoder) throw new Error(`this browser cannot encode H.264 at ${W}×${H}`)
         diag.finalEncoder(encoder.config)
         diag.note(`Video encoder: ${encoder.config.codec}, hardwareAcceleration ${encoder.hardware}, latencyMode ${encoder.config.latencyMode}`)
+        /** Tests/bench only (`experiments.encoderFor`): the encoder a unit is made with, for mixed renders on demand. Otherwise the render's encoder. */
+        const forced = new Map<string, Promise<VideoEncoderConfig>>()
+        const unitEncoderConfig = (u: number): Promise<VideoEncoderConfig> => {
+            const pick = u >= 0 ? exp?.encoderFor?.(u) : undefined
+            if (!pick) return Promise.resolve(encoder!.config)
+            let p = forced.get(pick)
+            if (!p) {
+                p = (async () => {
+                    const e = await tuned(await pickH264Encoder(W, H, out.videoBitrate, fps, [pick === 'software' ? 'prefer-software' : 'prefer-hardware']))
+                    if (!e) throw new Error(`this browser has no ${pick} H.264 encoder at ${W}×${H}`)
+                    const config = pick === 'software' && exp?.softwareCodec ? { ...e.config, codec: exp.softwareCodec } : e.config
+                    if (config !== e.config && !(await VideoEncoder.isConfigSupported(config).catch(() => ({ supported: false }))).supported) throw new Error(`the software encoder does not support ${config.codec}`)
+                    diag.note(`Experiment: ${pick} encoder ${config.codec} for some units`)
+                    return config
+                })()
+                forced.set(pick, p)
+            }
+            return p
+        }
+        /** The record the render's own encoder gives (one black frame): what a cached unit from another encoder is checked against. */
+        let localProbe: Promise<UnitVideo> | null = null
+        const localVideo = async (): Promise<UnitVideo> => {
+            const p = (localProbe ??= probeRecord(encoder!.config, W, H, PROBE_TIMEOUT_MS))
+            try { return await abortable(p, signal) } catch (e) {
+                if (e instanceof ProbeTimeout && localProbe === p) localProbe = null // a slow encoder may answer next time; a real failure stands
+                throw e
+            }
+        }
 
         // Scaling a 4K frame down: the 2D canvas is very slow in WebKit, so prefer the encoder (frames without graphics) and WebGL (with).
         const srcW = first.video.displayWidth
@@ -252,17 +290,23 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         let encodedMs = 0 // wall time of units that were encoded / restored from the cache (summed over units, so parallel units add up)
         let restoredMs = 0
         let keyedUnits = 0
-        const usedKeys = new Map<number, string>() // unit -> key, for the units that came from or went to the cache
+        const ledger = new ReuseLedger()
+        // After this device's encoder could not join other devices' parts (importedOff.ts), the same render leaves them out.
+        const signature = opts.resumable?.signature ?? null
+        const skipImported = !!signature && importedLeftOut(signature)
+        if (skipImported) diag.note('Parts prepared on other devices are left out: this device’s encoder could not join them last time')
+        const usedKeys = ledger.usedKeys // unit -> key, for the units that came from or went to the cache
         let unitKeys: (string | null)[] = []
+        /** Each unit's portable key (what another device calls it); null without one. */
+        let portableKeys: (string | null)[] = []
         const unitFrames = (u: number): number => { const x = units[u]; return x.kind === 'intro' ? (g?.intro ? cardFrames(g.intro) : 0) : x.kind === 'outro' ? (g?.outro ? cardFrames(g.outro) : 0) : x.segment.frames }
         /** Everything the engine decides about a unit's packets: size, rate, bitrate, key frames, the encoder in use, the scale path and the audio. */
-        const unitFacts = (): unknown => ({
+        const unitFacts = (): Record<string, unknown> => ({
             v: RENDER_VERSION, W, H, frameSec, quality: out.quality, bitrate: out.videoBitrate, keyFrames, encoder: { hw: encoder!.hardware, config: encoder!.config },
             scale: { direct: directScale, gl: !!gl0, canvas: !!out.forceCanvas }, audio: hasAudio ? { copyAac, codec: refAudio?.codec ?? null, rate: aConfig?.sampleRate ?? null, channels: aConfig?.numberOfChannels ?? null } : null,
         })
-        /** The key of unit `u` as it would be encoded now; null for a unit that is not cached (no card, or no reuse). */
-        const unitKeyOf = async (u: number): Promise<string | null> => {
-            if (!reuse) return null
+        /** What decides unit `u`'s pictures beyond the engine's facts, from the local or the portable reuse keys; null for a unit that is not cached. */
+        const partOf = (u: number, reuse: PortableReuseKeys): unknown => {
             const unit = units[u]
             let part: unknown
             if (unit.kind === 'intro') part = g?.intro && reuse.intro ? { spec: reuse.intro, label: g.intro.label, sec: g.intro.durationSec } : null
@@ -281,9 +325,24 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                     part = { spec: reuse.cut(v.ci, a, b), drawn, first: sg.firstFrame }
                 }
             }
-            if (part === null) return null
-            return digest({ facts: unitFacts(), kind: unit.kind, frames: unitFrames(u), part })
+            return part
         }
+        /** The key of unit `u` as it would be encoded now; null for a unit that is not cached (no card, or no reuse). */
+        const unitKeyOf = async (u: number): Promise<string | null> => {
+            if (!reuse) return null
+            const part = partOf(u, reuse)
+            if (part === null) return null
+            return digest({ facts: unitFacts(), kind: units[u].kind, frames: unitFrames(u), part })
+        }
+        /** The device-independent key of unit `u` (see unitCache portableKey); null when the keys have no portable half. */
+        const portableKeyOf = async (u: number): Promise<string | null> => {
+            if (!reuse?.portable) return null
+            const part = partOf(u, reuse.portable)
+            if (part === null) return null
+            return portableKey({ facts: unitFacts(), kind: units[u].kind, frames: unitFrames(u), part })
+        }
+        /** A unit whose local key misses but that a part prepared on another device may stand in for. */
+        const importedHit = (u: number): boolean => !(unitKeys[u] && cached.has(unitKeys[u]!)) && !!portableKeys[u] && cached.has(portableKeys[u]!)
         const unitWork = (u: number): number => {
             const x = units[u]
             if (x.kind === 'intro') return work.sections[0].seconds
@@ -296,15 +355,20 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 const total = units.reduce((a, _, u) => a + unitFrames(u), 0)
                 const keys = await Promise.all(units.map((_, u) => unitKeyOf(u)))
                 unitKeys = keys
+                portableKeys = skipImported ? units.map(() => null) : await Promise.all(units.map((_, u) => portableKeyOf(u)))
                 keyedUnits = keys.filter((k) => k !== null).length
                 cached = await store.keys()
                 // Room first: the render itself needs about twice its output (unit logs plus the file); cached units are reclaimable, the ones about to be reused last.
                 // (Only a journaled render stages its output in browser storage; the preparer never evicts, it was admitted by its own room check.)
-                const freed = journaled ? await evictForRoom(total * frameSec * out.videoBitrate / 8 * 2.2, new Set(keys.filter((k): k is string => !!k && cached.has(k)))) : 0
+                const spare = (): Set<string> => new Set(units.flatMap((_, u) => (keys[u] && cached.has(keys[u]!) ? [keys[u]!] : importedHit(u) ? [portableKeys[u]!] : [])))
+                const freed = journaled ? await evictForRoom(total * frameSec * out.videoBitrate / 8 * 2.2, spare()) : 0
                 if (freed > 0) { cached = await store.keys(); diag.note(`Cleared ${(freed / 1e6).toFixed(0)} MB of saved parts from earlier exports to make room`) }
-                keys.forEach((k, u) => { if (k && cached.has(k)) reusedWork += unitWork(u) })
-                const n = keys.filter((k) => k && cached.has(k)).length
-                if (n > 0) diag.note(`Unit cache: ${n} of ${keyedUnits} parts can be reused (prepared earlier or from the last export)`)
+                keys.forEach((k, u) => { if ((k && cached.has(k)) || importedHit(u)) reusedWork += unitWork(u) })
+                const local = keys.filter((k) => k && cached.has(k)).length
+                const imported = units.filter((_, u) => importedHit(u)).length
+                const n = local + imported
+                if (local > 0) diag.note(`Unit cache: ${local} of ${keyedUnits} parts can be reused (prepared earlier or from the last export)`)
+                if (imported > 0) diag.note(`Unit cache: ${imported} of ${keyedUnits} parts were prepared on another device (checked against this render as they are used)`)
                 totalWork = Math.max(1e-3, fullWork - reusedWork)
                 meter = new WorkMeter(totalWork)
                 reusedPlanned = n
@@ -319,6 +383,8 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         let timings: (CutTiming | null)[] = cuts.map(() => null)
         let timingsKnown = true
         let vConfig: VideoDecoderConfig | null = null
+        /** Each unit's own H.264 record: on the journaled path units may come from different encoders (see encoderJoin); the file's entry is picked from these at the end. */
+        let unitVideo: (UnitVideo | null)[] = units.map(() => null)
         let cursorFrames = 0
         let done = 0
         let copied = false
@@ -326,11 +392,16 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         if (journaled) {
             claim = claimJournal(jobKind)
             const prev = await loadJob(jobKind)
-            const same = prev && prev.signature === opts.resumable!.signature && prev.graphics === !!g && prev.unitCount === units.length
+            // The saved progress of an attempt that failed to join other devices' parts holds those parts: start afresh (once).
+            const fresh = takeImportedRestart(opts.resumable!.signature)
+            const same = !fresh && prev && prev.signature === opts.resumable!.signature && prev.graphics === !!g && prev.unitCount === units.length
             if (same && prev.unitsDone > 0 && prev.video) {
                 journal = { state: prev }
                 startUnit = prev.unitsDone
                 vConfig = prev.video
+                // (A job saved before units kept their own records had one encoder: its record stands for every finished unit.)
+                const legacy: UnitVideo | null = prev.video?.description ? { codec: prev.video.codec, description: prev.video.description as Uint8Array } : null
+                unitVideo = units.map((_, u) => (u < startUnit ? (prev.unitVideo ? prev.unitVideo[u] ?? null : legacy) : null))
                 cursorFrames = Math.round(prev.cursor / frameSec)
                 done = (prev.done / (prev.total || 1)) * totalWork // saved as a share of the work, whatever the units
                 copied = prev.copied
@@ -369,7 +440,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         let aFirst = true
         const emitVideo = async (env: UnitEnv, p: EncodedPacket): Promise<void> => {
             if (env.writer) await abortable(env.writer.write({ track: 0, key: p.type === 'key', timestamp: p.timestamp, duration: p.duration, data: p.data }), signal)
-            else { await abortable(direct!.vOut.add(p, vFirst ? { decoderConfig: vConfig! } : undefined), signal); vFirst = false }
+            else { await abortable(direct!.vOut.add(p, vFirst ? { decoderConfig: { ...vConfig!, ...(colour ? { colorSpace: colour } : {}) } } : undefined), signal); vFirst = false }
         }
         const emitAudio = async (env: UnitEnv, p: EncodedPacket): Promise<void> => {
             if (env.writer) await abortable(env.writer.write({ track: 1, key: true, timestamp: p.timestamp, duration: p.duration, data: p.data }), signal)
@@ -379,7 +450,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         /** Writes one packet of a unit that was held back (parallel "Save to file…") into the output, where the head unit's own packets go through emitVideo / emitAudio. */
         const emitRecord = async (r: LogRecord): Promise<void> => {
             const p = new EncodedPacket(r.data, r.key ? 'key' : 'delta', r.timestamp, r.duration)
-            if (r.track === 0) { await direct!.vOut.add(p, vFirst ? { decoderConfig: vConfig! } : undefined); vFirst = false }
+            if (r.track === 0) { await direct!.vOut.add(p, vFirst ? { decoderConfig: { ...vConfig!, ...(colour ? { colorSpace: colour } : {}) } } : undefined); vFirst = false }
             else if (direct!.aOut) { await direct!.aOut.add(p, aFirst ? { decoderConfig: aConfig! } : undefined); aFirst = false }
         }
 
@@ -389,7 +460,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             if (!ctx) throw new Error('no 2D canvas')
             ctx.imageSmoothingEnabled = true
             ctx.imageSmoothingQuality = 'high'
-            return { canvas, ctx, gl: scaler, writer: null, cancelled: false, stop: new AbortController(), work: 0, labels: new Set() }
+            return { u: -1, video: null, canvas, ctx, gl: scaler, writer: null, cancelled: false, stop: new AbortController(), work: 0, labels: new Set() }
         }
         const mainEnv = makeEnv(gl0)
         const durUs = Math.round(frameSec * 1e6)
@@ -399,6 +470,8 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         const encodeUnit = async (env: UnitEnv, produce: (encode: (frame: VideoFrame, key: boolean) => Promise<void>) => Promise<void>): Promise<void> => {
             const pending: EncodedPacket[] = []
             let failure: unknown = null
+            // (Before the encoder and the abort listeners exist: nothing to close if no encoder is to be had.)
+            const config = await abortable(unitEncoderConfig(env.u), signal)
             const failed = new AbortController()
             // Cancel (or the pool giving up on this unit) must get through even when the encoder never answers again: it stops the encoder and every wait below.
             const stopper = anyAbort(signal, env.stop.signal)
@@ -418,13 +491,23 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 },
                 error: (e) => { failure = e; failed.abort() },
             })
+            env.video = null
+            if (env.u >= 0) unitVideo[env.u] = null
             const drain = async (): Promise<void> => {
                 if (pending.length === 0) return
-                if (!vConfig) {
+                if (!env.video) {
                     if (!description) throw new Error('the encoder gave no parameter sets')
-                    vConfig = { codec: codec ?? encoder!.config.codec, codedWidth: W, codedHeight: H, description }
+                    const own: UnitVideo = { codec: codec ?? config.codec, description }
+                    // A journaled render stops at the first unit no sample entry can share with the others, not after all the encoding.
+                    if (journal && env.u >= 0) checkUnitJoins(unitVideo, env.u, own, { signature, importedUsed: ledger.importedFrom.size > 0 })
+                    env.video = own
+                    if (env.u >= 0) unitVideo[env.u] = own
+                }
+                if (!vConfig) {
+                    vConfig = { codec: env.video.codec, codedWidth: W, codedHeight: H, description: env.video.description }
                     diag.note(`H.264 sample entry ${vConfig.codec}`)
-                } else if (description && !sameBytes(vConfig.description as Uint8Array | undefined, description)) {
+                } else if (direct && description && !sameBytes(vConfig.description as Uint8Array | undefined, description)) {
+                    // One file written as it goes has one sample entry (journaled renders join units from different encoders at the end).
                     throw new Error('the encoder changed its profile or level since the render was saved: discard the saved render and start again')
                 }
                 while (pending.length) await emitVideo(env, pending.shift()!)
@@ -432,7 +515,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             try {
                 stopper.signal.addEventListener('abort', onStop, { once: true })
                 if (stopper.signal.aborted) onStop()
-                enc.configure(encoder!.config)
+                enc.configure(config)
                 await produce(async (frame, key) => {
                     if (failure) { frames.close(frame); throw failure }
                     const t1 = now()
@@ -622,6 +705,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                         .catch((e: unknown) => { console.warn('Audio: re-encoding failed, using silence', e); return null })
                     if (!packets) {
                         diag.note(`Audio at ${a.toFixed(1)} s of source #${cut.sourceIndex} could not be encoded: replaced by silence`)
+                        env.audioReplaced = true
                         packets = await silencePackets(outSec)
                     }
                 }
@@ -657,30 +741,62 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         }
 
         // ---- the unit cache: a unit whose key is in the store is copied into its log instead of being encoded ----
+        /**
+         * Whether cached unit `u`, made with record `v`, may join this (journaled) render: one sample entry must still cover it, the units
+         * so far and, for a part that may come from another encoder, the local encoder (probed; see encoderJoin). A unit that does not fit is encoded here. One check at a time
+         * (parallel units), and an admitted unit's record counts at once.
+         */
+        let admitting: Promise<unknown> = Promise.resolve()
+        const admit = (u: number, v: UnitVideo, local: boolean): Promise<boolean> => {
+            const run = admitting.then(async (): Promise<boolean> => {
+                const known = unitVideo.filter((x): x is UnitVideo => !!x)
+                let ok = known.some((k) => sameVideo(k, v))
+                // A hit on a local key was made by this encoder config on this device (it is in the key): no probe, only the units so far.
+                // Units this render encodes are checked as they come (drain).
+                if (!ok && local) {
+                    ok = admitsUnit(known, v)
+                    if (!ok) diag.note(`Unit ${u}: its saved part (${v.codec}) cannot share this file's sample entry: encoded here`)
+                } else if (!ok) {
+                    const local = await localVideo().catch((e: unknown) => { diag.note(`Could not read this encoder's parameter sets (${errorText(e)})`); return null })
+                    ok = !!local && admitsUnit([...known, local], v)
+                    if (!ok) diag.note(`Unit ${u}: its saved part was made by another encoder (${v.codec}) that cannot share this file's sample entry: encoded here`)
+                }
+                if (ok) unitVideo[u] = v
+                return ok
+            })
+            admitting = run.catch(() => undefined)
+            return run
+        }
         /** Copies unit `u` from the cache into the unit log `env.writer` (timestamps moved to where the unit sits now); false = miss, and the log is empty again. */
         const restoreUnit = async (u: number, startFrame: number, env: UnitEnv): Promise<boolean> => {
             if (!store || !cacheOn || !reuse) return false
             try {
-                const key = await unitKeyOf(u)
-                if (!key || !cached.has(key)) return false
-                const hit = await store.load(key)
-                if (!hit) { cached.delete(key); return false }
-                if (!hit.meta.video) return false
-                const description = decodeDescription(hit.meta.video.description)
-                if (vConfig && !sameBytes(vConfig.description as Uint8Array | undefined, description)) return false // another profile or level than this render's file
+                // The local key first; on a miss, a part prepared on another device under the unit's portable key (see cachedUnit).
+                const pick = await pickCachedUnit({
+                    u, store, cached, key: await unitKeyOf(u), portableKey: () => (skipImported ? Promise.resolve(null) : portableKeyOf(u)),
+                    // A file written as it goes keeps one encoder's profile and level; a part from elsewhere must be this encoder's own record.
+                    direct: direct ? { entry: (vConfig?.description as Uint8Array | undefined) ?? null, sameEntry: sameBytes } : null,
+                    localVideo, admit: (v, local) => admit(u, v, local), note: (t) => diag.note(t),
+                })
+                if (!pick) return false
+                const { key, hit, own } = pick
+                const description = own.description
                 const startSec = startFrame * frameSec
                 try {
                     // Video lands back on the frame grid (the unit's first frame is frame `startFrame`); audio keeps its own times.
                     for await (const r of hit.records) await env.writer!.write({ ...r, timestamp: r.track === 0 ? tsUs(startFrame + Math.round(r.timestamp / frameSec)) / 1e6 : r.timestamp + startSec })
                 } catch {
                     // A damaged cached unit counts as a miss: start the unit's log again and render it.
+                    unitVideo[u] = null
                     await env.writer!.abort().catch(() => undefined)
                     env.writer = await (env.reopen?.() ?? openUnit(jobKind, u))
                     cached.delete(key)
                     await store.remove(key)
                     return false
                 }
-                if (!vConfig) vConfig = { codec: hit.meta.video.codec, codedWidth: W, codedHeight: H, description }
+                if (!vConfig) vConfig = { codec: own.codec, codedWidth: W, codedHeight: H, description }
+                env.video = own
+                unitVideo[u] = own
                 for (const l of hit.meta.applied) { env.labels.add(l); if (!report.applied.includes(l)) { report.applied.push(l); diag.graphicApplied(l) } }
                 const unit = units[u]
                 if (unit.kind === 'segment') {
@@ -688,7 +804,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                     if (unit.segment.firstFrame === 0) timings[v.ci] = timingOf(v.cut, unit.segment, startSec)
                     copied = true
                 }
-                usedKeys.set(u, key)
+                ledger.restored(u, pick)
                 reusedActual++
                 reusedFrames += unitFrames(u)
                 return true
@@ -696,10 +812,11 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         }
         /** Keeps a finished unit (its log is closed) in the cache. Never fails the render: no room, no storage or a skipped graphic just means it is not kept. */
         const keepUnit = async (u: number, startFrame: number, env: UnitEnv): Promise<void> => {
-            if (!store || !cacheOn || !reuse || !vConfig || report.skipped.length > 0 || (!journal && !prep)) return
+            if (!store || !cacheOn || !reuse || !env.video || report.skipped.length > 0 || (!journal && !prep)) return
             try {
                 const key = await unitKeyOf(u)
-                const description = encodeDescription(vConfig.description)
+                const video = env.video
+                const description = encodeDescription(video.description)
                 if (!key || !description) return
                 const expected = unitFrames(u)
                 const unitBytes = expected * frameSec * out.videoBitrate / 8
@@ -710,7 +827,8 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 const startSec = startFrame * frameSec
                 let videoFrames = 0
                 async function* rel(): AsyncGenerator<LogRecord> { for await (const r of readUnit(scratchKind, u)) { if (r.track === 0) videoFrames++; yield { ...r, timestamp: r.timestamp - startSec } } }
-                if (!(await store.save(key, rel(), { applied: [...env.labels], video: { codec: vConfig.codec, description } }))) { cacheOn = false; return }
+                const portable = portableToKeep(await portableKeyOf(u), !!env.audioReplaced)
+                if (!(await store.save(key, rel(), { applied: [...env.labels], video: { codec: video.codec, description }, ...(portable ? { portable } : {}) }))) { cacheOn = false; return }
                 if (videoFrames !== expected) { await store.remove(key); return } // not every frame was drawn: not a unit to reuse
                 usedKeys.set(u, key)
             } catch (e) { if (e instanceof PrepareFull) throw e /* not kept */ }
@@ -725,6 +843,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             if (!soft) return false
             diag.note(`Unit ${u}: ${errorText(e)}; retrying with a software encoder`)
             encoder = soft
+            localProbe = null
             diag.finalEncoder(soft.config)
             return true
         }
@@ -749,7 +868,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 if (prefix === before) return
                 const lastDone = jobs[prefix - 1]
                 const credited = baseDone + jobs.slice(0, prefix).reduce((a, j) => a + j.work, 0)
-                const state = { ...journal!.state, unitsDone: lastDone.u + 1, cursor: (lastDone.start + lastDone.frames) * frameSec, done: credited, total: totalWork, copied, timings, report: structuredClone(report), video: vConfig }
+                const state = { ...journal!.state, unitsDone: lastDone.u + 1, cursor: (lastDone.start + lastDone.frames) * frameSec, done: credited, total: totalWork, copied, timings, report: structuredClone(report), video: vConfig, unitVideo }
                 saving = saving.then(() => saveJob(state))
             }
             diag.note(`Running up to ${parallelN} units at a time`)
@@ -761,6 +880,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 jobs, width: parallelN, isAbort,
                 run: async (job) => {
                     const env = makeEnv(mainEnv.gl ? GlScaler.create(W, H) : null)
+                    env.u = job.u
                     envs.add(env)
                     const t1 = now()
                     try {
@@ -805,6 +925,8 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         // ---- the background preparer: encode the units the cache lacks, keep them, write no file ----
         const runPrepare = async (): Promise<void> => {
             const have = new Set<string>(unitKeys.filter((k): k is string => !!k && cached.has(k)))
+            // A unit a part prepared on another device stands in for is not encoded here (the render checks it fits; if not, it encodes it then).
+            units.forEach((_, u) => { if (importedHit(u)) have.add(unitKeys[u]!) })
             const snapshot = (): PrepareState => {
                 const s: PrepareState = { totalUnits: 0, readyUnits: 0, totalSec: 0, readySec: 0, intro: !g?.intro, outro: !g?.outro, cuts: cuts.map(() => 1) }
                 const cutAll = cuts.map(() => 0)
@@ -824,7 +946,8 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 return s
             }
             prep!.onState(snapshot())
-            await store!.prepare(reuse!.which, { keys: unitKeys.filter((k): k is string => !!k), budget: prep!.budgetBytes })
+            // The plan lists the imported parts it relies on too, so no eviction takes them.
+            await store!.prepare(reuse!.which, { keys: [...unitKeys.filter((k): k is string => !!k), ...units.flatMap((_, u) => (importedHit(u) ? [portableKeys[u]!] : []))], budget: prep!.budgetBytes })
             await store!.trim() // units no plan refers to any more (older edits) go before new ones are added
             const todo = units.map((_, u) => u).filter((u) => unitKeys[u] && !have.has(unitKeys[u]!))
             const finishUnit = (u: number): void => { if (usedKeys.has(u)) { have.add(unitKeys[u]!); prep!.onState(snapshot()) } }
@@ -837,6 +960,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 run: async (u) => {
                     const release = await prep!.acquire(signal)
                     const env = makeEnv(mainEnv.gl ? GlScaler.create(W, H) : null)
+                    env.u = u
                     envs.add(env)
                     try {
                         env.writer = await openUnit(scratchKind, u)
@@ -868,7 +992,8 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 const card = units[u].kind === 'intro' ? g?.intro : g?.outro
                 if (!card) continue
                 mainEnv.writer = await openUnit(scratchKind, u)
-                mainEnv.labels = new Set()
+                mainEnv.labels = new Set(); mainEnv.audioReplaced = false
+                mainEnv.u = u
                 cursorFrames = 0
                 try {
                     await runCard(mainEnv, card, card.label)
@@ -906,7 +1031,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                     let last = u
                     while (last + 1 < units.length && units[last + 1].kind === 'segment') last++
                     await runParallel(u, last)
-                    if (journal) await saveJob({ ...journal.state, unitsDone: last + 1, cursor: cursorFrames * frameSec, done, total: totalWork, copied, timings, report: structuredClone(report), video: vConfig })
+                    if (journal) await saveJob({ ...journal.state, unitsDone: last + 1, cursor: cursorFrames * frameSec, done, total: totalWork, copied, timings, report: structuredClone(report), video: vConfig, unitVideo })
                     u = last
                     reportProgress()
                     continue
@@ -916,7 +1041,8 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                 const reusedBefore = reusedActual
                 for (let attempt = 0; ; attempt++) {
                     if (journal) mainEnv.writer = await openUnit(jobKind, u)
-                    mainEnv.labels = new Set()
+                    mainEnv.labels = new Set(); mainEnv.audioReplaced = false
+                    mainEnv.u = u
                     try {
                         if (journal && await restoreUnit(u, cursorFrames, mainEnv)) { cursorFrames += unitFrames(u); break }
                         const startFrame = cursorFrames
@@ -939,7 +1065,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                     await mainEnv.writer.close()
                     mainEnv.writer = null
                     if (pendingSave) { const save = pendingSave; pendingSave = null; await save() }
-                    await saveJob({ ...journal.state, unitsDone: u + 1, cursor: cursorFrames * frameSec, done, total: totalWork, copied, timings, report: structuredClone(report), video: vConfig })
+                    await saveJob({ ...journal.state, unitsDone: u + 1, cursor: cursorFrames * frameSec, done, total: totalWork, copied, timings, report: structuredClone(report), video: vConfig, unitVideo })
                 }
                 stats.unitSpans.push({ unit: u, startMs: uStart - perfStart, endMs: now() - perfStart })
                 if (reusedActual > reusedBefore) restoredMs += now() - uStart; else encodedMs += now() - uStart
@@ -948,13 +1074,16 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             diag.note(`Time breakdown (ms): decode wait ${Math.round(stats.decodeWaitMs)}, paint/scale ${Math.round(stats.paintMs)}, encode call ${Math.round(stats.encodeCallMs)}, encoder back-pressure ${Math.round(stats.backpressureMs)}, packet writes ${Math.round(stats.drainMs)} over ${stats.frames} frames`)
             if (shrinks) diag.note(`Scale path frames: ${scaled.direct} by the encoder, ${scaled.webgl} by WebGL, ${scaled.canvas} by the 2D canvas`)
             diag.note(`Re-encode took ${((Date.now() - t0) / 1000).toFixed(1)} s for ${cursorFrames} frames; VideoFrames made ${frames.made}, closed ${frames.closed}`)
+            if (ledger.importedFrom.size > 0) diag.note(importedNote(ledger.importedFrom, units.length - startUnit - reusedActual))
             if (!vConfig) throw new Error('the encoder produced no video')
-            const finalVideo: VideoDecoderConfig = vConfig
             let file: File | Blob
             if (journal) {
+                // The file's sample entry covers every unit's own record; units from different encoders carry theirs in-band (see encoderJoin).
+                const join = planEncoderJoin(unitVideo, W, H, colour)
+                if (join.mixed) diag.note(`Units from different H.264 encoders joined: sample entry ${join.entry.codec}, each unit's parameter sets in-band on its key frames`)
                 onProgress({ cutIndex: cuts.length - 1, cutCount: cuts.length, fraction: 1, stage: 'Saving', ...(reusedActual > 0 ? { reused: { units: reusedActual, of: keyedUnits } } : {}) })
                 const endMux = diag.begin('finalize')
-                file = await muxUnits(jobKind, journal.state.outputName, units.length, 'avc', hasAudio ? 'aac' : null, finalVideo, aConfig, signal, exp?.targetFile)
+                file = await muxUnits(jobKind, journal.state.outputName, units.length, 'avc', hasAudio ? 'aac' : null, join.entry, aConfig, signal, exp?.targetFile, join.mixed ? { params: join.inband, lengthSize: join.lengthSize } : undefined)
                 await discardJob(jobKind)
                 endMux()
                 // This export becomes the kind's "last export" in the cache: the parts it used stay, older ones go.
@@ -1012,6 +1141,40 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
 /** Same H.264 profile and level in two avcC records (the SPS may differ in its colour signalling between key frames). */
 function sameBytes(a: Uint8Array | undefined, b: Uint8Array): boolean {
     return !!a && a.length >= 4 && b.length >= 4 && a[1] === b[1] && a[3] === b[3]
+}
+
+const PROBE_TIMEOUT_MS = 10_000
+class ProbeTimeout extends Error {
+    constructor() { super('the encoder did not answer in time'); this.name = 'ProbeTimeout' }
+}
+
+/** The record an encoder gives for this config: one black frame encoded and thrown away. Gives up (ProbeTimeout) after `timeoutMs`. */
+async function probeRecord(config: VideoEncoderConfig, W: number, H: number, timeoutMs: number): Promise<UnitVideo> {
+    let record: UnitVideo | null = null
+    let failure: unknown = null
+    const enc = new VideoEncoder({
+        output: (_chunk, meta) => {
+            const d = meta?.decoderConfig?.description
+            if (d && !record) record = { codec: meta!.decoderConfig!.codec, description: toU8(d).slice() }
+        },
+        error: (e) => { failure = e },
+    })
+    try {
+        enc.configure(config)
+        const canvas = new OffscreenCanvas(W, H)
+        canvas.getContext('2d')!.fillRect(0, 0, W, H)
+        const frame = new VideoFrame(canvas, { timestamp: 0 })
+        try { enc.encode(frame, { keyFrame: true }) } finally { frame.close() }
+        // A timer, not render/yield: only a limit (a throttled background tab just waits longer).
+        let timer: ReturnType<typeof setTimeout> | undefined
+        try {
+            await Promise.race([enc.flush(), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new ProbeTimeout()), timeoutMs) })])
+        } finally { clearTimeout(timer) }
+    } finally {
+        if (enc.state !== 'closed') enc.close()
+    }
+    if (!record) throw failure ?? new Error('the encoder gave no parameter sets')
+    return record
 }
 
 /** Experiment 9: pulls up to `depth` pictures ahead of the consumer from a sample iterator (so decoding overlaps painting and encoding). */

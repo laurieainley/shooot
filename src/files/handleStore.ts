@@ -43,6 +43,8 @@ export async function loadHandles(): Promise<StoredHandle[]> {
 
 /** Adds handles for this match's files (one per name; a newer pick replaces an older one). */
 export async function rememberHandles(handles: StoredHandle[]): Promise<void> {
+    // A prepared parts file is loaded once, never relinked.
+    handles = handles.filter((h) => !h.name.toLowerCase().endsWith('.shooot-parts'))
     if (handles.length === 0) return
     try {
         const byName = new Map((await loadHandles()).map((h) => [h.name, h]))
@@ -86,7 +88,7 @@ export async function pickWithHandles(): Promise<File[] | null> {
     const pick = filePicker()
     if (!pick) return null
     try {
-        const handles = await pick({ multiple: true, types: [{ description: 'Match videos', accept: { 'video/mp4': VIDEO_EXTENSIONS.filter((e) => !/mov/i.test(e)), 'video/quicktime': ['.mov', '.MOV'] } }] })
+        const handles = await pick({ multiple: true, types: [{ description: 'Match videos', accept: { 'video/mp4': VIDEO_EXTENSIONS.filter((e) => !/mov/i.test(e)), 'video/quicktime': ['.mov', '.MOV'], 'application/octet-stream': ['.shooot-parts'] } }] })
         const files = await Promise.all(handles.map((h) => h.getFile()))
         await rememberHandles(handles)
         return files

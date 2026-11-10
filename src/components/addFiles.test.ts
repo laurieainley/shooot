@@ -7,6 +7,8 @@ type Probe = (f: File) => Promise<ProbedMetadata>
 const processVideoFiles = vi.fn<(files: File[], probe: Probe) => Promise<{ files: VideoSourceFile[]; error: string | null }>>()
 vi.mock('../utils/processFiles', () => ({ processVideoFiles: (files: File[], probe: Probe) => processVideoFiles(files, probe) }))
 vi.mock('../utils/probe', () => ({ probeVideoFile: vi.fn(async () => ({ accepted: true, playable: true, durationSec: 60 })) }))
+const loadPartsFile = vi.fn<(f: File, o?: { leftOut: number }) => Promise<void>>(async () => undefined)
+vi.mock('../prepare/partsLoad', () => ({ loadPartsFile: (f: File, o?: { leftOut: number }) => loadPartsFile(f, o) }))
 
 import { addPickedFiles, replacePickedFile } from './addFiles'
 
@@ -41,6 +43,68 @@ describe('addPickedFiles', () => {
         processVideoFiles.mockRejectedValue(new Error('boom'))
         await expect(addPickedFiles([sized('x.mp4', 10)])).resolves.toBe('boom')
         expect(useAppState.getState().opening).toBeNull()
+    })
+})
+
+describe('addPickedFiles with a prepared parts file', () => {
+    beforeEach(() => {
+        processVideoFiles.mockReset()
+        loadPartsFile.mockClear()
+        useAppState.setState({ files: [], events: [], cumulativeOffsets: [], currentFileIndex: 0, opening: null })
+    })
+
+    it('should hand a .shooot-parts file to the parts loader, not the video probe', async () => {
+        const parts = sized('Whites v Colours · prepared parts.shooot-parts', 10)
+        await expect(addPickedFiles([parts])).resolves.toBeNull()
+        expect(processVideoFiles).not.toHaveBeenCalled()
+        expect(loadPartsFile).toHaveBeenCalledWith(parts, { leftOut: 0 })
+    })
+
+    it('should load one parts file and say how many others were left out', async () => {
+        const a = sized('a.shooot-parts', 10)
+        const b = sized('b.shooot-parts', 10)
+        await addPickedFiles([a, b])
+        expect(loadPartsFile).toHaveBeenCalledTimes(1)
+        expect(loadPartsFile).toHaveBeenCalledWith(a, { leftOut: 1 })
+    })
+
+    it('should add the videos picked with it first, then load the parts', async () => {
+        const order: string[] = []
+        processVideoFiles.mockImplementation(async () => { order.push('videos'); return { files: [vf('GX010042.MP4')], error: null } })
+        loadPartsFile.mockImplementation(async () => { order.push('parts') })
+        const parts = sized('m.SHOOOT-PARTS', 10)
+        const video = sized('GX010042.MP4', 10)
+        await addPickedFiles([parts, video])
+        expect(Array.from(processVideoFiles.mock.calls[0][0])).toEqual([video])
+        expect(order).toEqual(['videos', 'parts'])
+        expect(useAppState.getState().files.map((f) => f.name)).toEqual(['GX010042.MP4'])
+    })
+})
+
+describe('addPickedFiles with a renamed parts file', () => {
+    beforeEach(() => {
+        processVideoFiles.mockReset()
+        loadPartsFile.mockClear()
+        useAppState.setState({ files: [], events: [], cumulativeOffsets: [], currentFileIndex: 0, opening: null })
+    })
+    const partsBytes = (name: string): File => new File([new TextEncoder().encode('shooot-parts\n'), new Uint8Array([4, 0, 0, 0]), '{}  '], name)
+
+    it('should know a parts file by its first bytes when iOS renamed it or dropped the extension', async () => {
+        for (const name of ['prepared parts.bin', 'Matchday 3 - Whites v Colours · prepared parts']) {
+            loadPartsFile.mockClear()
+            const f = partsBytes(name)
+            await addPickedFiles([f])
+            expect(loadPartsFile).toHaveBeenCalledWith(f, { leftOut: 0 })
+            expect(processVideoFiles).not.toHaveBeenCalled()
+        }
+    })
+
+    it('should still probe a video whose first bytes are not the parts magic', async () => {
+        processVideoFiles.mockResolvedValue({ files: [vf('clip.bin')], error: null })
+        const v = new File([new Uint8Array([0, 0, 0, 24, 102, 116, 121, 112])], 'clip.bin')
+        await addPickedFiles([v])
+        expect(loadPartsFile).not.toHaveBeenCalled()
+        expect(Array.from(processVideoFiles.mock.calls[0][0])).toEqual([v])
     })
 })
 

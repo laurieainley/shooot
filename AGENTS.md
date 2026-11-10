@@ -135,6 +135,25 @@ npm run lint       # baseline: 12 known problems — add none
   says "keep the screen on". Prepared % per kind (signature + quality) in localStorage via `src/prepare/prepared.ts`, shown by
   `RelinkBanner` after a reload; forgotten on signature change, Original, match delete, cache clear (not on the cache's own eviction).
   `wantedNow` sizes LRV/MP4 pairs by the full MP4.
+  **Portable keys and prepared parts from another device (2026-11-10):** every kept unit also stores `meta.portable`: today's key without
+  the encoder/scale facts, footage = size + `footageFingerprint` (SHA-256 of first + last MiB; no name, no `lastModified`). Units whose audio
+  fell back to silence get none. On a local miss `render/cachedUnit.ts pickCachedUnit` tries the portable key (journaled: admitted through
+  `encoderJoin` + a timed probe of the local encoder; "Save to file…": byte-identical record only). Imported units live in manifest
+  `imported { batch, at, units, bytes }`, pinned until a newer parts file is loaded, saved parts are cleared, or 14 days pass; manifest
+  writes are serialised (`withManifest`). Diagnostics: "Reused N parts prepared on <device>, M encoded here"; if the local encoder changes
+  mid-render so imported parts can't join, the render stops and the next attempt encodes everything here.
+  **Prepared parts file (`.shooot-parts`, `prepare/bundle.ts`):** magic `shooot-parts\n`, 4-byte LE header length (≤ 16 MB), JSON header
+  (format 1, `RENDER_VERSION`, device ≤ 64 chars, project via the transfer codec — string ≤ 8 MB, decoded ≤ 32 MB — units ≤ 20 000 with
+  portable key, bytes, records, offset, codec, description), then the units; built as a Blob of the cache's OPFS Files (no second copy).
+  Import streams 8 MB slices, checks bounds/overlaps/record counts, rolls back a damaged or cancelled unit, refuses other format/render
+  version (project still loads). UI: Export panel "Save prepared parts (size)" with per-kind counts (`SavePreparedParts`,
+  `prepare/partsSave.ts`: `showSaveFilePicker`, else a download held 60 s / until visible again, max 5 min; no free-space gate — WebKit over-reports site usage and the download
+  goes to Files — the hint says how much room it needs);
+  the preparer is held and Render blocked while saving. Add files / drop / Files sheet recognise the file by its magic bytes (any name),
+  one per pick (`prepare/partsLoad.ts`): videos first, then the project (asks whenever the open match has events, like a project file;
+  Keep mine still loads the parts), then the parts with progress + Cancel, toast "Loaded N prepared parts from <device>", estimates
+  refreshed. "Save to file…" hints say other-device parts aren't used there. Dev only: `window.__shoootExperiments`
+  (`render/devExperiments.ts`, `import.meta.env.DEV`) sets engine experiments (`encoderFor`, `softwareCodec`) for Playwright.
   **Storage fit and time:** `applyStorageFit()` (utils/outputQuality.ts) greys out options bigger than the site's free
   storage (`storageRoom()` in render/storage.ts: quota − usage + old outputs `clearOldOutputs()` frees, 10% margin) and
   auto-picks the largest that fits; no `estimate()` means no blocking. Time hints and the live ETA come from the render time
@@ -285,6 +304,13 @@ npm run lint       # baseline: 12 known problems — add none
   - re-encoded overlay bitrate is capped at the entry level's maximum (`maxBitrateForLevel`);
   - AVFoundation configures from the sample entry, not in-band sets — test exports in QuickTime/Preview, not only
     Chrome/ffmpeg. A durable fix for very different sources may need multiple sample descriptions (not built yet).
+  - **Units from different H.264 encoders** (journaled re-encodes only; `render/encoderJoin.ts`; spike `spikes/handoff.ts` on
+    `spike/handoff`): each unit keeps its own avcC (journal `unitVideo`, cache meta). At the end the `avc1` entry is the unit SPS that
+    covers all others (profile, size, **ref frames**, level raised); when records differ every unit's SPS/PPS goes in-band on its key
+    frames. An entry with fewer ref frames than a later unit → QuickTime stops there (-12137) while Chrome/ffmpeg play on — only
+    `avcheck` catches it. `avc3` fails in AVFoundation. High over Main decodes; other uncovered units are encoded here (diagnostics note);
+    an uncovered record is caught at that unit's `drain`, not at finalize. "Save to file…" keeps one encoder (byte-identical records).
+    Re-encodes carry a BT.709 limited `colr` box only when every source is BT.709 or unspecified (Chrome's canvas→YUV is 709: red Y=63).
 - **Timing comes from packets.** Any GOP length (phones 1–4 s, GoPro 1 s); variable frame rate is normal on phones.
   Snap cuts to the footage's own key packets; card frame rate from the median frame gap.
 - **Audio:** copied; clips in one render must share audio format (mixed → clear error). Files without audio get

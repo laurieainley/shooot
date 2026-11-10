@@ -1551,6 +1551,8 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 
 /* Toasts: one calm confirmation at a time. Top-right of the video (the scorebug is top-left); phone portrait: one line under the video. */
 .toast-host--video { position: absolute; top: 10px; right: 10px; z-index: 6; max-width: min(380px, calc(100% - 20px)); pointer-events: none; }
+/* The desktop speed button (1× … 0.25×) sits in the top-right corner: the toast keeps to its left. */
+.stage:has(.speedbtn--desk) .toast-host--video { right: 84px; max-width: min(380px, calc(100% - 94px)); }
 .toast-host--under { display: flex; justify-content: center; padding: 0 12px; }
 .toast-slot { display: flex; justify-content: flex-end; }
 .toast-host--under .toast-slot { justify-content: center; width: 100%; }
@@ -2293,3 +2295,18 @@ button.tagcol__crumb:active { color: var(--sh-text); border-color: var(--sh-text
 .person-chips__team { grid-column: 1 / -1; flex: 1 0 100%; margin: 6px 0 0; font-size: var(--sh-text-xs); font-weight: 700; color: var(--sh-muted); }
 .event-sheet__team { margin: 8px 0 4px; font-size: var(--sh-text-xs); font-weight: 700; color: var(--sh-muted); }
 @media (pointer: coarse) { .person-chips__team, .event-sheet__team { font-size: 14px; } }
+/* Prepared parts file: Save (Export panel) and the load's progress / notes (bottom of the screen, above sheets). */
+.parts-save { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
+.parts-save__again { color: var(--sh-text); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+.parts-load {
+  position: fixed; z-index: 75; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); max-width: 560px; margin: 0 auto;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px 12px; box-sizing: border-box;
+  background: var(--sh-surface); color: var(--sh-text); border: 1px solid var(--sh-line); border-radius: var(--sh-radius-md); font-size: var(--sh-text-sm); line-height: 1.35;
+  box-shadow: 0 4px 18px rgb(0 0 0 / .35);
+}
+.parts-load__text { flex: 1 1 200px; min-width: 0; }
+.parts-load .btn-quiet { flex: none; min-height: 44px; }
+.parts-load__bar { flex: 1 0 100%; height: 4px; border-radius: 2px; background: var(--sh-line); overflow: hidden; }
+.parts-load__bar > i { display: block; height: 100%; background: var(--sh-text); transition: width 0.2s linear; }
+@media (prefers-reduced-motion: reduce) { .parts-load__bar > i { transition: none; } }
+@media (pointer: coarse) { .parts-save .export-hint, .parts-load { font-size: var(--sh-text-sm); } }

@@ -46,6 +46,19 @@ describe('storage room and the unit cache', () => {
         expect(room).toEqual({ quota: 1000, free: 500 + 100 + 310, cache: 310 })
     })
 
+    it('should not lose room when prepared parts from another device are loaded (they sit in the cache, counted as room like the rest)', async () => {
+        const file = (size: number) => ({ kind: 'file', getFile: async () => ({ size }) })
+        const room = async (cacheFiles: [string, number][], usage: number) => {
+            const cacheDir = { kind: 'directory', entries: async function* () { for (const [n, b] of cacheFiles) yield [n, file(b)] }, getDirectoryHandle: async () => cacheDir }
+            const root = { entries: async function* () { yield ['unit-cache', cacheDir] }, getDirectoryHandle: async (n: string) => { if (n === 'unit-cache') return cacheDir; throw new Error('none') } }
+            vi.stubGlobal('navigator', { storage: { estimate: async () => ({ quota: 10_000, usage }), getDirectory: async () => root } })
+            return (await storageRoom())!.free
+        }
+        const before = await room([['local.bin', 300]], 1000)
+        const after = await room([['local.bin', 300], ['imported.bin', 2000], ['manifest.json', 10]], 3010)
+        expect(after).toBe(before)
+    })
+
     it('should not believe a reported usage far above what the site stores (WebKit miscounting)', async () => {
         const file = (size: number) => ({ kind: 'file', getFile: async () => ({ size }) })
         const job = { kind: 'directory', entries: async function* () { yield ['u1.bin', file(2e9)] } }

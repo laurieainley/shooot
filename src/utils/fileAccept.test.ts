@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isAcceptedVideo, FILE_INPUT_ACCEPT, VIDEO_EXTENSIONS, fileInputAccept, isIOS } from './fileAccept'
+import { isAcceptedVideo, FILE_INPUT_ACCEPT, VIDEO_EXTENSIONS, fileInputAccept, isIOS, addFilesAccept } from './fileAccept'
 
 describe('isAcceptedVideo', () => {
     it('should accept by MIME type', () => {
@@ -64,5 +64,14 @@ describe('isIOS', () => {
 describe('VIDEO_EXTENSIONS', () => {
     it('should list every accepted extension in both cases for the file picker', () => {
         expect(VIDEO_EXTENSIONS).toEqual(['.mp4', '.MP4', '.m4v', '.M4V', '.mov', '.MOV', '.lrv', '.LRV'])
+    })
+})
+
+describe('addFilesAccept', () => {
+    it('should add prepared parts files to the desktop picker and keep accept omitted on iOS and Android', () => {
+        expect(addFilesAccept({ userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/130.0 Safari/537.36', platform: 'MacIntel', maxTouchPoints: 0 })).toBe(`${FILE_INPUT_ACCEPT},.shooot-parts`)
+        expect(addFilesAccept({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)', platform: 'iPhone', maxTouchPoints: 5 })).toBe('')
+        expect(addFilesAccept({ userAgent: 'Mozilla/5.0 (Macintosh)', platform: 'MacIntel', maxTouchPoints: 5 })).toBe('')
+        expect(addFilesAccept({ userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/130.0 Mobile Safari/537.36', platform: 'Linux armv8l', maxTouchPoints: 5 })).toBe('')
     })
 })

@@ -34,8 +34,10 @@ export type JobState = {
     /** Where each cut landed in the output so far (null = not rendered); absent in jobs saved by older versions. */
     timings?: (CutTiming | null)[]
     report: GraphicsReport | null
-    /** Sample entries of the output tracks. */
+    /** Sample entries of the output tracks (video: the first unit's record; the file's entry is chosen from `unitVideo` at the end). */
     video: VideoDecoderConfig | null
+    /** Each unit's own H.264 record (units may come from different encoders); absent in jobs saved by older versions. */
+    unitVideo?: ({ codec: string; description: Uint8Array } | null)[]
     audio: AudioDecoderConfig | null
     updatedAt: number
 }

@@ -57,6 +57,31 @@ describe('Preparer', () => {
         expect(p.store.getState().status).toMatchObject({ kind: 'ready', text: 'Full match 4K and highlights 4K are ready; the export will only redo what you change.' })
     })
 
+    it('should look at the same plan again at once after refresh (prepared parts were loaded into the cache)', async () => {
+        const { p, passes } = setup()
+        p.start()
+        await settle()
+        expect(passes).toHaveLength(1)
+        p.refresh()
+        await vi.advanceTimersByTimeAsync(10)
+        expect(passes).toHaveLength(2)
+        expect(passes[1].plan.signature).toBe('s1')
+    })
+
+    it('should say a hold is for the parts file only while nothing else holds it', async () => {
+        const { p } = setup()
+        p.start()
+        await settle()
+        const parts = p.hold('parts')
+        expect(p.store.getState().status).toEqual({ kind: 'paused', byUser: false, for: 'parts' })
+        const exp = p.hold()
+        expect(p.store.getState().status).toEqual({ kind: 'paused', byUser: false })
+        exp()
+        expect(p.store.getState().status).toEqual({ kind: 'paused', byUser: false, for: 'parts' })
+        parts()
+        expect(p.store.getState().status.kind).not.toBe('paused')
+    })
+
     it('should wait for a quiet spell after an edit, then prepare the new plan', async () => {
         const { p, passes, setWanted } = setup()
         p.start()

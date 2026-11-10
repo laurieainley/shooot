@@ -36,6 +36,12 @@ export function fileInputAccept(env: PickerEnv): string {
     return isIOS(env) || isAndroid(env) ? '' : FILE_INPUT_ACCEPT
 }
 
+/** Add files (and drop) also take a prepared parts file from another device. Same rule: no `accept` at all on iOS and Android. */
+export function addFilesAccept(env: PickerEnv): string {
+    const v = fileInputAccept(env)
+    return v ? `${v},.shooot-parts` : ''
+}
+
 function currentEnv(): PickerEnv {
     return typeof navigator === 'undefined'
         ? { userAgent: '', platform: '', maxTouchPoints: 0 }
@@ -45,6 +51,11 @@ function currentEnv(): PickerEnv {
 /** `accept` attribute for this device's video inputs (undefined = no attribute). */
 export function acceptAttr(): string | undefined {
     return fileInputAccept(currentEnv()) || undefined
+}
+
+/** `accept` attribute for the Add files input (undefined = no attribute). */
+export function addFilesAcceptAttr(): string | undefined {
+    return addFilesAccept(currentEnv()) || undefined
 }
 
 export function onIOS(): boolean {

@@ -35,3 +35,11 @@ describe('packet log', () => {
         expect(p.pending).toBeGreaterThan(0)
     })
 })
+
+describe('LogParser damage', () => {
+    it('should reject a record whose length is above 64 MB', () => {
+        const h = new Uint8Array(24)
+        new DataView(h.buffer).setUint32(4, 65 * 1024 * 1024, true)
+        expect(() => new LogParser().push(h)).toThrow(/damaged/)
+    })
+})

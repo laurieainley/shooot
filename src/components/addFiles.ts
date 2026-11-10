@@ -7,6 +7,10 @@ import { parseGoProName } from '../utils/gopro'
 import { currentPlaybackPref, MP4_FALLBACK_TOAST } from './playbackPref'
 import { showToast } from '../toasts'
 import { openingLabel } from '../utils/opening'
+import { isPartsFile, isPartsFileName } from '../prepare/partsFile'
+
+const VIDEO_NAME = /\.(mp4|m4v|mov|lrv)$/i
+import { loadPartsFile } from '../prepare/partsLoad'
 
 /** Probe picked files, showing "Opening <name> (<size>)…" in the store while each one is read. */
 async function openFiles(files: File[]): Promise<{ files: VideoSourceFile[]; error: string | null }> {
@@ -31,7 +35,19 @@ async function openFiles(files: File[]): Promise<{ files: VideoSourceFile[]; err
  * Adds picked or dropped files to the timeline. Full-quality videos whose proxy (a GoPro .LRV preview) is already
  * loaded are attached to it for rendering; everything else is probed and appended. Returns an error message, if any.
  */
-export async function addPickedFiles(picked: File[]): Promise<string | null> {
+export async function addPickedFiles(all: File[]): Promise<string | null> {
+    // A prepared parts file (from a phone / iPad) is loaded after the videos picked with it, so its project lands on them.
+    // Known by its first bytes too: iOS may rename the copy or drop the extension. Videos (by extension) are not read, and need no wait.
+    const known = all.map((f): boolean | null => (isPartsFileName(f.name) ? true : VIDEO_NAME.test(f.name) ? false : null))
+    const isParts = known.includes(null) ? await Promise.all(all.map((f, i) => known[i] ?? isPartsFile(f))) : known
+    const parts = all.filter((_, i) => isParts[i])
+    const picked = all.filter((_, i) => !isParts[i])
+    const error = await addVideoFiles(picked)
+    if (parts[0]) void loadPartsFile(parts[0], { leftOut: parts.length - 1 })
+    return error
+}
+
+async function addVideoFiles(picked: File[]): Promise<string | null> {
     if (picked.length === 0) return null
     const fulls = picked.filter((f) => parseGoProName(f.name)?.kind === 'full')
     // A full file picked after its LRV is probed so the pair can play either one.
