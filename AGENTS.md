@@ -128,6 +128,13 @@ npm run lint       # baseline: 12 known problems — add none
   **When anything that changes pixels or packets changes (painters, themes, fonts, engine), bump `RENDER_VERSION`.** A cache read error is a
   miss. `storageRoom()` counts the cache as free; `clearSavedParts()` deletes it. Estimates: `reusableParts()` + `estimateRenderTime({ reused })`;
   `RenderProgress.reused` -> `RenderJob.reused` -> the "Reused N of M parts" line in `RenderStatus`; reused runs are not recorded as learned rates.
+  **Background prepare on touch (2026-11-10, "prepare in the pub"):** on `(pointer: coarse)` the preparer holds a screen wake lock
+  (`renderWakeLock`) only while a pass runs (cleared before release, so an overlapping cycle takes its own). `offer4k` (`src/prepare/offer4k.ts`,
+  judges `files[0]`'s full MP4 like `wantedNow`) shows "Prepare 4K" when full match is Original on 4K footage: a row under the top bar on
+  portrait phone/tablet, a touch-view menu item in landscape; tapping sets full match 4K and highlights 4K only if 'auto'. The touch pill
+  says "keep the screen on". Prepared % per kind (signature + quality) in localStorage via `src/prepare/prepared.ts`, shown by
+  `RelinkBanner` after a reload; forgotten on signature change, Original, match delete, cache clear (not on the cache's own eviction).
+  `wantedNow` sizes LRV/MP4 pairs by the full MP4.
   **Storage fit and time:** `applyStorageFit()` (utils/outputQuality.ts) greys out options bigger than the site's free
   storage (`storageRoom()` in render/storage.ts: quota − usage + old outputs `clearOldOutputs()` frees, 10% margin) and
   auto-picks the largest that fits; no `estimate()` means no blocking. Time hints and the live ETA come from the render time
