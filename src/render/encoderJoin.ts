@@ -69,11 +69,11 @@ export type EncoderJoin = {
 }
 
 /** The sample entry of a journaled render from its units' own descriptions (null = a unit without video). Throws when no entry covers them all. */
-export function planEncoderJoin(units: (UnitVideo | null)[], codedWidth: number, codedHeight: number): EncoderJoin {
+export function planEncoderJoin(units: (UnitVideo | null)[], codedWidth: number, codedHeight: number, colorSpace: VideoColorSpaceInit | undefined = OUTPUT_COLOR_SPACE): EncoderJoin {
     const present = units.filter((u): u is UnitVideo => !!u)
     if (present.length === 0) throw new Error('the encoder produced no video')
     const kinds = distinct(present)
-    const base = (v: UnitVideo): VideoDecoderConfig => ({ codec: v.codec, codedWidth, codedHeight, description: v.description, colorSpace: OUTPUT_COLOR_SPACE })
+    const base = (v: UnitVideo): VideoDecoderConfig => ({ codec: v.codec, codedWidth, codedHeight, description: v.description, ...(colorSpace ? { colorSpace } : {}) })
     if (kinds.length === 1) return { entry: base(present[0]), inband: units.map(() => null), lengthSize: lengthSize(present[0].description, false), mixed: false }
     const parsed = kinds.map(parse)
     const idx = pickEntry(parsed)
@@ -88,4 +88,33 @@ export function planEncoderJoin(units: (UnitVideo | null)[], codedWidth: number,
 export function joinedSample(data: Uint8Array, key: boolean, params: Uint8Array[] | null, ls: number): Uint8Array {
     if (!key || !params || hasInbandParams(data, false, ls)) return data
     return withInbandParams(data, params, false, ls)
+}
+
+/**
+ * A unit's record as its encoder gave it, checked against the records of the render's other units (journaled path): one entry must
+ * still cover them all, or the render stops here instead of after all the encoding. `u`'s own earlier record (a retry) is ignored.
+ */
+export function assertUnitJoins(units: (UnitVideo | null)[], u: number, record: UnitVideo): void {
+    const known = units.filter((x, i): x is UnitVideo => !!x && i !== u)
+    if (known.length > 0 && !admitsUnit(known, record)) throw new Error('the encoder changed its profile or level since the render was saved: discard the saved render and start again')
+}
+
+/** A video sample of unit `u` as muxUnits writes it; a mixed render's unit without a record of its own is never written. */
+export function joinedUnitSample(data: Uint8Array, key: boolean, inband: { params: (Uint8Array[] | null)[]; lengthSize: number } | undefined, u: number): Uint8Array {
+    if (!inband) return data
+    const params = inband.params[u]
+    if (!params) throw new Error(`unit ${u} has video but no H.264 record of its own: discard the saved render and start again`)
+    return joinedSample(data, key, params, inband.lengthSize)
+}
+
+const isBt709 = (v: string | null | undefined): boolean => v === null || v === undefined || v === 'bt709'
+
+/**
+ * The colour the output's sample entry is labelled with: BT.709 limited when every source is BT.709 limited or untagged (frames
+ * drawn on the canvas come out BT.709 limited from both Chrome encoders: pure red → Y 63, Cb 102, Cr 240; plain frames pass
+ * the source's YUV through). Otherwise nothing: a label would be wrong for HLG/BT.2020, BT.601 or full-range footage.
+ */
+export function outputColorSpace(sources: (VideoColorSpaceInit | null | undefined)[]): VideoColorSpaceInit | undefined {
+    const ok = sources.every((c) => !c || (isBt709(c.primaries) && isBt709(c.transfer) && isBt709(c.matrix) && c.fullRange !== true))
+    return ok ? OUTPUT_COLOR_SPACE : undefined
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { OUTPUT_COLOR_SPACE, admitsUnit, joinedSample, planEncoderJoin, type UnitVideo } from './encoderJoin'
+import { OUTPUT_COLOR_SPACE, admitsUnit, assertUnitJoins, joinedSample, joinedUnitSample, outputColorSpace, planEncoderJoin, type UnitVideo } from './encoderJoin'
 import { nalType, paramSets, raiseLevel, spsLimits, spsOf } from './nal'
 import { OPENH264_4K_AVCC, OPENH264_MAIN_4K_AVCC, VT_4K_AVCC, X264_AVCC, hex } from './nal.fixtures'
 
@@ -120,3 +120,42 @@ function patchProfile(desc: Uint8Array, profile: number): Uint8Array {
     d[9] = profile // SPS: avcC header 6 bytes + 2-byte length + NAL header, then profile_idc
     return d
 }
+
+describe('assertUnitJoins', () => {
+    it('should fail on the unit whose record no entry covers with the units so far, not later', () => {
+        const so = [null, hw, sw, null]
+        expect(() => assertUnitJoins(so, 3, { codec: 'avc1.64001e', description: hex(X264_AVCC) })).toThrow(/discard the saved render and start again/)
+    })
+
+    it('should accept a record that still joins, and ignore the unit\'s own earlier record', () => {
+        expect(() => assertUnitJoins([null, hw, sw, null], 3, main)).not.toThrow()
+        expect(() => assertUnitJoins([{ codec: 'avc1.64001e', description: hex(X264_AVCC) }], 0, sw)).not.toThrow()
+        expect(() => assertUnitJoins([null, null], 1, sw)).not.toThrow()
+    })
+})
+
+describe('joinedUnitSample', () => {
+    it('should refuse to write video of a mixed render\'s unit that has no record', () => {
+        const inband = { params: [paramSets(sw.description, false), null], lengthSize: 4 }
+        expect(() => joinedUnitSample(idr(), true, inband, 1)).toThrow(/no H.264 record/)
+        expect(joinedUnitSample(idr(), true, inband, 0).length).toBeGreaterThan(idr().length)
+    })
+
+    it('should pass samples through when the render is not mixed', () => {
+        const d = idr()
+        expect(joinedUnitSample(d, true, undefined, 3)).toBe(d)
+    })
+})
+
+describe('outputColorSpace', () => {
+    it('should label BT.709 limited when every source is BT.709 limited or untagged', () => {
+        expect(outputColorSpace([{ primaries: 'bt709', transfer: 'bt709', matrix: 'bt709', fullRange: false }, {}, undefined, { primaries: null, transfer: null, matrix: null, fullRange: null }])).toEqual(OUTPUT_COLOR_SPACE)
+    })
+
+    it('should not label anything when a source is another colour space (frames pass the source YUV through)', () => {
+        expect(outputColorSpace([{ primaries: 'bt2020', transfer: 'hlg', matrix: 'bt2020-ncl', fullRange: false } as unknown as VideoColorSpaceInit])).toBeUndefined()
+        expect(outputColorSpace([{}, { primaries: 'smpte170m', matrix: 'smpte170m' }])).toBeUndefined()
+        expect(outputColorSpace([{ matrix: 'bt470bg' }])).toBeUndefined()
+        expect(outputColorSpace([{ primaries: 'bt709', transfer: 'bt709', matrix: 'bt709', fullRange: true }])).toBeUndefined()
+    })
+})
