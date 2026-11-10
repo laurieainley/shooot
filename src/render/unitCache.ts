@@ -88,12 +88,13 @@ type BuildInput = { which: CacheKind; cuts: Cut[]; sources: RenderSource[]; spec
  * The reuse keys of a render. `logo`: a fingerprint of the logo picture ('default' for the bundled badge, 'none' for no logo); `fonts`: the graphics look
  * version. Intro/outro cards carry their whole spec (the full-time card lists scorers, so it changes when they do).
  * `fingerprints` (one per source, `footageFingerprint`): with one for every source a cut uses, the keys also get a `portable` half whose footage
- * identity is name + size + content print instead of the modified time, which another device or OS does not keep.
+ * identity is size + content print instead of name + modified time, which another device or OS may not keep.
  */
 export function buildReuseKeys(o: BuildInput & { fingerprints?: (string | null)[] }): ReuseKeys {
     const fps = o.fingerprints
     const printed = !!fps && o.cuts.every((c) => typeof fps[c.sourceIndex] === 'string' && fps[c.sourceIndex]!.length > 0)
-    const portable = printed ? partKeys(o, (s, i) => ({ n: s.name, s: s.file.size, fp: fps![i] }), true) : undefined
+    // No name: iOS may rename a copy ("GX010042 2.MP4"); size + content print say which footage it is.
+    const portable = printed ? partKeys(o, (s, i) => ({ s: s.file.size, fp: fps![i] }), true) : undefined
     return { which: o.which, ...partKeys(o, identity, false), ...(portable ? { portable } : {}) }
 }
 
@@ -204,10 +205,10 @@ type Manifest = {
     kinds: Partial<Record<CacheKind, { at: number; units: string[]; sections: { k: string; u: string[] }[] }>>
     prepared?: Partial<Record<CacheKind, { at: number; units: string[]; budget: number }>>
     /**
-     * Units loaded from another device for a kind (`bytes[i]` is the size of `units[i]`): kept, and allowed past the normal cap, until an export of that
-     * kind ends without them (and the preparer's plan does not list them either). While an export or the preparer's plan uses one it is never evicted.
+     * The units of the last prepared parts file loaded from another device (`bytes[i]` is the size of `units[i]`; `batch` names the file). Never evicted,
+     * and allowed past the normal cap, until a newer file is loaded, the saved parts are cleared, or they are IMPORTED_KEEP_MS old.
      */
-    imported?: Partial<Record<CacheKind, { at: number; units: string[]; bytes: number[] }>>
+    imported?: { batch: string; at: number; units: string[]; bytes: number[] }
 }
 export type CacheEntry = { key: string; bytes: number; at: number; order: number }
 
@@ -227,7 +228,7 @@ async function cacheDir(create: boolean): Promise<DirHandle | null> {
 
 /**
  * Which units to delete: everything no manifest refers to, then, while the rest is over `cap`, the least recently exported first (later units of a reel
- * before earlier ones). `pinned` units (imported ones an export or the preparer uses) are never dropped: they cannot be made again here. Pure.
+ * before earlier ones). `pinned` units (imported from another device) are never dropped: they cannot be made again here. Pure.
  */
 export function planEviction(entries: CacheEntry[], keep: Set<string>, cap: number, pinned: Set<string> = new Set()): string[] {
     const drop: string[] = entries.filter((e) => !keep.has(e.key) && !pinned.has(e.key)).map((e) => e.key)
@@ -244,7 +245,8 @@ export function planEviction(entries: CacheEntry[], keep: Set<string>, cap: numb
 /** Every complete unit in the store, with its size and when it was last part of an export. */
 async function listEntries(dir: DirHandle, manifest: Manifest): Promise<CacheEntry[]> {
     const at = new Map<string, { at: number; order: number }>()
-    for (const k of [...Object.values(manifest.kinds), ...Object.values(manifest.prepared ?? {})]) k?.units.forEach((u, i) => { const prev = at.get(u); if (!prev || prev.at < k.at) at.set(u, { at: k.at, order: i }) })
+    const imp = liveImport(manifest)
+    for (const k of [...Object.values(manifest.kinds), ...Object.values(manifest.prepared ?? {}), ...(imp ? [imp] : [])]) k?.units.forEach((u, i) => { const prev = at.get(u); if (!prev || prev.at < k.at) at.set(u, { at: k.at, order: i }) })
     const names = new Set<string>()
     if (dir.entries) for await (const [name, h] of dir.entries()) if (h.kind === 'file') names.add(name)
     const out: CacheEntry[] = []
@@ -260,15 +262,24 @@ async function listEntries(dir: DirHandle, manifest: Manifest): Promise<CacheEnt
     return out
 }
 
+/** How long parts loaded from another device are kept (unless a newer parts file replaces them first). */
+export const IMPORTED_KEEP_MS = 14 * 24 * 3600 * 1000
+/** The imported parts still kept (none once they are IMPORTED_KEEP_MS old). */
+const liveImport = (m: Manifest): Manifest['imported'] | null => (m.imported && Date.now() - m.imported.at <= IMPORTED_KEEP_MS ? m.imported : null)
+/** Units the last exports or the preparer's plans refer to. */
+const plannedOf = (m: Manifest): Set<string> => new Set<string>([...Object.values(m.kinds), ...Object.values(m.prepared ?? {})].flatMap((k) => k?.units ?? []))
 /** Every unit some manifest entry refers to (last exports, the preparer's plans and imported units). */
-const keepSetOf = (m: Manifest): Set<string> => new Set<string>([...Object.values(m.kinds), ...Object.values(m.prepared ?? {}), ...Object.values(m.imported ?? {})].flatMap((k) => k?.units ?? []))
-const budgetsOf = (m: Manifest): number => Object.values(m.prepared ?? {}).reduce((a, p) => a + (p?.budget ?? 0), 0)
-    + Object.values(m.imported ?? {}).reduce((a, p) => a + (p?.bytes ?? []).reduce((x, y) => x + y, 0), 0)
-const importedOf = (m: Manifest): Set<string> => new Set(Object.values(m.imported ?? {}).flatMap((k) => k?.units ?? []))
-/** Imported units an export (the last of its kind, or the one ending) or a preparer's plan uses: never evicted (they cannot be made again here). */
-const pinnedOf = (m: Manifest): Set<string> => {
-    const used = new Set([...Object.values(m.kinds), ...Object.values(m.prepared ?? {})].flatMap((k) => k?.units ?? []))
-    return new Set([...importedOf(m)].filter((k) => used.has(k)))
+const keepSetOf = (m: Manifest): Set<string> => new Set<string>([...plannedOf(m), ...importedOf(m)])
+const budgetsOf = (m: Manifest): number => Object.values(m.prepared ?? {}).reduce((a, p) => a + (p?.budget ?? 0), 0) + (liveImport(m)?.bytes ?? []).reduce((x, y) => x + y, 0)
+/** Imported units: pinned, never evicted (they cannot be made again here). */
+const importedOf = (m: Manifest): Set<string> => new Set(liveImport(m)?.units ?? [])
+
+/** One manifest writer at a time (the engine, the preparer and an import may all write it): each read-modify-write waits for the one before. */
+let manifestQueue: Promise<unknown> = Promise.resolve()
+function withManifest<T>(fn: () => Promise<T>): Promise<T> {
+    const run = manifestQueue.then(fn)
+    manifestQueue = run.catch(() => undefined)
+    return run
 }
 
 async function readManifest(dir: DirHandle): Promise<Manifest> {
@@ -329,9 +340,11 @@ export async function evictForRoom(need: number, spare: Set<string> = new Set())
         if (deficit <= 0) return 0
         const manifest = await readManifest(dir)
         const imported = importedOf(manifest)
-        // An imported unit this render will use is never removed for room: it cannot be made again here.
+        // Imported units go last (they cannot be made again here), and one this render will use never.
         const entries = (await listEntries(dir, manifest)).filter((e) => !(spare.has(e.key) && imported.has(e.key)))
-        const order = [...entries.filter((e) => !spare.has(e.key)).sort((a, b) => a.at - b.at || b.order - a.order), ...entries.filter((e) => spare.has(e.key)).sort((a, b) => a.at - b.at || b.order - a.order)]
+        const by = (a: CacheEntry, b: CacheEntry): number => a.at - b.at || b.order - a.order
+        const plain = entries.filter((e) => !imported.has(e.key))
+        const order = [...plain.filter((e) => !spare.has(e.key)).sort(by), ...plain.filter((e) => spare.has(e.key)).sort(by), ...entries.filter((e) => imported.has(e.key)).sort(by)]
         const drop: string[] = []
         let freed = 0
         for (const e of order) { if (deficit <= 0) break; drop.push(e.key); deficit -= e.bytes; freed += e.bytes }
@@ -363,19 +376,23 @@ export type UnitStore = {
     importUnit: (portable: string, records: AsyncIterable<LogRecord>, meta: ImportMeta) => Promise<boolean>
 }
 
-/** What a prepared parts file says about one unit: `which` export it is for (its kind keeps it), the device that made it, and its size if known (room check). */
-export type ImportMeta = { applied: string[]; video: { codec: string; description: string }; device: string; which: CacheKind; bytes?: number }
+/**
+ * What a prepared parts file says about one unit: the device that made it, its size (checked against the free space), and `batch`, which names the
+ * file it came from: loading a different file releases the previous file's parts.
+ */
+export type ImportMeta = { applied: string[]; video: { codec: string; description: string }; device: string; batch: string; bytes: number }
 
 /**
- * Stores a unit prepared on another device under its portable key, marked imported (with the device's name). Admitted like prepared units: past the
- * normal cap when the site has room (`bytes`, when given, is checked against the free space). False when it could not be kept: a bad key, no room, or
- * the records stopped part-way (nothing is left behind then). Never throws.
+ * Stores a unit prepared on another device under its portable key, marked imported (with the device's name). Admitted past the normal cap when the
+ * site has room for `bytes`; kept until a newer parts file (another `batch`) is loaded, the saved parts are cleared, or IMPORTED_KEEP_MS pass.
+ * False when it could not be kept: a bad key, no room, or the records stopped part-way (nothing is left behind then). Never throws.
  */
 export function importUnit(portable: string, records: AsyncIterable<LogRecord>, meta: ImportMeta): Promise<boolean> {
     return opfsUnitStore().importUnit(portable, records, meta)
 }
 
 export function opfsUnitStore(): UnitStore {
+    const quotaNow = async (): Promise<number | null> => { try { return (await navigator.storage.estimate()).quota ?? null } catch { return null } }
     const store: UnitStore = {
         async keys() {
             const dir = await cacheDir(false)
@@ -425,8 +442,7 @@ export function opfsUnitStore(): UnitStore {
             if (dir) await removeKeys(dir, [key])
         },
         async hasRoomFor(extra) {
-            let quota: number | null = null
-            try { quota = (await navigator.storage.estimate()).quota ?? null } catch { /* unknown quota */ }
+            const quota = await quotaNow()
             try {
                 const dir = await cacheDir(false)
                 if (!dir) return true
@@ -437,25 +453,22 @@ export function opfsUnitStore(): UnitStore {
                 return fresh + extra <= capFor(quota, budgetsOf(manifest))
             } catch { return false }
         },
-        async trim() {
+        trim: () => withManifest(async () => {
             try {
                 const dir = await cacheDir(false)
                 if (!dir) return
                 const manifest = await readManifest(dir)
-                const keep = keepSetOf(manifest)
-                let quota: number | null = null
-                try { quota = (await navigator.storage.estimate()).quota ?? null } catch { /* unknown quota */ }
-                await removeKeys(dir, planEviction(await listEntries(dir, manifest), keep, capFor(quota, budgetsOf(manifest)), pinnedOf(manifest)))
+                await removeKeys(dir, planEviction(await listEntries(dir, manifest), keepSetOf(manifest), capFor(await quotaNow(), budgetsOf(manifest)), importedOf(manifest)))
                 await removeOrphans(dir)
             } catch { /* nothing to trim */ }
-        },
+        }),
         async free() {
             try {
                 const { quota, usage } = await navigator.storage.estimate()
                 return quota ? Math.max(0, quota - (usage ?? 0)) : null
             } catch { return null }
         },
-        async prepare(kind, plan) {
+        prepare: (kind, plan) => withManifest(async () => {
             try {
                 const dir = await cacheDir(true)
                 if (!dir) return
@@ -466,25 +479,15 @@ export function opfsUnitStore(): UnitStore {
                 manifest.prepared = prepared
                 await writeManifest(dir, manifest)
             } catch { /* the cache is an extra */ }
-        },
-        async finish(kind, used) {
+        }),
+        finish: (kind, used) => withManifest(async () => {
             try {
                 const dir = await cacheDir(true)
                 if (!dir) return
                 const manifest = await readManifest(dir)
                 manifest.kinds[kind] = { at: Date.now(), units: used.units, sections: used.sections }
-                // Units imported for this kind that neither this export nor the preparer's plan used are not wanted any more.
-                const imp = manifest.imported?.[kind]
-                if (imp) {
-                    const wanted = new Set([...used.units, ...(manifest.prepared?.[kind]?.units ?? [])])
-                    const i = imp.units.map((u, j) => [u, imp.bytes[j] ?? 0] as const).filter(([u]) => wanted.has(u))
-                    if (i.length > 0) manifest.imported![kind] = { at: imp.at, units: i.map(([u]) => u), bytes: i.map(([, b]) => b) }
-                    else delete manifest.imported![kind]
-                }
-                const keep = keepSetOf(manifest)
-                let quota: number | null = null
-                try { quota = (await navigator.storage.estimate()).quota ?? null } catch { /* unknown quota */ }
-                const drop = planEviction(await listEntries(dir, manifest), keep, capFor(quota, budgetsOf(manifest)), pinnedOf(manifest))
+                if (manifest.imported && !liveImport(manifest)) delete manifest.imported // past IMPORTED_KEEP_MS: ordinary parts now
+                const drop = planEviction(await listEntries(dir, manifest), keepSetOf(manifest), capFor(await quotaNow(), budgetsOf(manifest)), importedOf(manifest))
                 await removeKeys(dir, drop)
                 await removeOrphans(dir)
                 // A section whose units were evicted can no longer be reused.
@@ -492,46 +495,47 @@ export function opfsUnitStore(): UnitStore {
                 for (const k of Object.values(manifest.kinds)) if (k) { k.units = k.units.filter((u) => !gone.has(u)); k.sections = k.sections.filter((s) => s.u.every((u) => !gone.has(u))) }
                 await writeManifest(dir, manifest)
             } catch { /* the cache is an extra: never fail an export over it */ }
-        },
+        }),
         async findPortable(portable) {
             if (!isPortableKey(portable)) return null
             const hit = await store.load(portable)
             return hit && hit.meta.imported === true && hit.meta.portable === portable ? hit : null
         },
-        async importUnit(portable, records, meta) {
-            if (!isPortableKey(portable)) return false
+        // The whole import of a unit holds the manifest: no trim can take its half-written file for an orphan meanwhile.
+        importUnit: (portable, records, meta) => withManifest(async () => {
+            if (!isPortableKey(portable) || !(meta.bytes >= 0)) return false
             const dir = await cacheDir(true)
             if (!dir) return false
-            const which = meta.which
-            /** Adds (bytes > 0 or reserving) or takes away (null) the unit in the manifest's imported list. */
+            /** Puts the unit in (with its size) or takes it out of (null) the imported list. A different batch first releases the previous file's parts. */
             const mark = async (bytes: number | null): Promise<void> => {
                 const m = await readManifest(dir)
-                const prev = m.imported?.[which] ?? { at: Date.now(), units: [], bytes: [] }
-                const i = prev.units.map((u, j) => [u, prev.bytes[j] ?? 0] as const).filter(([u]) => u !== portable)
+                let prev = liveImport(m) ?? null
+                if (prev && prev.batch !== meta.batch) {
+                    // A newer parts file: the previous one's parts go, except those a last export or the preparer's plan still uses.
+                    const planned = plannedOf(m)
+                    await removeKeys(dir, prev.units.filter((u) => !planned.has(u)))
+                    prev = null
+                }
+                const i = (prev ? prev.units.map((u, j) => [u, prev!.bytes[j] ?? 0] as const) : []).filter(([u]) => u !== portable)
                 if (bytes !== null) i.push([portable, bytes])
-                m.imported = { ...(m.imported ?? {}) }
-                if (i.length > 0) m.imported[which] = { at: Date.now(), units: i.map(([u]) => u), bytes: i.map(([, b]) => b) }
-                else delete m.imported[which]
+                if (i.length > 0) m.imported = { batch: meta.batch, at: prev?.at ?? Date.now(), units: i.map(([u]) => u), bytes: i.map(([, b]) => b) }
+                else delete m.imported
                 await writeManifest(dir, m)
             }
             try {
-                if (meta.bytes !== undefined) {
-                    const free = await store.free()
-                    if (free !== null && free < meta.bytes * 1.1) return false
-                }
-                // Listed first, so a trim running meanwhile does not take the unit for an orphan.
-                await mark(meta.bytes ?? 0)
+                const free = await store.free()
+                if (free !== null && free < meta.bytes * 1.1) return false
+                await mark(meta.bytes)
                 const ok = await store.save(portable, records, { applied: meta.applied, video: meta.video, portable, imported: true, device: meta.device })
                 if (!ok) { await mark(null); return false }
-                const file = await (await dir.getFileHandle(`${portable}.bin`)).getFile()
-                await mark(file.size)
+                await mark((await (await dir.getFileHandle(`${portable}.bin`)).getFile()).size)
                 return true
             } catch {
                 await removeKeys(dir, [portable])
                 await mark(null).catch(() => undefined)
                 return false
             }
-        },
+        }),
     }
     return store
 }

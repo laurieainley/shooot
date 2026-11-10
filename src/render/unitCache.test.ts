@@ -202,11 +202,16 @@ describe('portable keys (the same piece on another device)', () => {
         // The local key still does.
         expect(k({ sources: [file('a.mp4', 1000, 999_999)] }).cut(1, 100, 110)).not.toBe(cut1())
     })
-    it('should change with the footage bytes, name and size', () => {
+    it('should change with the footage bytes and size', () => {
         const same = pk().block(1, 100, 110)
         expect(pk(fp('f2')).block(1, 100, 110)).not.toBe(same)
-        expect(pk({ sources: [file('b.mp4', 1000, 5)] }).block(1, 100, 110)).not.toBe(same)
         expect(pk({ sources: [file('a.mp4', 1001, 5)] }).block(1, 100, 110)).not.toBe(same)
+    })
+    it('should not depend on the file name (iOS may rename a copy, "GX010042 2.MP4")', () => {
+        const same = pk({ sources: [file('GX010042.MP4', 1000, 5)] })
+        const renamed = pk({ sources: [file('GX010042 2.MP4', 1000, 77)] })
+        expect(renamed.block(1, 100, 110)).toBe(same.block(1, 100, 110))
+        expect(renamed.cut(1, 100, 110)).toBe(same.cut(1, 100, 110))
     })
     it('should change with the overlays, quality, bitrate, logo and theme', () => {
         const same = pk().cut(1, 100, 110)

@@ -11,11 +11,12 @@ import { emptyStats } from './experiments'
 import { EncodedAudioPacketSource, EncodedPacket, EncodedPacketSink, EncodedVideoPacketSource, Mp4OutputFormat, Output, VideoSampleSink, type VideoSample } from 'mediabunny'
 import { RenderDiagnostics, errorInfo } from './diagnostics'
 import type { LogRecord } from './packetLog'
-import { RENDER_VERSION, decodeDescription, digest, encodeDescription, evictForRoom, importedNote, opfsUnitStore, portableKey, type PortableReuseKeys } from './unitCache'
+import { RENDER_VERSION, digest, encodeDescription, evictForRoom, importedNote, opfsUnitStore, portableKey, type PortableReuseKeys } from './unitCache'
 import { clipPartSeconds, replayPartAfter } from './captionJoin'
 import { planAudio } from './audioPlan'
 import { nominalFrameRate } from './frameGrid'
 import { muxUnits } from './muxUnits'
+import { ReuseLedger, pickCachedUnit } from './cachedUnit'
 import { admitsUnit, assertUnitJoins, outputColorSpace, planEncoderJoin, sameVideo, type UnitVideo } from './encoderJoin'
 import { toU8 } from './nal'
 import { coverRect } from './outputSize'
@@ -287,12 +288,11 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         let encodedMs = 0 // wall time of units that were encoded / restored from the cache (summed over units, so parallel units add up)
         let restoredMs = 0
         let keyedUnits = 0
-        const usedKeys = new Map<number, string>() // unit -> key, for the units that came from or went to the cache
+        const ledger = new ReuseLedger()
+        const usedKeys = ledger.usedKeys // unit -> key, for the units that came from or went to the cache
         let unitKeys: (string | null)[] = []
         /** Each unit's portable key (what another device calls it); null without one. */
         let portableKeys: (string | null)[] = []
-        /** Units restored from parts prepared on another device, per device name. */
-        const importedFrom = new Map<string, number>()
         const unitFrames = (u: number): number => { const x = units[u]; return x.kind === 'intro' ? (g?.intro ? cardFrames(g.intro) : 0) : x.kind === 'outro' ? (g?.outro ? cardFrames(g.outro) : 0) : x.segment.frames }
         /** Everything the engine decides about a unit's packets: size, rate, bitrate, key frames, the encoder in use, the scale path and the audio. */
         const unitFacts = (): Record<string, unknown> => ({
@@ -762,31 +762,16 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
         const restoreUnit = async (u: number, startFrame: number, env: UnitEnv): Promise<boolean> => {
             if (!store || !cacheOn || !reuse) return false
             try {
-                // The local key first; on a miss, a part prepared on another device under the unit's portable key.
-                let key = await unitKeyOf(u)
-                let portable = false
-                if (!key || !cached.has(key)) {
-                    const pk = await portableKeyOf(u)
-                    if (!pk || !cached.has(pk)) return false
-                    key = pk
-                    portable = true
-                }
-                const hit = portable ? await store.findPortable(key) : await store.load(key)
-                if (!hit) { cached.delete(key); return false }
-                if (!hit.meta.video) return false
-                const description = decodeDescription(hit.meta.video.description)
-                const own: UnitVideo = { codec: hit.meta.video.codec, description }
-                if (direct) {
-                    // A file written as it goes keeps one encoder's record: a part from elsewhere must be byte for byte what this encoder makes.
-                    if (vConfig && !sameBytes(vConfig.description as Uint8Array | undefined, description)) return false
-                    if (portable) {
-                        const mine = await localVideo().catch(() => null)
-                        if (!mine || !sameBytes(mine.description, description)) {
-                            diag.note(`Unit ${u}: its part prepared on ${hit.meta.device ?? 'another device'} (${own.codec}) is not this encoder's own: encoded here (a file saved as it goes keeps one encoder)`)
-                            return false
-                        }
-                    }
-                } else if (!(await admit(u, own, !portable))) return false
+                // The local key first; on a miss, a part prepared on another device under the unit's portable key (see cachedUnit).
+                const pick = await pickCachedUnit({
+                    u, store, cached, key: await unitKeyOf(u), portableKey: () => portableKeyOf(u),
+                    // A file written as it goes keeps one encoder's profile and level; a part from elsewhere must be this encoder's own record.
+                    direct: direct ? { entry: (vConfig?.description as Uint8Array | undefined) ?? null, sameEntry: sameBytes } : null,
+                    localVideo, admit: (v, local) => admit(u, v, local), note: (t) => diag.note(t),
+                })
+                if (!pick) return false
+                const { key, hit, own } = pick
+                const description = own.description
                 const startSec = startFrame * frameSec
                 try {
                     // Video lands back on the frame grid (the unit's first frame is frame `startFrame`); audio keeps its own times.
@@ -800,7 +785,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                     await store.remove(key)
                     return false
                 }
-                if (!vConfig) vConfig = { codec: hit.meta.video.codec, codedWidth: W, codedHeight: H, description }
+                if (!vConfig) vConfig = { codec: own.codec, codedWidth: W, codedHeight: H, description }
                 env.video = own
                 unitVideo[u] = own
                 for (const l of hit.meta.applied) { env.labels.add(l); if (!report.applied.includes(l)) { report.applied.push(l); diag.graphicApplied(l) } }
@@ -810,10 +795,9 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
                     if (unit.segment.firstFrame === 0) timings[v.ci] = timingOf(v.cut, unit.segment, startSec)
                     copied = true
                 }
-                usedKeys.set(u, key)
+                ledger.restored(u, pick)
                 reusedActual++
                 reusedFrames += unitFrames(u)
-                if (portable) { const d = hit.meta.device || 'another device'; importedFrom.set(d, (importedFrom.get(d) ?? 0) + 1) }
                 return true
             } catch { return false }
         }
@@ -1081,7 +1065,7 @@ export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opt
             diag.note(`Time breakdown (ms): decode wait ${Math.round(stats.decodeWaitMs)}, paint/scale ${Math.round(stats.paintMs)}, encode call ${Math.round(stats.encodeCallMs)}, encoder back-pressure ${Math.round(stats.backpressureMs)}, packet writes ${Math.round(stats.drainMs)} over ${stats.frames} frames`)
             if (shrinks) diag.note(`Scale path frames: ${scaled.direct} by the encoder, ${scaled.webgl} by WebGL, ${scaled.canvas} by the 2D canvas`)
             diag.note(`Re-encode took ${((Date.now() - t0) / 1000).toFixed(1)} s for ${cursorFrames} frames; VideoFrames made ${frames.made}, closed ${frames.closed}`)
-            if (importedFrom.size > 0) diag.note(importedNote(importedFrom, units.length - startUnit - reusedActual))
+            if (ledger.importedFrom.size > 0) diag.note(importedNote(ledger.importedFrom, units.length - startUnit - reusedActual))
             if (!vConfig) throw new Error('the encoder produced no video')
             let file: File | Blob
             if (journal) {

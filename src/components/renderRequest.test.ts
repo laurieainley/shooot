@@ -39,6 +39,9 @@ describe('reuseKeysFor', () => {
         expect(here.portable).toBeDefined()
         expect(there.portable!.block(0, 0, 1)).toBe(here.portable!.block(0, 0, 1))
         expect(there.block(0, 0, 1)).not.toBe(here.block(0, 0, 1))
+        const renamed = new File([new Uint8Array(3 * 1024 * 1024).fill(1)], 'GX010042 2.MP4', { lastModified: 9 })
+        const copy = (await reuseKeysFor({ ...rePlan(renamed), sources: [{ name: 'GX010042 2.MP4', file: renamed }] } as ExportPlan))!
+        expect(copy.portable!.block(0, 0, 1)).toBe(here.portable!.block(0, 0, 1)) // iOS renamed the copy
         const other = (await reuseKeysFor(rePlan(footage(3, 2))))!
         expect(other.portable!.block(0, 0, 1)).not.toBe(here.portable!.block(0, 0, 1))
     })

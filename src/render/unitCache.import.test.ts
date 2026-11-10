@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { importUnit, opfsUnitStore } from './unitCache'
+import { clearUnitCache, importUnit, opfsUnitStore, IMPORTED_KEEP_MS } from './unitCache'
 import type { LogRecord } from './packetLog'
 
 // A small in-memory OPFS: files hold real bytes, so units round-trip through the store's own reader and writer.
@@ -41,7 +41,9 @@ const P1 = 'a'.repeat(32)
 const P2 = 'b'.repeat(32)
 const rec = (i: number): LogRecord => ({ track: 0, key: i === 0, timestamp: i / 30, duration: 1 / 30, data: new Uint8Array([i, i + 1, i + 2]) })
 async function* records(n: number): AsyncGenerator<LogRecord> { for (let i = 0; i < n; i++) yield rec(i) }
-const meta = { applied: ['Goal'], video: { codec: 'avc1.640033', description: 'AAEC' }, device: 'iPhone', which: 'fullMatch' as const }
+const meta = { applied: ['Goal'], video: { codec: 'avc1.640033', description: 'AAEC' }, device: 'iPhone', batch: 'bundle-1', bytes: 100 }
+const P3 = 'd'.repeat(32)
+const manifestOf = async (root: DirNode): Promise<Record<string, unknown>> => JSON.parse(await new File(((root.kids.get('unit-cache') as DirNode).kids.get('manifest.json') as FileNode).chunks as BlobPart[], 'm').text())
 const unitNames = (root: DirNode): string[] => [...((root.kids.get('unit-cache') as DirNode)?.kids.keys() ?? [])].filter((k) => k !== 'manifest.json').sort()
 const collect = async (it: AsyncIterable<LogRecord>): Promise<LogRecord[]> => { const out: LogRecord[] = []; for await (const r of it) out.push(r); return out }
 
@@ -84,30 +86,74 @@ describe('imported units (prepared on another device)', () => {
         install(1000)
         expect(await importUnit(P1, records(1), { ...meta, bytes: 5000 })).toBe(false)
     })
-    it('should survive trims and other exports until an export of its kind ends without it', async () => {
+    it('should survive trims and an unrelated export of the same kind (a 1080p export, then the 4K render still reuses them)', async () => {
         const root = install()
         await importUnit(P1, records(2), meta)
         await importUnit(P2, records(2), meta)
         const store = opfsUnitStore()
         await store.trim()
+        await store.finish('fullMatch', { units: ['e'.repeat(32)], sections: [] }) // the 1080p export: none of them
         await store.finish('highlights', { units: [], sections: [] })
         expect(unitNames(root)).toEqual([`${P1}.bin`, `${P1}.json`, `${P2}.bin`, `${P2}.json`])
-        // The full match export used P1: it stays; P2 neither it nor the preparer uses goes.
-        await store.finish('fullMatch', { units: [P1], sections: [] })
-        expect(unitNames(root)).toEqual([`${P1}.bin`, `${P1}.json`])
+        expect(await store.findPortable(P1)).not.toBeNull()
+        expect(await store.findPortable(P2)).not.toBeNull()
     })
-    it('should keep imported units the preparer\'s plan uses when an export ends without them', async () => {
+    it('should release the previous import\'s parts when a newer parts file is loaded (unless an export uses them)', async () => {
         const root = install()
         await importUnit(P1, records(2), meta)
         await importUnit(P2, records(2), meta)
         const store = opfsUnitStore()
-        await store.prepare('fullMatch', { keys: [P2], budget: 0 })
-        await store.finish('fullMatch', { units: [P1], sections: [] })
-        expect(unitNames(root)).toEqual([`${P1}.bin`, `${P1}.json`, `${P2}.bin`, `${P2}.json`])
+        await store.finish('fullMatch', { units: [P2], sections: [] }) // the last export used P2: it stays as that export's part
+        await importUnit(P3, records(2), { ...meta, batch: 'bundle-2' })
+        await store.trim()
+        expect(unitNames(root)).toEqual([`${P2}.bin`, `${P2}.json`, `${P3}.bin`, `${P3}.json`])
+        expect(await store.findPortable(P3)).not.toBeNull()
+    })
+    it('should go when the saved parts are cleared', async () => {
+        const root = install()
+        await importUnit(P1, records(2), meta)
+        await clearUnitCache()
+        expect(root.kids.has('unit-cache')).toBe(false)
+    })
+    it('should expire 14 days after the import', async () => {
+        const root = install()
+        const t0 = Date.now()
+        await importUnit(P1, records(2), meta)
+        const now = vi.spyOn(Date, 'now')
+        now.mockReturnValue(t0 + IMPORTED_KEEP_MS - 60_000)
+        await opfsUnitStore().trim()
+        expect(unitNames(root)).toEqual([`${P1}.bin`, `${P1}.json`])
+        now.mockReturnValue(t0 + IMPORTED_KEEP_MS + 60_000)
+        await opfsUnitStore().trim()
+        expect(unitNames(root)).toEqual([])
+        now.mockRestore()
+    })
+    it('should not evict imported parts as the oldest before their first use', async () => {
+        const root = install(100) // tiny cap: something must go
+        await importUnit(P1, records(20), { ...meta, bytes: 1 })
+        const store = opfsUnitStore()
+        await store.save('c'.repeat(32), records(20), { applied: [], video: meta.video })
+        await store.finish('fullMatch', { units: ['c'.repeat(32)], sections: [] })
+        await store.trim()
+        expect(unitNames(root)).toContain(`${P1}.json`)
+    })
+    it('should not lose a manifest entry when writers interleave', async () => {
+        const root = install()
+        const store = opfsUnitStore()
+        await Promise.all([
+            importUnit(P1, records(2), meta),
+            store.prepare('fullMatch', { keys: ['x'.repeat(32)], budget: 5 }),
+            importUnit(P2, records(2), meta),
+            store.prepare('highlights', { keys: ['y'.repeat(32)], budget: 5 }),
+            importUnit(P3, records(2), meta),
+        ])
+        const m = await manifestOf(root) as { imported: { units: string[] }; prepared: Record<string, unknown> }
+        expect([...m.imported.units].sort()).toEqual([P1, P2, P3])
+        expect(Object.keys(m.prepared).sort()).toEqual(['fullMatch', 'highlights'])
     })
     it('should never evict imported units the current plan uses, even over the cap', async () => {
         const root = install(100) // cap = max(25 B, budgets): tiny
-        await importUnit(P1, records(20), meta)
+        await importUnit(P1, records(20), { ...meta, bytes: 1 })
         const store = opfsUnitStore()
         await store.save('c'.repeat(32), records(20), { applied: [], video: meta.video })
         await store.finish('fullMatch', { units: [P1, 'c'.repeat(32)], sections: [] })
