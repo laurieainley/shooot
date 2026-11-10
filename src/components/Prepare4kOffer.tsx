@@ -15,7 +15,7 @@ export function Prepare4kOffer() {
     if (!isCoarsePointer() || !offer4k({ fullMatchQuality, highlightsQuality, files })) return null
     return (
         <div className="prep-offer">
-            <button type="button" className="prep-offer__btn" aria-describedby="prep-offer-tip" onClick={accept4k}>Prepare 4K</button>
+            <button type="button" className="prep-offer__btn" title={OFFER_TIP} aria-describedby="prep-offer-tip" onClick={accept4k}>Prepare 4K</button>
             <span id="prep-offer-tip" className="prep-offer__tip">{OFFER_TIP}</span>
         </div>
     )

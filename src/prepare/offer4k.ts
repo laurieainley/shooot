@@ -14,10 +14,10 @@ export function fullLongSide(f: VideoSourceFile): number | undefined {
 
 export type Offer4kInput = { fullMatchQuality: OutputQuality; highlightsQuality: HighlightsQualityChoice; files: VideoSourceFile[] }
 
-/** True when the full match is on Original and at least one loaded file is a full 4K MP4 (not just its LRV proxy). */
+/** True when the full match is on Original and the first loaded file (the one the preparer plans from, see wire.ts) is a full 4K MP4, not just its LRV proxy. */
 export function offer4k(s: Offer4kInput): boolean {
     if (s.fullMatchQuality !== 'original') return false
-    return s.files.some((f) => (fullLongSide(f) ?? 0) >= LONG_SIDE['4k'] - 16)
+    return s.files.length > 0 && (fullLongSide(s.files[0]) ?? 0) >= LONG_SIDE['4k'] - 16
 }
 
 /** The user tapped Prepare 4K: the full match goes to 4K, and highlights too unless they were set explicitly. */

@@ -12,6 +12,7 @@ import { storageRoom } from '../render/storage'
 import { discardJob } from '../render/renderJob'
 import { createRenderWakeLock } from '../renderWakeLock'
 import { fullLongSide } from './offer4k'
+import { forgetPrepared, rememberPrepared, syncPrepared } from './prepared'
 import { renderJobs } from '../renderJobs'
 import { hasSavePicker } from '../utils/savePicker'
 import { detectDeviceClass } from '../utils/renderTime'
@@ -26,19 +27,6 @@ const mq = (q: string): boolean => typeof window !== 'undefined' && typeof windo
 export const isCoarsePointer = (): boolean => mq('(pointer: coarse)')
 /** The preparer keeps the screen awake while a pass runs, on touch devices only (a desktop does not sleep mid-pass like a phone does). */
 export const wakeLockDep = (coarse: boolean = isCoarsePointer()): PrepareDeps['wakeLock'] => (coarse ? () => createRenderWakeLock() : undefined)
-
-const PREPARED_KEY = (id: string): string => `shooot-prepared:${id}`
-export function rememberPrepared(id: string | null, percent: number): void {
-    if (!id) return
-    try { localStorage.setItem(PREPARED_KEY(id), String(Math.max(0, Math.min(100, Math.round(percent))))) } catch { /* not kept across reloads */ }
-}
-/** How much of the project's export is prepared (0..100): this session's live share, else what was remembered before a reload. */
-export function preparedPercent(id: string | null, shares: PrepareUi['shares'] = appPreparer().store.getState().shares): number {
-    const live = Object.values(shares).map((x) => (x && x.state.totalSec > 0 ? Math.floor(100 * x.state.readySec / x.state.totalSec) : 0))
-    if (live.length > 0 && Math.max(...live) > 0) return Math.max(...live)
-    if (!id) return 0
-    try { return Math.max(0, Math.min(100, Number(localStorage.getItem(PREPARED_KEY(id))) || 0)) } catch { return 0 }
-}
 
 const isPhone = (): boolean => { const l = pickLayout({ landscapePhone: mq(LANDSCAPE_QUERY), tablet: mq(TABLET_QUERY), portrait: mq(PORTRAIT_QUERY), desktop: mq(DESKTOP_QUERY) }); return l === 'phone' || l === 'landscape' }
 
@@ -93,7 +81,8 @@ export function appPreparer(): Preparer {
         loadPaused: (id) => { try { return localStorage.getItem(PAUSED_KEY(id)) === '1' } catch { return false } },
         savePaused: (id, p) => { try { if (p) localStorage.setItem(PAUSED_KEY(id), '1'); else localStorage.removeItem(PAUSED_KEY(id)) } catch { /* not kept across reloads */ } },
         wakeLock: wakeLockDep(),
-        rememberProgress: rememberPrepared,
+        progress: { remember: rememberPrepared, sync: syncPrepared, forget: forgetPrepared },
+        settingOff: (kind) => { const s = useAppState.getState(); return s.files.length > 0 && (kind === 'fullMatch' ? s.fullMatch.quality === 'original' : resolveHighlightsQuality(s.highlightsQuality, isPhone()) === 'original') },
         log: (r) => { void appendRecord(r) },
         device: detectDeviceClass,
         now: () => Date.now(),

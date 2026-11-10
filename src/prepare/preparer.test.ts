@@ -275,6 +275,36 @@ describe('Preparer', () => {
             await settle(10)
             expect(events.at(-1)).toBe('release')
         })
+        it('should let a cycle that starts while the last lock is still being released take its own lock', async () => {
+            const events: string[] = []
+            let n = 0
+            let finish: () => void = () => undefined
+            const wakeLock = () => { const id = ++n; return { acquire: async () => { events.push(`acquire${id}`) }, release: () => new Promise<void>((r) => { events.push(`release${id}`); if (id === 1) finish = r; else r() }) } }
+            const { p, setWanted } = setup({ wakeLock })
+            p.start()
+            await settle()
+            expect(events).toEqual(['acquire1', 'release1']) // release 1 has not finished
+            setWanted([{ kind: 'fullMatch', quality: '4k', plan: plan('fullMatch', 's2') }])
+            p.notifyStructure()
+            await settle()
+            expect(events).toContain('acquire2')
+            finish()
+            await settle(10)
+            expect(events.at(-1)).toBe('release2')
+        })
+        it('should release it when the project is switched mid pass to one with nothing to prepare', async () => {
+            let pid = 'p1'
+            const { p, events, setPass, setWanted } = lockSetup({ projectId: () => pid })
+            setPass(forever)
+            p.start()
+            await settle()
+            expect(events).toEqual(['acquire'])
+            pid = 'p2'
+            setWanted([])
+            p.notifyStructure()
+            await settle()
+            expect(events).toEqual(['acquire', 'release'])
+        })
         it('should release it when a pass fails', async () => {
             const { p, events, setPass } = lockSetup()
             setPass(async () => { throw new Error('boom') })
@@ -282,6 +312,38 @@ describe('Preparer', () => {
             p.start()
             await settle()
             expect(events).toEqual(['acquire', 'release'])
+        })
+    })
+
+    describe('prepared progress memory', () => {
+        const progressSetup = (over: Partial<PrepareDeps> = {}) => {
+            const calls: string[] = []
+            const progress = {
+                remember: (id: string | null, kind: string, sig: string, q: string, pct: number) => { calls.push(`remember ${id} ${kind} ${sig} ${q} ${pct}`) },
+                sync: (id: string | null, kind: string, sig: string) => { calls.push(`sync ${id} ${kind} ${sig}`) },
+                forget: (id: string | null, kind: string) => { calls.push(`forget ${id} ${kind}`) },
+            }
+            return { calls, ...setup({ progress, ...over }) }
+        }
+        it('should remember progress per kind with the plan signature, after syncing the signature', async () => {
+            const { p, calls } = progressSetup()
+            p.start()
+            await settle()
+            expect(calls[0]).toBe('sync p1 fullMatch s1')
+            expect(calls).toContain('remember p1 fullMatch s1 4k 100')
+        })
+        it('should forget a kind the settings turned off, but not one that has no plan only because no files are loaded', async () => {
+            const off = { current: true }
+            const { p, calls, setWanted } = progressSetup({ settingOff: () => off.current })
+            setWanted([])
+            p.start()
+            await settle()
+            expect(calls).toContain('forget p1 fullMatch')
+            calls.length = 0
+            off.current = false
+            p.notifyStructure()
+            await settle()
+            expect(calls.some((c) => c.startsWith('forget'))).toBe(false)
         })
     })
 })

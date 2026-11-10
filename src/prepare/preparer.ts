@@ -61,7 +61,14 @@ export type PrepareDeps = {
     /** Keeps the screen awake while a pass runs. */
     wakeLock?: () => { acquire: () => Promise<void>; release: () => Promise<void> }
     /** Remembers how much of the project is prepared, so a reload can say so (the units themselves stay in the cache). */
-    rememberProgress?: (projectId: string | null, percent: number) => void
+    progress?: {
+        remember: (projectId: string | null, kind: CacheKind, signature: string, quality: Quality, percent: number) => void
+        /** The kind's plan is this signature now (forget what was remembered for another). */
+        sync: (projectId: string | null, kind: CacheKind, signature: string) => void
+        forget: (projectId: string | null, kind: CacheKind) => void
+    }
+    /** True when the user's settings have this kind off (Original) while files are loaded: its remembered progress goes. */
+    settingOff?: (kind: CacheKind) => boolean
     log: (r: PrepareRecord) => void
     device: () => string
     now: () => number
@@ -226,8 +233,10 @@ export class Preparer {
                 } while (this.again && !this.stopped)
             } finally {
                 this.cycling = null
-                await this.lock?.release().catch(() => undefined)
+                // Cleared before the release is awaited: a cycle that starts meanwhile takes a lock of its own.
+                const lock = this.lock
                 this.lock = null
+                await lock?.release().catch(() => undefined)
                 const waiters = this.idleWaiters.splice(0)
                 for (const w of waiters) w()
                 this.refreshStatus()
@@ -241,7 +250,8 @@ export class Preparer {
     private async runOnce(): Promise<void> {
         const wanted = this.deps.wanted()
         // Forget what is no longer wanted (quality back to Original, files gone).
-        for (const k of ['fullMatch', 'highlights'] as const) if (!wanted.some((w) => w.kind === k)) { this.done.delete(k); this.blocked.delete(k); this.dropShare(k) }
+        for (const k of ['fullMatch', 'highlights'] as const) if (!wanted.some((w) => w.kind === k)) { this.done.delete(k); this.blocked.delete(k); this.dropShare(k); if (this.deps.settingOff?.(k)) this.deps.progress?.forget(this.projectId, k) }
+        for (const w of wanted) this.deps.progress?.sync(this.projectId, w.kind, w.plan.signature)
         this.refreshStatus()
         if (this.blockedNow()) return
         let committed = 0
@@ -309,7 +319,7 @@ export class Preparer {
                 onState: (st) => {
                     first ??= st
                     last = st
-                    if (st.totalSec > 0) this.deps.rememberProgress?.(this.projectId, Math.floor(100 * st.readySec / st.totalSec))
+                    if (st.totalSec > 0) this.deps.progress?.remember(this.projectId, w.kind, w.plan.signature, w.quality, Math.floor(100 * st.readySec / st.totalSec))
                     this.store.setState({ shares: { ...this.store.getState().shares, [w.kind]: { quality: w.quality, signature: w.plan.signature, state: st } } })
                     this.refreshStatus()
                 },

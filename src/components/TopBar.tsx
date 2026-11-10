@@ -69,7 +69,7 @@ export function TopBar({ layout }: TopBarProps) {
                     )}
                 </>
             )}
-            <Prepare4kOffer />
+            {layout !== 'landscape' && <Prepare4kOffer />}
         </header>
     )
 }

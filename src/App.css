@@ -2253,13 +2253,13 @@ button.tagcol__crumb:active { color: var(--sh-text); border-color: var(--sh-text
 .prep-pill[data-open] .prep-pill__tip, .prep-pill__main:focus-visible ~ .prep-pill__tip { display: block; }
 @media (pointer: coarse) { .prep-pill { height: 44px; } .prep-pill__tip { font-size: var(--sh-text-sm); } }
 /* Tablets: the bar wraps rather than push Export off the screen while the pill is showing. */
-@media (max-width: 1000px) and (min-width: 701px) { .top-bar:has(.prep-pill) { flex-wrap: wrap; } .top-bar:has(.prep-pill) .top-bar__actions { flex-wrap: wrap; flex: 1 1 auto; justify-content: flex-end; } }
+@media (max-width: 1000px) and (min-width: 701px) { .shell:not(.shell--landscape) .top-bar:has(.prep-pill) { flex-wrap: wrap; } .shell:not(.shell--landscape) .top-bar:has(.prep-pill) .top-bar__actions { flex-wrap: wrap; flex: 1 1 auto; justify-content: flex-end; } }
 /* Narrow screens: the pill is a row of its own under the bar (it pushed Export off the screen), with room for the whole label. */
 @media (max-width: 700px) {
-  .top-bar:has(> .prep-pill) { flex-wrap: wrap; }
-  .top-bar > .prep-pill { order: 98; flex: 1 0 100%; }
-  .top-bar > .prep-pill .prep-pill__main { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; }
-  .top-bar > .prep-pill .prep-pill__toggle { min-width: 44px; }
+  .shell--phone .top-bar:has(> .prep-pill) { flex-wrap: wrap; }
+  .shell--phone .top-bar > .prep-pill { order: 98; flex: 1 0 100%; }
+  .shell--phone .top-bar > .prep-pill .prep-pill__main { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; }
+  .shell--phone .top-bar > .prep-pill .prep-pill__toggle { min-width: 44px; }
 }
 @media (prefers-reduced-motion: reduce) { .prep-pill[data-tone='busy'] .prep-pill__label::before { animation: none; } }
 /* The one-tap 4K offer (touch only): a second row of the top bar, a quiet button (never lime) and the line that says what it does. */

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useAppState } from '../state'
 import { cancelDetection } from '../detectJobs'
@@ -169,5 +169,26 @@ describe('OverflowMenu send project', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Menu' }))
         await userEvent.click(screen.getByRole('menuitem', { name: 'Send project to another device' }))
         expect(useAppState.getState().panel).toBe('send')
+    })
+
+    it('should offer Prepare 4K in the touch view menu (where the top bar is not shown) for 4K footage on Original, and set 4K on tap', async () => {
+        vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('pointer: coarse'), addEventListener: () => undefined, removeEventListener: () => undefined }))
+        useAppState.setState({ files: [{ ...vf('a.mp4'), width: 3840, height: 2160 }], highlightsQuality: 'auto' })
+        useAppState.getState().setFullMatch({ quality: 'original' })
+        render(<OverflowMenu layout="landscape" tagView />)
+        act(() => { useAppState.getState().openPanel('menu') })
+        await userEvent.click(screen.getByRole('menuitem', { name: /Prepare 4K/ }))
+        expect(useAppState.getState().fullMatch.quality).toBe('4k')
+        vi.unstubAllGlobals()
+    })
+    it('should not offer Prepare 4K in the menu for 1080p footage', async () => {
+        vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('pointer: coarse'), addEventListener: () => undefined, removeEventListener: () => undefined }))
+        useAppState.setState({ files: [{ ...vf('a.mp4'), width: 1920, height: 1080 }] })
+        useAppState.getState().setFullMatch({ quality: 'original' })
+        render(<OverflowMenu layout="landscape" tagView />)
+        act(() => { useAppState.getState().openPanel('menu') })
+        expect(screen.getByRole('menuitem', { name: 'Export' })).toBeInTheDocument()
+        expect(screen.queryByRole('menuitem', { name: /Prepare 4K/ })).not.toBeInTheDocument()
+        vi.unstubAllGlobals()
     })
 })

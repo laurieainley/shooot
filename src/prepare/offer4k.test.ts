@@ -29,6 +29,10 @@ describe('offer4k', () => {
         expect(offer4k({ fullMatchQuality: '4k', highlightsQuality: 'auto', files: [f('a.mp4', 3840, 2160)] })).toBe(false)
         expect(offer4k({ fullMatchQuality: '1080p', highlightsQuality: 'auto', files: [f('a.mp4', 3840, 2160)] })).toBe(false)
     })
+    it('should judge the first file, the one the preparer plans from', () => {
+        expect(offer4k({ fullMatchQuality: 'original', highlightsQuality: 'auto', files: [f('a.mp4', 1920, 1080), f('b.mp4', 3840, 2160)] })).toBe(false)
+        expect(offer4k({ fullMatchQuality: 'original', highlightsQuality: 'auto', files: [f('a.mp4', 3840, 2160), f('b.mp4', 1920, 1080)] })).toBe(true)
+    })
     it('should accept a slightly short 4K frame (3824 wide)', () => {
         expect(offer4k({ fullMatchQuality: 'original', highlightsQuality: 'auto', files: [f('a.mp4', 3824, 2160)] })).toBe(true)
     })

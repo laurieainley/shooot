@@ -6,7 +6,8 @@ import { notePicked, openMediaPicker } from './pickerStatus'
 import { addPickedFiles } from './addFiles'
 import { OpeningStatus } from './OpeningStatus'
 import { useOpenMatch } from './openMatch'
-import { preparedPercent, usePrepare } from '../prepare/wire'
+import { usePrepare } from '../prepare/wire'
+import { preparedPercent } from '../prepare/prepared'
 
 function pickLine(names: string[]): string {
     const shown = names.slice(0, 3).join(', ')
@@ -22,7 +23,7 @@ export function RelinkBanner() {
     const events = useAppState((s) => s.events)
     const openFiles = useOpenMatch((s) => s.files)
     const matchId = useOpenMatch((s) => s.id)
-    const shares = usePrepare((s) => s.shares)
+    usePrepare((s) => s.shares) // re-read the remembered share as the preparer reports progress
     const [handles, setHandles] = useState<StoredHandle[]>([])
     const [message, setMessage] = useState<string | null>(null)
     const inputRef = useRef<HTMLInputElement | null>(null)
@@ -60,7 +61,7 @@ export function RelinkBanner() {
     }
 
     const n = waiting.length
-    const prepared = preparedPercent(matchId, shares)
+    const prepared = preparedPercent(matchId)
     return (
         <div className="relink-banner" role="region" aria-label="Relink files">
             <p className="m-0">

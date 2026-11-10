@@ -17,6 +17,7 @@ vi.mock('./addFiles', () => ({ addPickedFiles: (f: File[]) => addPickedFiles(f) 
 
 import { openMatchStore } from './openMatch'
 import { RelinkBanner } from './RelinkBanner'
+import { rememberPrepared } from '../prepare/prepared'
 
 const ev = (id: string, key: string, extra: Partial<MatchEvent> = {}): MatchEvent => ({ id, type: 'goal', matchTimeSec: 10, sourceFileIndex: 0, sourceFileKey: key, ...extra })
 const vf = (name: string): VideoSourceFile => ({ id: name, name, url: '', file: new File([''], name), durationSec: 90, kind: 'full' })
@@ -90,7 +91,7 @@ describe('RelinkBanner', () => {
     it('should say how much is already prepared when some of the match was prepared before the reload', async () => {
         store.supported = false
         openMatchStore.setState({ id: 'm-1', files: [] })
-        localStorage.setItem('shooot-prepared:m-1', '62')
+        rememberPrepared('m-1', 'fullMatch', 's', '4k', 62)
         render(<RelinkBanner />)
         expect(await screen.findByText('62% is already prepared — pick the files again to carry on.')).toBeInTheDocument()
         localStorage.clear()
