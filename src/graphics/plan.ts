@@ -49,24 +49,69 @@ function minuteOf(e: MatchEvent, events: MatchEvent[], offsets: number[]): strin
     return kickOff === null ? undefined : `${matchMinute(absTime(e, offsets), kickOff)}'`
 }
 
+/** More goals than this in the match and the full-time card tallies goals and assists instead of listing minutes. */
+export const TALLY_GOALS_OVER = 7
+
+const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 'S'}`
+
+/** `8 GOALS (2 ASSISTS)`, `1 GOAL`, `2 ASSISTS`: no brackets without assists, no goals part for an assist-only player. */
+function tallyText(goals: number, assists: number): string {
+    if (!goals) return plural(assists, 'ASSIST')
+    return assists ? `${plural(goals, 'GOAL')} (${plural(assists, 'ASSIST')})` : plural(goals, 'GOAL')
+}
+
+type Tally = { name: string; goals: number; assists: number; first: number; og: boolean }
+
+/** One column of the tally card: scorers by goals, then assists, then first goal; assist-only players after them (so overflow drops those first, then the lowest scorers). */
+function tallyColumn(rows: Map<string, Tally>): ScorerLine[] {
+    const all = [...rows.values()]
+    const byFirst = (a: Tally, b: Tally): number => a.first - b.first
+    const scorers = all.filter((r) => r.goals > 0).sort((a, b) => b.goals - a.goals || b.assists - a.assists || byFirst(a, b))
+    const assistOnly = all.filter((r) => r.goals === 0).sort((a, b) => b.assists - a.assists || byFirst(a, b))
+    return [...scorers, ...assistOnly].map((r) => ({ name: r.name, minutes: '', tally: r.og ? (r.goals > 1 ? String(r.goals) : '') : tallyText(r.goals, r.assists) }))
+}
+
 /**
- * Who scored for each team, for the full-time card: chronological by first goal, minutes after the name (`13' 44' PEN`),
- * own goals under the team that was credited (`SMITH (OG)`). Goals without a name only count in the score.
+ * Who scored for each team, for the full-time card. Up to TALLY_GOALS_OVER goals: chronological by first goal, minutes after the name
+ * (`13' 44' PEN`). More: a tally per player (`DAN` `8 GOALS (2 ASSISTS)`). Own goals go under the team that was credited (`SMITH (OG)`,
+ * with a count only above one in a tally). Goals without a name only count in the score.
  */
 export function scorerColumns(events: MatchEvent[], teams: Team[], offsets: number[]): { left: ScorerLine[]; right: ScorerLine[] } {
     const kickOff = markerGlobalSec(events, offsets, 'kick_off') ?? 0
+    const [a, b] = finalScore(events, teams)
+    const tallying = a + b > TALLY_GOALS_OVER
     const cols: { left: Map<string, ScorerLine>; right: Map<string, ScorerLine> } = { left: new Map(), right: new Map() }
-    const scoring = events.filter((e) => isScoring(e) && !e.unlinked).sort((a, b) => absTime(a, offsets) - absTime(b, offsets))
+    const tallies: { left: Map<string, Tally>; right: Map<string, Tally> } = { left: new Map(), right: new Map() }
+    const scoring = events.filter((e) => isScoring(e) && !e.unlinked).sort((x, y) => absTime(x, offsets) - absTime(y, offsets))
     for (const e of scoring) {
-        const side = e.team === teams[0].name ? cols.left : e.team === teams[1].name ? cols.right : null
+        const key = e.team === teams[0].name ? 'left' : e.team === teams[1].name ? 'right' : null
+        if (!key) continue
         const who = e.scorer?.trim().toUpperCase()
-        if (!side || !who) continue
+        const at = absTime(e, offsets)
+        if (tallying) {
+            const t = tallies[key]
+            const bump = (name: string, f: (r: Tally) => void, og = false): void => {
+                const r = t.get(name) ?? { name, goals: 0, assists: 0, first: at, og }
+                f(r)
+                t.set(name, r)
+            }
+            if (who) {
+                const own = e.type === 'own_goal'
+                bump(own ? `${who} (OG)` : who, (r) => { r.goals++ }, own)
+            }
+            const assist = upper(assistOf(e))
+            if (assist) bump(assist, (r) => { r.assists++ })
+            continue
+        }
+        if (!who) continue
+        const side = cols[key]
         const name = e.type === 'own_goal' ? `${who} (OG)` : who
-        const mark = `${matchMinute(absTime(e, offsets), kickOff)}'${e.pen ? ' PEN' : ''}`
+        const mark = `${matchMinute(at, kickOff)}'${e.pen ? ' PEN' : ''}`
         const line = side.get(name)
         if (line) line.minutes += ` ${mark}`
         else side.set(name, { name, minutes: mark })
     }
+    if (tallying) return { left: tallyColumn(tallies.left), right: tallyColumn(tallies.right) }
     return { left: [...cols.left.values()], right: [...cols.right.values()] }
 }
 

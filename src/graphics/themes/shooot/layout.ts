@@ -131,15 +131,18 @@ const MINUTES_W = 380
 const NAME_W = 330
 const NAME_SIZE = 54
 const MINUTES_SIZE = 40
+/** A tally ("8 GOALS (2 ASSISTS)") is longer than minutes: a touch smaller and wider so it stays on one line. */
+const TALLY_SIZE = 32
+const TALLY_W = 400
 /** The scorer block shrinks uniformly down to this scale before the "+N MORE" line takes over. */
 const SCORER_MIN_SCALE = 0.75
 const SCORER_SCALES = [1, 0.95, 0.9, 0.85, 0.8, SCORER_MIN_SCALE]
 
-/** Minutes ("9' 13' 60' PEN") broken into lines of at most `maxWidth`: between minutes, never inside one (a PEN stays with its minute). */
+/** Minutes ("9' 13' 60' PEN", or a tally "8 GOALS (2 ASSISTS)") broken into lines of at most `maxWidth`: between units, never inside one (a PEN stays with its minute). */
 export function wrapMinutes(minutes: string, size: number, maxWidth: number, measure: MeasureText): string[] {
     const units: string[] = []
     for (const tok of minutes.split(/\s+/).filter(Boolean)) {
-        if (units.length && !/^\d/.test(tok)) units[units.length - 1] += ` ${tok}`
+        if (units.length && !/^[\d(]/.test(tok)) units[units.length - 1] += ` ${tok}`
         else units.push(tok)
     }
     const lines: string[] = []
@@ -156,7 +159,10 @@ const rowHeight = (r: ScorerRow, s: number): number => (SCORER_STEP + (r.minuteL
 const MORE_H = 56
 
 function scorerRows(lines: ScorerLine[], s: number, measure: MeasureText): ScorerRow[] {
-    return lines.map((line) => ({ line, minuteLines: wrapMinutes(line.minutes, MINUTES_SIZE * s, MINUTES_W, measure) }))
+    return lines.map((line) => ({
+        line,
+        minuteLines: line.tally !== undefined ? wrapMinutes(line.tally, TALLY_SIZE * s, TALLY_W, measure) : wrapMinutes(line.minutes, MINUTES_SIZE * s, MINUTES_W, measure),
+    }))
 }
 
 /** The scale every column shares: the biggest that fits all scorers above the end line, else the floor. */
@@ -189,8 +195,10 @@ function scorerColumn(lines: ScorerLine[], cx: number, s: number, measure: Measu
     rows.slice(0, shown).forEach((r) => {
         const y0 = y + (SCORER_STEP * s) / 2
         ops.push({ kind: 'text', text: r.line.name, x: cx - 16, y: y0, size: NAME_SIZE * s, color: C.text, voice: 'shirt', align: 'right', baseline: 'middle', maxWidth: NAME_W })
+        const tally = r.line.tally !== undefined
         r.minuteLines.forEach((m, j) => {
-            ops.push({ kind: 'text', text: m, x: cx + 16, y: y0 + j * MINUTE_STEP * s, size: MINUTES_SIZE * s, color: C.lime, voice: 'mono', align: 'left', baseline: 'middle', maxWidth: MINUTES_W })
+            if (!m) return
+            ops.push({ kind: 'text', text: m, x: cx + 16, y: y0 + j * MINUTE_STEP * s, size: (tally ? TALLY_SIZE : MINUTES_SIZE) * s, color: C.lime, voice: 'mono', align: 'left', baseline: 'middle', maxWidth: tally ? TALLY_W : MINUTES_W })
         })
         y += rowHeight(r, s)
     })
