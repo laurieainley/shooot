@@ -7,8 +7,9 @@ import { RENDER_VERSION, isPortableKey, preparedUnits, readUnitFiles, importUnit
 import { LogParser, type LogRecord } from '../render/packetLog'
 import { buildTransferPayload, decodeProject, encodeProject, type TransferPayload } from '../utils/projectTransfer'
 import { useAppState } from '../state'
+import { PARTS_MAGIC } from './partsFile'
 
-export const MAGIC = new TextEncoder().encode('shooot-parts\n')
+export const MAGIC = new TextEncoder().encode(PARTS_MAGIC)
 export const FORMAT = 1
 const MAX_HEADER = 16 * 1024 * 1024
 const MAX_UNITS = 20_000
@@ -58,9 +59,11 @@ async function completeUnits(kinds: CacheKind[] | undefined, count: boolean): Pr
 }
 
 /** How many prepared units (and how many bytes) a parts file would hold now (cheap: no unit is read). */
-export async function preparedSummary(o: { kinds?: CacheKind[] } = {}): Promise<{ units: number; bytes: number }> {
+export async function preparedSummary(o: { kinds?: CacheKind[] } = {}): Promise<{ units: number; bytes: number; byKind: Partial<Record<CacheKind, { units: number; bytes: number }>> }> {
     const u = await completeUnits(o.kinds, false)
-    return { units: u.length, bytes: u.reduce((a, x) => a + x.file.size, 0) }
+    const byKind: Partial<Record<CacheKind, { units: number; bytes: number }>> = {}
+    for (const x of u) { const k = (byKind[x.which] ??= { units: 0, bytes: 0 }); k.units++; k.bytes += x.file.size }
+    return { units: u.length, bytes: u.reduce((a, x) => a + x.file.size, 0), byKind }
 }
 
 /** The parts file for the open project: header + the prepared units, as a Blob over the cache's own files. */

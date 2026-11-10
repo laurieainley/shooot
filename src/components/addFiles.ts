@@ -7,7 +7,9 @@ import { parseGoProName } from '../utils/gopro'
 import { currentPlaybackPref, MP4_FALLBACK_TOAST } from './playbackPref'
 import { showToast } from '../toasts'
 import { openingLabel } from '../utils/opening'
-import { isPartsFileName } from '../prepare/partsFile'
+import { isPartsFile, isPartsFileName } from '../prepare/partsFile'
+
+const VIDEO_NAME = /\.(mp4|m4v|mov|lrv)$/i
 import { loadPartsFile } from '../prepare/partsLoad'
 
 /** Probe picked files, showing "Opening <name> (<size>)…" in the store while each one is read. */
@@ -35,8 +37,11 @@ async function openFiles(files: File[]): Promise<{ files: VideoSourceFile[]; err
  */
 export async function addPickedFiles(all: File[]): Promise<string | null> {
     // A prepared parts file (from a phone / iPad) is loaded after the videos picked with it, so its project lands on them.
-    const parts = all.find((f) => isPartsFileName(f.name))
-    const picked = all.filter((f) => !isPartsFileName(f.name))
+    // Known by its first bytes too: iOS may rename the copy or drop the extension. Videos (by extension) are not read, and need no wait.
+    const known = all.map((f): boolean | null => (isPartsFileName(f.name) ? true : VIDEO_NAME.test(f.name) ? false : null))
+    const isParts = known.includes(null) ? await Promise.all(all.map((f, i) => known[i] ?? isPartsFile(f))) : known
+    const parts = all.find((_, i) => isParts[i])
+    const picked = all.filter((_, i) => !isParts[i])
     const error = await addVideoFiles(picked)
     if (parts) void loadPartsFile(parts)
     return error

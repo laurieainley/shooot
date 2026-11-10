@@ -73,6 +73,33 @@ describe('addPickedFiles with a prepared parts file', () => {
     })
 })
 
+describe('addPickedFiles with a renamed parts file', () => {
+    beforeEach(() => {
+        processVideoFiles.mockReset()
+        loadPartsFile.mockClear()
+        useAppState.setState({ files: [], events: [], cumulativeOffsets: [], currentFileIndex: 0, opening: null })
+    })
+    const partsBytes = (name: string): File => new File([new TextEncoder().encode('shooot-parts\n'), new Uint8Array([4, 0, 0, 0]), '{}  '], name)
+
+    it('should know a parts file by its first bytes when iOS renamed it or dropped the extension', async () => {
+        for (const name of ['prepared parts.bin', 'Matchday 3 - Whites v Colours · prepared parts']) {
+            loadPartsFile.mockClear()
+            const f = partsBytes(name)
+            await addPickedFiles([f])
+            expect(loadPartsFile).toHaveBeenCalledWith(f)
+            expect(processVideoFiles).not.toHaveBeenCalled()
+        }
+    })
+
+    it('should still probe a video whose first bytes are not the parts magic', async () => {
+        processVideoFiles.mockResolvedValue({ files: [vf('clip.bin')], error: null })
+        const v = new File([new Uint8Array([0, 0, 0, 24, 102, 116, 121, 112])], 'clip.bin')
+        await addPickedFiles([v])
+        expect(loadPartsFile).not.toHaveBeenCalled()
+        expect(Array.from(processVideoFiles.mock.calls[0][0])).toEqual([v])
+    })
+})
+
 describe('replacePickedFile', () => {
     beforeEach(() => {
         processVideoFiles.mockReset()

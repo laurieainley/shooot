@@ -1551,6 +1551,8 @@ html:has(.player-container--immersive), body:has(.player-container--immersive) {
 
 /* Toasts: one calm confirmation at a time. Top-right of the video (the scorebug is top-left); phone portrait: one line under the video. */
 .toast-host--video { position: absolute; top: 10px; right: 10px; z-index: 6; max-width: min(380px, calc(100% - 20px)); pointer-events: none; }
+/* The desktop speed button (1× … 0.25×) sits in the top-right corner: the toast keeps to its left. */
+.stage:has(.speedbtn--desk) .toast-host--video { right: 84px; max-width: min(380px, calc(100% - 94px)); }
 .toast-host--under { display: flex; justify-content: center; padding: 0 12px; }
 .toast-slot { display: flex; justify-content: flex-end; }
 .toast-host--under .toast-slot { justify-content: center; width: 100%; }

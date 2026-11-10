@@ -6,7 +6,24 @@ import type { BundleImport } from './bundle'
 
 export const PARTS_EXT = '.shooot-parts'
 
+/** The file's first bytes (bundle.ts MAGIC). */
+export const PARTS_MAGIC = 'shooot-parts\n'
+
 export const isPartsFileName = (name: string): boolean => name.toLowerCase().endsWith(PARTS_EXT)
+
+/**
+ * A prepared parts file, by its first bytes: iOS may rename the copy or drop the extension on Save to Files. The extension alone also counts (the
+ * loader then says when the bytes are wrong), and so does an unreadable file that has it.
+ */
+export async function isPartsFile(file: File): Promise<boolean> {
+    if (isPartsFileName(file.name)) return true
+    try {
+        const want = new TextEncoder().encode(PARTS_MAGIC)
+        if (file.size < want.length) return false
+        const head = new Uint8Array(await file.slice(0, want.length).arrayBuffer())
+        return head.length === want.length && want.every((b, i) => head[i] === b)
+    } catch { return false }
+}
 
 /** "Matchday 3 - Whites v Colours · prepared parts.shooot-parts" (no score: the name is seen on the card). */
 export function partsFileName(a: { title: string | null; teams: Team[] }): string {

@@ -9,7 +9,8 @@ import { holdPreparer } from './control'
 
 export type PartsSaveState =
     | { phase: 'idle' }
-    | { phase: 'saving' }
+    /** `url`/`name`/`text`: the download has started and the parts are held while Safari reads them. */
+    | { phase: 'saving'; text?: string; url?: string; name?: string }
     | { phase: 'saved'; text: string; url?: string; name?: string }
     | { phase: 'failed'; text: string }
 
@@ -26,6 +27,24 @@ const savedText = (name: string): string => `Saved ${name}. Put it on the card w
 const downloadText = (name: string): string => `Downloading ${name}. On iPhone or iPad: Save to Files, then the card. Add it with the match videos on the other device.`
 
 let lastUrl: string | null = null
+
+/** After a download starts Safari reads the Blob while the user is in Save to Files: hold at least this long, and until the page is back. */
+export const DOWNLOAD_HOLD_MS = 60_000
+export const DOWNLOAD_HOLD_MAX_MS = 5 * 60_000
+
+/** Resolves after DOWNLOAD_HOLD_MS, or later when the page was hidden meanwhile and is not visible again yet; never after DOWNLOAD_HOLD_MAX_MS. */
+function downloadSettled(): Promise<void> {
+    return new Promise((resolve) => {
+        let away = typeof document !== 'undefined' && document.visibilityState === 'hidden'
+        let minDone = false
+        const onVis = (): void => { if (document.visibilityState === 'hidden') away = true; else { away = false; check() } }
+        const finish = (): void => { clearTimeout(a); clearTimeout(b); document.removeEventListener('visibilitychange', onVis); resolve() }
+        const check = (): void => { if (minDone && !away) finish() }
+        document.addEventListener('visibilitychange', onVis)
+        const a = setTimeout(() => { minDone = true; check() }, DOWNLOAD_HOLD_MS)
+        const b = setTimeout(finish, DOWNLOAD_HOLD_MAX_MS)
+    })
+}
 
 /** Asks where to save (call it inside the click: the picker opens before anything else), then writes the file. */
 export async function savePreparedParts(o: { name: string; projectId: string | null; kinds: CacheKind[] }): Promise<void> {
@@ -57,6 +76,8 @@ export async function savePreparedParts(o: { name: string; projectId: string | n
             a.href = url
             a.download = o.name
             a.click()
+            set({ phase: 'saving', text: downloadText(o.name), url, name: o.name })
+            await downloadSettled()
             set({ phase: 'saved', text: downloadText(o.name), url, name: o.name })
         }
     } catch (e) {

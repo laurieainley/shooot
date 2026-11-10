@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isPartsFileName, loadOutcome, needsReplace, partsFileName, skippedNote } from './partsFile'
+import { isPartsFile, isPartsFileName, loadOutcome, needsReplace, partsFileName, skippedNote } from './partsFile'
 import type { MatchEvent, Team } from '../types'
 
 const teams = [{ name: 'Whites' }, { name: 'Colours' }] as Team[]
@@ -14,6 +14,16 @@ describe('parts file names', () => {
         expect(isPartsFileName('X.SHOOOT-PARTS')).toBe(true)
         expect(isPartsFileName('GX010042.MP4')).toBe(false)
         expect(isPartsFileName('project.json')).toBe(false)
+    })
+    it('should know a parts file by its magic bytes whatever its name, and by its name when it cannot be read', async () => {
+        const magic = new TextEncoder().encode('shooot-parts\n')
+        expect(await isPartsFile(new File([magic, 'rest'], 'prepared parts.bin'))).toBe(true)
+        expect(await isPartsFile(new File([magic], 'noext'))).toBe(true)
+        expect(await isPartsFile(new File(['shooot-partsX'], 'x.mp4'))).toBe(false)
+        expect(await isPartsFile(new File([], 'empty.mp4'))).toBe(false)
+        const unreadable = new File(['x'], 'a.shooot-parts')
+        Object.defineProperty(unreadable, 'slice', { value: () => { throw new Error('gone') } })
+        expect(await isPartsFile(unreadable)).toBe(true)
     })
     it('should name the file after the match', () => {
         expect(partsFileName({ title: 'Matchday 3', teams })).toBe('Matchday 3 - Whites v Colours · prepared parts.shooot-parts')
