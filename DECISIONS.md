@@ -16,7 +16,12 @@ Decisions made before 2026-10-11 are only in the specs' "Decisions" sections; th
 - **Agent calls:** wake lock while a prepare pass runs on touch; one-tap "Prepare 4K" (top bar row on portrait phone/tablet, touch-view
   menu in landscape), never a silent settings change; prepared % remembered per kind for the relink banner; spike verdict for mixed
   encoders: one covering `avc1` entry + in-band SPS/PPS per unit (avc3 fails in AVFoundation).
-- **Why:** the user's 4K export waited until the footage reached the Mac; the pub hours were idle.
+- **Agent calls (handoff build):** prepared parts match across devices by a portable key (unit key minus encoder/scale facts; footage =
+  size + SHA-256 of first + last MiB, no name or modified time, since iOS renames and re-dates copies). Mixed encoders join only on the
+  journaled path; High over Main accepted (checked in AVFoundation), other profile mixes encoded locally; "Save to file…" needs
+  byte-identical records. Colour labelled by a `colr` box (WebCodecs has no encoder colour field) only for BT.709/unspecified sources.
+  Imported parts are kept until the next parts file, a cache clear or 14 days. The file is recognised by its first bytes, not its name.
+  Loading asks before replacing a match with events. No free-space gate on the iOS download (site estimate ≠ device space).
 - **Where:** spec `docs/superpowers/specs/2026-11-10-prepare-on-the-go-design.md`, plans `…/2026-11-10-prepare-in-the-pub.md`, `…/2026-11-10-prepared-parts-handoff.md`.
 
 ## 2026-11-05 — Coming up section: each starred moment is edited on its own (user + agent)

@@ -109,15 +109,19 @@ describe('Save prepared parts', () => {
         expect(isSavingParts()).toBe(false)
     })
 
-    it('should not start a download that the device has no room for, and say how much is needed', async () => {
+    it('should still start the download when the site storage estimate looks full (WebKit over-reports usage; the file goes to Files, not site storage)', async () => {
+        vi.useFakeTimers()
         const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
         vi.stubGlobal('navigator', { ...navigator, storage: { estimate: async () => ({ quota: 1000, usage: 999 }) } })
         buildBundle.mockResolvedValue(new Blob([new Uint8Array(500)]))
-        await savePreparedParts({ name: NAME, projectId: 'm1', kinds: ['fullMatch'] })
-        expect(click).not.toHaveBeenCalled()
-        expect(partsSaveStore.getState()).toEqual({ phase: 'failed', text: 'Not enough free space on this device to save the file (about 1 MB needed).' })
+        const run = savePreparedParts({ name: NAME, projectId: 'm1', kinds: ['fullMatch'] })
+        await vi.advanceTimersByTimeAsync(61_000)
+        await run
+        expect(click).toHaveBeenCalledTimes(1)
+        expect(partsSaveStore.getState()).toMatchObject({ phase: 'saved' })
         expect(release).toHaveBeenCalledTimes(1)
         vi.unstubAllGlobals()
+        vi.useRealTimers()
     })
 
     it('should say the download started (not that it was saved)', async () => {
