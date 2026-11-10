@@ -226,4 +226,62 @@ describe('Preparer', () => {
         void hooks
         expect(p.totalsFor('fullMatch').throttledMs).toBeGreaterThanOrEqual(0)
     })
+
+    describe('wake lock', () => {
+        const lockSetup = (over: Partial<PrepareDeps> = {}) => {
+            const events: string[] = []
+            const wakeLock = () => ({ acquire: async () => { events.push('acquire') }, release: async () => { events.push('release') } })
+            return { events, ...setup({ wakeLock, ...over }) }
+        }
+        it('should hold the lock only while a pass runs, and release it when the pass is done', async () => {
+            const { p, events } = lockSetup()
+            p.start()
+            expect(events).toEqual([])
+            await settle()
+            expect(events).toEqual(['acquire', 'release'])
+        })
+        it('should not take a lock when nothing is wanted', async () => {
+            const { p, events, setWanted } = lockSetup()
+            setWanted([])
+            p.start()
+            await settle()
+            expect(events).toEqual([])
+        })
+        it('should release it on pause and take it again on resume', async () => {
+            const { p, events, setPass } = lockSetup()
+            setPass(forever)
+            p.start()
+            await settle()
+            expect(events).toEqual(['acquire'])
+            p.setPaused(true)
+            await settle(10)
+            expect(events).toEqual(['acquire', 'release'])
+            p.setPaused(false)
+            await settle(10)
+            expect(events).toEqual(['acquire', 'release', 'acquire'])
+        })
+        it('should release it when an export holds the preparer, and when the preparer stops', async () => {
+            const { p, events, setPass } = lockSetup()
+            setPass(forever)
+            p.start()
+            await settle()
+            const release = p.hold()
+            await p.idle()
+            expect(events).toEqual(['acquire', 'release'])
+            release()
+            await settle(STRUCTURE_QUIET_MS * 2 + 10)
+            expect(events).toEqual(['acquire', 'release', 'acquire'])
+            p.stop()
+            await settle(10)
+            expect(events.at(-1)).toBe('release')
+        })
+        it('should release it when a pass fails', async () => {
+            const { p, events, setPass } = lockSetup()
+            setPass(async () => { throw new Error('boom') })
+            vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+            p.start()
+            await settle()
+            expect(events).toEqual(['acquire', 'release'])
+        })
+    })
 })

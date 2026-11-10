@@ -54,4 +54,20 @@ describe('PreparePill', () => {
         expect(screen.getByRole('button', { name: /Ready/ })).toBeInTheDocument()
         expect(screen.getByRole('tooltip')).toHaveTextContent('the export will only redo what you change')
     })
+
+    describe('on a touch screen', () => {
+        const media = (coarse: boolean): void => { vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('pointer: coarse') ? coarse : false, addEventListener: () => undefined, removeEventListener: () => undefined })) }
+        afterEach(() => { vi.unstubAllGlobals() })
+
+        it('should say to keep the screen on while preparing, and name what is prepared when ready', async () => {
+            media(true)
+            show({ kind: 'preparing', what: 'full match', percent: 34 })
+            const { unmount } = render(<PreparePill />)
+            expect(screen.getByRole('tooltip')).toHaveTextContent('Keep the screen on — it stops if the phone locks.')
+            unmount()
+            show({ kind: 'ready', what: 'full match', text: 'Full match 4K is ready; the export will only redo what you change.' })
+            render(<PreparePill />)
+            expect(screen.getByRole('button', { name: 'Full match prepared ✓' })).toBeInTheDocument()
+        })
+    })
 })

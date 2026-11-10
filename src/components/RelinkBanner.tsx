@@ -6,6 +6,7 @@ import { notePicked, openMediaPicker } from './pickerStatus'
 import { addPickedFiles } from './addFiles'
 import { OpeningStatus } from './OpeningStatus'
 import { useOpenMatch } from './openMatch'
+import { preparedPercent, usePrepare } from '../prepare/wire'
 
 function pickLine(names: string[]): string {
     const shown = names.slice(0, 3).join(', ')
@@ -20,6 +21,8 @@ export function RelinkBanner() {
     const files = useAppState((s) => s.files)
     const events = useAppState((s) => s.events)
     const openFiles = useOpenMatch((s) => s.files)
+    const matchId = useOpenMatch((s) => s.id)
+    const shares = usePrepare((s) => s.shares)
     const [handles, setHandles] = useState<StoredHandle[]>([])
     const [message, setMessage] = useState<string | null>(null)
     const inputRef = useRef<HTMLInputElement | null>(null)
@@ -57,12 +60,14 @@ export function RelinkBanner() {
     }
 
     const n = waiting.length
+    const prepared = preparedPercent(matchId, shares)
     return (
         <div className="relink-banner" role="region" aria-label="Relink files">
             <p className="m-0">
                 <b>{n === 0 ? 'This match needs its videos' : `${n} ${n === 1 ? 'event needs its video' : 'events need their videos'}`}</b>
                 {missingKeys.length > 0 && files.length > 0 && <span className="text-muted"> · {missingKeys.join(', ')}</span>}
                 <span className="block text-muted">{oneClick ? 'Reopen the match’s files in one click.' : files.length === 0 && openFiles.length > 0 ? pickLine(openFiles.map((f) => f.name)) : 'Browsers forget picked files on reload.'}</span>
+                {prepared > 0 && <span className="block text-muted">{prepared}% is already prepared — pick the files again to carry on.</span>}
             </p>
             <button type="button" className="btn-primary" onClick={() => void relink()}>Relink files</button>
             <input ref={inputRef} type="file" multiple accept={acceptAttr()} aria-label="Videos to relink" className="hidden" onChange={(e) => void onPick(e)} />

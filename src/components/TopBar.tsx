@@ -7,6 +7,7 @@ import { FilesButton } from './FilesButton'
 import { NewMatchButton } from './NewMatchButton'
 import { OverflowMenu } from './OverflowMenu'
 import { PreparePill } from './PreparePill'
+import { Prepare4kOffer } from './Prepare4kOffer'
 import { Wordmark } from './Wordmark'
 import type { Layout } from './useMediaQuery'
 
@@ -68,6 +69,7 @@ export function TopBar({ layout }: TopBarProps) {
                     )}
                 </>
             )}
+            <Prepare4kOffer />
         </header>
     )
 }

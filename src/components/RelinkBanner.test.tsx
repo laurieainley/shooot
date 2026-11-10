@@ -86,4 +86,23 @@ describe('RelinkBanner', () => {
         expect(await screen.findByText('Pick a.mp4, b.mp4, c.mp4 and 2 more')).toBeInTheDocument()
         openMatchStore.setState({ id: null, files: [] })
     })
+
+    it('should say how much is already prepared when some of the match was prepared before the reload', async () => {
+        store.supported = false
+        openMatchStore.setState({ id: 'm-1', files: [] })
+        localStorage.setItem('shooot-prepared:m-1', '62')
+        render(<RelinkBanner />)
+        expect(await screen.findByText('62% is already prepared — pick the files again to carry on.')).toBeInTheDocument()
+        localStorage.clear()
+        openMatchStore.setState({ id: null, files: [] })
+    })
+
+    it('should not mention prepared parts when there are none', async () => {
+        store.supported = false
+        openMatchStore.setState({ id: 'm-1', files: [] })
+        render(<RelinkBanner />)
+        expect(await screen.findByText(/3 events need their videos/i)).toBeInTheDocument()
+        expect(screen.queryByText(/already prepared/)).not.toBeInTheDocument()
+        openMatchStore.setState({ id: null, files: [] })
+    })
 })

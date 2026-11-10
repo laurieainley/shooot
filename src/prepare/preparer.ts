@@ -33,7 +33,7 @@ export type PrepareStatus =
     | { kind: 'hidden' }
     | { kind: 'preparing'; what: string; percent: number }
     | { kind: 'paused'; byUser: boolean }
-    | { kind: 'ready'; text: string }
+    | { kind: 'ready'; text: string; what?: string }
     | { kind: 'nospace'; text: string }
 
 export type PrepareUi = {
@@ -60,6 +60,8 @@ export type PrepareDeps = {
     savePaused: (projectId: string | null, paused: boolean) => void
     /** Keeps the screen awake while a pass runs. */
     wakeLock?: () => { acquire: () => Promise<void>; release: () => Promise<void> }
+    /** Remembers how much of the project is prepared, so a reload can say so (the units themselves stay in the cache). */
+    rememberProgress?: (projectId: string | null, percent: number) => void
     log: (r: PrepareRecord) => void
     device: () => string
     now: () => number
@@ -307,6 +309,7 @@ export class Preparer {
                 onState: (st) => {
                     first ??= st
                     last = st
+                    if (st.totalSec > 0) this.deps.rememberProgress?.(this.projectId, Math.floor(100 * st.readySec / st.totalSec))
                     this.store.setState({ shares: { ...this.store.getState().shares, [w.kind]: { quality: w.quality, signature: w.plan.signature, state: st } } })
                     this.refreshStatus()
                 },
@@ -357,7 +360,7 @@ export class Preparer {
         } else if (this.blocked.size > 0) status = { kind: 'nospace', text: [...this.blocked.values()].join(' ') }
         else if (wanted.every((w) => this.done.get(w.kind) === w.plan.signature)) {
             const parts = wanted.map((w, i) => { const t = `${NAMES[w.kind]} ${LABEL[w.quality]}`; return i === 0 ? t[0].toUpperCase() + t.slice(1) : t })
-            status = { kind: 'ready', text: `${parts.join(' and ')} ${wanted.length > 1 ? 'are' : 'is'} ready; the export will only redo what you change.` }
+            status = { kind: 'ready', what: wanted.map((w) => NAMES[w.kind]).join(' and '), text: `${parts.join(' and ')} ${wanted.length > 1 ? 'are' : 'is'} ready; the export will only redo what you change.` }
         } else {
             // Waiting for the quiet spell (or the next pass): show the kind with work left.
             const next = wanted.find((w) => this.done.get(w.kind) !== w.plan.signature)!
