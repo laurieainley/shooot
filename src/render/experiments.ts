@@ -20,6 +20,14 @@ export type RenderExperiments = {
     tightSpans?: boolean
     /** #11: scale frames (and composite their graphics) with WebGPU instead of the encoder / WebGL / 2D canvas. Falls back if unavailable. */
     scaler?: 'webgpu'
+    /**
+     * Tests/bench only (re-encodes): the H.264 encoder unit `u` is made with, so units from different encoders can be joined on demand
+     * (stand-in for parts prepared on another device). Cache keys still describe the render's own encoder, so units cached this way are
+     * reused by a later normal render: that is the point. Omitted = every unit uses the render's encoder.
+     */
+    encoderFor?: (u: number) => 'hardware' | 'software'
+    /** Tests/bench only, with `encoderFor`: codec string for the software units, e.g. 'avc1.4d0033' (Main) to stand in for an encoder of another profile. */
+    softwareCodec?: string
 }
 
 /** Cheap counters of where a re-encode spends its time (milliseconds summed over all frames of all units). */
