@@ -17,6 +17,7 @@ import { RenderStatus } from './RenderStatus'
 import { ResumeOffer } from './ResumeOffer'
 import { saveExportToFile, startExport } from './renderRequest'
 import { useRenderJobs } from '../renderJobs'
+import { usePartsSave } from '../prepare/partsSave'
 import { useBaseline } from '../prepare/baseline'
 import { COARSE_QUERY, useMediaQuery } from './useMediaQuery'
 import { useSavedJob } from './useSavedJob'
@@ -65,7 +66,9 @@ export function FullMatchExport() {
     const hasKickOff = linked.some((e) => e.type === 'kick_off')
     const hasWhistle = finalWhistleSec(linked, cumulativeOffsets) !== null
     const hasProxies = files.some((f) => f.kind === 'proxy')
-    const disabled = plan.cuts.length === 0
+    // While prepared parts are being saved, the file points at the cache's parts: no render until it is written.
+    const savingParts = usePartsSave((s) => s.phase === 'saving')
+    const disabled = plan.cuts.length === 0 || savingParts
     const chosen = options.find((o) => o.id === effective) ?? options[0]
 
     // Save to file… writes straight to disk, so it keeps the chosen quality even when that is too big for the browser's storage.

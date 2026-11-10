@@ -7,7 +7,7 @@ vi.mock('idb-keyval', () => ({
     del: vi.fn(async (k: string) => { db.delete(k) }),
 }))
 
-import { clearHandles, filePicker, loadHandles, reopenHandles, rememberHandles, type StoredHandle } from './handleStore'
+import { clearHandles, filePicker, loadHandles, pickWithHandles, reopenHandles, rememberHandles, type StoredHandle } from './handleStore'
 
 const handle = (name: string, permission: PermissionState = 'granted', after: PermissionState = permission): StoredHandle => ({
     kind: 'file', name,
@@ -39,6 +39,11 @@ describe('handleStore', () => {
         expect(ask.requestPermission).toHaveBeenCalledWith({ mode: 'read' })
     })
 
+    it('should not keep a prepared parts file for relinking (it is loaded once, not linked)', async () => {
+        await rememberHandles([handle('GX010001.MP4'), handle('m · prepared parts.shooot-parts')])
+        expect((await loadHandles()).map((h) => h.name)).toEqual(['GX010001.MP4'])
+    })
+
     it('should forget everything on clear', async () => {
         await rememberHandles([handle('a.mp4')])
         await clearHandles()
@@ -56,5 +61,19 @@ describe('filePicker', () => {
     it('should not use it on Android, where it greys out .LRV files (no MIME type)', () => {
         setUA('Mozilla/5.0 (Linux; Android 15; Pixel 8) AppleWebKit/537.36 Chrome/141.0 Mobile Safari/537.36')
         expect(filePicker()).toBeNull()
+    })
+})
+
+describe('pickWithHandles', () => {
+    beforeEach(() => { vi.unstubAllGlobals(); db.clear() })
+    it('should offer prepared parts files next to the match videos', async () => {
+        const pick = vi.fn(async () => [handle('x.shooot-parts')])
+        vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (Macintosh) Chrome/141.0', platform: 'MacIntel', maxTouchPoints: 0 })
+        vi.stubGlobal('window', { showOpenFilePicker: pick })
+        const files = await pickWithHandles()
+        expect(files?.map((f) => f.name)).toEqual(['x.shooot-parts'])
+        const types = (pick.mock.calls[0] as unknown as [{ types: { accept: Record<string, string[]> }[] }])[0].types
+        expect(Object.values(types[0].accept).flat()).toContain('.shooot-parts')
+        expect(Object.values(types[0].accept).flat()).toContain('.LRV')
     })
 })

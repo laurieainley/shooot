@@ -39,30 +39,33 @@ async function countRecords(file: File): Promise<number> {
     return n
 }
 
-/** The prepared units for the open project that are complete on disk, with their stored bytes. */
-async function completeUnits(): Promise<{ key: string; which: CacheKind; portable: string; file: File; applied: string[]; codec: string; description: string; records: number }[]> {
-    const out: { key: string; which: CacheKind; portable: string; file: File; applied: string[]; codec: string; description: string; records: number }[] = []
+type CompleteUnit = { key: string; which: CacheKind; portable: string; file: File; applied: string[]; codec: string; description: string; records: number }
+
+/** The prepared units (of `kinds`, default all) that are complete on disk, with their stored bytes. Records are counted only for the file itself (`count`). */
+async function completeUnits(kinds: CacheKind[] | undefined, count: boolean): Promise<CompleteUnit[]> {
+    const out: CompleteUnit[] = []
     const seen = new Set<string>()
     for (const { which, key } of await preparedUnits()) {
+        if (kinds && !kinds.includes(which)) continue
         const u = await readUnitFiles(key)
         const portable = u?.meta.portable
         if (!u || !u.meta.video || !portable || !isPortableKey(portable) || seen.has(portable)) continue
         seen.add(portable)
         if (u.file.size <= 0) continue
-        out.push({ key, which, portable, file: u.file, applied: u.meta.applied, codec: u.meta.video.codec, description: u.meta.video.description, records: await countRecords(u.file) })
+        out.push({ key, which, portable, file: u.file, applied: u.meta.applied, codec: u.meta.video.codec, description: u.meta.video.description, records: count ? await countRecords(u.file) : 0 })
     }
     return out
 }
 
-/** How many prepared units (and how many bytes) a parts file would hold now. */
-export async function preparedSummary(): Promise<{ units: number; bytes: number }> {
-    const u = await completeUnits()
+/** How many prepared units (and how many bytes) a parts file would hold now (cheap: no unit is read). */
+export async function preparedSummary(o: { kinds?: CacheKind[] } = {}): Promise<{ units: number; bytes: number }> {
+    const u = await completeUnits(o.kinds, false)
     return { units: u.length, bytes: u.reduce((a, x) => a + x.file.size, 0) }
 }
 
 /** The parts file for the open project: header + the prepared units, as a Blob over the cache's own files. */
-export async function buildBundle(projectId: string | null, o: { project?: TransferPayload; device?: string; now?: number } = {}): Promise<Blob> {
-    const units = await completeUnits()
+export async function buildBundle(projectId: string | null, o: { project?: TransferPayload; device?: string; now?: number; kinds?: CacheKind[] } = {}): Promise<Blob> {
+    const units = await completeUnits(o.kinds, true)
     let offset = 0
     const header: BundleHeader = {
         format: FORMAT, renderVersion: RENDER_VERSION, device: o.device ?? deviceLabel(), createdAt: o.now ?? Date.now(), projectId,
@@ -97,6 +100,20 @@ export async function readBundleHeader(file: File): Promise<{ header: BundleHead
     } catch { return null }
 }
 
+const deviceOf = (h: BundleHeader): string => (typeof h.device === 'string' ? h.device.trim().slice(0, MAX_DEVICE) : '') || 'another device'
+
+async function projectOf(h: BundleHeader): Promise<TransferPayload | null> {
+    try { if (typeof h.project === 'string' && h.project.length <= MAX_PROJECT_CHARS) return await decodeProject(h.project, MAX_PROJECT_BYTES) } catch { /* the parts can still be used */ }
+    return null
+}
+
+/** A look at a parts file before loading it: its project (null when unreadable), the device that made it and how many parts it lists. Null when it is not a parts file. */
+export async function readBundleProject(file: File): Promise<{ project: TransferPayload | null; device: string; units: number } | null> {
+    const parsed = await readBundleHeader(file)
+    if (!parsed) return null
+    return { project: await projectOf(parsed.header), device: deviceOf(parsed.header), units: parsed.header.units.length }
+}
+
 const isUnit = (u: unknown): u is BundleUnit => {
     const x = u as BundleUnit
     return !!x && typeof x.portable === 'string' && Number.isSafeInteger(x.bytes) && x.bytes > 0 && Number.isSafeInteger(x.records) && x.records > 0
@@ -115,9 +132,8 @@ export async function importBundle(file: File, onProgress: (doneBytes: number, t
     const parsed = await readBundleHeader(file)
     if (!parsed) throw new Error('This is not a prepared parts file.')
     const { header: h, dataStart } = parsed
-    const device = (typeof h.device === 'string' ? h.device.trim().slice(0, MAX_DEVICE) : '') || 'another device'
-    let project: TransferPayload | null = null
-    try { if (typeof h.project === 'string' && h.project.length <= MAX_PROJECT_CHARS) project = await decodeProject(h.project, MAX_PROJECT_BYTES) } catch { /* the parts can still be used */ }
+    const device = deviceOf(h)
+    const project = await projectOf(h)
     const out: BundleImport = { project, imported: 0, refused: null, device, cancelled: false, skipped: { space: 0, damaged: 0, failed: 0 } }
     if (h.format !== FORMAT) { out.refused = 'This prepared parts file is from a different version of the app, so its parts were skipped. The project was loaded.'; return out }
     if (h.renderVersion !== RENDER_VERSION) { out.refused = 'These prepared parts were made by a different version of the app, so they were skipped. The project was loaded.'; return out }

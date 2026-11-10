@@ -7,7 +7,8 @@ vi.mock('../render', () => ({ renderReel: vi.fn() }))
 vi.mock('../graphics/prepare', () => ({ prepareSpec: vi.fn(async () => undefined) }))
 vi.mock('../graphics/logoStore', () => ({ loadCustomLogo: vi.fn(async () => null) }))
 
-import { reuseKeysFor, saveExportToFile } from './renderRequest'
+import { reuseKeysFor, saveExportToFile, startExport } from './renderRequest'
+import { partsSaveStore } from '../prepare/partsSave'
 
 const plan = { cuts: [{ sourceIndex: 0, startSec: 0, endSec: 1 }], sources: [], outputName: 'match.mp4', signature: 's', kind: 'fullMatch', spec: undefined } as unknown as ExportPlan
 
@@ -27,6 +28,16 @@ describe('saveExportToFile', () => {
         await saveExportToFile('fullMatch', plan, true)
         expect(renderJobs().getState().job).toBeNull()
         vi.unstubAllGlobals()
+    })
+})
+
+describe('startExport while prepared parts are being saved', () => {
+    beforeEach(() => { resetRenderJobs(); partsSaveStore.setState({ phase: 'idle' }) })
+    it('should not start a render (the file being saved points at the cache\'s parts)', () => {
+        partsSaveStore.setState({ phase: 'saving' })
+        startExport('fullMatch', 'full', plan, true)
+        expect(renderJobs().getState().job).toBeNull()
+        partsSaveStore.setState({ phase: 'idle' })
     })
 })
 

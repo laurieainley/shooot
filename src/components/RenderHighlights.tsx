@@ -4,6 +4,7 @@ import { useAppState } from '../state'
 import { estimatePlanTime, highlightsExport, planOutput, sourceFactsFor, type ExportState, type PlanOutput } from '../utils/exportPlans'
 import { saveExportToFile, startExport } from './renderRequest'
 import { useRenderJobs } from '../renderJobs'
+import { usePartsSave } from '../prepare/partsSave'
 import { useBaseline } from '../prepare/baseline'
 import type { RenderQuality } from '../utils/renderSources'
 import { applyStorageFit, qualityOptions, QUALITY_LABEL, resolveHighlightsQuality, saveToFileQuality } from '../utils/outputQuality'
@@ -42,7 +43,8 @@ export function RenderHighlights() {
     const [missing, setMissing] = useState<string[]>([])
 
     const hasProxies = files.some((f) => f.kind === 'proxy')
-    const disabled = files.length === 0 || !hasEvents
+    const savingParts = usePartsSave((s) => s.phase === 'saving') // the parts file being saved points at the cache's parts
+    const disabled = files.length === 0 || !hasEvents || savingParts
     const base = useMemo(() => {
         const p = highlightsExport(st, 'full')
         return { file: p.sources[p.cuts[0]?.sourceIndex ?? 0]?.file, seconds: p.seconds, bytes: p.bytes, plan: p }

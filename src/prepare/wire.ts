@@ -114,7 +114,7 @@ export function startAppPreparer(): () => void {
     const onFocus = (): void => { if (document.visibilityState === 'visible') p.notifyFocus() }
     window.addEventListener('focus', onFocus)
     document.addEventListener('visibilitychange', onFocus)
-    registerPreparerControl({ hold: () => p.hold(), idle: () => p.idle(), totals: (k) => p.totalsFor(k) })
+    registerPreparerControl({ hold: (why) => p.hold(why), idle: () => p.idle(), totals: (k) => p.totalsFor(k), refresh: () => p.refresh() })
     p.start()
     return () => {
         registerPreparerControl(null)

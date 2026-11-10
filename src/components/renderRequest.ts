@@ -1,4 +1,5 @@
 import { prepareSpec } from '../graphics/prepare'
+import { isSavingParts } from '../prepare/partsSave'
 import { graphicsSupport } from '../utils/capabilities'
 import type { ExportPlan } from '../utils/exportPlans'
 import type { JobKind } from '../render/renderJob'
@@ -59,6 +60,7 @@ export async function reuseKeysFor(plan: ExportPlan): Promise<ReuseKeys | undefi
  * The background preparer stops from the click and the render waits until it has; `withoutPrepared` runs with the unit cache off (the comparison baseline).
  */
 export function startExport(kind: JobKind, quality: 'full' | 'preview', plan: ExportPlan, long: boolean, targetFile?: FileSystemFileHandle, withoutPrepared = false): void {
+    if (isSavingParts()) return // the parts file being written points at the cache's own parts (the buttons are disabled meanwhile)
     if (long) askNotifyPermission() // inside the click
     const jobs = renderJobs().getState()
     const hold = holdPreparer()

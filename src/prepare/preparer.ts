@@ -32,7 +32,7 @@ export type Wanted = { kind: CacheKind; quality: Quality; plan: ExportPlan }
 export type PrepareStatus =
     | { kind: 'hidden' }
     | { kind: 'preparing'; what: string; percent: number }
-    | { kind: 'paused'; byUser: boolean }
+    | { kind: 'paused'; byUser: boolean; /** Held only by a prepared parts file being saved or loaded. */ for?: 'parts' }
     | { kind: 'ready'; text: string; what?: string }
     | { kind: 'nospace'; text: string }
 
@@ -90,6 +90,7 @@ export class Preparer {
     readonly store: StoreApi<PrepareUi>
     private readonly gate = new Gate(PARALLEL_UNITS)
     private holds = 0
+    private partsHolds = 0
     private busy = false
     private paused = false
     private stopped = true
@@ -158,6 +159,11 @@ export class Preparer {
         }
         this.trigger(STRUCTURE_QUIET_MS)
     }
+    /** The unit cache got parts from elsewhere (a prepared parts file): plan again now, even a plan already prepared or failed. */
+    refresh(): void {
+        this.done.clear(); this.failed.clear(); this.blocked.clear()
+        this.trigger(0)
+    }
     /** The window got focus or the tab became visible: the disk may have changed. */
     notifyFocus(): void { if (this.blocked.size > 0) { this.blocked.clear(); this.trigger(0) } }
 
@@ -179,8 +185,9 @@ export class Preparer {
     }
 
     /** An export is starting: stop the pass now. Returns the release to call when the export is over. */
-    hold(): () => void {
+    hold(why?: 'parts'): () => void {
         this.holds++
+        if (why === 'parts') this.partsHolds++
         if (this.holds === 1) this.lastHeld = this.deps.now()
         this.interrupt()
         this.refreshStatus()
@@ -189,6 +196,7 @@ export class Preparer {
             if (released) return
             released = true
             this.holds = Math.max(0, this.holds - 1)
+            if (why === 'parts') this.partsHolds = Math.max(0, this.partsHolds - 1)
             if (this.holds === 0) { this.addPaused(this.deps.now() - this.lastHeld); this.trigger(STRUCTURE_QUIET_MS * 2) }
             this.refreshStatus()
         }
@@ -363,7 +371,7 @@ export class Preparer {
         let status: PrepareStatus
         if (wanted.length === 0) status = { kind: 'hidden' }
         else if (this.paused) status = { kind: 'paused', byUser: true }
-        else if (this.holds > 0) status = { kind: 'paused', byUser: false }
+        else if (this.holds > 0) status = this.partsHolds === this.holds ? { kind: 'paused', byUser: false, for: 'parts' } : { kind: 'paused', byUser: false }
         else if (this.pass) {
             const st = s.shares[this.pass.kind]?.state
             status = { kind: 'preparing', what: NAMES[this.pass.kind], percent: st && st.totalSec > 0 ? Math.floor(100 * st.readySec / st.totalSec) : 0 }

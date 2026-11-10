@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { useAppState } from '../state'
-import { acceptAttr } from '../utils/fileAccept'
+import { addFilesAcceptAttr } from '../utils/fileAccept'
 import { notePicked, openMediaPicker } from './pickerStatus'
 import { addPickedFiles } from './addFiles'
 import { filePicker, pickWithHandles } from '../files/handleStore'
@@ -34,7 +34,7 @@ export function AddFilesButton({ label = '+ files', className = 'file-add', onEr
                 ref={inputRef}
                 type="file"
                 multiple
-                accept={acceptAttr()}
+                accept={addFilesAcceptAttr()}
                 onChange={async (evt) => {
                     const picked = Array.from(evt.target.files ?? [])
                     notePicked(picked)

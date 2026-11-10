@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { opfsUnitStore, importUnit, RENDER_VERSION } from '../render/unitCache'
 import type { LogRecord } from '../render/packetLog'
-import { buildBundle, importBundle, readBundleHeader, MAGIC, type BundleHeader } from './bundle'
+import { buildBundle, importBundle, preparedSummary, readBundleHeader, readBundleProject, MAGIC, type BundleHeader } from './bundle'
 import type { TransferPayload } from '../utils/projectTransfer'
 
 const MAGIC_TEXT = 'shooot-parts\n'
@@ -259,5 +259,28 @@ describe('prepared parts file', () => {
         const r = await importBundle(new File([new TextEncoder().encode(MAGIC_TEXT), l, enc, bytes.slice(head!.dataStart)], 'x'), () => undefined, new AbortController().signal)
         expect(r.imported).toBe(0)
         void importUnit
+    })
+    it('should peek at the project, the device and the part count without importing anything', async () => {
+        const root = install()
+        await prepared()
+        const file = new File([await buildBundle('p', opts)], 'x')
+        wipe(root)
+        const peek = await readBundleProject(file)
+        expect(peek).toMatchObject({ device: 'Pixel', units: 2 })
+        expect(peek!.project?.teams).toHaveLength(2)
+        expect(await opfsUnitStore().findPortable(P1)).toBeNull()
+        expect(await readBundleProject(new File(['not a parts file'], 'x'))).toBeNull()
+    })
+    it('should summarise and save only the kinds asked for (the open project\'s), sizes read without counting records', async () => {
+        install()
+        await prepared()
+        const all = await preparedSummary()
+        expect(all.units).toBe(2)
+        const full = await preparedSummary({ kinds: ['fullMatch'] })
+        expect(full.units).toBe(1)
+        expect(full.bytes).toBeGreaterThan(0)
+        const head = await readBundleHeader(new File([await buildBundle('p', { ...opts, kinds: ['fullMatch'] })], 'x'))
+        expect(head!.header.units.map((u) => u.portable)).toEqual([P1])
+        expect(head!.header.units[0].records).toBe(3)
     })
 })

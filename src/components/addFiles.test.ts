@@ -7,6 +7,8 @@ type Probe = (f: File) => Promise<ProbedMetadata>
 const processVideoFiles = vi.fn<(files: File[], probe: Probe) => Promise<{ files: VideoSourceFile[]; error: string | null }>>()
 vi.mock('../utils/processFiles', () => ({ processVideoFiles: (files: File[], probe: Probe) => processVideoFiles(files, probe) }))
 vi.mock('../utils/probe', () => ({ probeVideoFile: vi.fn(async () => ({ accepted: true, playable: true, durationSec: 60 })) }))
+const loadPartsFile = vi.fn<(f: File) => Promise<void>>(async () => undefined)
+vi.mock('../prepare/partsLoad', () => ({ loadPartsFile: (f: File) => loadPartsFile(f) }))
 
 import { addPickedFiles, replacePickedFile } from './addFiles'
 
@@ -41,6 +43,33 @@ describe('addPickedFiles', () => {
         processVideoFiles.mockRejectedValue(new Error('boom'))
         await expect(addPickedFiles([sized('x.mp4', 10)])).resolves.toBe('boom')
         expect(useAppState.getState().opening).toBeNull()
+    })
+})
+
+describe('addPickedFiles with a prepared parts file', () => {
+    beforeEach(() => {
+        processVideoFiles.mockReset()
+        loadPartsFile.mockClear()
+        useAppState.setState({ files: [], events: [], cumulativeOffsets: [], currentFileIndex: 0, opening: null })
+    })
+
+    it('should hand a .shooot-parts file to the parts loader, not the video probe', async () => {
+        const parts = sized('Whites v Colours · prepared parts.shooot-parts', 10)
+        await expect(addPickedFiles([parts])).resolves.toBeNull()
+        expect(processVideoFiles).not.toHaveBeenCalled()
+        expect(loadPartsFile).toHaveBeenCalledWith(parts)
+    })
+
+    it('should add the videos picked with it first, then load the parts', async () => {
+        const order: string[] = []
+        processVideoFiles.mockImplementation(async () => { order.push('videos'); return { files: [vf('GX010042.MP4')], error: null } })
+        loadPartsFile.mockImplementation(async () => { order.push('parts') })
+        const parts = sized('m.SHOOOT-PARTS', 10)
+        const video = sized('GX010042.MP4', 10)
+        await addPickedFiles([parts, video])
+        expect(Array.from(processVideoFiles.mock.calls[0][0])).toEqual([video])
+        expect(order).toEqual(['videos', 'parts'])
+        expect(useAppState.getState().files.map((f) => f.name)).toEqual(['GX010042.MP4'])
     })
 })
 

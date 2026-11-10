@@ -7,6 +7,8 @@ import { parseGoProName } from '../utils/gopro'
 import { currentPlaybackPref, MP4_FALLBACK_TOAST } from './playbackPref'
 import { showToast } from '../toasts'
 import { openingLabel } from '../utils/opening'
+import { isPartsFileName } from '../prepare/partsFile'
+import { loadPartsFile } from '../prepare/partsLoad'
 
 /** Probe picked files, showing "Opening <name> (<size>)…" in the store while each one is read. */
 async function openFiles(files: File[]): Promise<{ files: VideoSourceFile[]; error: string | null }> {
@@ -31,7 +33,16 @@ async function openFiles(files: File[]): Promise<{ files: VideoSourceFile[]; err
  * Adds picked or dropped files to the timeline. Full-quality videos whose proxy (a GoPro .LRV preview) is already
  * loaded are attached to it for rendering; everything else is probed and appended. Returns an error message, if any.
  */
-export async function addPickedFiles(picked: File[]): Promise<string | null> {
+export async function addPickedFiles(all: File[]): Promise<string | null> {
+    // A prepared parts file (from a phone / iPad) is loaded after the videos picked with it, so its project lands on them.
+    const parts = all.find((f) => isPartsFileName(f.name))
+    const picked = all.filter((f) => !isPartsFileName(f.name))
+    const error = await addVideoFiles(picked)
+    if (parts) void loadPartsFile(parts)
+    return error
+}
+
+async function addVideoFiles(picked: File[]): Promise<string | null> {
     if (picked.length === 0) return null
     const fulls = picked.filter((f) => parseGoProName(f.name)?.kind === 'full')
     // A full file picked after its LRV is probed so the pair can play either one.

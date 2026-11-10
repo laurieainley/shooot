@@ -8,6 +8,7 @@
 // differ (hardware/software, parts from another device): see encoderJoin. An interrupted render loses at
 // most the unit in progress (about two minutes of output).
 import { emptyStats } from './experiments'
+import { devExperiments } from './devExperiments'
 import { EncodedAudioPacketSource, EncodedPacket, EncodedPacketSink, EncodedVideoPacketSource, Mp4OutputFormat, Output, VideoSampleSink, type VideoSample } from 'mediabunny'
 import { RenderDiagnostics, errorInfo } from './diagnostics'
 import type { LogRecord } from './packetLog'
@@ -64,7 +65,7 @@ class FrameCount {
 export async function renderTranscoded(cuts: Cut[], sources: RenderSource[], opts: RenderOptions, diag: RenderDiagnostics): Promise<File | Blob> {
     const out = opts.output!
     const jobKind: JobKind = opts.resumable?.kind ?? 'fullMatch'
-    const exp = opts.experiments
+    const exp = opts.experiments ?? devExperiments()
     const stats = emptyStats()
     const perfStart = performance.now()
     const now = (): number => performance.now()

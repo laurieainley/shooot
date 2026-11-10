@@ -18,4 +18,8 @@ describe('pillText', () => {
         expect(pillText(ready, { touch: true })?.label).toBe('Full match and highlights prepared ✓')
         expect(pillText({ kind: 'ready', text: 'x' }, { touch: true })?.label).toBe('Ready ✓')
     })
+    it('should say why it waits while a prepared parts file is saved or loaded (not "exporting")', () => {
+        expect(pillText({ kind: 'paused', byUser: false, for: 'parts' })).toMatchObject({ label: 'Paused for the parts file', tip: 'Preparing carries on when the prepared parts file is saved or loaded.' })
+        expect(pillText({ kind: 'paused', byUser: false })?.label).toBe('Paused while exporting')
+    })
 })

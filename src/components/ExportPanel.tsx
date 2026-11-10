@@ -10,6 +10,7 @@ import { PreviewControls } from './PreviewControls'
 import { RenderHighlights } from './RenderHighlights'
 import { ReelSummary } from './ReelSummary'
 import { ShareSteps } from './ShareSteps'
+import { SavePreparedParts } from './SavePreparedParts'
 import { getTheme } from '../graphics/themes'
 import { useExportButtonStatus } from './useExportButtonStatus'
 import { useTeaserLength } from './useTeaserLength'
@@ -79,6 +80,7 @@ export function ExportPanel() {
                             <ReelSummary />
                             <PreviewControls onStart={() => setOpen(false)} />
                             <RenderHighlights />
+                            <SavePreparedParts />
                             <div className="export-disclosures">
                                 <ExportDisclosure id="clips" title="Clips & replays" summary={clipsSummary({ before, after, replaySpeed, teaserSec: teaserOn ? teaserLen.seconds : 0 })}>
                                     <ClipSettings />
@@ -94,6 +96,7 @@ export function ExportPanel() {
                     ) : (
                         <div role="tabpanel" id="export-panel-fullMatch" aria-labelledby="export-tab-fullMatch" className="export-stack">
                             <FullMatchExport />
+                            <SavePreparedParts />
                             <div className="export-disclosures">
                                 <ExportDisclosure id="share" title="Share on YouTube" summary="upload, description and thumbnail">
                                     <ShareSteps kind="fullMatch" />
