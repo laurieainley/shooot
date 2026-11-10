@@ -15,6 +15,11 @@ export function RailTabs() {
         if (st.files.length === 0 && st.events.length === 0) setRailTab('matches')
     }, [])
 
+    // Footage arriving into an empty editor brings the Events tab (where Tag event lives) forward from the Matches list it opened on.
+    useEffect(() => useAppState.subscribe((st, prev) => {
+        if (prev.files.length === 0 && st.files.length > 0) setRailTab('events')
+    }), [])
+
     // L focuses the event log; from the Matches tab it first brings the Events tab back.
     useEffect(() => {
         const onKey = (e: globalThis.KeyboardEvent): void => {
