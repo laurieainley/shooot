@@ -6,6 +6,7 @@ import {
 import { clearOldOutputs } from './storage'
 import { fileSource } from './fileSource'
 import { lengthSize } from './nal'
+import { splitSampleEntries, type ByteSource } from './sampleEntries'
 import type { RenderSource } from './types'
 
 export type OpenSource = {
@@ -38,6 +39,28 @@ export async function openSource(src: RenderSource): Promise<OpenSource> {
     return { input, video, audio: await input.getPrimaryAudioTrack(), endSec, config, nalLength }
 }
 
+const blobSource = (b: Blob): ByteSource => ({ size: b.size, read: async (s, e) => new Uint8Array(await b.slice(s, e).arrayBuffer()) })
+
+/** Gives a finished spliced MP4 one sample entry per distinct set of parameter sets (Apple players need that); a file that does not need it, or any failure, leaves it as written. */
+async function withSampleEntries(file: File, handle: FileSystemFileHandle): Promise<File> {
+    try {
+        if ((globalThis as { __noSplit?: boolean }).__noSplit) return file
+        const split = await splitSampleEntries(blobSource(file))
+        if (!split) return file
+        const w = await handle.createWritable({ keepExistingData: true })
+        try {
+            await w.seek(split.moovStart)
+            await w.write(split.moov)
+            await w.truncate(split.moovStart + split.moov.length)
+            await w.close()
+        } catch (e) { await w.abort().catch(() => undefined); throw e }
+        return await handle.getFile()
+    } catch (e) {
+        console.warn('Sample entries not split', e)
+        return file
+    }
+}
+
 export type OutputTarget = { target: Target; result: () => Promise<File | Blob>; discard: () => Promise<void> }
 
 export async function makeTarget(name: string, into?: FileSystemFileHandle): Promise<OutputTarget> {
@@ -55,7 +78,7 @@ export async function makeTarget(name: string, into?: FileSystemFileHandle): Pro
         })
         return {
             target: new StreamTarget(sink, { chunked: true }),
-            result: () => handle.getFile(),
+            result: async () => withSampleEntries(await handle.getFile(), handle),
             // A writable that was never closed keeps a swap copy of the file (in WebKit and Chrome): abort it first (a no-op once it is closed).
             discard: async () => { await writable.abort().catch(() => undefined); if (!into) await root.removeEntry(name).catch(() => undefined) },
         }
@@ -65,7 +88,11 @@ export async function makeTarget(name: string, into?: FileSystemFileHandle): Pro
         const target = new BufferTarget()
         return {
             target,
-            result: async () => new Blob([target.buffer!], { type: 'video/mp4' }),
+            result: async () => {
+                const whole = new Blob([target.buffer!], { type: 'video/mp4' })
+                const split = await splitSampleEntries(blobSource(whole)).catch(() => null)
+                return split ? new Blob([whole.slice(0, split.moovStart), split.moov], { type: 'video/mp4' }) : whole
+            },
             discard: async () => undefined,
         }
     }
