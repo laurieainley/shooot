@@ -52,6 +52,9 @@ export function generateYouTubeChapters(
     return lines.join('\n')
 }
 
+/** Both videos list only goals (penalty and own goals included) and penalties missed or conceded: no highlights, saves or fouls. */
+const MATCH_CHAPTER_TYPES: ReadonlySet<string> = new Set(['goal', 'own_goal', 'penalty_missed', 'penalty_conceded'])
+
 export function generateHighlightChapters(
     goals: MatchEvent[], cumulativeOffsets: number[] = [], lengthBeforeGoalSec: number = 10,
     lengthAfterGoalSec: number = 4, teamOrder?: Team[], replay?: ReplayOptions,
@@ -73,14 +76,22 @@ export function highlightChapterLines(
     teamOrder?: Team[], replay?: ReplayOptions, offsetSec = 0, times?: Map<string, number>, teaser = false,
 ): string[] {
     goals = goals.filter((g) => !isMarker(g))
-    const sorted = [...goals].sort((a, b) => absTime(a, cumulativeOffsets) - absTime(b, cumulativeOffsets))
+    const all = [...goals].sort((a, b) => absTime(a, cumulativeOffsets) - absTime(b, cumulativeOffsets))
+    // Like the full match: only goals and penalties get chapters, not highlights, saves or fouls.
+    const sorted = all.filter((g) => MATCH_CHAPTER_TYPES.has(g.type))
     const teams = scoreTeams(goals, teamOrder)
     const running: Record<string, number> = {}
-    const lines: string[] = teaser && sorted.length > 0 ? ['00:00 Coming up'] : []
+    const lines: string[] = teaser && sorted.length > 0 ? ['00:00 Coming up']
+        : all.length > 0 && sorted[0] !== all[0] ? ['00:00 Start'] : []
     const segmentLength = lengthBeforeGoalSec + lengthAfterGoalSec
     let extra = 0 // seconds added by earlier replays
     let previous = 0
-    sorted.forEach((g, i) => {
+    // Estimates count every clip in the reel, listed or not.
+    all.forEach((g, i) => {
+        if (!MATCH_CHAPTER_TYPES.has(g.type)) {
+            if (replay && wantsReplay(g)) extra += Math.round((replay.beforeSec + replay.afterSec) / replay.speed)
+            return
+        }
         const exact = times?.get(g.id)
         // Chapters never go backwards (merged events can share their clip's start).
         const at = i === 0 && !lines.length ? 0 : exact !== undefined ? Math.max(previous, Math.floor(exact)) : i * (segmentLength + 1) + extra + offsetSec
@@ -90,9 +101,6 @@ export function highlightChapterLines(
     })
     return lines
 }
-
-/** The full match lists only goals (penalty and own goals included) and penalties missed or conceded: no highlights, saves or fouls. */
-const MATCH_CHAPTER_TYPES: ReadonlySet<string> = new Set(['goal', 'own_goal', 'penalty_missed', 'penalty_conceded'])
 
 /**
  * Chapter lines of the full match video, which starts at kick-off (after an optional title card of `offsetSec`):

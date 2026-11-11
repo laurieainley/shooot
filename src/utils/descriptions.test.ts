@@ -20,9 +20,7 @@ describe('highlightsDescription', () => {
             'Whites 1–1 Colours',
             '',
             '00:00 Goal 1-0 (Whites) Sam',
-            '00:15 Highlight Jo: nutmeg',
             '00:30 Goal 1-1 (Colours) Priya',
-            '00:45 Highlight',
             '',
             'Goalscorers',
             'Priya: 1',
@@ -32,12 +30,12 @@ describe('highlightsDescription', () => {
 
     it('should estimate without key-frame slack when the video is re-encoded (cuts are frame-exact)', () => {
         const exact = highlightsDescription({ ...base, introSec: 0, reencoded: true }).split('\n')
-        expect(exact.slice(2, 6)).toEqual(['00:00 Goal 1-0 (Whites) Sam', '00:14 Highlight Jo: nutmeg', '00:28 Goal 1-1 (Colours) Priya', '00:42 Highlight'])
+        expect(exact.slice(2, 4)).toEqual(['00:00 Goal 1-0 (Whites) Sam', '00:28 Goal 1-1 (Colours) Priya'])
     })
 
     it('should shift chapters after the title card but keep the first at 00:00', () => {
         const lines = highlightsDescription({ ...base, introSec: 4 }).split('\n')
-        expect(lines.slice(2, 4)).toEqual(['00:00 Goal 1-0 (Whites) Sam', '00:19 Highlight Jo: nutmeg'])
+        expect(lines.slice(2, 4)).toEqual(['00:00 Goal 1-0 (Whites) Sam', '00:34 Goal 1-1 (Colours) Priya'])
     })
 })
 
@@ -77,7 +75,7 @@ describe('fullMatchDescription lists goals and penalties only', () => {
         expect(text).toContain('Goal 1-0 (Whites) Sam')
         expect(text).toContain('Penalty conceded (Colours)')
         expect(text).toContain('Goal 1-1 (Colours) Priya')
-        expect(highlightsDescription({ ...base, events: evs, introSec: 0 })).toContain('Highlight Jo: nutmeg')
+        expect(highlightsDescription({ ...base, events: evs, introSec: 0 })).not.toMatch(/Highlight|Save|Foul/)
     })
 })
 
@@ -112,7 +110,7 @@ describe('highlightsDescription with a teaser', () => {
     it('should start with 00:00 Coming up, then the first event after the teaser and the card', () => {
         const lines = highlightsDescription({ ...args, introSec: 7, reencoded: true }).split('\n')
         // The teaser is the goal's own window (before + after = 14 s), then the 7 s card.
-        expect(lines.slice(2, 6)).toEqual(['00:00 Coming up', '00:21 Goal 1-0 (Whites) Sam', '00:35 Highlight Jo: nutmeg', '00:49 Goal 1-1 (Colours) Priya'])
+        expect(lines.slice(2, 5)).toEqual(['00:00 Coming up', '00:21 Goal 1-0 (Whites) Sam', '00:49 Goal 1-1 (Colours) Priya'])
     })
     it('should use the real timeline, which counts the teaser cuts', () => {
         // 1 teaser cut + 4 reel cuts; the render measured the reel starting at 30 s (card included).

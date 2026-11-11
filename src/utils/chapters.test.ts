@@ -132,18 +132,19 @@ describe('chapters — notes', () => {
         expect(out).toContain('12:14 Highlight (Whites) Sam: nutmeg on the wing')
         expect(out).toContain('13:20 Foul (Colours): late tackle')
         expect(out).toContain('15:00 Highlight: a very long description of a mazy run…')
-        expect(generateHighlightChapters(events, [0], 10, 4, TEAMS)).toContain('00:00 Highlight (Whites) Sam: nutmeg on the wing')
+        expect(generateHighlightChapters(events, [0], 10, 4, TEAMS)).not.toMatch(/Highlight|Foul/)
     })
 })
 
 describe('generateHighlightChapters — event types', () => {
-    it('should not advance the score for non-scoring events', () => {
+    it('should list only goals and penalties, after 00:00 Start, timed past the unlisted clips', () => {
         const events: MatchEvent[] = [
             { id: 'a', matchTimeSec: 60, sourceFileIndex: 0, type: 'save', team: 'Colours', scorer: 'Jo' },
             { id: 'b', matchTimeSec: 120, sourceFileIndex: 0, type: 'goal', team: 'Whites' },
         ]
         const out = generateHighlightChapters(events, [0], 10, 4, TEAMS)
-        expect(out).toContain('00:00 Save (Colours) Jo')
+        expect(out).toContain('00:00 Start')
+        expect(out).not.toContain('Save')
         expect(out).toContain('00:15 Goal 1-0 (Whites)')
     })
 })
@@ -158,7 +159,7 @@ describe('generateHighlightChapters — replays', () => {
     const out = generateHighlightChapters(events, [0], 10, 4, TEAMS, { beforeSec: 3, afterSec: 1, speed: 0.5 })
     // segment = 14 s + 1 s buffer; goal a adds a 8 s replay
     expect(out).toContain('00:00 Goal 1-0 (Whites)')
-    expect(out).toContain('00:23 Highlight')
+    expect(out).not.toContain('Highlight')
     expect(out).toContain('00:38 Goal 2-0 (Whites)')
   })
 })
