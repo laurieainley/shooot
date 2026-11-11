@@ -47,6 +47,21 @@ export function hasInbandParams(data: Uint8Array, hevc: boolean, ls: number): bo
     return false
 }
 
+/** The in-band parameter sets of a sample (VPS/SPS/PPS, or SPS/PPS) as hex strings, for counting how many different ones a track carries. */
+export function inbandParamKeys(data: Uint8Array, hevc: boolean, ls: number): string[] {
+    const types = hevc ? [32, 33, 34] : [7, 8]
+    const keys: string[] = []
+    for (let o = 0; o + ls < data.length;) {
+        let len = 0
+        for (let i = 0; i < ls; i++) len = len * 256 + data[o + i]
+        const nal = data.subarray(o + ls, o + ls + len)
+        const t = nalType(nal, hevc)
+        if (types.includes(t)) keys.push(`${t}:${Array.from(nal, (b) => b.toString(16).padStart(2, '0')).join('')}`)
+        o += ls + len
+    }
+    return keys
+}
+
 /** Profile part of a WebCodecs codec string: HEVC `hvc1.2.4.L120.B0` -> "2", H.264 `avc1.640028` -> "64". */
 export function profileOf(codec: string): string {
     const parts = codec.split('.')
