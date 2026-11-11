@@ -206,7 +206,9 @@ export class GraphicsSession {
         const bytes = packets.slice(keyIdx[span.from], end).reduce((a, p) => a + p.data.byteLength, 0)
         const fromBytes = Math.max(1e6, (bytes * 8 * 1.3) / Math.max(this.frameSec, span.outEnd - span.outStart))
         // Rescaled footage is smaller than its source: cap at what the output size needs.
-        const wantedRate = this.rescaled.has(src) ? Math.min(fromBytes, Math.max(8e6, (this.width * this.height) / (1920 * 1080) * 25e6)) : fromBytes
+        // Re-encoded footage (every picture goes through the encoder) also stays within the level the encoder chose for the cards: asked for more, it
+        // labels the span with a higher level, and one more different SPS in the track is one more chance for QuickTime to refuse it.
+        const wantedRate = this.rescaled.has(src) ? Math.min(fromBytes, Math.max(8e6, (this.width * this.height) / (1920 * 1080) * 25e6), maxBitrateForLevel(this.setup.limits, this.hevc)) : fromBytes
         // Never above what the sample entry's level allows: asked for more (GoPro 4K: ~90 Mbps × 1.3), the encoder labels
         // the span a higher level (6.1 under a 6.0 entry) and it cannot be spliced in.
         const bitrate = Math.min(wantedRate, maxBitrateForLevel(this.entryLimits, this.hevc))
@@ -353,8 +355,18 @@ export class GraphicsSession {
     }
 }
 
+/**
+ * True when the export must not splice footage GOPs between encoder-made GOPs: a single clip of HEVC footage. An HEVC track
+ * with several different VPS/SPS/PPS under one `hvc1` sample entry plays in Chrome but QuickTime / Quick Look decode with the
+ * entry's sets only and show black (found with a GoPro clip: footage, caption and sting each carried their own SPS).
+ * A clip is short, so re-encoding all of it costs seconds; highlights and full match keep their stream copy.
+ */
+export function reencodesFootage(kind: 'highlights' | 'fullMatch' | 'clip' | undefined, hevc: boolean): boolean {
+    return kind === 'clip' && hevc
+}
+
 /** Sets up graphics for these sources, or throws with the reason they cannot be made. */
-export async function openGraphicsSession(sources: GraphicsSource[], first: GraphicsSource, diag?: RenderDiagnostics): Promise<GraphicsSession> {
+export async function openGraphicsSession(sources: GraphicsSource[], first: GraphicsSource, diag?: RenderDiagnostics, o: { reencodeFootage?: boolean } = {}): Promise<GraphicsSession> {
     if (typeof VideoEncoder === 'undefined' || typeof VideoDecoder === 'undefined' || typeof OffscreenCanvas === 'undefined') {
         throw new Error('this browser cannot encode video')
     }
@@ -369,7 +381,8 @@ export async function openGraphicsSession(sources: GraphicsSource[], first: Grap
     for (const s of sources) {
         if (!s.config.description) throw new Error('the video has no parameter sets in its sample entry')
         // Another frame size: its footage is re-encoded to the output size, so its parameter sets never reach the file.
-        if (s.video.codedWidth !== width || s.video.codedHeight !== height) { rescaled.add(s); continue }
+        // `reencodeFootage`: every picture goes through the one encoder, so no footage parameter set reaches the file (see reencodesFootage).
+        if (o.reencodeFootage || s.video.codedWidth !== width || s.video.codedHeight !== height) { rescaled.add(s); continue }
         if (s.nalLength !== first.nalLength) throw new Error('the clips use different NAL length sizes')
         const params = paramSets(s.config.description, hevc)
         const sps = spsOf(params, hevc)

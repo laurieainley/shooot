@@ -8,8 +8,8 @@ import { renderTranscoded } from './transcodeEngine'
 import { RenderDiagnostics, describeParams, errorInfo, publishReport } from './diagnostics'
 import { isStorageFull } from './storage'
 import { cropLabels, cropOverlayFor } from './cropOverlay'
-import { openGraphicsSession, type GraphicsSession, type OutItem } from './graphicsSession'
-import { hasInbandParams, joinEntryConfig, planJoin, profileOf, type JoinPlan } from './joinParams'
+import { openGraphicsSession, reencodesFootage, type GraphicsSession, type OutItem } from './graphicsSession'
+import { hasInbandParams, inbandParamKeys, joinEntryConfig, planJoin, profileOf, type JoinPlan } from './joinParams'
 import { craToBla, withInbandParams } from './nal'
 import { clipPartSeconds, replayPartAfter } from './captionJoin'
 import { planAudio } from './audioPlan'
@@ -151,7 +151,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
         if (run) {
             const endSession = diag.begin('graphicsSession')
             try {
-                session = await openGraphicsSession([...used].map((i) => opened[i]), first, diag)
+                session = await openGraphicsSession([...used].map((i) => opened[i]), first, diag, { reencodeFootage: reencodesFootage(opts.resumable?.kind ?? opts.kind, first.video.codec === 'hevc') })
                 if (signal) session.signal = signal
             } catch (e) {
                 if (odd.length > 0) throw new Error(`Clips have different frame sizes and cannot be scaled in this browser: ${errorText(e)}`)
@@ -301,7 +301,11 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
         let aFirst = true
         let copied = journal?.state.copied ?? false
         const aOut = hasAudio // audio track present (direct or journaled)
+        // Apple check: QuickTime decodes an hvc1/avc1 track with the sample entry's parameter sets, so every different in-band SPS is a risk.
+        const paramKeys = new Set<string>()
+        const hevcOut = first.video.codec === 'hevc'
         const addVideo = async (p: EncodedPacket): Promise<void> => {
+            if (p.type === 'key') for (const k of inbandParamKeys(p.data, hevcOut, first.nalLength)) paramKeys.add(k)
             if (unitWriter) await unitWriter.write({ track: 0, key: p.type === 'key', timestamp: p.timestamp, duration: p.duration, data: p.data })
             else await direct!.vOut.add(p, vFirst ? vMeta : undefined)
             vFirst = false
@@ -553,6 +557,8 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                 spanReport()
                 return file
             }
+            const spsCount = [...paramKeys].filter((k) => k.startsWith(hevcOut ? '33:' : '7:')).length
+            diag.note(`Parameter sets in the track: ${spsCount} different SPS in-band${spsCount > 1 ? ' (QuickTime may not play more than one under a single sample entry)' : ''}`)
             const endFin = diag.begin('finalize')
             await direct!.output.finalize()
             const file = await direct!.result()
