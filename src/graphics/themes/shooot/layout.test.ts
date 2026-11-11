@@ -435,30 +435,67 @@ const big = ft(
 const scorerOps = (ops: DrawOp[]): TextOp[] => texts(ops).filter((o) => o.y > 650 && o.y < END_LINE_Y - 20 && (o.voice === 'mono' || o.voice === 'shirt'))
 
 describe('full-time scorers', () => {
-    it('should draw tally lines on one line beside the name, clear of the centre line and the safe area', () => {
-        const spec = ft([{ name: 'DAN', minutes: '', tally: '8 GOALS (2 ASSISTS)' }, { name: 'SMITH (OG)', minutes: '', tally: '2' }, { name: 'SAM', minutes: '', tally: '' }], [{ name: 'JO', minutes: '', tally: '1 GOAL' }])
-        const ops = texts(cardLayout(spec, 2, 4, false))
-        const t = ops.find((o) => o.text === '8 GOALS (2 ASSISTS)')!
-        expect(t.voice).toBe('mono')
-        expect(t.x + estimateTextWidth(t.text, t.size, 'mono')).toBeLessThanOrEqual(940)
-        expect(ops.find((o) => o.text === '1 GOAL')!.x).toBeGreaterThan(960)
-        expect(ops.some((o) => o.text === '' )).toBe(false)
-        expect(ops.find((o) => o.text === '2')).toBeDefined()
-    })
+    describe('table', () => {
+        const row = (name: string, goals: number, assists = 0, og = 0): ScorerLine => ({ name, minutes: '', stats: { goals, assists, og } })
+        const spec = ft([row('DAN', 9, 1), row('SAM', 0, 4), row('SMITH', 0, 0, 1)], [row('JO', 2)])
+        const at = (ops: TextOp[], text: string, y: number): TextOp => ops.find((o) => o.text === text && Math.abs(o.y - y) < 1)!
 
-    it('should wrap a very long tally between the goals and the assists, never inside', () => {
-        const ops = texts(cardLayout(ft([{ name: 'DAN', minutes: '', tally: '10 GOALS (10 ASSISTS)' }], []), 2, 4, false))
-        expect(ops.filter((o) => o.text === '10 GOALS' || o.text === '(10 ASSISTS)')).toHaveLength(2)
-    })
+        it('should draw a muted G A OG header and right-aligned numeric columns under each team', () => {
+            const ops = texts(cardLayout(spec, 2, 4, false))
+            for (const cx of [520, 1400]) {
+                const heads = ['G', 'A', 'OG'].map((h) => ops.find((o) => o.text === h && o.x > cx - 100 && o.x < cx + 400)!)
+                for (const h of heads) { expect(h.color).toBe(C.muted); expect(h.voice).toBe('mono'); expect(h.align).toBe('right') }
+                expect(heads.map((h) => h.x)).toEqual([cx + 110, cx + 180, cx + 250])
+            }
+            const dan = ops.find((o) => o.text === 'DAN')!
+            const nine = ops.find((o) => o.text === '9')!
+            expect(nine).toMatchObject({ align: 'right', voice: 'mono', x: 630, y: dan.y })
+            expect(ops.find((o) => o.text === '1' && o.y === dan.y)).toMatchObject({ x: 700 })
+        })
 
-    it('should end a long tally column with a +N MORE line instead of overflowing', () => {
-        const rows = Array.from({ length: 12 }, (_, i) => ({ name: `P${i}`, minutes: '', tally: `${12 - i} GOALS` }))
-        const ops = texts(cardLayout(ft(rows, []), 2, 4, false))
-        const more = ops.find((o) => /^\+\d+ MORE$/.test(o.text))!
-        expect(more).toBeDefined()
-        expect(more.y).toBeLessThan(END_LINE_Y - 20)
-        const shown = ops.filter((o) => o.voice === 'shirt' && o.y > 650 && o.y < END_LINE_Y - 20).length
-        expect(more.text).toBe(`+${12 - shown} MORE`)
+        it('should show zeros as a muted en dash and list only that team\'s rows in each column', () => {
+            const ops = texts(cardLayout(spec, 2, 4, false))
+            const sam = ops.find((o) => o.text === 'SAM')!
+            const rowOps = ops.filter((o) => o.y === sam.y && o.x < 960)
+            expect(rowOps.map((o) => o.text)).toEqual(['SAM', '–', '4', '–'])
+            expect(rowOps.filter((o) => o.text === '–').every((o) => o.color === C.muted)).toBe(true)
+            expect(ops.find((o) => o.text === 'JO')!.x).toBeGreaterThan(960)
+            expect(ops.filter((o) => o.text === 'SAM' || o.text === 'DAN').every((o) => o.x < 960)).toBe(true)
+        })
+
+        it('should keep the columns clear of the centre line and the safe area, names left-aligned and cut before the numbers', () => {
+            const long = ft([row('MAXIMILIAN ALEXANDER-FOTHERINGHAM', 12, 3, 1)], [row('JO', 1)])
+            const ops = texts(cardLayout(long, 2, 4, false))
+            const name = ops.find((o) => o.voice === 'shirt' && o.y > 650)!
+            expect(name.text.endsWith('…')).toBe(true)
+            expect(name.align).toBe('left')
+            expect(name.x + estimateTextWidth(name.text, name.size, 'shirt')).toBeLessThanOrEqual(630 - 45)
+            for (const o of ops.filter((t) => t.y > 650 && t.y < END_LINE_Y - 20 && t.align === 'right')) expect(o.x).toBeLessThanOrEqual(o.x < 960 ? 940 : 1920 - 96)
+            expect(Math.min(...ops.filter((t) => t.voice === 'shirt' && t.x < 960 && t.y > 650).map((t) => t.x))).toBeGreaterThanOrEqual(96)
+        })
+
+        it('should shrink then end a long table with +N MORE, never past the end line', () => {
+            const rows = Array.from({ length: 14 }, (_, i) => row(`P${i}`, 14 - i))
+            const ops = texts(cardLayout(ft(rows, []), 2, 4, false))
+            const more = ops.find((o) => /^\+\d+ MORE$/.test(o.text))!
+            expect(more).toBeDefined()
+            expect(more.y + more.size / 2).toBeLessThanOrEqual(END_LINE_Y - 14)
+            const shown = ops.filter((o) => /^P\d+$/.test(o.text)).length
+            expect(shown).toBeLessThan(14)
+            expect(more.text).toBe(`+${14 - shown} MORE`)
+            expect(ops.find((o) => o.text === 'P0')!.size).toBeLessThan(38.5)
+        })
+
+        it('should fit eight rows without +N MORE at the smallest scale', () => {
+            const ops = texts(cardLayout(ft(Array.from({ length: 8 }, (_, i) => row(`P${i}`, 8 - i)), []), 2, 4, false))
+            expect(ops.some((o) => /MORE/.test(o.text))).toBe(false)
+            expect(at(ops, 'P7', ops.find((o) => o.text === 'P7')!.y).y + 20).toBeLessThanOrEqual(END_LINE_Y - 14)
+        })
+
+        it('should leave a team without rows empty', () => {
+            const ops = texts(cardLayout(ft([row('DAN', 8)], []), 2, 4, false))
+            expect(ops.filter((o) => o.text === 'G')).toHaveLength(1)
+        })
     })
 
     it('should wrap an 8-goal scorer onto 2 lines at full size, between minutes', () => {

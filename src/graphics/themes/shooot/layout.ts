@@ -131,18 +131,28 @@ const MINUTES_W = 380
 const NAME_W = 330
 const NAME_SIZE = 54
 const MINUTES_SIZE = 40
-/** A tally ("8 GOALS (2 ASSISTS)") is longer than minutes: a touch smaller and wider so it stays on one line. */
-const TALLY_SIZE = 32
-const TALLY_W = 400
+/**
+ * The table of a many-goals match: per team a header row (G A OG) and one row per player, right-aligned numeric columns.
+ * Offsets are from the team's centre (520 / 1400): the table spans cx-250 .. cx+250 (centred under the team name), clear of the centre line (960) and the safe area.
+ */
+const TABLE_LEFT = -250
+const TABLE_COLS = { goals: 110, assists: 180, og: 250 }
+/** Names end this far before the first numeric column's left edge, so a long name is cut with "…" instead of reaching the numbers. */
+const TABLE_NAME_RIGHT = 70
+const TABLE_ROW = 42
+const TABLE_HEAD = 46
+const TABLE_NAME_SIZE = 38
+const TABLE_NUM_SIZE = 34
+const TABLE_HEAD_SIZE = 26
 /** The scorer block shrinks uniformly down to this scale before the "+N MORE" line takes over. */
 const SCORER_MIN_SCALE = 0.75
 const SCORER_SCALES = [1, 0.95, 0.9, 0.85, 0.8, SCORER_MIN_SCALE]
 
-/** Minutes ("9' 13' 60' PEN", or a tally "8 GOALS (2 ASSISTS)") broken into lines of at most `maxWidth`: between units, never inside one (a PEN stays with its minute). */
+/** Minutes ("9' 13' 60' PEN") broken into lines of at most `maxWidth`: between units, never inside one (a PEN stays with its minute). */
 export function wrapMinutes(minutes: string, size: number, maxWidth: number, measure: MeasureText): string[] {
     const units: string[] = []
     for (const tok of minutes.split(/\s+/).filter(Boolean)) {
-        if (units.length && !/^[\d(]/.test(tok)) units[units.length - 1] += ` ${tok}`
+        if (units.length && !/^\d/.test(tok)) units[units.length - 1] += ` ${tok}`
         else units.push(tok)
     }
     const lines: string[] = []
@@ -159,16 +169,14 @@ const rowHeight = (r: ScorerRow, s: number): number => (SCORER_STEP + (r.minuteL
 const MORE_H = 56
 
 function scorerRows(lines: ScorerLine[], s: number, measure: MeasureText): ScorerRow[] {
-    return lines.map((line) => ({
-        line,
-        minuteLines: line.tally !== undefined ? wrapMinutes(line.tally, TALLY_SIZE * s, TALLY_W, measure) : wrapMinutes(line.minutes, MINUTES_SIZE * s, MINUTES_W, measure),
-    }))
+    return lines.map((line) => ({ line, minuteLines: wrapMinutes(line.minutes, MINUTES_SIZE * s, MINUTES_W, measure) }))
 }
 
 /** The scale every column shares: the biggest that fits all scorers above the end line, else the floor. */
 function scorerScale(columns: ScorerLine[][], measure: MeasureText): number {
+    const table = isTable(columns)
     for (const s of SCORER_SCALES) {
-        const fits = columns.every((c) => scorerRows(c, s, measure).reduce((h, r) => h + rowHeight(r, s), 0) <= SCORER_LIMIT - SCORER_TOP)
+        const fits = columns.every((c) => (table ? (c.length ? TABLE_HEAD * s + c.length * TABLE_ROW * s : 0) : scorerRows(c, s, measure).reduce((h, r) => h + rowHeight(r, s), 0)) <= SCORER_LIMIT - SCORER_TOP)
         if (fits) return s
     }
     return SCORER_MIN_SCALE
@@ -195,15 +203,53 @@ function scorerColumn(lines: ScorerLine[], cx: number, s: number, measure: Measu
     rows.slice(0, shown).forEach((r) => {
         const y0 = y + (SCORER_STEP * s) / 2
         ops.push({ kind: 'text', text: r.line.name, x: cx - 16, y: y0, size: NAME_SIZE * s, color: C.text, voice: 'shirt', align: 'right', baseline: 'middle', maxWidth: NAME_W })
-        const tally = r.line.tally !== undefined
         r.minuteLines.forEach((m, j) => {
-            if (!m) return
-            ops.push({ kind: 'text', text: m, x: cx + 16, y: y0 + j * MINUTE_STEP * s, size: (tally ? TALLY_SIZE : MINUTES_SIZE) * s, color: C.lime, voice: 'mono', align: 'left', baseline: 'middle', maxWidth: tally ? TALLY_W : MINUTES_W })
+            ops.push({ kind: 'text', text: m, x: cx + 16, y: y0 + j * MINUTE_STEP * s, size: MINUTES_SIZE * s, color: C.lime, voice: 'mono', align: 'left', baseline: 'middle', maxWidth: MINUTES_W })
         })
         y += rowHeight(r, s)
     })
     if (shown < rows.length) {
         ops.push({ kind: 'text', text: `+${rows.length - shown} MORE`, x: cx, y: y + (MORE_H * s) / 2, size: MINUTES_SIZE * s, color: C.muted, voice: 'mono', align: 'center', baseline: 'middle', maxWidth: 400 })
+    }
+    return ops
+}
+
+const isTable = (columns: ScorerLine[][]): boolean => columns.some((c) => c.some((l) => l.stats))
+
+/** `text` cut with "…" until it is at most `maxWidth` wide. */
+function ellipsize(text: string, size: number, maxWidth: number, voice: FontVoice, measure: MeasureText): string {
+    if (measure(text, size, voice) <= maxWidth) return text
+    let n = text.length
+    while (n > 1 && measure(`${text.slice(0, n).trimEnd()}…`, size, voice) > maxWidth) n--
+    return `${text.slice(0, n).trimEnd()}…`
+}
+
+/** One team's table: a muted G / A / OG header over a hairline, then a row per player (zeros as an en dash). Overflow: "+N MORE". */
+function scorerTable(lines: ScorerLine[], cx: number, s: number, measure: MeasureText): DrawOp[] {
+    if (lines.length === 0) return []
+    const room = SCORER_LIMIT - SCORER_TOP - TABLE_HEAD * s
+    const rowH = TABLE_ROW * s
+    let shown = Math.min(lines.length, Math.floor(room / rowH))
+    if (shown < lines.length) shown = Math.max(1, Math.floor((room - MORE_H * s) / rowH))
+    const left = cx + TABLE_LEFT
+    const numX = [cx + TABLE_COLS.goals, cx + TABLE_COLS.assists, cx + TABLE_COLS.og]
+    const nameW = numX[0] - TABLE_NAME_RIGHT - left
+    const ops: DrawOp[] = []
+    const hy = SCORER_TOP + (TABLE_HEAD * s) / 2
+    ;['G', 'A', 'OG'].forEach((h, i) => ops.push({ kind: 'text', text: h, x: numX[i], y: hy, size: TABLE_HEAD_SIZE * s, color: C.muted, voice: 'mono', align: 'right', baseline: 'middle' }))
+    ops.push({ kind: 'rect', x: left, y: SCORER_TOP + TABLE_HEAD * s - 2, w: cx + TABLE_COLS.og - left, h: 2, fill: C.muted, alpha: 0.4 })
+    let y = SCORER_TOP + TABLE_HEAD * s
+    lines.slice(0, shown).forEach((r) => {
+        const y0 = y + rowH / 2
+        ops.push({ kind: 'text', text: ellipsize(r.name, TABLE_NAME_SIZE * s, nameW, 'shirt', measure), x: left, y: y0, size: TABLE_NAME_SIZE * s, color: C.text, voice: 'shirt', align: 'left', baseline: 'middle' })
+        const st = r.stats ?? { goals: 0, assists: 0, og: 0 }
+        ;[st.goals, st.assists, st.og].forEach((n, i) => {
+            ops.push({ kind: 'text', text: n > 0 ? String(n) : '–', x: numX[i], y: y0, size: TABLE_NUM_SIZE * s, color: n > 0 ? (i === 0 ? C.lime : C.text) : C.muted, voice: 'mono', align: 'right', baseline: 'middle' })
+        })
+        y += rowH
+    })
+    if (shown < lines.length) {
+        ops.push({ kind: 'text', text: `+${lines.length - shown} MORE`, x: left, y: y + (MORE_H * s) / 2, size: TABLE_NUM_SIZE * s, color: C.muted, voice: 'mono', align: 'left', baseline: 'middle', maxWidth: 400 })
     }
     return ops
 }
@@ -259,7 +305,8 @@ export function cardLayout(spec: CardSpec, t: number, duration: number, hasLogo:
         ops.push(kitBar(spec.left, 520, 640), kitBar(spec.right, 1400, 640))
         if (spec.scorers) {
             const sc = scorerScale([spec.scorers.left, spec.scorers.right], measure)
-            ops.push(...scorerColumn(spec.scorers.left, 520, sc, measure), ...scorerColumn(spec.scorers.right, 1400, sc, measure))
+            const column = isTable([spec.scorers.left, spec.scorers.right]) ? scorerTable : scorerColumn
+            ops.push(...column(spec.scorers.left, 520, sc, measure), ...column(spec.scorers.right, 1400, sc, measure))
         }
         ops.push(...endLine(measure))
     }
