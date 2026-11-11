@@ -49,7 +49,6 @@ describe('fullMatchDescription', () => {
             '',
             '00:00 Kick off',
             '02:10 Goal 1-0 (Whites) Sam',
-            '05:30 Highlight Jo: nutmeg',
             '09:10 Goal 1-1 (Colours) Priya',
             '',
             'Goalscorers',
@@ -62,6 +61,23 @@ describe('fullMatchDescription', () => {
         const lines = fullMatchDescription({ ...base, introSec: 4 }).split('\n')
         expect(lines[2]).toBe('00:00 Kick off')
         expect(lines[3]).toBe('02:14 Goal 1-0 (Whites) Sam')
+    })
+})
+
+describe('fullMatchDescription lists goals and penalties only', () => {
+    it('should leave highlights, saves and fouls out of the chapters but keep goals and penalties', () => {
+        const evs: MatchEvent[] = [
+            ...events,
+            { id: 's', matchTimeSec: 250, sourceFileIndex: 0, type: 'save', team: 'Whites' },
+            { id: 'f', matchTimeSec: 260, sourceFileIndex: 0, type: 'foul', team: 'Colours' },
+            { id: 'p', matchTimeSec: 450, sourceFileIndex: 0, type: 'penalty_conceded', team: 'Colours' },
+        ]
+        const text = fullMatchDescription({ ...base, events: evs, introSec: 0 })
+        expect(text).not.toMatch(/Highlight|Save|Foul/)
+        expect(text).toContain('Goal 1-0 (Whites) Sam')
+        expect(text).toContain('Penalty conceded (Colours)')
+        expect(text).toContain('Goal 1-1 (Colours) Priya')
+        expect(highlightsDescription({ ...base, events: evs, introSec: 0 })).toContain('Highlight Jo: nutmeg')
     })
 })
 

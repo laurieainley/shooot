@@ -354,21 +354,23 @@ describe('scorerColumns', () => {
         expect(cols.left).toEqual([])
     })
 
-    describe('tally (more than TALLY_GOALS_OVER goals)', () => {
+    describe('table (more than TALLY_GOALS_OVER goals)', () => {
         let n = 0
         const goal = (team: string, scorer?: string, extra: Partial<MatchEvent> = {}): MatchEvent => ev(`t${n++}`, 60 * n, { team, scorer, ...extra })
-        /** `count` filler goals for the right team so the match has this many goals in all. */
+        /** Filler goals for the right team so the match has `total` goals in all. */
         const pad = (total: number, have: number): MatchEvent[] => Array.from({ length: total - have }, () => goal(W))
+        const stats = (l: { stats?: { goals: number; assists: number; og: number } }): number[] => [l.stats!.goals, l.stats!.assists, l.stats!.og]
+        const withRosters: Team[] = [{ ...teams[0], roster: ['Dan', 'Jo', 'Pat', 'Sam'] }, { ...teams[1], roster: ['Smith', 'Lee'] }]
 
-        it('should keep the minute list at 7 goals and tally at 8', () => {
+        it('should keep the minute list at 7 goals and switch to the table at 8', () => {
             expect(TALLY_GOALS_OVER).toBe(7)
             const seven = [goal(R, 'Dan'), ...pad(7, 1)]
             expect(scorerColumns(seven, teams, [0]).left).toEqual([{ name: 'DAN', minutes: "2'" }])
             const eight = [goal(R, 'Dan'), ...pad(8, 1)]
-            expect(scorerColumns(eight, teams, [0]).left).toEqual([{ name: 'DAN', minutes: '', tally: '1 GOAL' }])
+            expect(scorerColumns(eight, teams, [0]).left).toEqual([{ name: 'DAN', minutes: '', stats: { goals: 1, assists: 0, og: 0 } }])
         })
 
-        it('should count goals and assists with singular and plural, no brackets without assists', () => {
+        it('should count goals, assists and own goals per player, per team', () => {
             const events = [
                 ...Array.from({ length: 5 }, () => goal(R, 'Dan', { assist: 'Sam' })),
                 goal(R, 'Dan'), goal(R, 'Dan'), goal(R, 'Dan'),
@@ -376,45 +378,63 @@ describe('scorerColumns', () => {
                 ...pad(11, 10),
             ]
             const left = scorerColumns(events, teams, [0]).left
-            expect(left.map((l) => [l.name, l.tally])).toEqual([['DAN', '8 GOALS (2 ASSISTS)'], ['JO', '1 GOAL'], ['PAT', '1 GOAL'], ['SAM', '5 ASSISTS']])
+            expect(left.map((l) => [l.name, ...stats(l)])).toEqual([['DAN', 8, 2, 0], ['JO', 1, 0, 0], ['PAT', 1, 0, 0], ['SAM', 0, 5, 0]])
         })
 
-        it('should use the singular for one assist beside goals', () => {
-            const events = [goal(R, 'Dan', { assist: 'Jo' }), goal(R, 'Jo', { assist: 'Dan' }), goal(R, 'Jo'), ...pad(8, 3)]
-            expect(scorerColumns(events, teams, [0]).left.map((l) => l.tally)).toEqual(['2 GOALS (1 ASSIST)', '1 GOAL (1 ASSIST)'])
-        })
-
-        it('should sort by goals, then assists, then first goal, assist-only players last', () => {
+        it('should sort by goals, then assists, then fewest own goals, then first involvement, assist-only and OG-only rows included', () => {
             const events = [
                 goal(R, 'Early'), goal(R, 'Late', { assist: 'X' }), goal(R, 'Mid', { assist: 'X' }),
                 goal(R, 'Two'), goal(R, 'Two'), goal(R, 'Early'),
                 goal(R, 'Two', { assist: 'Y' }),
-                ...pad(12, 7),
+                goal(W, 'Smith', { type: 'own_goal' }),
+                ...pad(13, 8),
             ]
-            expect(scorerColumns(events, teams, [0]).left.map((l) => l.name)).toEqual(['TWO', 'EARLY', 'LATE', 'MID', 'X', 'Y'])
+            const cols = scorerColumns(events, withRosters, [0])
+            expect(cols.left.map((l) => l.name)).toEqual(['TWO', 'EARLY', 'LATE', 'MID', 'X', 'Y'])
+            expect(cols.left.find((l) => l.name === 'X')).toMatchObject({ stats: { goals: 0, assists: 2, og: 0 } })
+            // fewer own goals first among equals
+            const og = [goal(W, 'Lee', { type: 'own_goal' }), goal(W, 'Smith', { type: 'own_goal' }), goal(W, 'Smith', { type: 'own_goal' }), goal(W, 'Lee', { type: 'own_goal' }), goal(W, 'Smith', { type: 'own_goal' }), ...pad(9, 5)]
+            expect(scorerColumns(og, withRosters, [0]).right.slice(0, 2).map((l) => [l.name, ...stats(l)])).toEqual([['LEE', 0, 0, 2], ['SMITH', 0, 0, 3]])
         })
 
-        it('should count penalties as goals without a PEN mark, and keep nameless goals in the total only', () => {
-            const events = [goal(R, 'Dan', { pen: true }), goal(R, 'Dan'), goal(R), ...pad(8, 3)]
-            expect(scorerColumns(events, teams, [0]).left).toEqual([{ name: 'DAN', minutes: '', tally: '2 GOALS' }])
+        it('should put an own goal in the table of the scorer\'s own team, not the credited one', () => {
+            // credited to Walford, scored by Ryan's Rovers player Dan (the usual case)
+            const events = [goal(W, 'Dan', { type: 'own_goal' }), ...pad(8, 1)]
+            const cols = scorerColumns(events, withRosters, [0])
+            expect(cols.left).toEqual([{ name: 'DAN', minutes: '', stats: { goals: 0, assists: 0, og: 1 } }])
+            expect(cols.right.some((l) => l.name === 'DAN')).toBe(false)
+            // credited to Walford, scorer named from Walford's own roster: his own team's table
+            const either = [goal(W, 'Smith', { type: 'own_goal' }), ...pad(8, 1)]
+            expect(scorerColumns(either, withRosters, [0]).right.find((l) => l.name === 'SMITH')).toMatchObject({ stats: { goals: 0, assists: 0, og: 1 } })
+            expect(scorerColumns(either, withRosters, [0]).left).toEqual([])
         })
 
-        it('should put own goals under the credited team, with a count only above one', () => {
-            const one = [goal(W, 'Smith', { type: 'own_goal' }), ...pad(8, 1)]
-            expect(scorerColumns(one, teams, [0]).right.find((l) => l.name.startsWith('SMITH'))).toEqual({ name: 'SMITH (OG)', minutes: '', tally: '' })
-            const two = [goal(W, 'Smith', { type: 'own_goal' }), goal(W, 'Smith', { type: 'own_goal' }), ...pad(8, 2)]
-            expect(scorerColumns(two, teams, [0]).right.find((l) => l.name.startsWith('SMITH'))).toEqual({ name: 'SMITH (OG)', minutes: '', tally: '2' })
+        it('should put an own goal by an unknown player under the team opposite the credited one', () => {
+            const events = [goal(W, 'Stranger', { type: 'own_goal' }), goal(R, 'Nobody', { type: 'own_goal' }), ...pad(8, 2)]
+            const cols = scorerColumns(events, withRosters, [0])
+            expect(cols.left.map((l) => l.name)).toEqual(['STRANGER'])
+            expect(cols.right.map((l) => l.name)).toEqual(['NOBODY'])
+            // the same name on both rosters is ambiguous too
+            const both: Team[] = [{ ...teams[0], roster: ['Alex'] }, { ...teams[1], roster: ['alex'] }]
+            expect(scorerColumns([goal(W, 'Alex', { type: 'own_goal' }), ...pad(8, 1)], both, [0]).left.map((l) => l.name)).toEqual(['ALEX'])
         })
 
-        it('should show a pen goal without an assist even if one was recorded', () => {
-            const events = [goal(R, 'Dan', { pen: true, assist: 'Sam' }), ...pad(8, 1)]
-            expect(scorerColumns(events, teams, [0]).left.map((l) => l.name)).toEqual(['DAN'])
+        it('should merge a player\'s goals, assists and own goal into one row of their team', () => {
+            const events = [goal(R, 'Dan', { assist: 'Jo' }), goal(R, 'Jo', { assist: 'Dan' }), goal(W, 'Dan', { type: 'own_goal' }), ...pad(8, 3)]
+            expect(scorerColumns(events, withRosters, [0]).left.map((l) => [l.name, ...stats(l)])).toEqual([['JO', 1, 1, 0], ['DAN', 1, 1, 1]])
         })
 
-        it('should invalidate the full-time card cache key when the tally changes', () => {
+        it('should count penalties as goals, ignore their assist, and keep nameless goals in the total only', () => {
+            const events = [goal(R, 'Dan', { pen: true, assist: 'Sam' }), goal(R, 'Dan'), goal(R), ...pad(8, 3)]
+            expect(scorerColumns(events, teams, [0]).left).toEqual([{ name: 'DAN', minutes: '', stats: { goals: 2, assists: 0, og: 0 } }])
+        })
+
+        it('should invalidate the full-time card cache key when the table changes', () => {
             const a = build([goal(R, 'Dan'), ...pad(8, 1)]).outro
             const b = build([goal(R, 'Dan'), goal(R, 'Dan'), ...pad(9, 2)]).outro
             expect(JSON.stringify(a)).not.toEqual(JSON.stringify(b))
+            const c = build([goal(R, 'Dan', { assist: 'Jo' }), ...pad(8, 1)]).outro
+            expect(JSON.stringify(a)).not.toEqual(JSON.stringify(c))
         })
     })
 

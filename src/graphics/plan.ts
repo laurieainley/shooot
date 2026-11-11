@@ -52,29 +52,32 @@ function minuteOf(e: MatchEvent, events: MatchEvent[], offsets: number[]): strin
 /** More goals than this in the match and the full-time card tallies goals and assists instead of listing minutes. */
 export const TALLY_GOALS_OVER = 7
 
-const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 'S'}`
+type Tally = { name: string; goals: number; assists: number; og: number; first: number }
 
-/** `8 GOALS (2 ASSISTS)`, `1 GOAL`, `2 ASSISTS`: no brackets without assists, no goals part for an assist-only player. */
-function tallyText(goals: number, assists: number): string {
-    if (!goals) return plural(assists, 'ASSIST')
-    return assists ? `${plural(goals, 'GOAL')} (${plural(assists, 'ASSIST')})` : plural(goals, 'GOAL')
+/** One team's table rows: goals, then assists (both descending), then fewest own goals, then whoever got involved first. */
+function tallyColumn(rows: Map<string, Tally>): ScorerLine[] {
+    return [...rows.values()]
+        .sort((a, b) => b.goals - a.goals || b.assists - a.assists || a.og - b.og || a.first - b.first)
+        .map((r) => ({ name: r.name, minutes: '', stats: { goals: r.goals, assists: r.assists, og: r.og } }))
 }
 
-type Tally = { name: string; goals: number; assists: number; first: number; og: boolean }
+const sameName = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase()
 
-/** One column of the tally card: scorers by goals, then assists, then first goal; assist-only players after them (so overflow drops those first, then the lowest scorers). */
-function tallyColumn(rows: Map<string, Tally>): ScorerLine[] {
-    const all = [...rows.values()]
-    const byFirst = (a: Tally, b: Tally): number => a.first - b.first
-    const scorers = all.filter((r) => r.goals > 0).sort((a, b) => b.goals - a.goals || b.assists - a.assists || byFirst(a, b))
-    const assistOnly = all.filter((r) => r.goals === 0).sort((a, b) => b.assists - a.assists || byFirst(a, b))
-    return [...scorers, ...assistOnly].map((r) => ({ name: r.name, minutes: '', tally: r.og ? (r.goals > 1 ? String(r.goals) : '') : tallyText(r.goals, r.assists) }))
+/**
+ * The side whose table an own goal goes in: the scorer's own team. The scorer can be named from either roster; if the name is
+ * on exactly one, that is the team, otherwise (on both, or neither) the team opposite the one credited.
+ */
+function ownGoalSide(who: string, credited: 'left' | 'right', teams: Team[]): 'left' | 'right' {
+    const inLeft = teams[0].roster.some((n) => sameName(n, who))
+    const inRight = teams[1].roster.some((n) => sameName(n, who))
+    if (inLeft !== inRight) return inLeft ? 'left' : 'right'
+    return credited === 'left' ? 'right' : 'left'
 }
 
 /**
  * Who scored for each team, for the full-time card. Up to TALLY_GOALS_OVER goals: chronological by first goal, minutes after the name
- * (`13' 44' PEN`). More: a tally per player (`DAN` `8 GOALS (2 ASSISTS)`). Own goals go under the team that was credited (`SMITH (OG)`,
- * with a count only above one in a tally). Goals without a name only count in the score.
+ * (`13' 44' PEN`), own goals under the team that was credited (`SMITH (OG)`). More: a table per team, one row per involved player with
+ * their goals, assists and own goals (`stats`); an own goal counts in its scorer's own team's table. Goals without a name only count in the score.
  */
 export function scorerColumns(events: MatchEvent[], teams: Team[], offsets: number[]): { left: ScorerLine[]; right: ScorerLine[] } {
     const kickOff = markerGlobalSec(events, offsets, 'kick_off') ?? 0
@@ -89,18 +92,17 @@ export function scorerColumns(events: MatchEvent[], teams: Team[], offsets: numb
         const who = e.scorer?.trim().toUpperCase()
         const at = absTime(e, offsets)
         if (tallying) {
-            const t = tallies[key]
-            const bump = (name: string, f: (r: Tally) => void, og = false): void => {
-                const r = t.get(name) ?? { name, goals: 0, assists: 0, first: at, og }
+            const bump = (side: 'left' | 'right', name: string, f: (r: Tally) => void): void => {
+                const r = tallies[side].get(name) ?? { name, goals: 0, assists: 0, og: 0, first: at }
                 f(r)
-                t.set(name, r)
+                tallies[side].set(name, r)
             }
             if (who) {
-                const own = e.type === 'own_goal'
-                bump(own ? `${who} (OG)` : who, (r) => { r.goals++ }, own)
+                if (e.type === 'own_goal') bump(ownGoalSide(who, key, teams), who, (r) => { r.og++ })
+                else bump(key, who, (r) => { r.goals++ })
             }
             const assist = upper(assistOf(e))
-            if (assist) bump(assist, (r) => { r.assists++ })
+            if (assist) bump(key, assist, (r) => { r.assists++ })
             continue
         }
         if (!who) continue

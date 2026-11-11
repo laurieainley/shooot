@@ -91,9 +91,12 @@ export function highlightChapterLines(
     return lines
 }
 
+/** The full match lists only goals (penalty and own goals included) and penalties missed or conceded: no highlights, saves or fouls. */
+const MATCH_CHAPTER_TYPES: ReadonlySet<string> = new Set(['goal', 'own_goal', 'penalty_missed', 'penalty_conceded'])
+
 /**
  * Chapter lines of the full match video, which starts at kick-off (after an optional title card of `offsetSec`):
- * "00:00 Kick off", then every event from kick-off to the final whistle, a little before it happens. `timeAt` maps a
+ * "00:00 Kick off", then every goal and penalty from kick-off to the final whistle, a little before it happens. `timeAt` maps a
  * whole-recording second to its second in the video (chapterTimes.outputTimeAt); without it the video is assumed to
  * start exactly at kick-off.
  */
@@ -102,7 +105,7 @@ export function matchChapterLines(
     lengthBeforeGoalSec: number, teamOrder?: Team[], offsetSec = 0, timeAt?: (absSec: number) => number,
 ): string[] {
     const inMatch = events
-        .filter((e) => !isMarker(e) || e.type === 'half_time')
+        .filter((e) => e.type === 'half_time' || MATCH_CHAPTER_TYPES.has(e.type))
         .filter((e) => { const t = absTime(e, cumulativeOffsets); return t >= kickOffSec && (finalWhistleSec === null || t <= finalWhistleSec) })
         .sort((a, b) => absTime(a, cumulativeOffsets) - absTime(b, cumulativeOffsets))
     const teams = scoreTeams(events.filter((e) => !isMarker(e)), teamOrder)

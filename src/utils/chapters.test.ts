@@ -194,6 +194,25 @@ describe('matchChapterLines — Half time', () => {
     })
 })
 
+describe('matchChapterLines — only goals and penalties', () => {
+    it('should list goals, own goals, missed and conceded penalties, and leave out highlights, saves and fouls', () => {
+        const events: MatchEvent[] = [
+            { id: 'k', matchTimeSec: 60, sourceFileIndex: 0, type: 'kick_off' },
+            { id: 'h', matchTimeSec: 100, sourceFileIndex: 0, type: 'highlight', notes: 'nutmeg' },
+            { id: 'g', matchTimeSec: 200, sourceFileIndex: 0, type: 'goal', team: 'Whites' },
+            { id: 's', matchTimeSec: 300, sourceFileIndex: 0, type: 'save', team: 'Colours' },
+            { id: 'f', matchTimeSec: 400, sourceFileIndex: 0, type: 'foul', team: 'Colours' },
+            { id: 'pm', matchTimeSec: 500, sourceFileIndex: 0, type: 'penalty_missed', team: 'Colours' },
+            { id: 'pc', matchTimeSec: 600, sourceFileIndex: 0, type: 'penalty_conceded', team: 'Whites' },
+            { id: 'o', matchTimeSec: 700, sourceFileIndex: 0, type: 'own_goal', team: 'Colours', scorer: 'Ade' },
+            { id: 'w', matchTimeSec: 3000, sourceFileIndex: 0, type: 'final_whistle' },
+        ]
+        expect(matchChapterLines(events, [0], 60, 3000, 10, TEAMS)).toEqual([
+            '00:00 Kick off', '02:10 Goal 1-0 (Whites)', '07:10 Penalty missed (Colours)', '08:50 Penalty conceded (Whites)', '10:30 Own goal 1-1 (Colours) Ade',
+        ])
+    })
+})
+
 describe('chapters — no assists', () => {
   it('should leave the assist out of every chapter', () => {
     const g = { ...goal('a', 60, 'Red', 'Sam'), assist: 'Jo' }
