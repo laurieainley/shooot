@@ -53,12 +53,16 @@ export async function ensureGraphicsFonts(theme: GraphicsTheme = getTheme(DEFAUL
     return ok
 }
 
-/** The league logo as a bitmap: a custom image if given, null for `'none'` (no logo), otherwise the bundled T.N.F badge. */
-export async function loadLogo(custom?: Blob | 'none' | null): Promise<ImageBitmap | null> {
+/** Only the TNF style has a default logo (the bundled T.N.F badge); the others have none unless one is uploaded. */
+export const defaultLogoUrl = (themeId: string): string | null => (themeId === 'tnf' ? DEFAULT_LOGO_URLS[0] : null)
+
+/** The league logo as a bitmap: a custom image if given, null for `'none'` (no logo), otherwise the T.N.F badge for the TNF style only. */
+export async function loadLogo(custom: Blob | 'none' | null | undefined, themeId: string): Promise<ImageBitmap | null> {
     if (custom === 'none') return null
     if (custom) {
         try { return await createImageBitmap(custom) } catch { /* fall through to the default */ }
     }
+    if (!defaultLogoUrl(themeId)) return null
     for (const url of DEFAULT_LOGO_URLS) {
         try {
             const res = await fetch(url)

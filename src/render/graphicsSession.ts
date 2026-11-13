@@ -239,7 +239,7 @@ export class GraphicsSession {
                             if (!canvas) { canvas = new OffscreenCanvas(this.width, this.height); ctx = canvas.getContext('2d', { willReadFrequently: true }) }
                             if (!ctx) throw new Error('no 2D canvas')
                             return ctx
-                        })
+                        }, src.video.rotation)
                     } finally {
                         frame.close()
                     }
@@ -277,7 +277,29 @@ export class GraphicsSession {
     private rasterCanvas: OffscreenCanvas | null = null
 
     /** Draws any decodable frame onto a canvas (optionally just a part of it, scaled up to the whole canvas) and returns its RGBA pixels. */
-    private rasterise(frame: VideoFrame, width: number, height: number, crop?: RenderOverlay['crop'], cover = false): Uint8ClampedArray {
+    private uprightCanvas: OffscreenCanvas | null = null
+
+    /** The frame turned by `rotation` (clockwise, the track's display matrix), so phone footage stored upside down or sideways comes out upright. */
+    private upright(frame: VideoFrame, rotation: number): { image: CanvasImageSource; rect: { x: number; y: number; width: number; height: number } } {
+        const v = frame.visibleRect!
+        // A browser that already carries the rotation on the frame applies it in drawImage.
+        const turn = (((rotation - ((frame as VideoFrame & { rotation?: number }).rotation ?? 0)) % 360) + 360) % 360
+        if (turn === 0) return { image: frame, rect: v }
+        const side = turn === 90 || turn === 270
+        const w = side ? v.height : v.width
+        const h = side ? v.width : v.height
+        if (!this.uprightCanvas || this.uprightCanvas.width !== w || this.uprightCanvas.height !== h) this.uprightCanvas = new OffscreenCanvas(w, h)
+        const ctx = this.uprightCanvas.getContext('2d')
+        if (!ctx) throw new Error('no 2D canvas to turn decoded frames')
+        ctx.setTransform(1, 0, 0, 1, 0, 0)
+        ctx.translate(w / 2, h / 2)
+        ctx.rotate((turn * Math.PI) / 180)
+        ctx.drawImage(frame, v.x, v.y, v.width, v.height, -v.width / 2, -v.height / 2, v.width, v.height)
+        ctx.setTransform(1, 0, 0, 1, 0, 0)
+        return { image: this.uprightCanvas, rect: { x: 0, y: 0, width: w, height: h } }
+    }
+
+    private rasterise(frame: VideoFrame, width: number, height: number, crop?: RenderOverlay['crop'], cover = false, rotation = 0): Uint8ClampedArray {
         if (!this.rasterCanvas || this.rasterCanvas.width !== width || this.rasterCanvas.height !== height) {
             this.rasterCanvas = new OffscreenCanvas(width, height)
         }
@@ -286,9 +308,9 @@ export class GraphicsSession {
         ctx.imageSmoothingEnabled = true
         ctx.imageSmoothingQuality = 'high'
         if (cover) {
-            const v = frame.visibleRect!
+            const { image, rect: v } = this.upright(frame, rotation)
             const { sx, sy, sw, sh } = coverRect(v.width, v.height, width, height, crop)
-            ctx.drawImage(frame, v.x + sx, v.y + sy, sw, sh, 0, 0, width, height)
+            ctx.drawImage(image, v.x + sx, v.y + sy, sw, sh, 0, 0, width, height)
         } else if (crop) {
             const { sx, sy, sw, sh } = cropPixels(crop, width, height)
             ctx.drawImage(frame, sx, sy, sw, sh, 0, 0, width, height)
@@ -299,7 +321,7 @@ export class GraphicsSession {
     }
 
     /** Copies a decoded frame's planes, blends the active overlays in, and returns a new frame for the encoder. */
-    private async paintFrame(frame: VideoFrame, t: number, overlays: RenderOverlay[], cache: OverlayCache, rescale: boolean, getCtx: () => OffscreenCanvasRenderingContext2D): Promise<VideoFrame> {
+    private async paintFrame(frame: VideoFrame, t: number, overlays: RenderOverlay[], cache: OverlayCache, rescale: boolean, getCtx: () => OffscreenCanvasRenderingContext2D, rotation = 0): Promise<VideoFrame> {
         const rect = frame.visibleRect!
         const W = rescale ? this.width : rect.width
         const H = rescale ? this.height : rect.height
@@ -317,7 +339,7 @@ export class GraphicsSession {
         } else {
             // Some decoders (e.g. Android hardware, GPU-backed frames) hand back RGBA/BGRA or opaque frames:
             // rasterise through a canvas and convert to I420 in the footage's matrix and range.
-            const rgba = this.rasterise(frame, W, H, crop, rescale)
+            const rgba = this.rasterise(frame, W, H, crop, rescale, rescale ? rotation : 0)
             format = 'I420'
             buf = rgbaToI420(rgba, W, H, matrixOf(cs.matrix), cs.fullRange ?? false)
             layout = i420Layout(W, H)
@@ -373,8 +395,10 @@ export async function openGraphicsSession(sources: GraphicsSource[], first: Grap
     // (The theme's fonts are loaded by prepareSpec before the painters are made; see graphics/prepare.ts.)
     const hevc = first.video.codec === 'hevc'
     if (first.video.codec !== 'hevc' && first.video.codec !== 'avc') throw new Error(`${first.video.codec ?? 'this'} video is not supported`)
-    const width = first.video.codedWidth
-    const height = first.video.codedHeight
+    // The output is upright: footage with a display rotation (phone video) is turned, so a sideways first file gives a turned size.
+    const sideways = first.video.rotation === 90 || first.video.rotation === 270
+    const width = sideways ? first.video.codedHeight : first.video.codedWidth
+    const height = sideways ? first.video.codedWidth : first.video.codedHeight
     const footageParams = new Map<GraphicsSource, Uint8Array[]>()
     const limits: SpsLimits[] = []
     const rescaled = new Set<GraphicsSource>()
@@ -382,7 +406,8 @@ export async function openGraphicsSession(sources: GraphicsSource[], first: Grap
         if (!s.config.description) throw new Error('the video has no parameter sets in its sample entry')
         // Another frame size: its footage is re-encoded to the output size, so its parameter sets never reach the file.
         // `reencodeFootage`: every picture goes through the one encoder, so no footage parameter set reaches the file (see reencodesFootage).
-        if (o.reencodeFootage || s.video.codedWidth !== width || s.video.codedHeight !== height) { rescaled.add(s); continue }
+        // A display rotation: copied pictures would come out turned (the output has no rotation of its own), so they are re-encoded upright.
+        if (o.reencodeFootage || s.video.rotation !== 0 || s.video.codedWidth !== width || s.video.codedHeight !== height) { rescaled.add(s); continue }
         if (s.nalLength !== first.nalLength) throw new Error('the clips use different NAL length sizes')
         const params = paramSets(s.config.description, hevc)
         const sps = spsOf(params, hevc)

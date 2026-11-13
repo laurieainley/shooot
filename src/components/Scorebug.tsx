@@ -70,7 +70,7 @@ export function Scorebug() {
         void (async () => {
             try { await ensureGraphicsFonts(theme) } catch { /* painters fall back to measured metrics */ }
             let logo: ImageBitmap | null = null
-            try { logo = await loadLogo(await loadCustomLogo()) } catch { /* no logo */ }
+            try { logo = await loadLogo(await loadCustomLogo(), theme.id) } catch { /* no logo */ }
             if (live) setReady({ theme: theme.id, assets: { logo } })
         })()
         return () => { live = false }

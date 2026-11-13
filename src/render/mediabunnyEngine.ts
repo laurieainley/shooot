@@ -145,6 +145,13 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
             if (run) for (const label of labels) diag.graphicSkipped(label, reason, error)
         }
         diag.outputSize(first.video.codedWidth, first.video.codedHeight)
+        // Phone footage with a display rotation (e.g. stored upside down): a straight copy would lose it, so it goes through the
+        // graphics session, which re-encodes it upright.
+        const turned = [...used].filter((i) => opened[i].video.rotation !== 0)
+        if (turned.length > 0) {
+            run ??= { graphics: { overlays: [] }, report: { applied: [], skipped: [] } }
+            diag.note(`Re-encoding ${turned.map((i) => `${sources[i].name} (rotated ${opened[i].video.rotation}°)`).join(', ')} upright`)
+        }
 
         // Graphics: one encoder for the reel, a sample entry that covers it and every clip, or none at all.
         let session: GraphicsSession | null = null
@@ -155,6 +162,7 @@ async function renderOnce(cuts: Cut[], sources: RenderSource[], opts: RenderOpti
                 if (signal) session.signal = signal
             } catch (e) {
                 if (odd.length > 0) throw new Error(`Clips have different frame sizes and cannot be scaled in this browser: ${errorText(e)}`)
+                if (turned.length > 0) throw new Error(`Rotated phone footage cannot be turned upright in this browser: ${errorText(e)}`)
                 skip([...graphicLabels(run.graphics), ...cropLabels(cuts)], errorText(e), e)
             }
             endSession()

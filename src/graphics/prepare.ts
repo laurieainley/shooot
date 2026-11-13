@@ -16,8 +16,9 @@ export async function prepareGraphics(args: Parameters<typeof buildGraphicsSpec>
 /** `cache` (benchmarks only, experiment 5): overlays draw from cached bitmaps instead of painting every frame. */
 export async function prepareSpec(spec: GraphicsSpec | undefined, cache?: OverlayBitmapCache): Promise<RenderGraphics | undefined> {
     if (!spec || (!spec.intro && !spec.outro && spec.overlays.length === 0)) return undefined
-    await ensureGraphicsFonts(getTheme(spec.theme))
-    const logo = await loadLogo(await loadCustomLogo())
+    const theme = getTheme(spec.theme)
+    await ensureGraphicsFonts(theme)
+    const logo = await loadLogo(await loadCustomLogo(), theme.id)
     const wordmark = isSting(spec.outro) ? await loadWordmark() : null
     const graphics = toRenderGraphics(spec, { logo, wordmark }, cache)
     return spec.introAfterCut && graphics.intro ? { ...graphics, introAfterCut: spec.introAfterCut } : graphics

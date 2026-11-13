@@ -8,7 +8,7 @@ import { finalScore, formatScore } from '../utils/score'
 import { UpdateScoreLink } from './UpdateScoreLink'
 import { isOver, parseKnownScore, scoreGap } from '../utils/scoreGap'
 import type { Team } from '../types'
-import { DEFAULT_LOGO_URLS } from '../graphics/assets'
+import { defaultLogoUrl } from '../graphics/assets'
 import { GraphicsStylePicker } from './GraphicsStylePicker'
 import { clearCustomLogo, hideLogo, loadCustomLogo, saveCustomLogo } from '../graphics/logoStore'
 
@@ -16,6 +16,7 @@ function LogoField() {
     const [logoUrl, setLogoUrl] = useState<string | null>(null)
     const [noLogo, setNoLogo] = useState(false)
     const [logoError, setLogoError] = useState('')
+    const fallback = defaultLogoUrl(useAppState((s) => s.graphics.theme))
     const pickRef = useRef<HTMLInputElement | null>(null)
 
     useEffect(() => {
@@ -67,15 +68,15 @@ function LogoField() {
 
     return (
         <div className="graphics-setup__logo">
-            {noLogo
+            {noLogo || (!logoUrl && !fallback)
                 ? <div className="graphics-setup__nologo text-ui-xs text-muted" role="img" aria-label="No league logo">No logo</div>
-                : <img src={logoUrl ?? DEFAULT_LOGO_URLS[0]} alt="League logo" />}
+                : <img src={(logoUrl ?? fallback)!} alt="League logo" />}
             <div className="flex flex-col items-start gap-1.5">
                 <span className="text-ui-sm text-muted">League logo (shown on the match graphics)</span>
                 <div className="flex flex-wrap gap-2">
                     <button type="button" className="btn-quiet" onClick={() => pickRef.current?.click()}>Replace logo</button>
-                    {(logoUrl || noLogo) && <button type="button" className="btn-quiet" onClick={() => void resetLogo()}>Use default logo</button>}
-                    {!noLogo && <button type="button" className="btn-quiet" onClick={() => void removeLogo()}>Remove logo</button>}
+                    {fallback && (logoUrl || noLogo) && <button type="button" className="btn-quiet" onClick={() => void resetLogo()}>Use default logo</button>}
+                    {!noLogo && (logoUrl || fallback) && <button type="button" className="btn-quiet" onClick={() => void removeLogo()}>Remove logo</button>}
                 </div>
                 {logoError && <p role="alert" className="m-0 text-ui-xs msg-warn">{logoError}</p>}
             </div>

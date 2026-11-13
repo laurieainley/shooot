@@ -24,7 +24,16 @@ describe('MatchDetails', () => {
         useAppState.setState({
             teams: [{ name: "Ryan's Rovers", color: '#f0f0f0', roster: [] }, { name: 'Walford Town', color: '#ec5fa4', roster: [] }],
             matchdayLabel: null,
+            graphics: { ...useAppState.getState().graphics, theme: 'tnf' },
         })
+    })
+
+    it('should show No logo, with no default to go back to, for a style other than TNF', () => {
+        useAppState.setState({ graphics: { ...useAppState.getState().graphics, theme: 'shooot' } })
+        render(<MatchDetails />)
+        expect(screen.queryByAltText('League logo')).toBeNull()
+        expect(screen.getByRole('img', { name: 'No league logo' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /use default logo/i })).toBeNull()
     })
 
     it('should call the heading Title, show an example as a placeholder only and keep an edited one', () => {

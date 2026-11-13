@@ -61,7 +61,7 @@ export function ThumbnailMaker({ kind }: ThumbnailMakerProps) {
     const [customText, setCustomText] = useState('')
     const [ready, setReady] = useState(false)
     const canvasRef = useRef<HTMLCanvasElement | null>(null)
-    const logoRef = useRef<{ done: boolean; bitmap: ImageBitmap | null }>({ done: false, bitmap: null })
+    const logoRef = useRef<{ done: boolean; bitmap: ImageBitmap | null; theme?: string }>({ done: false, bitmap: null })
     const dragRef = useRef<{ x: number; y: number; pan: CropPan } | null>(null)
     // What a redraw needs, kept current each render so the drag can repaint without waiting for React.
     const paintRef = useRef<{ image: HTMLImageElement | null; spec: ThumbSpec; theme: ReturnType<typeof getTheme>; crop: CropRect | null; zoomed: boolean }>(null!)
@@ -120,8 +120,8 @@ export function ThumbnailMaker({ kind }: ThumbnailMakerProps) {
         let live = true
         void (async () => {
             await ensureGraphicsFonts(getTheme(st.themeId))
-            if (!logoRef.current.done) {
-                logoRef.current = { done: true, bitmap: await loadLogo(await loadCustomLogo()) }
+            if (!logoRef.current.done || logoRef.current.theme !== st.themeId) {
+                logoRef.current = { done: true, bitmap: await loadLogo(await loadCustomLogo(), st.themeId), theme: st.themeId }
             }
             if (!live) return
             if (paintNow()) setReady(true)
