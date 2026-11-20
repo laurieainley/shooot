@@ -4,7 +4,7 @@ import 'video.js/dist/video-js.css'
 import { selectClockLong, useAppState } from '../state'
 import { shortcutFor, shouldHandleShortcut } from '../utils/shortcuts'
 import { FindGoalsLine } from './FindGoalsChip'
-import { registerPlayerRate, registerPlayerSeekPaused, registerPlayerShortcut, registerPlayerStep, publishPlayerRate, registerPlayerToggle, setPlayerPaused } from './playerControl'
+import { registerPlayerRate, registerPlayerSeek, registerPlayerSeekPaused, registerPlayerShortcut, registerPlayerStep, publishPlayerRate, registerPlayerToggle, setPlayerPaused } from './playerControl'
 import { runShortcut, seekBy, stepFrame, type ShortcutPlayer } from './playerShortcuts'
 import { FullscreenControls } from './FullscreenControls'
 import { EventPicker } from './EventPicker'
@@ -291,6 +291,8 @@ export function Player() {
 
     // Scrubbing the review timeline: seek (switching file if needed) and stay paused.
     useEffect(() => registerPlayerSeekPaused((f, t) => seekRef.current(f, t, false)), [])
+    // Skipping across a file boundary (playerShortcuts.seekBy): keeps playing or paused.
+    useEffect(() => registerPlayerSeek((f, t, play) => seekRef.current(f, t, play)), [])
 
     // Event list, match strip and review loop: seek and play.
     useEffect(() => {

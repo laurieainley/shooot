@@ -3,6 +3,7 @@ import { DEFAULT_FPS, frameStepTime, seekStepFor } from '../utils/hotkeys'
 import { homeTarget, startInFile } from '../utils/markers'
 import type { ShortcutAction } from '../utils/shortcuts'
 import type { ZoomPan } from './useZoomPan'
+import { seekPlayer } from './playerControl'
 
 /** The slice of the video.js player the shortcuts drive. */
 export type ShortcutPlayer = {
@@ -20,9 +21,33 @@ export type ShortcutPlayer = {
 
 const time = (p: ShortcutPlayer): number => (p.currentTime() as number) || 0
 
+/** Close enough to a file's end that a skip forward goes on into the next file (a seek to the very end would just stop there). */
+const END_SLACK_SEC = 0.25
+
+/**
+ * Moves the playhead by `step` seconds. A step past the end of the file carries on into the next file (past the start: into the
+ * end of the previous one), keeping play or pause, so skipping runs across the match's files as if they were one video.
+ */
 export function seekBy(p: ShortcutPlayer, step: number): void {
     const end = p.duration() || Infinity
-    p.currentTime(Math.min(Math.max(0, time(p) + step), end))
+    const target = time(p) + step
+    if (step > 0 && Number.isFinite(end) && target >= end - END_SLACK_SEC && crossFile(1, Math.max(0, target - end), p)) return
+    if (step < 0 && target < 0 && crossFile(-1, target, p)) return
+    p.currentTime(Math.min(Math.max(0, target), end))
+}
+
+/** Seeks into the neighbouring file: `over` seconds into the next one, or `over` (negative) before the previous one's end. */
+function crossFile(dir: 1 | -1, over: number, p: ShortcutPlayer): boolean {
+    const st = useAppState.getState()
+    const i = st.currentFileIndex + dir
+    const f = st.files[i]
+    if (!f) return false
+    let t = over
+    if (dir < 0) {
+        if (!f.durationSec) return false
+        t = Math.max(0, f.durationSec + over)
+    } else if (f.durationSec) t = Math.min(t, Math.max(0, f.durationSec - END_SLACK_SEC))
+    return seekPlayer(i, t, !p.paused())
 }
 
 export function stepFrame(p: ShortcutPlayer, direction: 1 | -1): void {

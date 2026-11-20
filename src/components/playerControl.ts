@@ -45,6 +45,19 @@ export function registerPlayerSeekPaused(fn: (fileIndex: number, timeSec: number
 /** Seeks to a time in a file and leaves the player paused (scrubbing the review timeline). */
 export function seekPlayerPaused(fileIndex: number, timeSec: number): void { seekPaused?.(fileIndex, timeSec) }
 
+let seekKeep: ((fileIndex: number, timeSec: number, play: boolean) => void) | null = null
+/** Returns an unregister that only clears the handle if it is still this one. */
+export function registerPlayerSeek(fn: (fileIndex: number, timeSec: number, play: boolean) => void): () => void {
+    seekKeep = fn
+    return () => { if (seekKeep === fn) seekKeep = null }
+}
+/** Seeks to a time in a file (switching file if needed), playing or paused; false when no player is there. */
+export function seekPlayer(fileIndex: number, timeSec: number, play: boolean): boolean {
+    if (!seekKeep) return false
+    seekKeep(fileIndex, timeSec, play)
+    return true
+}
+
 let runShortcut: ((action: ShortcutAction) => void) | null = null
 /** Returns an unregister that only clears the handle if it is still this one. */
 export function registerPlayerShortcut(fn: (action: ShortcutAction) => void): () => void {

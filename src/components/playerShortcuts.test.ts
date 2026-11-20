@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useAppState } from '../state'
 import { runShortcut, type ShortcutPlayer } from './playerShortcuts'
 import type { ZoomPan } from './useZoomPan'
+import { registerPlayerSeek } from './playerControl'
 
 function fake(over: Partial<{ time: number; duration: number; paused: boolean; rate: number }> = {}) {
     const s = { time: 100, duration: 600, paused: true, rate: 1, muted: false, fs: false, ...over }
@@ -36,6 +37,26 @@ describe('runShortcut', () => {
         expect(s.time).toBe(1)
         runShortcut('seekForward', p, zoom)
         expect(s.time).toBe(6)
+    })
+    it('should skip forward past a file end into the next file, and back past its start into the previous one, keeping play', () => {
+        const files = [{ id: 'a', durationSec: 600 }, { id: 'b', durationSec: 300 }] as never
+        useAppState.setState({ files, currentFileIndex: 0 })
+        const seeks: [number, number, boolean][] = []
+        const off = registerPlayerSeek((f, t, play) => seeks.push([f, t, play]))
+        const { p, s } = fake({ time: 597, duration: 600, paused: false })
+        runShortcut('seekForward', p, zoom)
+        expect(seeks).toEqual([[1, 2, true]])
+        expect(s.time).toBe(597)
+        useAppState.setState({ currentFileIndex: 1 })
+        const b = fake({ time: 2, duration: 300, paused: true })
+        runShortcut('seekBack', b.p, zoom)
+        expect(seeks[1]).toEqual([0, 597, false])
+        // The last file: stop at its end.
+        const c = fake({ time: 298, duration: 300 })
+        runShortcut('seekForward', c.p, zoom)
+        expect(seeks).toHaveLength(2)
+        expect(c.s.time).toBe(300)
+        off()
     })
     it('should step a frame and pause', () => {
         const { p, s } = fake({ paused: false })
