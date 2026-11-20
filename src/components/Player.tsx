@@ -168,9 +168,20 @@ export function Player() {
             if (speedTimerRef.current) clearTimeout(speedTimerRef.current)
             speedTimerRef.current = setTimeout(() => setSpeedIndicator(null), 1000)
         })
-        p.on('ended', () => {
+        // The end of a file plays straight on into the next one, as if the match were one video (the preview runs its own steps).
+        // A stall in the last half second counts too: a streamed source may stop just short of firing 'ended'.
+        let advancedFrom = -1
+        const playOn = (): void => {
             const st = useAppState.getState()
-            if (st.currentFileIndex < st.files.length - 1) st.setCurrentFileIndex(st.currentFileIndex + 1)
+            if (st.isPreviewMode || advancedFrom === st.currentFileIndex || st.currentFileIndex >= st.files.length - 1) return
+            advancedFrom = st.currentFileIndex
+            seekRef.current(st.currentFileIndex + 1, 0, true)
+        }
+        p.on('loadedmetadata', () => { advancedFrom = -1 })
+        p.on('ended', playOn)
+        p.on('waiting', () => {
+            const d = p.duration() || 0
+            if (d > 0 && !p.paused() && (p.currentTime() || 0) >= d - 0.5) playOn()
         })
     }, [isPreviewMode])
 
